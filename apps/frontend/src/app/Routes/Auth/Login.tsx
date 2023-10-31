@@ -60,21 +60,6 @@ export default function LoginView() {
   }
 
   useEffect(() => {
-    // async function fetchDiscord(authMethod) {
-    //   const meResponse = await fetch('https://discord.com/api/users/@me', {
-    //     method: 'GET',
-    //     headers: {
-    //       authorization: `Bearer ${authMethod.accessToken}`,
-    //     },
-    //   });
-    //   if (meResponse.ok) {
-    //     const user = await meResponse.json();
-    //     console.log(user);
-    //     return user.id;
-    //   } else {
-    //     throw new Error('Unable to verify Discord account');
-    //   }
-    // }
 
     // If user is authenticated, fetch accounts
     if (authMethod) {
