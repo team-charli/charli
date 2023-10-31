@@ -11,7 +11,8 @@ interface SubmitOnboardLearnType {
   hasBalance: boolean;
   teachingLangs: string[];
 }
-
+// TODO: already have hook to check if teaching langs.
+// implement same type of checks as you did with submitTeach
 export const submitOnboardLearn = async ({ langs, name }: SubmitOnboardLearnType) => {
 
   let stateContext = useContext(StateContext);
@@ -20,18 +21,18 @@ export const submitOnboardLearn = async ({ langs, name }: SubmitOnboardLearnType
     throw new Error('stateContext is null');
   }
 
-  const { isTeacher, hasBalance } = stateContext;
+  const { isTeacher, hasBalance, hasKeys } = stateContext;
 
   if (!hasBalance && !isTeacher) {
-    // TODO: Modal error/modal: must have balance or be a teacher
+    // TODOx Modal error/modal: must have balance or be a teacher
     throw new Error('stateContext is null');
 
-  } else {
+  } else if (hasKeys.hasKeys === true,  )  {
 
   const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
     NAME: name,
     WANTS_TO_LEARN_LANGS: langs,
-    HAS_WALLET_DEPLOYED: false,
+    WALLET_ADDRESS: "",
     DEFAULT_NATIVE_LANGUAGE: 'ENG',
   };
 

@@ -1,9 +1,10 @@
-interface NativeLanguagePropTypes {
-  setNativeLang: Function;
-}
+import { useContextNullCheck } from  '../hooks/useContextNullCheck'
+import { StateContext } from '../contexts/StateContext'
 
-const NativeLanguage = ({setNativeLang}: NativeLanguagePropTypes) => {
+const NativeLanguage = () => {
+  const { setNativeLang } = useContextNullCheck(StateContext);
   return (
+   //TODO: implement setNativeLang (form)
     <div>🌐</div>
   )
 }

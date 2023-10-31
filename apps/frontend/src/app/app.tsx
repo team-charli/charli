@@ -1,27 +1,28 @@
 import 'dotenv/config'
 import {iso6393} from 'iso-639-3'
-import styled from '@emotion/styled';
 import Routes from './Routes/Routes'
-import {createContext, useState} from 'react'
+import {useState} from 'react'
 import NativeLanguage from './Components/NativeLanguage'
 import { useHasBalance } from './hooks/useCheckHasBalance'
 import { useIsTeacher } from './hooks/useCheckIsTeacher';
+import { useKeys }  from './hooks/useKeys';
+import { StyledApp } from "./style/StyledApp";
+import { useOnboardData } from './hooks/useOnboardData'
 import { ContextObj, StateContext } from './contexts/StateContext'
 
-const StyledApp = styled.div`
-  // Your style here
-`;
-
-
 export function App() {
-  const hasBalance = useHasBalance();
   const [nativeLang, setNativeLang] = useState('eng');
+  const hasBalance = useHasBalance();
   const isTeacher = useIsTeacher();
+  const keys = useKeys();
+  const onBoard = useOnboardData()
 
   const contextObj: ContextObj = {
     nativeLang,
     hasBalance,
-    isTeacher
+    isTeacher,
+    keys,
+    onBoard
   };
 
   return (

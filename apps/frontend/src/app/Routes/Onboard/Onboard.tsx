@@ -1,4 +1,7 @@
-export const Onboard = () => {
+import { IRelayPKP } from '@lit-protocol/types';
+interface OnboardPropTypes { currentAccount: IRelayPKP; }
+
+export const Onboard = ({currentAccount}: OnboardPropTypes) => {
   return (
     <>
       <div>

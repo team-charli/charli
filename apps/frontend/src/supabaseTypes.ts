@@ -13,27 +13,27 @@ export interface Database {
         Row: {
           created_at: string
           DEFAULT_NATIVE_LANGUAGE: string
-          HAS_WALLET_DEPLOYED: boolean
           id: number
           NAME: string
+          USER_ADDRESS: string
           WANTS_TO_LEARN_LANGS: string[] | null
           WANTS_TO_TEACH_LANGS: string[] | null
         }
         Insert: {
           created_at?: string
           DEFAULT_NATIVE_LANGUAGE: string
-          HAS_WALLET_DEPLOYED?: boolean
           id?: number
           NAME: string
+          USER_ADDRESS: string
           WANTS_TO_LEARN_LANGS?: string[] | null
           WANTS_TO_TEACH_LANGS?: string[] | null
         }
         Update: {
           created_at?: string
           DEFAULT_NATIVE_LANGUAGE?: string
-          HAS_WALLET_DEPLOYED?: boolean
           id?: number
           NAME?: string
+          USER_ADDRESS?: string
           WANTS_TO_LEARN_LANGS?: string[] | null
           WANTS_TO_TEACH_LANGS?: string[] | null
         }
