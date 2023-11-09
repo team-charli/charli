@@ -23,6 +23,7 @@ node_modules
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+charli.code-workspace
 
 # misc
 /.sass-cache
@@ -35,6 +36,7 @@ testem.log
 /typings
 /apps/frontend/componentTree.md
 /apps/frontend/notes.md
+/apps/frontend/src/trash/*
 
 # System Files
 .DS_Store

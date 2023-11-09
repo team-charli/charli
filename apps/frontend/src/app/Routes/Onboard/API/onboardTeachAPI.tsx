@@ -3,14 +3,17 @@ import {StateContext, ContextObj} from '../../../contexts/StateContext';
 import { supabase } from '../../../../supabaseClient';
 import { Database } from '../../../../supabaseTypes';
 
-export const submitOnboardTeach = async () => {
+interface SubmitOnboardTeachParams {
+ langs: string[];
+ name: string;
+}
+
+export const submitOnboardTeach = async ({langs, name}:SubmitOnboardTeachParams ) => {
   let context: ContextObj | null
   context  = useContext(StateContext);
 
 
   let pkpKey
-  let name
-  let langs
   if (context?.keys.pkpKey[0] !== undefined && context?.onBoard?.onboardData?.name.length && context?.onBoard?.onboardData?.wantsToTeachLangs?.length) {
 
     pkpKey = context.keys.pkpKey;

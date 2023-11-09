@@ -1,8 +1,8 @@
-import { useContextNullCheck } from  '../hooks/useContextNullCheck'
+import { useContextNullCheck } from  '../hooks/utils/useContextNullCheck'
 import { StateContext } from '../contexts/StateContext'
 
-const NativeLanguage = () => {
   const { setNativeLang } = useContextNullCheck(StateContext);
+  const NativeLanguage = () => {
   return (
    //TODO: implement setNativeLang (form)
     <div>🌐</div>

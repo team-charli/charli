@@ -1,24 +1,29 @@
 import { Switch, Route, Redirect, RouteProps } from 'react-router-dom';
-import Login from './Auth/Login'
+import {PrivateRouteProps} from '../types/types'
 import {useIsAuthenticated} from '../hooks/useIsAuthenticated'
+import {useReturnToRoom} from '../hooks/useReturnToRoom'
+import AuthSignUp from './Auth/AuthSignUp'
+import Login from './Auth/Login'
 import Onboard from './Onboard/Onboard'
 import Lounge from './Lounge/Lounge'
+import Room from './Room/Room'
+const Routes = () => {
+  useReturnToRoom()
+  return (
+    <Switch>
+      <Route exact path="/" component={AuthSignUp} />
+      <Route path="/login" component={Login} />
+      <PrivateRoute path="/onboard" component={Onboard} />
+      <PrivateRoute path="/lounge" component={Lounge} />
+      <PrivateRoute path="/room" component={Room} />
 
-const Routes = () => (
-<Switch>
-    <Route exact path="/" component={Login} />
-    <Route path="/login" component={Login} />
-    <PrivateRoute path="/onboard" component={Onboard} />
-    <PrivateRoute path="/lounge" component={Lounge} />
-</Switch>
+    </Switch>
 
-);
+  )};
 
-interface PrivateRouteProps extends RouteProps {
-  component: React.ComponentType<any>;
-}
 const PrivateRoute:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
-const isAuthenticated = useIsAuthenticated();
+
+  const isAuthenticated = useIsAuthenticated();
 
   return (
     <Route

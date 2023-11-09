@@ -5,6 +5,7 @@ import {
   EthWalletProvider,
   WebAuthnProvider,
   LitAuthClient,
+  StytchOtpProvider,
 //  OtpProvider,
 } from '@lit-protocol/lit-auth-client';
 import { LitNodeClient } from '@lit-protocol/lit-node-client';
@@ -14,10 +15,12 @@ import {
   AuthMethod,
   GetSessionSigsProps,
   IRelayPKP,
-  ProviderOptions,
   SessionSigs,
 } from '@lit-protocol/types';
-
+import {isDefined} from './app'
+import { OTPCodeEmailOptions } from '@stytch/vanilla-js';
+import { EmailOtpType } from '@supabase/supabase-js';
+const stytch_id = process.env.STYTCH_PROJECT_ID
 export const DOMAIN = process.env.NEXT_PUBLIC_PROD_URL || 'localhost';
 export const ORIGIN =
   process.env.NEXT_PUBLIC_ENV === 'production'
@@ -138,14 +141,16 @@ export async function registerWebAuthn(): Promise<IRelayPKP> {
   if (response.status !== 'Succeeded') {
     throw new Error('Minting failed');
   }
-  const newPKP: IRelayPKP = {
-    tokenId: response.pkpTokenId,
-    publicKey: response.pkpPublicKey,
-    ethAddress: response.pkpEthAddress,
-  };
-  return newPKP;
-}
+  if (isDefined(response.pkpTokenId) && isDefined(response.pkpPublicKey) && isDefined(response.pkpEthAddress)) {
 
+    const newPKP: IRelayPKP = {
+      tokenId: response.pkpTokenId,
+      publicKey: response.pkpPublicKey,
+      ethAddress: response.pkpEthAddress,
+    };
+    return newPKP;
+  } else throw new Error('somethings undefined')
+}
 /**
  * Get auth method object by authenticating with a WebAuthn credential
  */
@@ -166,11 +171,11 @@ export async function authenticateWithWebAuthn(): Promise<
  * Send OTP code to user
  */
 // export async function sendOTPCode(emailOrPhone: string) {
-//   const otpProvider = litAuthClient.initProvider<OtpProvider>(
-//     ProviderType.Otp,
+//   const otpProvider = litAuthClient.initProvider<StytchOtpProvider>(
+//     ProviderType.StytchOtp,
 //     {
 //       userId: emailOrPhone,
-//     } as unknown as ProviderOptions
+//     } as unknown as StytchOtpProvider
 //   );
 //   const status = await otpProvider.sendOtpCode();
 //   return status;
@@ -182,7 +187,7 @@ export async function authenticateWithWebAuthn(): Promise<
 export async function authenticateWithOTP(
   code: string
 ): Promise<AuthMethod | undefined> {
-  const otpProvider = litAuthClient.getProvider(ProviderType.Otp);
+  const otpProvider = litAuthClient.getProvider(ProviderType.StytchOtp );
   const authMethod = await otpProvider?.authenticate({ code });
   return authMethod;
 }
@@ -194,8 +199,9 @@ export async function authenticateWithStytch(
   accessToken: string,
   userId?: string
 ) {
+  if (!stytch_id)  throw new Error('no stytch_id from env')
   const provider = litAuthClient.initProvider(ProviderType.StytchOtp, {
-    appId: process.env.NEXT_PUBLIC_STYTCH_PROJECT_ID,
+    appId: stytch_id,
   });
   // @ts-ignore
   const authMethod = await provider?.authenticate({ accessToken, userId });
@@ -214,19 +220,6 @@ export async function getSessionSigs({
   authMethod: AuthMethod;
   sessionSigsParams: GetSessionSigsProps;
 }): Promise<SessionSigs> {
-  // const provider = getProviderByAuthMethod(authMethod);
-  // if (provider) {
-  //   const sessionSigs = await provider.getSessionSigs({
-  //     pkpPublicKey,
-  //     authMethod,
-  //     sessionSigsParams,
-  //   });
-  //   return sessionSigs;
-  // } else {
-  //   throw new Error(
-  //     `Provider not found for auth method type ${authMethod.authMethodType}`
-  //   );
-  // }
   await litNodeClient.connect();
   const authNeededCallback = async (params: AuthCallbackParams) => {
     const response = await litNodeClient.signSessionKey({
@@ -260,10 +253,9 @@ export async function updateSessionSigs(
  */
 export async function getPKPs(authMethod: AuthMethod): Promise<IRelayPKP[]> {
   const provider = getProviderByAuthMethod(authMethod);
-  // if (provider instanceof AuthMethod) {
+  if (!isDefined(provider)) throw new Error('provider not defined')
   const allPKPs = await provider.fetchPKPsThroughRelayer(authMethod);
   return allPKPs;
-  // }
 }
 
 /**
@@ -284,21 +276,28 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
     ).verifyAndMintPKPThroughRelayer(options);
   } else {
     // Mint PKP through relay server
+    if (!isDefined(provider)) throw new Error('provider not defined')
     txHash = await provider.mintPKPThroughRelayer(authMethod);
   }
 
+  if (!isDefined(provider)) throw new Error('provider not defined')
   const response = await provider.relay.pollRequestUntilTerminalState(txHash);
   if (response.status !== 'Succeeded') {
     throw new Error('Minting failed');
   }
-  const newPKP: IRelayPKP = {
-    tokenId: response.pkpTokenId,
-    publicKey: response.pkpPublicKey,
-    ethAddress: response.pkpEthAddress,
-  };
-  return newPKP;
-}
 
+    if (isDefined(response.pkpTokenId) && isDefined(response.pkpPublicKey) && isDefined(response.pkpEthAddress)) {
+      const newPKP: IRelayPKP = {
+        tokenId: response.pkpTokenId,
+        publicKey: response.pkpPublicKey,
+        ethAddress: response.pkpEthAddress,
+      };
+      return newPKP;
+    } else {
+    throw new Error('Response properties are not defined');
+
+  }
+}
 /**
  * Get provider for given auth method
  */
@@ -312,8 +311,8 @@ function getProviderByAuthMethod(authMethod: AuthMethod) {
       return litAuthClient.getProvider(ProviderType.EthWallet);
     case AuthMethodType.WebAuthn:
       return litAuthClient.getProvider(ProviderType.WebAuthn);
-    case AuthMethodType.OTP:
-      return litAuthClient.getProvider(ProviderType.Otp);
+    case AuthMethodType.StytchOtp:
+      return litAuthClient.getProvider(ProviderType.StytchOtp);
     case AuthMethodType.StytchOtp:
       return litAuthClient.getProvider(ProviderType.StytchOtp);
     default:

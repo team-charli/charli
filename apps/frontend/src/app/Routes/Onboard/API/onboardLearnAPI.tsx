@@ -3,7 +3,7 @@ import { supabase } from '../../../../supabaseClient';
 import { Database } from '../../../../supabaseTypes';
 import { useContext } from "react";
 import { StateContext } from '../../../contexts/StateContext';
-import { useContextNullCheck } from "../../../hooks/useContextNullCheck";
+import { useContextNullCheck } from "../../../hooks/utils/useContextNullCheck";
 import {ErrorModal} from '../../../Components/Errors/ErrorModal'
 interface SubmitOnboardLearnType {
   langs: string[];
@@ -21,18 +21,18 @@ export const submitOnboardLearn = async ({ langs, name }: SubmitOnboardLearnType
     throw new Error('stateContext is null');
   }
 
-  const { isTeacher, hasBalance, hasKeys } = stateContext;
+  const { teachingLangs, hasBalance, keys: {pkpKey, sessionKey} } = stateContext;
 
-  if (!hasBalance && !isTeacher) {
+  if (!hasBalance || !teachingLangs.length) {
     // TODOx Modal error/modal: must have balance or be a teacher
     throw new Error('stateContext is null');
 
-  } else if (hasKeys.hasKeys === true,  )  {
+  } else if (pkpKey.length && Object.keys(sessionKey).length  )  {
 
   const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
     NAME: name,
     WANTS_TO_LEARN_LANGS: langs,
-    WALLET_ADDRESS: "",
+    USER_ADDRESS: "",
     DEFAULT_NATIVE_LANGUAGE: 'ENG',
   };
 
@@ -43,6 +43,9 @@ export const submitOnboardLearn = async ({ langs, name }: SubmitOnboardLearnType
   const insertedRows: Database["public"]["Tables"]["User"]["Row"][] | null = User;
 
   User ? console.log('insertedRows', insertedRows) : console.log(error);
+    return true
+  } else {
+    throw new Error(`Failed to insert`)
   }
 }
 

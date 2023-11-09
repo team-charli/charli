@@ -1,14 +1,13 @@
-import { useEffect, useContext } from 'react';
-import { useHistory, Redirect } from 'react-router-dom';
-import { StateContext, ContextObj } from '../../contexts/StateContext'
-import { useContextNullCheck } from  '../../hooks/useContextNullCheck'
+import { useEffect } from 'react';
+import { useHistory } from 'react-router-dom';
+import { StateContext } from '../../contexts/StateContext'
+import { useContextNullCheck } from  '../../hooks/utils/useContextNullCheck'
 import useAuthenticate from '../../hooks/Lit/useLitAuthenticate';
 import useSession from '../../hooks/Lit/useLitSession';
 import useAccounts from '../../hooks/Lit/useLitAccount';
 import {Onboard} from '../Onboard/Onboard'
 import Lounge from "../../Routes/Lounge/Lounge";
 import { ORIGIN, signInWithDiscord, signInWithGoogle } from '../../utils/lit';
-import Dashboard from '../../Components/Lit/DashBoardExample';
 import Loading from '../../Components/Lit/LoadingExample';
 import LoginMethods from '../../Components/Lit/LoginMethods';
 import AccountSelection from '../../Components/Lit/AccountSelectionExample';
@@ -22,10 +21,6 @@ export default function LoginView() {
 
   const {
     authMethod,
-    // authWithEthWallet,
-    // authWithOTP,
-    // authWithWebAuthn,
-    // authWithStytch,
     loading: authLoading,
     error: authError,
   } = useAuthenticate(redirectUri);
@@ -60,7 +55,6 @@ export default function LoginView() {
   }
 
   useEffect(() => {
-
     // If user is authenticated, fetch accounts
     if (authMethod) {
       // if (authMethod.authMethodType === AuthMethodType.Discord) {
@@ -96,7 +90,6 @@ export default function LoginView() {
   if (currentAccount && sessionSigs && hasOnboarded) {
     return (
        <Lounge />
-       /* <Dashboard currentAccount={currentAccount} sessionSigs={sessionSigs} />*/
     );
   } else if (currentAccount && sessionSigs) {
     return (
@@ -131,15 +124,4 @@ export default function LoginView() {
     />
   );
 }
-
-// <LoginMethods
-//   handleGoogleLogin={handleGoogleLogin}
-//   handleDiscordLogin={handleDiscordLogin}
-//   authWithEthWallet={authWithEthWallet}
-//   authWithOTP={authWithOTP}
-//   authWithWebAuthn={authWithWebAuthn}
-//   authWithStytch={authWithStytch}
-//   signUp={goToSignUp}
-//   error={error}
-// />
 

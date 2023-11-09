@@ -1,4 +1,4 @@
-import {createContext} from 'react'
+import {createContext, Dispatch, SetStateAction  } from 'react'
 
 interface OnboardData {
   name: string;
@@ -11,8 +11,9 @@ export interface ContextObj {
   nativeLang: string;
   setNativeLang: Function;
   hasBalance: boolean;
-  isTeacher: boolean;
-  keys: {pkpKey: string[], setPkpKey: Function, sessionKey: object, setSessionKey?: Function, },
+  setTeachingLangs: Dispatch<SetStateAction<string[]>>;
+  teachingLangs: string[];
+  keys: {pkpKey: string[], setPkpKey: Function, sessionKey: object, setSessionKey: Function, },
   onBoard: {
     hasOnboarded: boolean,
     setOnboardData: Function ,

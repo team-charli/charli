@@ -5,8 +5,7 @@ import * as ReactDOM from 'react-dom/client';
 import { BrowserRouter as Router
 } from "react-router-dom";
 import App from './app/app';
-import ErrorPage from "./app/Routes/ErrorPage";
-import { Onboard } from './app/Routes/Onboard/Onboard';
+import ErrorBoundary from './app/Components/Errors/ErrorBoundary';
 
 
 const root = ReactDOM.createRoot(
@@ -14,8 +13,10 @@ const root = ReactDOM.createRoot(
 );
 root.render(
   <StrictMode>
-  <Router>
-   <App />
-  </Router>
+    <ErrorBoundary>
+      <Router>
+        <App />
+      </Router>
+    </ErrorBoundary>
   </StrictMode>
 );

@@ -1,6 +1,5 @@
 import { useConnect } from 'wagmi';
-import { useIsMounted } from '../hooks/useIsMounted';
-import Image from 'next/image';
+import { useIsMounted } from '../../hooks/utils/useIsMounted';
 
 interface WalletMethodsProps {
   authWithEthWallet: (connector: any) => Promise<void>;
@@ -31,20 +30,18 @@ const WalletMethods = ({ authWithEthWallet, setView }: WalletMethodsProps) => {
           >
             {connector.name.toLowerCase() === 'metamask' && (
               <div className="btn__icon">
-                <Image
+                <img
                   src="/metamask.png"
                   alt="MetaMask logo"
-                  fill={true}
-                ></Image>
+                ></img>
               </div>
             )}
             {connector.name.toLowerCase() === 'coinbase wallet' && (
               <div className="btn__icon">
-                <Image
+                <img
                   src="/coinbase.png"
                   alt="Coinbase logo"
-                  fill={true}
-                ></Image>
+                ></img>
               </div>
             )}
             <span className="btn__label">Continue with {connector.name}</span>

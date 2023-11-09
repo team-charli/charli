@@ -3,5 +3,5 @@ interface ErrorModalPropTypes {
 }
 
 export const ErrorModal = ({errorText}: ErrorModalPropTypes) => {
-  return <div class="ErrorModal"> {errorText} </div>
+  return <div className="ErrorModal"> {errorText} </div>
 }

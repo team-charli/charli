@@ -1,26 +1,29 @@
 import 'dotenv/config'
-import {iso6393} from 'iso-639-3'
-import Routes from './Routes/Routes'
-import {useState} from 'react'
-import NativeLanguage from './Components/NativeLanguage'
-import { useHasBalance } from './hooks/useCheckHasBalance'
-import { useIsTeacher } from './hooks/useCheckIsTeacher';
+import {iso6393} from 'iso-639-3';
+import Routes from './Routes/Routes';
+import {useState} from 'react';
+import NativeLanguage from './Components/NativeLanguage';
+import { useHasBalance } from './hooks/useCheckHasBalance';
 import { useKeys }  from './hooks/useKeys';
 import { StyledApp } from "./style/StyledApp";
-import { useOnboardData } from './hooks/useOnboardData'
+import { useOnboardData } from './hooks/useOnboardData';
+import { useTeachingLanguages } from './hooks/useTeachingLanguages';
 import { ContextObj, StateContext } from './contexts/StateContext'
 
 export function App() {
+  console.log("is loading")
   const [nativeLang, setNativeLang] = useState('eng');
   const hasBalance = useHasBalance();
-  const isTeacher = useIsTeacher();
   const keys = useKeys();
   const onBoard = useOnboardData()
+  const [teachingLangs, setTeachingLangs] = useTeachingLanguages();
 
   const contextObj: ContextObj = {
     nativeLang,
+    setNativeLang,
     hasBalance,
-    isTeacher,
+    setTeachingLangs,
+    teachingLangs,
     keys,
     onBoard
   };
@@ -28,7 +31,7 @@ export function App() {
   return (
     <StyledApp>
       <StateContext.Provider value={contextObj}>
-      <NativeLanguage setNativeLang={setNativeLang} />
+      <NativeLanguage  />
       <Routes />
     </StateContext.Provider >
     </StyledApp>

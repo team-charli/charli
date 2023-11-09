@@ -11,7 +11,7 @@ import {
   // authenticateWithWebAuthn,
   // authenticateWithOTP,
   // authenticateWithStytch,
-} from './utils/lit';
+} from '../../utils/lit';
 import { useConnect } from 'wagmi';
 
 export default function useAuthenticate(redirectUri?: string) {

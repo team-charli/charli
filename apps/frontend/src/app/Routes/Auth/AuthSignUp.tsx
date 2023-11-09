@@ -5,8 +5,6 @@ import useSession from '../../hooks/Lit/useLitSession';
 import useAccounts from '../../hooks/Lit/useLitAccount';
 import {
   ORIGIN,
-  registerWebAuthn,
-  signInWithDiscord,
   signInWithGoogle,
 } from '../../utils/lit';
 import { AuthMethodType } from '@lit-protocol/constants';
@@ -19,16 +17,11 @@ export default function AuthSignUp() {
 
   const {
     authMethod,
-    // authWithEthWallet,
-    // authWithOTP,
-    // authWithWebAuthn,
-    // authWithStytch,
     loading: authLoading,
     error: authError,
   } = useAuthenticate(redirectUri);
   const {
     createAccount,
-    setCurrentAccount,
     currentAccount,
     loading: accountsLoading,
     error: accountsError,
@@ -47,20 +40,8 @@ export default function AuthSignUp() {
     await signInWithGoogle(redirectUri);
   }
 
-  async function handleDiscordLogin() {
-    await signInWithDiscord(redirectUri);
-  }
-
-  async function registerWithWebAuthn() {
-    const newPKP = await registerWebAuthn();
-    if (newPKP) {
-      setCurrentAccount(newPKP);
-    }
-  }
-
   useEffect(() => {
     // If user is authenticated, create an account
-    // For WebAuthn, the account creation is handled by the registerWithWebAuthn function
     if (authMethod && authMethod.authMethodType !== AuthMethodType.WebAuthn) {
       //router.replace(window.location.pathname, undefined, { shallow: true });
       createAccount(authMethod);
@@ -97,8 +78,6 @@ export default function AuthSignUp() {
     return (
       <SignUpMethods
         handleGoogleLogin={handleGoogleLogin}
-        handleDiscordLogin={handleDiscordLogin}
-        registerWithWebAuthn={registerWithWebAuthn}
         goToLogin={() => history.push('/login')}
         error={error}
       />
@@ -106,14 +85,3 @@ export default function AuthSignUp() {
   }
 }
 
-// <SignUpMethods
-//   handleGoogleLogin={handleGoogleLogin}
-//   handleDiscordLogin={handleDiscordLogin}
-//   authWithEthWallet={authWithEthWallet}
-//   authWithOTP={authWithOTP}
-//   registerWithWebAuthn={registerWithWebAuthn}
-//   authWithWebAuthn={authWithWebAuthn}
-//   authWithStytch={authWithStytch}
-//   goToLogin={() => history.push('/login')}
-//   error={error}
-// />

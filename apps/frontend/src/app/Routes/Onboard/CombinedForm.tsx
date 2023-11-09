@@ -1,6 +1,9 @@
 import { Formik, Field, Form, ErrorMessage, useField } from 'formik';
 import { submitOnboardLearn } from "./API/onboardLearnAPI";
 import { submitOnboardTeach  } from "./API/onboardTeachAPI";
+import {useContextNullCheck} from '../../hooks/utils/useContextNullCheck'
+import { StateContext } from '../../contexts/StateContext'
+const {hasBalance, teachingLangs} = useContextNullCheck(StateContext)
 
 type ToggleButtonProps = {
   label: string;
@@ -42,7 +45,7 @@ export const CombinedForm = ({ mode, languages = ['English', 'Spanish', 'Chinese
         const selectedLanguages = languages.filter(language => values[language]);
 
         if (mode === "Learn") {
-          submitOnboardLearn({ langs: selectedLanguages, name: values.name})
+          submitOnboardLearn({ langs: selectedLanguages, name: values.name, hasBalance, teachingLangs})
         } else {
           submitOnboardTeach({ langs: selectedLanguages, name: values.name })
         }

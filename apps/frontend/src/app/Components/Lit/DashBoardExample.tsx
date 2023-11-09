@@ -1,10 +1,9 @@
-import { AuthMethod, IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import {  IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { ethers } from 'ethers';
 import { useState } from 'react';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import { useRouter } from 'next/router';
+import { useHistory } from 'react-router-dom';
 import { useDisconnect } from 'wagmi';
-import { AuthMethodType } from '@lit-protocol/constants';
 
 interface DashboardProps {
   currentAccount: IRelayPKP;
@@ -23,7 +22,7 @@ export default function Dashboard({
   const [error, setError] = useState<Error>();
 
   const { disconnectAsync } = useDisconnect();
-  const router = useRouter();
+  const router = useHistory();
 
   /**
    * Sign a message with current PKP
@@ -62,7 +61,7 @@ export default function Dashboard({
       await disconnectAsync();
     } catch (err) {}
     localStorage.removeItem('lit-wallet-sig');
-    router.reload();
+    router.push('/');
   }
 
   return (

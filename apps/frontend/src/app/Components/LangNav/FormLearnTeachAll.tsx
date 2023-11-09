@@ -4,7 +4,7 @@ import UserListLearnTeachAll from "./UserListLearnTeachAll";
 export type SelectionType = "Learn" | "Teach" | "All" | "";
 
 interface ToggleButtonProps {
-  label: string;
+  label: SelectionType;
   name: string;
 }
 
@@ -18,7 +18,7 @@ const ButtonLearnTeachAll = ({ label, name }: ToggleButtonProps) => {
     <div>
       <button
         type="button"
-        onClick={() => setFieldValue(name, label)}  // Always set the value to label
+        onClick={() => setFieldValue(name, label)} // label is already of type SelectionType
       >
         {label}
       </button>
@@ -27,10 +27,10 @@ const ButtonLearnTeachAll = ({ label, name }: ToggleButtonProps) => {
 };
 
 const FormLearnTeachAll = () => (
-  <Formik
-    initialValues={{ option: '' }}
-    onSubmit={() => {}}
-  >
+<Formik
+  initialValues={{ option: '' as SelectionType }} // Cast the initial value to SelectionType
+  onSubmit={() => {}}
+>
     {({ values }) => (  // Access Formik state via render props
       <>
         <form>
