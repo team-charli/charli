@@ -18,18 +18,16 @@ import {
   SessionSigs,
 } from '@lit-protocol/types';
 import {isDefined} from './app'
-import { OTPCodeEmailOptions } from '@stytch/vanilla-js';
-import { EmailOtpType } from '@supabase/supabase-js';
 const stytch_id = process.env.STYTCH_PROJECT_ID
 export const DOMAIN = process.env.NEXT_PUBLIC_PROD_URL || 'localhost';
 export const ORIGIN =
   process.env.NEXT_PUBLIC_ENV === 'production'
     ? `https://${DOMAIN}`
-    : `http://${DOMAIN}:3000`;
+    : `http://${DOMAIN}:4200`;
 
 export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
-  litNetwork: 'serrano',
+  litNetwork: 'cayenne',
   debug: true,
 });
 
