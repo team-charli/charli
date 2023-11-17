@@ -20,11 +20,12 @@ export default function useAccounts() {
         // Fetch PKPs tied to given auth method
         const myPKPs = await getPKPs(authMethod);
         // console.log('fetchAccounts pkps: ', myPKPs);
-        setAccounts(myPKPs);
+        //INFO: Only allowing one relay generated account per AuthMethod ATM
+        //setAccounts(myPKPs);
         // If only one PKP, set as current account
-        if (myPKPs.length === 1) {
+        // if (myPKPs.length === 1) {
           setCurrentAccount(myPKPs[0]);
-        }
+        // }
       } catch (err) {
         setError(err as Error);
       } finally {

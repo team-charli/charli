@@ -1,3 +1,4 @@
+import "./index.css" // make sure the path.
 import { StrictMode } from 'react';
 import * as ReactDOM from 'react-dom/client';
 import { BrowserRouter as Router

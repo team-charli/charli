@@ -2,28 +2,34 @@ import { Switch, Route, Redirect, RouteProps } from 'react-router-dom';
 import {PrivateRouteProps} from '../types/types'
 import {useIsAuthenticated} from '../hooks/useIsAuthenticated'
 import {useReturnToRoom} from '../hooks/useReturnToRoom'
-import AuthSignUp from './Auth/AuthSignUp'
+import { useIsOnboarded } from '../hooks/useIsOnboarded'
+import Entry from './Entry'
+import CreateAuth from './Auth/CreateAuth'
 import Login from './Auth/Login'
 import Onboard from './Onboard/Onboard'
+import Bolsa from './Bolsa/Bolsa'
 import Lounge from './Lounge/Lounge'
 import Room from './Room/Room'
+
 const Routes = () => {
   useReturnToRoom()
   return (
     <Switch>
-      <Route exact path="/" component={AuthSignUp} />
+      <Route exact path="/" component={Entry} />
       <Route path="/login" component={Login} />
-      <PrivateRoute path="/onboard" component={Onboard} />
-      <PrivateRoute path="/lounge" component={Lounge} />
-      <PrivateRoute path="/room" component={Room} />
+      <Route path="/signup" component={CreateAuth} />
+      <Route path="/bolsa" component={Bolsa} />
+      <Authed path="/onboard" component={Onboard} />
+      <AuthedAndOnboarded path="/lounge" component={Lounge} />
+      <AuthedAndOnboarded path="/room" component={Room} />
 
     </Switch>
 
   )};
 
-const PrivateRoute:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
+const Authed:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
 
-  const isAuthenticated = useIsAuthenticated();
+  const isAuthenticated: Boolean = useIsAuthenticated();
 
   return (
     <Route
@@ -38,6 +44,26 @@ const PrivateRoute:React.FC<PrivateRouteProps>  = ({component: Component, ...res
     />
   );
 }
+
+const AuthedAndOnboarded:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
+
+  const isAuthenticated: Boolean = useIsAuthenticated();
+  const isOnboarded: Boolean | null = useIsOnboarded()
+  return (
+    <Route
+      {...rest}
+      render={props =>
+        isAuthenticated && isOnboarded ? (
+          <Component {...props} />
+        ) : (
+          <Redirect to="/login" />
+        )
+      }
+    />
+  );
+}
+
+
 export default Routes
 
 

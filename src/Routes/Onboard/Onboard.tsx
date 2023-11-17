@@ -8,11 +8,11 @@ export const Onboard = ({currentAccount}: OnboardPropTypes) => {
         <h1>Charli</h1>
       </div>
       <div>
-        <button type="button">Learn 🎓</button> //TODO: do routes
+        <button type="button">Learn 🎓</button>
         <button type="button">Teach 🤑 </button>
       </div>
     </>
   )
 }
-
+//FIX: auth protect db read/write?
 export default Onboard;

@@ -1,4 +1,5 @@
 import AuthMethods from './AuthMethods';
+import BannerHeader from '../Headers/BannerHeader'
 
 interface SignUpProps {
   handleGoogleLogin: () => Promise<void>;
@@ -13,37 +14,28 @@ export default function SignUpMethods({
 }: SignUpProps) {
 
   return (
-    <div className="container">
-      <div className="wrapper">
+    <div >
+      <div>
         {error && (
-          <div className="alert alert--error">
+          <div className="alert alert--error" style={{ textAlign: 'center' }}>
             <p>{error.message}</p>
           </div>
         )}
-        (
-          <>
-            <h1>Get started</h1>
-            <p>
-              Create a wallet that is secured by accounts you already have. With
-              Lit-powered MPC wallets, you won't have to worry about seed
-              phrases or browser extensions.
-            </p>
-            <AuthMethods
-              handleGoogleLogin={handleGoogleLogin}
-            />
-            <div className="buttons-container">
-              <button
-                type="button"
-                className="btn btn--link"
-                onClick={goToLogin}
-              >
-                Have an account? Log in
-              </button>
-            </div>
-          </>
-        )
+          <BannerHeader />
+
+        <div className="justify-center ">
+          <div>
+            <button type="button" onClick={goToLogin} >
+              Log in
+            </button>
+          </div>
+          <div>
+            <p>Create an Account</p>
+            <AuthMethods handleGoogleLogin={handleGoogleLogin} />
+          </div>
+        </div>
       </div>
-    </div>
-  );
+  </div>
+);
 }
 

@@ -6,20 +6,9 @@ const AuthMethods = ({
 }: AuthMethodsProps) => {
   return (
     <>
-      <div className="buttons-container">
-        <div className="social-container">
-          <button
-            type="button"
-            className="btn btn--outline"
-            onClick={handleGoogleLogin}
-          >
-            <div className="btn__icon">
-            <img src={google} alt="Google logo" style={{ width: '30px', height: '30px' }} />
-            </div>
-            <span className="btn__label">Google</span>
-          </button>
-        </div>
-      </div>
+<button className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-white font-bold py-2 px-4 rounded shadow-xl border border-slate-300  transform hover:scale-105 transition duration-300 ease-in-out focus:outline-none" onClick={handleGoogleLogin}>
+        <img src={google} className="w-20" />
+      </button>
     </>
   );
 };

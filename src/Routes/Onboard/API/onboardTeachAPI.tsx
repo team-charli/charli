@@ -1,7 +1,7 @@
 import {useContext} from 'react';
 import {StateContext, ContextObj} from '../../../contexts/StateContext';
-import { supabase } from '../../../../supabaseClient';
-import { Database } from '../../../../supabaseTypes';
+import { supabase } from '../../../supabaseClient';
+import { Database } from '../../../supabaseTypes';
 
 interface SubmitOnboardTeachParams {
  langs: string[];

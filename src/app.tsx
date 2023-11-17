@@ -1,7 +1,6 @@
-import {iso6393} from 'iso-639-3';
 import Routes from './Routes/Routes';
 import {useState} from 'react';
-import NativeLanguage from './Components/NativeLanguage';
+import IconHeader from './Components/Headers/IconHeader'
 import { useHasBalance } from './hooks/useCheckHasBalance';
 import { useKeys }  from './hooks/useKeys';
 import { useOnboardData } from './hooks/useOnboardData';
@@ -9,8 +8,7 @@ import { useTeachingLanguages } from './hooks/useTeachingLanguages';
 import { ContextObj, StateContext } from './contexts/StateContext'
 
 export function App() {
-  console.log("is loading")
-  const [nativeLang, setNativeLang] = useState('eng');
+  const [nativeLang, setNativeLang] = useState('');
   const hasBalance = useHasBalance();
   const keys = useKeys();
   const onBoard = useOnboardData()
@@ -28,7 +26,6 @@ export function App() {
 
   return (
       <StateContext.Provider value={contextObj}>
-      <NativeLanguage  />
       <Routes />
     </StateContext.Provider >
   );

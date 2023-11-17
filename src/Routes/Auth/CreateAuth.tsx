@@ -10,27 +10,22 @@ import {
 } from '../../utils/lit';
 import { AuthMethodType } from '@lit-protocol/constants';
 import SignUpMethods from '../../Components/Lit/SignUpMethods';
-import Dashboard from '../../Components/Lit/DashBoardExample';
-import Loading from '../../Components/Lit/LoadingExample';
 
-export default function AuthSignUp() {
+const CreateAuth = () => {
   const redirectUri = ORIGIN;
 
   const {
     authMethod,
-    loading: authLoading,
     error: authError,
   } = useAuthenticate(redirectUri);
   const {
     createAccount,
     currentAccount,
-    loading: accountsLoading,
     error: accountsError,
   } = useAccounts();
   const {
     initSession,
     sessionSigs,
-    loading: sessionLoading,
     error: sessionError,
   } = useSession();
   const history = useHistory();
@@ -41,39 +36,25 @@ export default function AuthSignUp() {
     await signInWithGoogle(redirectUri);
   }
 
+  // If user is authenticated, create an account
+  //NOTE: SAME
   useEffect(() => {
-    // If user is authenticated, create an account
     if (authMethod && authMethod.authMethodType !== AuthMethodType.WebAuthn) {
       //router.replace(window.location.pathname, undefined, { shallow: true });
       createAccount(authMethod);
     }
   }, [authMethod, createAccount]);
-
+  //NOTE: SAME
   useEffect(() => {
-    //TODO: in this system users can't have more than one account
     // If user is authenticated and has at least one account, initialize session
     if (authMethod && currentAccount) {
       initSession(authMethod, currentAccount);
     }
   }, [authMethod, currentAccount, initSession]);
 
-  if (authLoading) {
-    return (
-      <Loading copy={'Authenticating your credentials...'} error={error} />
-    );
-  }
-
-  if (accountsLoading) {
-    return <Loading copy={'Creating your account...'} error={error} />;
-  }
-
-  if (sessionLoading) {
-    return <Loading copy={'Securing your session...'} error={error} />;
-  }
-
   if (currentAccount && sessionSigs) {
     return (
-    <Lounge />
+      <Lounge />
     );
   } else {
     return (
@@ -85,4 +66,4 @@ export default function AuthSignUp() {
     );
   }
 }
-
+export default CreateAuth

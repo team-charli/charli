@@ -1,15 +1,13 @@
-import MoneyBag from "../../Components/MoneyBag";
-import NativeLanguage from "../../Components/NativeLanguage";
+import IconHeader from '../../Components/Headers/IconHeader'
+import second from '../../Components/Headers/IconHeader'
 import FlagNav from '../../Components/LangNav/LangNav'
 
 export const Lounge = (props : {}) => {
   return (
   <>
-    <MoneyBag />
-    <NativeLanguage />
-    <FlagNav />
   <div>
-
+    <IconHeader />
+    <FlagNav />
   </div>
   </>
   )

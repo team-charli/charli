@@ -37,7 +37,10 @@ testem.log
 /apps/frontend/componentTree.md
 /apps/frontend/notes.md
 /apps/frontend/src/trash/*
-
+.dev-notes.md
+.notes
+.marketing-notes
+.other
 # System Files
 .DS_Store
 Thumbs.db

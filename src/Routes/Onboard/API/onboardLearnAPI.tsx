@@ -1,6 +1,6 @@
-import { supabase } from '../../../../supabaseClient';
+import { supabase } from '../../../supabaseClient';
 
-import { Database } from '../../../../supabaseTypes';
+import { Database } from '../../../supabaseTypes';
 import { useContext } from "react";
 import { StateContext } from '../../../contexts/StateContext';
 import { useContextNullCheck } from "../../../hooks/utils/useContextNullCheck";
@@ -11,8 +11,8 @@ interface SubmitOnboardLearnType {
   hasBalance: boolean;
   teachingLangs: string[];
 }
-// TODO: already have hook to check if teaching langs.
-// implement same type of checks as you did with submitTeach
+// TODO: implement same type of checks as you did with submitTeach
+
 export const submitOnboardLearn = async ({ langs, name }: SubmitOnboardLearnType) => {
 
   let stateContext = useContext(StateContext);
