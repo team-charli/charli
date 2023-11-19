@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react'
+import {  useState } from 'react'
 import { supabase } from '../supabaseClient';
-import { Database } from '../supabaseTypes';
 import useAccounts from './Lit/useLitAccount';
 import { useAsyncEffect } from './utils/useAsyncEffect';
-import { PostgrestError } from '@supabase/supabase-js'
 
 
 export const useIsOnboarded = () => {
@@ -20,8 +18,9 @@ const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
           .eq('USER_ADDRESS', currentAccount?.ethAddress)
           .single()
         if (supabaseError) setIsOnboarded(false);
+        console.log({User})
       } catch(e) {
-        //NOTE: don't throw in production, instead handle gracefully
+
         throw new Error(`Error: ${e}`)
       }
     },

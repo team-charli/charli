@@ -18,21 +18,20 @@ const NativeLangMenu = ({ languages }: NativeLangMenuPropTypes) => {
       setNativeLang(newLang);
     }
   };
-//TODO: Fix style
   return (
     <Listbox value={selectedLang} onChange={handleLanguageChange}>
-      <Listbox.Button><img className="w-10 mt-5 mr-16" src={globe_icon} /></Listbox.Button>
-      <Listbox.Options>
+      <Listbox.Button><img className="w-10" src={globe_icon} /></Listbox.Button>
+      <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
         {languages.map(lang => (
           <Listbox.Option key={lang} value={lang} as={Fragment}>
             {({ active, selected }) => (
               <li
                 className={`${
-active ? 'bg-blue-500 text-white w-7' : 'bg-white text-black w-7'
-}`}
+active ? 'bg-blue-500 text-white' : 'bg-white text-black'
+} p-2`}
               >
-                {selected && <CheckIcon />}
-                {selectedLang}
+                {selected && <CheckIcon className="inline-block w-5 h-5 mr-2" />}
+                {lang}
               </li>
             )}
           </Listbox.Option>
@@ -41,4 +40,4 @@ active ? 'bg-blue-500 text-white w-7' : 'bg-white text-black w-7'
     </Listbox>
   );
 }
-export default NativeLangMenu
+export default NativeLangMenu;

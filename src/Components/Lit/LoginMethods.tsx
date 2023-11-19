@@ -4,11 +4,10 @@ import AuthMethods from './AuthMethods';
 
 export default function LoginMethods({
   handleGoogleLogin,
-  signUp,
   error,
 }: LoginProps) {
   const [view] = useState<AuthView>('default');
-//TODO: Login/SignUp Same Component; detect account
+
   return (
         <>
         {error && (

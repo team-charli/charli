@@ -2,10 +2,14 @@ import NativeLanguage from './IconHeaderElements/NativeLanguage'
 import MoneyBag from './MoneyBag'
 const IconHeader = () => {
   return(
-  <div className="flex justify-between w-full">
-    <MoneyBag />
+  <header className="grid grid-cols-2 justify-between items-center ">
+    <div className="__bag-emoji__">
+      <MoneyBag />
+    </div>
+    <div className="__listbox-container__ relative ml-auto">
     <NativeLanguage />
-  </div>
+    </div>
+  </header>
   )
 }
 export default IconHeader

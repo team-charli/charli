@@ -4,7 +4,6 @@ import { useIsOnboarded } from '../../hooks/useIsOnboarded'
 
 const Bolsa = () => {
   const isOnboarded: boolean|null = useIsOnboarded()
-  const not_onBoardedMessage = "The instant you complete the signup you'll have ";
   const onBoardedMessage = "";
   //TODO: Add Screen 3.2 (coin logos)
   return (

@@ -1,10 +1,9 @@
-import { Switch, Route, Redirect, RouteProps } from 'react-router-dom';
+import { Switch, Route, Redirect} from 'react-router-dom';
 import {PrivateRouteProps} from '../types/types'
 import {useIsAuthenticated} from '../hooks/useIsAuthenticated'
 import {useReturnToRoom} from '../hooks/useReturnToRoom'
 import { useIsOnboarded } from '../hooks/useIsOnboarded'
 import Entry from './Entry'
-import CreateAuth from './Auth/CreateAuth'
 import Login from './Auth/Login'
 import Onboard from './Onboard/Onboard'
 import Bolsa from './Bolsa/Bolsa'
@@ -17,7 +16,7 @@ const Routes = () => {
     <Switch>
       <Route exact path="/" component={Entry} />
       <Route path="/login" component={Login} />
-      <Route path="/signup" component={CreateAuth} />
+      <Route path="/signup" component={Login} />
       <Route path="/bolsa" component={Bolsa} />
       <Authed path="/onboard" component={Onboard} />
       <AuthedAndOnboarded path="/lounge" component={Lounge} />

@@ -14,7 +14,9 @@ const NativeLanguage = () => {
   }, [])
 
   return (
-    <NativeLangMenu languages={languages} />
+    <div className="mt-5 mr-16">
+      <NativeLangMenu languages={languages} />
+    </div>
   )
 }
 

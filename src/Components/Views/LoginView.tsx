@@ -7,18 +7,22 @@ import useSession from '../../hooks/Lit/useLitSession';
 import useAccounts from '../../hooks/Lit/useLitAccount';
 import {Onboard} from '../../Routes/Onboard/Onboard'
 import Lounge from "../../Routes/Lounge/Lounge";
-import { signInWithDiscord, signInWithGoogle } from '../../utils/lit';
+import { signInWithGoogle } from '../../utils/lit';
 import LoginMethods from '../../Components/Lit/LoginMethods';
-import CreateAccount from '../../Components/Lit/CreateAccountExample';
 import { useSetLoginViewCSS } from '../../hooks/css/useSetLoginViewCSS';
 
 interface LoginViewProps {
   parentIsRoute: boolean;
 }
+//NOTE: Auth components are stable; Lit is not; Do the following until it is:
+//TODO: Handle other todo's
+//TODO: Implement other sign in methods? No but add a second button with the Android logo with the same handler as the google account
+//TODO: Build out remaining UI
+//TODO: Put together streaming with UI enhancements
+//TODO: Write Smart Contracts
 
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
-  const context = useContextNullCheck(StateContext)
-  const {onBoard: {hasOnboarded} } = context;
+  const {onBoard: {hasOnboarded} } = useContextNullCheck(StateContext)
 
   const redirectUri = import.meta.env.VITE_LIT_GOOGLE_AUTH_REDIR_URI
   const {
@@ -28,7 +32,6 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const {
     fetchAccounts,
     currentAccount,
-    accounts,
     error: accountsError,
   } = useAccounts();
   const {
@@ -49,13 +52,12 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   }
 
   // If user is authenticated, fetch accounts
-  //NOTE: SAME
   useEffect(() => {
     if (authMethod) {
       fetchAccounts(authMethod);
     }
   }, [authMethod, fetchAccounts]);
-  //NOTE: SAME
+
   useEffect(() => {
     // If user is authenticated and has selected an account, initialize session
     if (authMethod && currentAccount) {
@@ -64,7 +66,6 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   }, [authMethod, currentAccount, initSession]);
 
   // If user is authenticated and has selected an account, check onboard
-  //NOTE: same + check if onboarded for signup
   if (currentAccount && sessionSigs && hasOnboarded) {
     return (
        <Lounge />
@@ -73,12 +74,6 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     return (
       <Onboard currentAccount={currentAccount}/>
     );
-  }
-
-  //NOTE: Same. CreateAccount redirects to CreateAuth which is same as this
-  // If user is authenticated but has no accounts, prompt to create an account
-  if (authMethod && accounts.length === 0) {
-    return <CreateAccount signUp={goToSignUp} error={error} />;
   }
 
   const {marginTop, flex} = useSetLoginViewCSS(parentIsRoute)
