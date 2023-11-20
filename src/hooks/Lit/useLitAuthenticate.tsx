@@ -19,17 +19,12 @@ export default function useAuthenticate(redirectUri?: string) {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
 
-  // wagmi hook
-  // const { connectAsync } = useConnect({
-  //   onError: (err: unknown) => {
-  //     setError(err as Error);
-  //   },
-  // });
 
   /**
    * Handle redirect from Google OAuth
    */
   const authWithGoogle = useCallback(async (): Promise<void> => {
+    console.log('authWithGoogle called')
     setLoading(true);
     setError(undefined);
     setAuthMethod(undefined);
@@ -162,6 +157,7 @@ export default function useAuthenticate(redirectUri?: string) {
   // );
 
   useEffect(() => {
+    console.log('useAuthenticate called')
     // Check if user is redirected from social login
     if (redirectUri && isSignInRedirect(redirectUri)) {
       // If redirected, authenticate with social provider
@@ -173,7 +169,7 @@ export default function useAuthenticate(redirectUri?: string) {
       //   authWithDiscord();
       // }
     }
-  }, [redirectUri, authWithGoogle, /*authWithDiscord*/]);
+  }, [redirectUri, authWithGoogle]);
 
   return {
     // authWithEthWallet,

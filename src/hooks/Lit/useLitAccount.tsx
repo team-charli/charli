@@ -14,12 +14,13 @@ export default function useAccounts() {
    */
   const fetchAccounts = useCallback(
     async (authMethod: AuthMethod): Promise<void> => {
+      console.log('fetchAccounts called')
       setLoading(true);
       setError(undefined);
       try {
         // Fetch PKPs tied to given auth method
         const myPKPs = await getPKPs(authMethod);
-        // console.log('fetchAccounts pkps: ', myPKPs);
+        console.log(myPKPs)
         //setAccounts(myPKPs);
         // If only one PKP, set as current account
         // if (myPKPs.length === 1) {

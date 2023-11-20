@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react';
 import { NodeGlobalsPolyfillPlugin } from "@esbuild-plugins/node-globals-polyfill";
 import inject from "@rollup/plugin-inject";
 import nodePolyfills from "rollup-plugin-polyfill-node";
@@ -17,10 +17,14 @@ export default defineConfig(({ command, mode }) => {
       inject({
         util: "util/",
       }),
+      // Note: If you have additional plugins, they should also be included here
     ],
     build: {
       rollupOptions: {
-        plugins: [nodePolyfills()],
+        plugins: [
+          nodePolyfills(), // Includes polyfills for Node.js core modules
+          // Add other plugins if needed
+        ],
       },
       commonjsOptions: {
         transformMixedEsModules: true,
@@ -29,11 +33,11 @@ export default defineConfig(({ command, mode }) => {
     optimizeDeps: {
       esbuildOptions: {
         define: {
-          global: "globalThis",
+          global: "globalThis", // Ensures global object compatibility
         },
         plugins: [
           NodeGlobalsPolyfillPlugin({
-            buffer: true,
+            buffer: true, // Polyfills Node.js Buffer module
           }),
         ],
       },
@@ -44,9 +48,12 @@ export default defineConfig(({ command, mode }) => {
         const port = typeof address === 'string' ? address : address?.port;
 
         litGoogleAuthRedirUri = `localhost:${port}`;
-        process.env.VITE_LIT_GOOGLE_AUTH_REDIR_URI = litGoogleAuthRedirUri;
+        console.log(litGoogleAuthRedirUri);
+        process.env.vite_lit_google_auth_redir_uri = litGoogleAuthRedirUri;
+
         console.log({port: `${port}`});
-        process.env.VITE_PORT = `${port}`
+        process.env.VITE_PORT = `${port}`;
+        process.env.VITE_REDIRECT_URI = "http://localhost:5173";
       },
     },
     // ... other configurations

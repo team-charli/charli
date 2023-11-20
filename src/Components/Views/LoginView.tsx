@@ -15,7 +15,6 @@ interface LoginViewProps {
   parentIsRoute: boolean;
 }
 //NOTE: Auth components are stable; Lit is not; Do the following until it is:
-//TODO: Handle other todo's
 //TODO: Implement other sign in methods? No but add a second button with the Android logo with the same handler as the google account
 //TODO: Build out remaining UI
 //TODO: Put together streaming with UI enhancements
@@ -24,7 +23,7 @@ interface LoginViewProps {
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const {onBoard: {hasOnboarded} } = useContextNullCheck(StateContext)
 
-  const redirectUri = import.meta.env.VITE_LIT_GOOGLE_AUTH_REDIR_URI
+  const redirectUri = "http://localhost:5173"
   const {
     authMethod,
     error: authError,
@@ -53,7 +52,12 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
 
   // If user is authenticated, fetch accounts
   useEffect(() => {
+    if (error) console.log(error);
+
+  }, [error])
+  useEffect(() => {
     if (authMethod) {
+      console.log('has auth method')
       fetchAccounts(authMethod);
     }
   }, [authMethod, fetchAccounts]);
@@ -61,6 +65,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   useEffect(() => {
     // If user is authenticated and has selected an account, initialize session
     if (authMethod && currentAccount) {
+      console.log('currentAccount', currentAccount)
       initSession(authMethod, currentAccount);
     }
   }, [authMethod, currentAccount, initSession]);

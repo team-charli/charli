@@ -275,8 +275,12 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
     ).verifyAndMintPKPThroughRelayer(options);
   } else {
     // Mint PKP through relay server
+  const options = {
+    permittedAuthMethodScopes: [[1]],
+  };
+
     if (!isDefined(provider)) throw new Error('provider not defined')
-    txHash = await provider.mintPKPThroughRelayer(authMethod);
+    txHash = await provider.mintPKPThroughRelayer(authMethod, options);
   }
 
   if (!isDefined(provider)) throw new Error('provider not defined')
