@@ -1,6 +1,6 @@
 import {createContext, Dispatch, SetStateAction  } from 'react'
 
-interface OnboardData {
+export interface OnboardData {
   name: string;
   walletAddress: string;
   wantsToLeanLangs?: string[] | undefined;
@@ -15,6 +15,8 @@ export interface ContextObj {
   teachingLangs: string[];
   keys: {pkpKey: string[], setPkpKey: Function, sessionKey: object, setSessionKey: Function, },
   onBoard: {
+    onboardMode: "Learn" | "Teach" | null;
+    setOnboardMode: Dispatch<SetStateAction<string | null>>
     hasOnboarded: boolean,
     setOnboardData: Function ,
     onboardData: OnboardData | null,

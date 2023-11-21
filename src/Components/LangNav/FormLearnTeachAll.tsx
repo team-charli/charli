@@ -1,4 +1,4 @@
-import { useFormikContext, Formik } from 'formik';
+import { useForm, Controller } from 'react-hook-form';
 import UserListLearnTeachAll from "./UserListLearnTeachAll";
 
 export type SelectionType = "Learn" | "Teach" | "All" | "";
@@ -6,43 +6,45 @@ export type SelectionType = "Learn" | "Teach" | "All" | "";
 interface ToggleButtonProps {
   label: SelectionType;
   name: string;
+  control: any; // For better typing, consider using the specific type from react-hook-form
+  setValue: any; // For better typing, use SetValue<FormValues>
 }
 
 type FormValues = {
   option: SelectionType;
 };
 
-const ButtonLearnTeachAll = ({ label, name }: ToggleButtonProps) => {
-  const { setFieldValue } = useFormikContext<FormValues>();
+const ButtonLearnTeachAll = ({ label, name, control, setValue }: ToggleButtonProps) => {
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setFieldValue(name, label)} // label is already of type SelectionType
-      >
-        {label}
-      </button>
-    </div>
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <button
+          type="button"
+          onClick={() => setValue(name, label)}
+        >
+          {label}
+        </button>
+      )}
+    />
   );
 };
 
-const FormLearnTeachAll = () => (
-<Formik
-  initialValues={{ option: '' as SelectionType }} // Cast the initial value to SelectionType
-  onSubmit={() => {}}
->
-    {({ values }) => (  // Access Formik state via render props
-      <>
-        <form>
-          <ButtonLearnTeachAll name="option" label="Learn" />
-          <ButtonLearnTeachAll name="option" label="Teach" />
-          <ButtonLearnTeachAll name="option" label="All" />
-        </form>
-        {/* Pass current selection as prop */}
-        <UserListLearnTeachAll selection={values.option} />
-      </>
-    )}
-  </Formik>
-);
+const FormLearnTeachAll = () => {
+  const { control, setValue, watch } = useForm<FormValues>({ defaultValues: { option: "" } });
+  const option = watch("option");
+
+  return (
+    <>
+      <form>
+        <ButtonLearnTeachAll name="option" label="Learn" control={control} setValue={setValue} />
+        <ButtonLearnTeachAll name="option" label="Teach" control={control} setValue={setValue} />
+        <ButtonLearnTeachAll name="option" label="All" control={control} setValue={setValue} />
+      </form>
+      <UserListLearnTeachAll selection={option} />
+    </>
+  );
+};
 
 export default FormLearnTeachAll;

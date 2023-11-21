@@ -27,9 +27,11 @@ const Routes = () => {
   )};
 
 const Authed:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
+  const isOnboarded: Boolean | null = useIsOnboarded()
+  console.log({isOnboarded})
 
   const isAuthenticated: Boolean = useIsAuthenticated();
-
+  console.log('isAuthenticated:', isAuthenticated)
   return (
     <Route
       {...rest}
@@ -48,6 +50,7 @@ const AuthedAndOnboarded:React.FC<PrivateRouteProps>  = ({component: Component, 
 
   const isAuthenticated: Boolean = useIsAuthenticated();
   const isOnboarded: Boolean | null = useIsOnboarded()
+  console.log({isOnboarded})
   return (
     <Route
       {...rest}

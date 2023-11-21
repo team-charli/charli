@@ -1,10 +1,9 @@
 import {CombinedForm} from './CombinedForm'
-
+import
 export const RegisterLearn = (props: {}) => {
   return (
     <>
       <div id="learn">
-        <h1>Charli</h1>
         <button type="button">Learn 🎓</button>
       </div>
 

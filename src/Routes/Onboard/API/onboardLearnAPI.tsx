@@ -12,6 +12,7 @@ interface SubmitOnboardLearnType {
   teachingLangs: string[];
 }
 // TODO: implement same type of checks as you did with submitTeach
+// FIX: auth protect db read/write?
 
 export const submitOnboardLearn = async ({ langs, name }: SubmitOnboardLearnType) => {
 

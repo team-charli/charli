@@ -14,7 +14,6 @@ import { useSetLoginViewCSS } from '../../hooks/css/useSetLoginViewCSS';
 interface LoginViewProps {
   parentIsRoute: boolean;
 }
-//NOTE: Auth components are stable; Lit is not; Do the following until it is:
 //TODO: Implement other sign in methods? No but add a second button with the Android logo with the same handler as the google account
 //TODO: Build out remaining UI
 //TODO: Put together streaming with UI enhancements
@@ -23,7 +22,7 @@ interface LoginViewProps {
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const {onBoard: {hasOnboarded} } = useContextNullCheck(StateContext)
 
-  const redirectUri = "http://localhost:5173"
+  const redirectUri = "http://localhost:5173/login"
   const {
     authMethod,
     error: authError,
@@ -39,6 +38,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     error: sessionError,
   } = useSession();
   const history = useHistory();
+  const {marginTop, flex} = useSetLoginViewCSS(parentIsRoute);
 
   const error = authError || accountsError || sessionError;
 
@@ -50,11 +50,6 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     history.push('/');
   }
 
-  // If user is authenticated, fetch accounts
-  useEffect(() => {
-    if (error) console.log(error);
-
-  }, [error])
   useEffect(() => {
     if (authMethod) {
       console.log('has auth method')
@@ -65,36 +60,26 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   useEffect(() => {
     // If user is authenticated and has selected an account, initialize session
     if (authMethod && currentAccount) {
-      console.log('currentAccount', currentAccount)
       initSession(authMethod, currentAccount);
     }
   }, [authMethod, currentAccount, initSession]);
 
-  // If user is authenticated and has selected an account, check onboard
+
+let content;
   if (currentAccount && sessionSigs && hasOnboarded) {
-    return (
-       <Lounge />
-    );
-  } else if (currentAccount && sessionSigs) {
-    return (
-      <Onboard currentAccount={currentAccount}/>
+    content = <Lounge />;
+  }
+  else if (currentAccount && sessionSigs) {
+    content = <Onboard currentAccount={currentAccount} sessionSigs={sessionSigs}/>;
+  }
+  else {
+    content = (
+      <div className={`_LoginMethods_ ${flex} justify-center ${marginTop}`}>
+        <LoginMethods handleGoogleLogin={handleGoogleLogin} signUp={goToSignUp} error={error} />
+      </div>
     );
   }
-
-  const {marginTop, flex} = useSetLoginViewCSS(parentIsRoute)
-
-// If user is not authenticated, show login methods
-  return (
-    <>
-    <div className={`_LoginMethods_ ${flex} justify-center ${marginTop}`}>
-    <LoginMethods
-      handleGoogleLogin={handleGoogleLogin}
-      signUp={goToSignUp}
-      error={error}
-    />
-    </div>
-  </>
-  );
-}
+  return content
+ }
 
 export default LoginView

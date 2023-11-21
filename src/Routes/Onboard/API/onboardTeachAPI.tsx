@@ -7,6 +7,7 @@ interface SubmitOnboardTeachParams {
  langs: string[];
  name: string;
 }
+//FIX: auth protect db read/write?
 
 export const submitOnboardTeach = async ({langs, name}:SubmitOnboardTeachParams ) => {
   let context: ContextObj | null

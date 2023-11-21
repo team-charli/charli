@@ -23,10 +23,10 @@
     "@supabase/supabase-js": "^2.38.1",
     "buffer": "^6.0.3",
     "dotenv": "^16.3.1",
-    "formik": "^2.4.5",
     "iso-639-3": "^3.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-hook-form": "^7.48.2",
     "react-router-dom": "^5.3.4",
     "uint8arrays": "^4.0.6",
     "wagmi": "^1.4.6"

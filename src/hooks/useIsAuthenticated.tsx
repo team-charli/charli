@@ -1,4 +1,4 @@
-import {useEffect} from 'react'
+import {useEffect, useState} from 'react'
 import useAccounts from './Lit/useLitAccount';
 import useSession from './Lit/useLitSession';
 import useAuthenticate from './Lit/useLitAuthenticate'
@@ -28,25 +28,17 @@ export const useIsAuthenticated = () => {
     error: sessionError,
   } = useSession();
 
-  useEffect(() => {
-    // If user is authenticated, fetch accounts
-    if (authMethod) {
-      fetchAccounts(authMethod);
-    }
-  }, [authMethod, fetchAccounts]);
+const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  useEffect(() => {
-    // If user is authenticated and has selected an account, initialize session
-    if (authMethod && currentAccount) {
-      initSession(authMethod, currentAccount);
-    }
-  }, [authMethod, currentAccount, initSession]);
 
+useEffect(() => {
   if (currentAccount && sessionSigs) {
-    return true
-  } else {
-    return false
-  }
+      setIsAuthenticated(true);
+    } else {
+    }
+}, [currentAccount, sessionSigs])
+
+  return isAuthenticated
 }
 
 

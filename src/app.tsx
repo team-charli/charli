@@ -1,6 +1,5 @@
 import Routes from './Routes/Routes';
 import {useState} from 'react';
-import IconHeader from './Components/Headers/IconHeader'
 import { useHasBalance } from './hooks/useCheckHasBalance';
 import { useKeys }  from './hooks/useKeys';
 import { useOnboardData } from './hooks/useOnboardData';
