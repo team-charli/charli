@@ -1,5 +1,6 @@
+import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
+import { Dispatch, SetStateAction } from 'react'
 import { RouteProps } from 'react-router-dom';
-import { IRelayPKP, /* SessionSigs  */} from '@lit-protocol/types';
 
 export interface PrivateRouteProps extends RouteProps {
   component: React.ComponentType<any>;
@@ -40,4 +41,43 @@ export type FormValues = {
   name: string;
   [key: string]: string | boolean;  // Allow additional keys for languages
 };
+
+interface OnboardData {
+  name: string;
+  walletAddress: string;
+  wantsToLeanLangs?: string[] | undefined;
+  wantsToTeachLangs?: string[] | undefined;
+}
+
+export interface ContextObj {
+  nativeLang: string;
+  setNativeLang: Function;
+  hasBalance: boolean;
+  setTeachingLangs: Dispatch<SetStateAction<string[]>>;
+  teachingLangs: string[];
+  onBoard: {
+    onboardMode: "Learn" | "Teach" | null;
+    setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>
+    hasOnboarded: boolean,
+    setOnboardData: Function ,
+    onboardData: OnboardData | null,
+    setHasOnboarded: Function
+  }
+}
+
+export interface StateProviderProps  {
+  children: ReactNode;
+}
+
+export interface AuthContextObj {
+  contextSessionSigs: SessionSigs | null;
+  contextSetSessionSigs: Dispatch<SetStateAction<SessionSigs | null>>;
+  contextSetCurrentAccount: Dispatch<SetStateAction<IRelayPKP | null>>;
+  contextCurrentAccount: IRelayPKP | null;
+  isAuthenticated: boolean | null;
+
+}
+export interface AuthProviderProps {
+  children: ReactNode;
+}
 

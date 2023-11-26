@@ -1,12 +1,11 @@
 import { useEffect} from 'react';
 import { useHistory } from 'react-router-dom';
 import { StateContext } from '../../contexts/StateContext'
+import { AuthContext } from '../../contexts/AuthContext'
 import { useContextNullCheck } from  '../../hooks/utils/useContextNullCheck'
 import useAuthenticate from '../../hooks/Lit/useLitAuthenticate';
 import useSession from '../../hooks/Lit/useLitSession';
 import useAccounts from '../../hooks/Lit/useLitAccount';
-import {Onboard} from '../../Routes/Onboard/Onboard'
-import Lounge from "../../Routes/Lounge/Lounge";
 import { signInWithGoogle } from '../../utils/lit';
 import LoginMethods from '../../Components/Lit/LoginMethods';
 import { useSetLoginViewCSS } from '../../hooks/css/useSetLoginViewCSS';
@@ -14,13 +13,11 @@ import { useSetLoginViewCSS } from '../../hooks/css/useSetLoginViewCSS';
 interface LoginViewProps {
   parentIsRoute: boolean;
 }
-//TODO: Implement other sign in methods? No but add a second button with the Android logo with the same handler as the google account
-//TODO: Build out remaining UI
-//TODO: Put together streaming with UI enhancements
-//TODO: Write Smart Contracts
 
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
+  const {isAuthenticated} = useContextNullCheck(AuthContext);
   const {onBoard: {hasOnboarded} } = useContextNullCheck(StateContext)
+  const history = useHistory();
 
   const redirectUri = "http://localhost:5173/login"
   const {
@@ -37,7 +34,6 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     sessionSigs,
     error: sessionError,
   } = useSession();
-  const history = useHistory();
   const {marginTop, flex} = useSetLoginViewCSS(parentIsRoute);
 
   const error = authError || accountsError || sessionError;
@@ -52,7 +48,6 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
 
   useEffect(() => {
     if (authMethod) {
-      console.log('has auth method')
       fetchAccounts(authMethod);
     }
   }, [authMethod, fetchAccounts]);
@@ -64,22 +59,32 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     }
   }, [authMethod, currentAccount, initSession]);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (!hasOnboarded) {
+        // Redirect to Lounge with state
+       history.push('/onboard', { currentAccount, sessionSigs });
+      } else {
+        // Redirect to Onboard with state
+      history.push('/lounge', { currentAccount, sessionSigs });
+      }
+    }
+  }, [isAuthenticated, hasOnboarded, history]);
 
-let content;
-  if (currentAccount && sessionSigs && hasOnboarded) {
-    content = <Lounge />;
-  }
-  else if (currentAccount && sessionSigs) {
-    content = <Onboard currentAccount={currentAccount} sessionSigs={sessionSigs}/>;
-  }
-  else {
-    content = (
-      <div className={`_LoginMethods_ ${flex} justify-center ${marginTop}`}>
-        <LoginMethods handleGoogleLogin={handleGoogleLogin} signUp={goToSignUp} error={error} />
-      </div>
-    );
-  }
-  return content
- }
+  let content = (
+    <div className={`_LoginMethods_ ${flex} justify-center ${marginTop}`}>
+      <LoginMethods handleGoogleLogin={handleGoogleLogin} signUp={goToSignUp} error={error} />
+    </div>
+  );
 
+  if (currentAccount, sessionSigs){
+    return null
+  } else {
+
+    return content
+  }
+}
 export default LoginView
+
+//FIX: Flashes Login-Icons after clicking one of them
+//FIX: Clicking "Learn" -> Login Icon -> "Onboard Teach"

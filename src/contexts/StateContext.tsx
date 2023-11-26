@@ -1,28 +1,33 @@
-import {createContext, Dispatch, SetStateAction  } from 'react'
-
-export interface OnboardData {
-  name: string;
-  walletAddress: string;
-  wantsToLeanLangs?: string[] | undefined;
-  wantsToTeachLangs?: string[] | undefined;
-}
-
-export interface ContextObj {
-  nativeLang: string;
-  setNativeLang: Function;
-  hasBalance: boolean;
-  setTeachingLangs: Dispatch<SetStateAction<string[]>>;
-  teachingLangs: string[];
-  keys: {pkpKey: string[], setPkpKey: Function, sessionKey: object, setSessionKey: Function, },
-  onBoard: {
-    onboardMode: "Learn" | "Teach" | null;
-    setOnboardMode: Dispatch<SetStateAction<string | null>>
-    hasOnboarded: boolean,
-    setOnboardData: Function ,
-    onboardData: OnboardData | null,
-    setHasOnboarded: Function
-  }
-}
+import { useState, createContext, useContext } from 'react'
+import { useHasBalance } from '../hooks/stateContext/useHasBalance';
+import { useOnboardData } from '../hooks/stateContext/useOnboardData';
+import { useTeachingLanguages } from '../hooks/useTeachingLanguages';
+import { ContextObj, StateProviderProps } from '../types/types'
 
 export const StateContext = createContext<ContextObj | null>(null);
 
+export const useStateContext = () => useContext(StateContext);
+
+const StateProvider = ({children}: StateProviderProps) => {
+  const [nativeLang, setNativeLang] = useState('');
+  const hasBalance = useHasBalance();
+  const onBoard = useOnboardData()
+  const [teachingLangs, setTeachingLangs] = useTeachingLanguages();
+
+  const contextObj: ContextObj = {
+    nativeLang,
+    setNativeLang,
+    hasBalance,
+    setTeachingLangs,
+    teachingLangs,
+    onBoard,
+  };
+
+  return (
+    <StateContext.Provider value={contextObj}>
+      {children}
+    </StateContext.Provider>
+  )
+}
+
+export default StateProvider

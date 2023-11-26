@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { OnboardData } from '../contexts/StateContext'
+import { ContextObj } from '../../types/types'
 export const useOnboardData= () => {
 
-  const [onboardData, setOnboardData] = useState<OnboardData | null>(null);
+  const [onboardData, setOnboardData] = useState<ContextObj | null>(null);
   const [hasOnboarded, setHasOnboarded] = useState(false)
   const [onboardMode, setOnboardMode] = useState<"Learn" | "Teach" | null>(null);
 

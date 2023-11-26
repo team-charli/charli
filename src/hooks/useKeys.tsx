@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export const useKeys = () => {
+export const use = () => {
   const [pkpKey, setPkpKey] = useState([])
   const [sessionKey, setSessionKey] = useState({})
 

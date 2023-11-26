@@ -19,3 +19,10 @@ root.render(
     </ErrorBoundary>
   </StrictMode>
 );
+
+//TODO: Build out remaining UI
+//TODO: Put together streaming with UI enhancements
+//TODO: Write Smart Contracts
+//TODO: try esLint
+//TODO: try autopairs
+

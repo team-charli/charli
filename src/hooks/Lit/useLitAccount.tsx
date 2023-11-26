@@ -2,9 +2,12 @@ import { useCallback, useState } from 'react';
 import { AuthMethod } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '../../utils/lit';
 import { IRelayPKP } from '@lit-protocol/types';
+import { AuthContext } from '../../contexts/AuthContext'
+import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
 
 export default function useAccounts() {
   const [accounts, setAccounts] = useState<IRelayPKP[]>([]);
+  const {contextCurrentAccount, contextSetCurrentAccount} = useContextNullCheck(AuthContext);
   const [currentAccount, setCurrentAccount] = useState<IRelayPKP>();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
@@ -14,17 +17,16 @@ export default function useAccounts() {
    */
   const fetchAccounts = useCallback(
     async (authMethod: AuthMethod): Promise<void> => {
-      console.log('fetchAccounts called')
       setLoading(true);
       setError(undefined);
       try {
         // Fetch PKPs tied to given auth method
         const myPKPs = await getPKPs(authMethod);
-        console.log(myPKPs)
-        //setAccounts(myPKPs);
+        setAccounts([myPKPs[0]]);
         // If only one PKP, set as current account
         // if (myPKPs.length === 1) {
           setCurrentAccount(myPKPs[0]);
+          contextSetCurrentAccount(myPKPs[0]);
         // }
       } catch (err) {
         setError(err as Error);

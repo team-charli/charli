@@ -6,11 +6,8 @@ type Props = {}
 
 const UturnModal = (props: Props) => {
   const [isOpen, setIsOpen] = useState(true)
-//TODO modal behavior; center
-
 
   return (
-
     <Dialog as="div" className="fixed inset-0 z-10 flex items-center justify-center" open={isOpen} onClose={() => setIsOpen(true)}>
       <Dialog.Panel className="w-full max-w-md mx-auto transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
         <Dialog.Title
