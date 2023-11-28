@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 
 interface NonButtonLinkPropTypes {
-  children: ReactNode;
+  children?: ReactNode;
 }
 const NonButtonLink = ({ children}: NonButtonLinkPropTypes) =>{
   return (

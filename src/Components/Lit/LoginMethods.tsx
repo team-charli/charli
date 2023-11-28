@@ -17,7 +17,7 @@ export default function LoginMethods({
           <>
             <AuthMethods
               handleGoogleLogin={handleGoogleLogin}
-            />
+          />
           </>
         )}
        </>

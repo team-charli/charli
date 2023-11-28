@@ -1,12 +1,11 @@
 import {  useState } from 'react'
 import { supabase } from '../supabaseClient';
-import useAccounts from './Lit/useLitAccount';
 import { useAsyncEffect } from './utils/useAsyncEffect';
+import { UseIsOnboardedParam  } from '../types/types'
 
+export const useIsOnboarded = ( {contextCurrentAccount: currentAccount}: UseIsOnboardedParam  ) => {
 
-export const useIsOnboarded = () => {
 const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
-  const { currentAccount } = useAccounts();
 
   useAsyncEffect(
     async () => {
@@ -17,8 +16,12 @@ const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
           .select('USER_ADDRESS')
           .eq('USER_ADDRESS', currentAccount?.ethAddress)
           .single()
-        if (supabaseError) setIsOnboarded(false);
-        console.log({User})
+        if (!supabaseError) {
+          setIsOnboarded(true);
+        } else {
+          setIsOnboarded(false);
+          console.log({User})
+        }
       } catch(e) {
 
         throw new Error(`Error: ${e}`)

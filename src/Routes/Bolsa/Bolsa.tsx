@@ -1,13 +1,14 @@
 import UturnModal from '../../Components/Elements/UturnModal'
 import IconHeader from "../../Components/Headers/IconHeader"
-import { useIsOnboarded } from '../../hooks/useIsOnboarded'
-import { AuthContext } from '../../contexts/AuthContext'
+import { StateContext } from '../../contexts/StateContext'
 import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
+import { AuthContext } from '../../contexts/AuthContext'
 import { Redirect} from 'react-router-dom'
 
 const Bolsa = () => {
-  const {isAuthenticated} = useContextNullCheck(AuthContext);
-  const isOnboarded: boolean|null = useIsOnboarded()
+  const { isAuthenticated } = useContextNullCheck(AuthContext);
+  const { isOnboarded }= useContextNullCheck(StateContext);
+
   let modal
   if (isOnboarded && isAuthenticated) {
     modal = null;

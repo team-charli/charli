@@ -1,5 +1,5 @@
 import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
-import { Dispatch, SetStateAction } from 'react'
+import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { RouteProps } from 'react-router-dom';
 
 export interface PrivateRouteProps extends RouteProps {
@@ -42,42 +42,66 @@ export type FormValues = {
   [key: string]: string | boolean;  // Allow additional keys for languages
 };
 
-interface OnboardData {
-  name: string;
-  walletAddress: string;
-  wantsToLeanLangs?: string[] | undefined;
-  wantsToTeachLangs?: string[] | undefined;
-}
+export interface StateContextObj {
 
-export interface ContextObj {
+  hasBalance: boolean;
+
+  isOnboarded: boolean | null;
+
   nativeLang: string;
   setNativeLang: Function;
-  hasBalance: boolean;
+
   setTeachingLangs: Dispatch<SetStateAction<string[]>>;
   teachingLangs: string[];
-  onBoard: {
-    onboardMode: "Learn" | "Teach" | null;
-    setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>
-    hasOnboarded: boolean,
-    setOnboardData: Function ,
-    onboardData: OnboardData | null,
-    setHasOnboarded: Function
-  }
+
+  learningLangs?: string[] | undefined;
+  setLearningLangs: Dispatch<SetStateAction<string[]>>;
+
+  onboardMode: "Learn" | "Teach" | null;
+  setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>;
+
+  name: string;
+  setName: Dispatch<SetStateAction<string>>;
+
+  walletAddress: string;
+  setWalletAddress:Dispatch<SetStateAction<string>>;
+}
+
+export interface AuthContextObj {
+  contextCurrentAccount: IRelayPKP | null;
+  contextSetCurrentAccount: Dispatch<SetStateAction<IRelayPKP | null>>;
+  contextSessionSigs: SessionSigs | null;
+  contextSetSessionSigs: Dispatch<SetStateAction<SessionSigs | null>>;
+  isAuthenticated: boolean | null;
+}
+
+export interface UIContextObj {
+  firedLogin: boolean;
+  setFiredLogin: Dispatch<SetStateAction<true | false>>;
 }
 
 export interface StateProviderProps  {
   children: ReactNode;
 }
 
-export interface AuthContextObj {
-  contextSessionSigs: SessionSigs | null;
-  contextSetSessionSigs: Dispatch<SetStateAction<SessionSigs | null>>;
-  contextSetCurrentAccount: Dispatch<SetStateAction<IRelayPKP | null>>;
-  contextCurrentAccount: IRelayPKP | null;
-  isAuthenticated: boolean | null;
-
-}
 export interface AuthProviderProps {
   children: ReactNode;
 }
 
+export interface UseIsOnboardedParam {
+  contextCurrentAccount: IRelayPKP | null;
+}
+
+export interface ButtonLinkPropTypes {
+  path: string;
+  children: ReactNode;
+  onButtonClick?: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
+}
+
+export interface LoginViewProps {
+  parentIsRoute: boolean;
+}
+
+export interface UIProviderProps  {
+  children: ReactNode;
+}

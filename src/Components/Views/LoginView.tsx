@@ -1,7 +1,9 @@
 import { useEffect} from 'react';
+import { LoginViewProps } from '../../types/types'
 import { useHistory } from 'react-router-dom';
-import { StateContext } from '../../contexts/StateContext'
 import { AuthContext } from '../../contexts/AuthContext'
+import { StateContext } from '../../contexts/StateContext'
+import { UIContext} from '../../contexts/UIContext'
 import { useContextNullCheck } from  '../../hooks/utils/useContextNullCheck'
 import useAuthenticate from '../../hooks/Lit/useLitAuthenticate';
 import useSession from '../../hooks/Lit/useLitSession';
@@ -10,35 +12,38 @@ import { signInWithGoogle } from '../../utils/lit';
 import LoginMethods from '../../Components/Lit/LoginMethods';
 import { useSetLoginViewCSS } from '../../hooks/css/useSetLoginViewCSS';
 
-interface LoginViewProps {
-  parentIsRoute: boolean;
-}
+
 
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
-  const {isAuthenticated} = useContextNullCheck(AuthContext);
-  const {onBoard: {hasOnboarded} } = useContextNullCheck(StateContext)
   const history = useHistory();
+  const {marginTop, flex} = useSetLoginViewCSS(parentIsRoute);
+  const {isAuthenticated} = useContextNullCheck(AuthContext);
+  const {isOnboarded} = useContextNullCheck(StateContext);
+  const {firedLogin, setFiredLogin} = useContextNullCheck(UIContext);
 
   const redirectUri = "http://localhost:5173/login"
   const {
     authMethod,
     error: authError,
+    loading: authLoading,
   } = useAuthenticate(redirectUri);
   const {
     fetchAccounts,
     currentAccount,
     error: accountsError,
+    loading: accountsLoading,
   } = useAccounts();
   const {
     initSession,
     sessionSigs,
+    loading: sessionLoading,
     error: sessionError,
   } = useSession();
-  const {marginTop, flex} = useSetLoginViewCSS(parentIsRoute);
 
   const error = authError || accountsError || sessionError;
 
   async function handleGoogleLogin() {
+    setFiredLogin(true);
     await signInWithGoogle(redirectUri);
   }
 
@@ -53,7 +58,6 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   }, [authMethod, fetchAccounts]);
 
   useEffect(() => {
-    // If user is authenticated and has selected an account, initialize session
     if (authMethod && currentAccount) {
       initSession(authMethod, currentAccount);
     }
@@ -61,7 +65,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
 
   useEffect(() => {
     if (isAuthenticated) {
-      if (!hasOnboarded) {
+      if (!isOnboarded) {
         // Redirect to Lounge with state
        history.push('/onboard', { currentAccount, sessionSigs });
       } else {
@@ -69,22 +73,27 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
       history.push('/lounge', { currentAccount, sessionSigs });
       }
     }
-  }, [isAuthenticated, hasOnboarded, history]);
+  }, [isAuthenticated, isOnboarded, history]);
 
-  let content = (
+  let loginMethods =  (
     <div className={`_LoginMethods_ ${flex} justify-center ${marginTop}`}>
       <LoginMethods handleGoogleLogin={handleGoogleLogin} signUp={goToSignUp} error={error} />
     </div>
   );
 
-  if (currentAccount, sessionSigs){
+
+<p className={`${flex} justify-center ${marginTop}`}>auth loading</p>
+  if (authLoading) {
+    return <p className={`${flex} justify-center ${marginTop}`}>auth loading</p>
+  } else if (accountsLoading) {
+    return <p className={`${flex} justify-center ${marginTop}`}>accounts loading</p>
+  } else if (sessionLoading) {
+    return <p className={`${flex} justify-center ${marginTop}`}>session loading</p>
+  } else if (isAuthenticated || firedLogin){
     return null
   } else {
-
-    return content
+    return loginMethods
   }
 }
 export default LoginView
 
-//FIX: Flashes Login-Icons after clicking one of them
-//FIX: Clicking "Learn" -> Login Icon -> "Onboard Teach"
