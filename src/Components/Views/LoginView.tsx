@@ -12,8 +12,6 @@ import { signInWithGoogle } from '../../utils/lit';
 import LoginMethods from '../../Components/Lit/LoginMethods';
 import { useSetLoginViewCSS } from '../../hooks/css/useSetLoginViewCSS';
 
-
-
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const history = useHistory();
   const {marginTop, flex} = useSetLoginViewCSS(parentIsRoute);
