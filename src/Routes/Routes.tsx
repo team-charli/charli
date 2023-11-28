@@ -27,7 +27,6 @@ const Routes = () => {
   )};
 
 const AuthedAndOnboarded:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
-  //FIX: if isAuthenticated you should never see the google login again... still do...
   const {isAuthenticated} = useContextNullCheck(AuthContext);
 
   const { isOnboarded } = useContextNullCheck(StateContext);

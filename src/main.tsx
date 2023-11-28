@@ -20,9 +20,6 @@ root.render(
   </StrictMode>
 );
 
-//TODO: Build out remaining UI
-//TODO: Put together streaming with UI enhancements
-//TODO: Write Smart Contracts
-//TODO: try esLint
-//TODO: try autopairs
+//TODO: After onboard, before lounge, verfiy multiple entrypoints. 1.) (from slides). 2.) From bolsa
+//TODO: Also figure out how to ask if teach and learn? Maybe a one more thing..."Do you wanna teach|learn as well? nah.. or sure.. (then what to teach|learn)"
 

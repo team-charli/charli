@@ -6,7 +6,7 @@ export function useHasBalance() {
   const [hasBalance, setHasBalance] = useState(false)
 
   useEffect(() => {
-    //TODO: check balance call;  important for submitLearnAPI
+    //TODO: check balance call for submitAPI
 
     let balance // = contract call (userid => contract(contractAddr)) // need user id system that maps to wallet <address>
 

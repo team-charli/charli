@@ -13,8 +13,8 @@ interface OnboardPropTypes {
 export const Onboard = ({currentAccount}: OnboardPropTypes) => {
   const { onboardMode: _onboardMode } = useContextNullCheck(StateContext, "onboardMode");
   console.log('_onboardMode:', _onboardMode)
-  let fakeButton
-  let form
+  let fakeButton, form
+
   if (_onboardMode && _onboardMode  === "Learn") {
     fakeButton = <NonButtonLink> Learn 🎓</NonButtonLink>
     form = <OnboardForm onboardMode={_onboardMode} currentAccount={currentAccount} / >
