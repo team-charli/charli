@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bunx --bun vite",
     "build": "bunx --bun vite",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
@@ -23,6 +23,7 @@
     "@stytch/vanilla-js": "^3.1.1",
     "@supabase/supabase-js": "^2.38.1",
     "buffer": "^6.0.3",
+    "countries-list": "^3.0.6",
     "dotenv": "^16.3.1",
     "iso-639-3": "^3.0.1",
     "react": "^18.2.0",

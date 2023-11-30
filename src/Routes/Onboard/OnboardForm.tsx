@@ -11,8 +11,12 @@ import {ToggleButtonProps, CombinedFormProps, FormValues} from '../../types/type
 //TODO: Style input box like headless input
 //NOTE: Don't tolerate flashing anywhere.
 
-export const OnboardForm = ({ languages = ['English', 'Spanish', 'Chinese', 'Thai' ], onboardMode }: CombinedFormProps) => {
+export const OnboardForm = ({ languages = ['English', 'Spanish', 'Chinese', 'Thai', 'French', 'German', 'Italian', 'Portuguese', 'Japanese', 'Korean', 'Hindi'], onboardMode }: CombinedFormProps) => {
 
+  const _languages = languages.map((lang) => {
+
+
+  })
   const { hasBalance, teachingLangs } = useContextNullCheck(StateContext);
   const { handleSubmit, control, setValue, register, formState: { errors } } = useForm<FormValues>();
 
