@@ -105,3 +105,46 @@ export interface LoginViewProps {
 export interface UIProviderProps  {
   children: ReactNode;
 }
+
+export type LocationState = {
+  countryCode: string;
+  countryName: string;
+};
+
+export type GeolocationApiResponse = {
+  status: string;
+  country: string;
+  countryCode: string;
+  region: string;
+  regionName: string;
+  city: string;
+  zip: string;
+  lat: number;
+  lon: number;
+  timezone: string;
+  isp: string;
+  org: string;
+  as: string;
+  query: string;
+};
+
+export interface Country {
+  'name': string;
+  'alpha-2': string;
+  'alpha-3': string;
+  'country-code': string;
+  'iso_3166-2': string;
+  'region': string;
+  'sub-region': string;
+  'intermediate-region': string;
+  'region-code': string;
+  'sub-region-code': string;
+  'intermediate-region-code': string;
+}
+
+
+export interface ifaceLanguageCountryMap  {
+country_code: string;
+country_name: string;
+lang_iso3: string;
+}
