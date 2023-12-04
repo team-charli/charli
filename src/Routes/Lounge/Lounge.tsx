@@ -14,3 +14,5 @@ export const Lounge = (props : {}) => {
 }
 
 export default Lounge
+
+//NOTE: the teacher and learner should each have a alpha 2 and flag representing the language they speak and what country

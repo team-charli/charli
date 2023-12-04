@@ -1,5 +1,4 @@
-import {CombinedForm} from './CombinedForm'
-import
+import {OnboardForm} from './OnboardForm'
 export const RegisterLearn = (props: {}) => {
   return (
     <>
@@ -8,7 +7,7 @@ export const RegisterLearn = (props: {}) => {
       </div>
 
       <div id="form" >
-        <CombinedForm mode="Learn"/>
+        <OnboardForm mode="Learn"/>
       </div>
 
       <div id="deposit">

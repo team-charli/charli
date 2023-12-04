@@ -5,11 +5,10 @@ import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
 import { StateContext } from '../../contexts/StateContext'
 import {ToggleButtonProps, CombinedFormProps, FormValues} from '../../types/types'
 
-//TODO: But we're going to have to use locales. Meaning that es will be es-mx <flag>.  Already have the lang list. Create lookup function here.
+//TODO: pass in the flag and lang alpha2 + change buttons to look better
 //TODO: use a headless Combo-box to input another language and add it as selected.  When you deselect that language it stays in the button list but is deselected.
-//TODO: add a couple of other spanish langs to demonstrate that there are multiple.
+//TODO: add secondary language buttons
 //TODO: Style input box like headless input
-//NOTE: Don't tolerate flashing anywhere.
 
 export const OnboardForm = ({ languages = ['English', 'Spanish', 'Chinese', 'Thai', 'French', 'German', 'Italian', 'Portuguese', 'Japanese', 'Korean', 'Hindi'], onboardMode }: CombinedFormProps) => {
 

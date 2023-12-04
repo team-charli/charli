@@ -94,4 +94,4 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   }
 }
 export default LoginView
-
+//FIX: Buttons still flashing on login

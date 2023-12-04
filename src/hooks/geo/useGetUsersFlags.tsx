@@ -9,10 +9,11 @@ export interface LanguageInfo {
   language: string;
   primaryFlag: string;
   secondaryFlag: string;
+  country_a2: string;  // Added countryA2 field
 }
 
 export const useGetUsersFlags = (primaryLanguages: string[] = ['eng', 'spa', 'zho', 'tha', 'fra', 'deu', 'ita', 'por', 'jpn', 'kor', 'hin']): LanguageInfo[] => {
-  const { country: { country_a3 } } = useHookNullCheck(useGetUserCountry, 'country');
+  const { country: { country_a3, country_a2 } } = useHookNullCheck(useGetUserCountry, 'country');
   const userSubRegion = useGetUserSubRegion(country_a3);
 
   const getPrimaryFlag = (language: string, subRegion: string): string => {
@@ -37,10 +38,8 @@ export const useGetUsersFlags = (primaryLanguages: string[] = ['eng', 'spa', 'zh
     return {
       language,
       primaryFlag,
-      secondaryFlag
+      secondaryFlag,
+      country_a2,
     };
   });
 };
-//TODO: Randomize a secondary flag to be shown with each language if it has more than one country.
-//NOTE: Display the combo box to add and select another lang/country
-
