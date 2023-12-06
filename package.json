@@ -5,17 +5,38 @@
   "scripts": {},
   "private": true,
   "dependencies": {
+    "@headlessui/react": "^1.7.17",
+    "@heroicons/react": "^2.0.18",
+    "@lit-protocol/lit-auth-client": "^3.0.24",
+    "@lit-protocol/lit-node-client": "^3.0.24",
+    "@lit-protocol/pkp-ethers": "^3.0.24",
+    "@lit-protocol/types": "^3.0.24",
+    "@radix-ui/react-radio-group": "^1.1.3",
+    "@stytch/react": "^11.0.0",
+    "@stytch/vanilla-js": "^3.1.1",
+    "@supabase/supabase-js": "^2.38.1",
+    "buffer": "^6.0.3",
+    "geojson-places": "^1.0.8",
+    "got": "^14.0.0",
+    "react-hook-form": "^7.48.2",
+    "react-router-dom": "^5.3.4",
+    "wagmi": "^1.4.6",
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@rollup/plugin-inject": "^5.0.5",
     "@swc/helpers": "~0.5.2",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "rollup-plugin-polyfill-node": "^0.13.0"
+    "rollup-plugin-polyfill-node": "^0.13.0",
+    "tslib": "^2.3.0"
   },
-  "devDependencies": {
-    "@nx/eslint": "17.1.3",
+    "autoprefixer": "^10.4.16",
+    "@cloudflare/workers-types": "^4.20231121.0",
+    "@naxodev/nx-cloudflare": "^1.0.2",
+    "@nx/esbuild": "17.1.3",
+    "postcss": "^8.4.31",
     "@nx/eslint-plugin": "17.1.3",
-    "@nx/js": "17.1.3",
+    "tailwindcss": "^3.3.5",
+    "@nx/node": "17.1.3",
     "@nx/react": "17.1.3",
     "@nx/vite": "17.1.3",
     "@nx/workspace": "17.1.3",
@@ -31,6 +52,7 @@
     "@vitejs/plugin-react": "~4.0.0",
     "@vitest/coverage-v8": "~0.34.6",
     "@vitest/ui": "~0.34.6",
+    "esbuild": "^0.19.2",
     "eslint": "~8.46.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-import": "2.27.5",
@@ -42,6 +64,7 @@
     "prettier": "^2.6.2",
     "typescript": "~5.2.2",
     "vite": "~4.3.9",
-    "vitest": "~0.34.6"
+    "vitest": "~0.34.6",
+    "wrangler": "^3.17.1"
   }
-}
+

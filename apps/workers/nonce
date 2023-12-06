@@ -1,0 +1,29 @@
+export async function handleRequest(_request) {
+  try {
+    // Generate a 16-byte random nonce and convert it to a hex string
+    const arrayBuffer = new Uint8Array(16);
+    crypto.getRandomValues(arrayBuffer);
+    const nonce = [...arrayBuffer].map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // Return the generated nonce in the response body
+    return new Response(JSON.stringify({ nonce }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error) {
+    // Handle any errors that might occur during nonce generation
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+}
+
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request));
+});
+
