@@ -30,6 +30,6 @@ const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
     async () => Promise.resolve(),
   [currentAccount]
   )
-  return isOnboarded;
+  return {isOnboarded, setIsOnboarded};
 }
 

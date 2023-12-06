@@ -1,17 +1,18 @@
 import { useState, createContext, useContext, useEffect } from 'react'
 import { useContextNullCheck } from '../hooks/utils/useContextNullCheck'
 import { AuthContext } from './AuthContext'
-import { StateContextObj, StateProviderProps } from '../types/types'
+import { OnboardContextObj, OnboardStateProviderProps } from '../types/types'
 import { useHasBalance } from '../hooks/useHasBalance';
 import { useIsOnboarded } from '../hooks/useIsOnboarded'
 import { useOnboardMode } from '../hooks/useOnboardMode';
-export const StateContext = createContext<StateContextObj | null>(null);
-export const useStateContext = () => useContext(StateContext);
 
-const StateProvider = ({children}: StateProviderProps) => {
+export const OnboardContext = createContext<OnboardContextObj | null>(null);
+export const useOnboardContext = () => useContext(OnboardContext);
+
+const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
   const {contextCurrentAccount} = useContextNullCheck(AuthContext)
 
-  const isOnboarded = useIsOnboarded({contextCurrentAccount});
+  const {isOnboarded, setIsOnboarded} = useIsOnboarded({contextCurrentAccount});
   const {onboardMode, setOnboardMode} = useOnboardMode();
 
   const hasBalance = useHasBalance();
@@ -28,28 +29,29 @@ const StateProvider = ({children}: StateProviderProps) => {
   }, [onboardMode])
 
 
-  const contextObj: StateContextObj = {
+  const contextObj: OnboardContextObj = {
     hasBalance,
     isOnboarded,
+    setIsOnboarded,
     nativeLang,
     setNativeLang,
-    teachingLangs,
-    setTeachingLangs,
-    learningLangs,
-    setLearningLangs,
     setOnboardMode,
     onboardMode,
-    name,
-    setName,
     walletAddress,
     setWalletAddress,
+    //setName,
+    // name,
+    // teachingLangs,
+    // setTeachingLangs,
+    // learningLangs,
+    // setLearningLangs,
   };
 
   return (
-    <StateContext.Provider value={contextObj}>
+    <OnboardContext.Provider value={contextObj}>
       {children}
-    </StateContext.Provider>
+    </OnboardContext.Provider>
   )
 }
 
-export default StateProvider
+export default OnboardStateProvider

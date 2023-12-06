@@ -2,7 +2,7 @@ import { useEffect} from 'react';
 import { LoginViewProps } from '../../types/types'
 import { useHistory } from 'react-router-dom';
 import { AuthContext } from '../../contexts/AuthContext'
-import { StateContext } from '../../contexts/StateContext'
+import { OnboardContext } from '../../contexts/OnboardContext'
 import { UIContext} from '../../contexts/UIContext'
 import { useContextNullCheck } from  '../../hooks/utils/useContextNullCheck'
 import useAuthenticate from '../../hooks/Lit/useLitAuthenticate';
@@ -16,7 +16,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const history = useHistory();
   const {marginTop, flex} = useSetLoginViewCSS(parentIsRoute);
   const {isAuthenticated} = useContextNullCheck(AuthContext);
-  const {isOnboarded} = useContextNullCheck(StateContext);
+  const {isOnboarded} = useContextNullCheck(OnboardContext);
   const {firedLogin, setFiredLogin} = useContextNullCheck(UIContext);
 
   const redirectUri = "http://localhost:5173/login"

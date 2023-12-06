@@ -26,6 +26,7 @@ export type AuthView = 'default' /*| 'email' | 'phone' | 'wallet' | 'webauthn';*
 export type ToggleButtonProps = {
   label: string;
   name: string;
+  key: any;
   control: any;
   setValue: any;
 };
@@ -33,8 +34,6 @@ export type ToggleButtonProps = {
 
 export type CombinedFormProps = {
   onboardMode: "Learn" | "Teach" | null;
-  languages?: string[];  // Optional languages prop for future use
-  currentAccount: IRelayPKP;
 }
 
 export type FormValues = {
@@ -42,26 +41,26 @@ export type FormValues = {
   [key: string]: string | boolean;  // Allow additional keys for languages
 };
 
-export interface StateContextObj {
+export interface OnboardContextObj {
 
   hasBalance: boolean;
 
   isOnboarded: boolean | null;
-
+  setIsOnboarded: Dispatch<SetStateAction<boolean| null>>;
   nativeLang: string;
   setNativeLang: Function;
 
-  setTeachingLangs: Dispatch<SetStateAction<string[]>>;
-  teachingLangs: string[];
+  // setTeachingLangs: Dispatch<SetStateAction<string[]>>;
+  // teachingLangs: string[];
 
-  learningLangs?: string[] | undefined;
-  setLearningLangs: Dispatch<SetStateAction<string[]>>;
+  // learningLangs?: string[] | undefined;
+  // setLearningLangs: Dispatch<SetStateAction<string[]>>;
 
   onboardMode: "Learn" | "Teach" | null;
   setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>;
 
-  name: string;
-  setName: Dispatch<SetStateAction<string>>;
+  // name: string;
+  // setName: Dispatch<SetStateAction<string>>;
 
   walletAddress: string;
   setWalletAddress:Dispatch<SetStateAction<string>>;
@@ -80,7 +79,7 @@ export interface UIContextObj {
   setFiredLogin: Dispatch<SetStateAction<true | false>>;
 }
 
-export interface StateProviderProps  {
+export interface OnboardStateProviderProps  {
   children: ReactNode;
 }
 

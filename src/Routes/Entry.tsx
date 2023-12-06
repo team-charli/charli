@@ -1,11 +1,11 @@
 import IconHeader from '../Components/Headers/IconHeader'
 import BannerHeader from '../Components/Headers/BannerHeader'
 import ButtonLink from '../Components/Elements/ButtonLink'
-import {StateContext} from '../contexts/StateContext'
+import {OnboardContext} from '../contexts/OnboardContext'
 import { useContextNullCheck } from '../hooks/utils/useContextNullCheck'
 
 const Entry = () => {
-  const {setOnboardMode} = useContextNullCheck(StateContext);
+  const {setOnboardMode} = useContextNullCheck(OnboardContext);
 
   return (
     <>

@@ -1,5 +1,5 @@
 import { AuthContext } from '../contexts/AuthContext'
-import { StateContext } from '../contexts/StateContext'
+import { OnboardContext } from '../contexts/OnboardContext'
 import { useContextNullCheck } from '../hooks/utils/useContextNullCheck'
 import { Switch, Route, Redirect} from 'react-router-dom';
 import {PrivateRouteProps} from '../types/types'
@@ -29,7 +29,7 @@ const Routes = () => {
 const AuthedAndOnboarded:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
   const {isAuthenticated} = useContextNullCheck(AuthContext);
 
-  const { isOnboarded } = useContextNullCheck(StateContext);
+  const { isOnboarded } = useContextNullCheck(OnboardContext);
 
   console.log("isOnboarded, isAuthenticated", {isOnboarded, isAuthenticated})
   return (

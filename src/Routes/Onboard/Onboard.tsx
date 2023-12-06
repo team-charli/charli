@@ -1,26 +1,22 @@
 import IconHeader from '../../Components/Headers/IconHeader'
 import BannerHeader from '../../Components/Headers/BannerHeader'
 import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
-import { StateContext } from '../../contexts/StateContext'
+import { OnboardContext } from '../../contexts/OnboardContext'
 import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
 import OnboardForm from './OnboardForm'
 import NonButtonLink from '../../Components/Elements/NonButtonLink'
-interface OnboardPropTypes {
-  currentAccount: IRelayPKP;
-  sessionSigs: SessionSigs;
-}
 
-export const Onboard = ({currentAccount}: OnboardPropTypes) => {
-  const { onboardMode: _onboardMode } = useContextNullCheck(StateContext, "onboardMode");
+export const Onboard = () => {
+  const { onboardMode: _onboardMode } = useContextNullCheck(OnboardContext, "onboardMode");
   console.log('_onboardMode:', _onboardMode)
   let fakeButton, form
 
   if (_onboardMode && _onboardMode  === "Learn") {
     fakeButton = <NonButtonLink> Learn 🎓</NonButtonLink>
-    form = <OnboardForm onboardMode={_onboardMode} currentAccount={currentAccount} / >
+    form = <OnboardForm onboardMode={_onboardMode}/ >
   } else if (_onboardMode && _onboardMode  === "Teach"){
     fakeButton = <NonButtonLink>Teach 🤑</NonButtonLink>
-    form = <OnboardForm onboardMode={_onboardMode} currentAccount={currentAccount} / >
+    form = <OnboardForm onboardMode={_onboardMode}/ >
   } else {
     fakeButton =  <NonButtonLink></NonButtonLink>
     form = null;

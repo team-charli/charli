@@ -9,7 +9,7 @@ export interface LanguageInfo {
   language: string;
   primaryFlag: string;
   secondaryFlag: string;
-  country_a2: string;  // Added countryA2 field
+  country_a2: string;
 }
 
 export const useGetUsersFlags = (primaryLanguages: string[] = ['eng', 'spa', 'zho', 'tha', 'fra', 'deu', 'ita', 'por', 'jpn', 'kor', 'hin']): LanguageInfo[] => {

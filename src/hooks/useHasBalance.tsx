@@ -7,7 +7,7 @@ export function useHasBalance() {
 
   useEffect(() => {
     //TODO: check balance call for submitAPI
-
+    //TODO: app-wide ethereum transactions and calls
     let balance // = contract call (userid => contract(contractAddr)) // need user id system that maps to wallet <address>
 
     balance = 11;  // placeholder
