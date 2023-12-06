@@ -1,5 +1,7 @@
-import { defineConfig } from "vite";
+/// <reference types='vitest' />
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import { NodeGlobalsPolyfillPlugin } from "@esbuild-plugins/node-globals-polyfill";
 import inject from "@rollup/plugin-inject";
 import nodePolyfills from "rollup-plugin-polyfill-node";
@@ -14,6 +16,8 @@ export default defineConfig(({ command, mode }) => {
     },
     plugins: [
       react(),
+      nxViteTsPaths(),
+      // Additional plugins from second config
       inject({
         util: "util/",
       }),
@@ -43,6 +47,8 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     server: {
+      port: 4200,
+      host: 'localhost',
       onListening(server) {
         const address = server.httpServer.address();
         const port = typeof address === 'string' ? address : address?.port;
@@ -56,6 +62,22 @@ export default defineConfig(({ command, mode }) => {
         process.env.VITE_REDIRECT_URI = "http://localhost:5173";
       },
     },
+    preview: {
+      port: 4300,
+      host: 'localhost',
+    },
+    test: {
+      globals: true,
+      cache: {
+        dir: '../../node_modules/.vitest',
+      },
+      environment: 'jsdom',
+      include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    },
     // ... other configurations
+    // Uncomment this if you are using workers.
+    // worker: {
+    //   plugins: [ nxViteTsPaths() ],
+    // },
   };
 });

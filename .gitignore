@@ -23,7 +23,6 @@ node_modules
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-charli.code-workspace
 
 # misc
 /.sass-cache
@@ -34,19 +33,9 @@ npm-debug.log
 yarn-error.log
 testem.log
 /typings
-/apps/frontend/componentTree.md
-/apps/frontend/notes.md
-/apps/frontend/src/trash/*
-.faq
-.dev-notes.md
-.notes
-.marketing-notes
-.secret-notes
-.other
+
 # System Files
 .DS_Store
 Thumbs.db
 
-# env
-**/.env
-
+.nx/cache
