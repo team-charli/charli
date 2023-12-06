@@ -1,7 +1,0 @@
-{
-  "name": "workers",
-  "private": true,
-  "scripts": {
-    "test": "vitest run"
-  }
-}
