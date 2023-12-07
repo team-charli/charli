@@ -9,14 +9,13 @@ interface SubmitOnboardTeachParams {
   langs: string[];
   name: string;
 }
-//FIX: auth protect db read/write?
 
 export const submitOnboardTeach = async ({langs, name}:SubmitOnboardTeachParams ) => {
   const {isOnboarded, setIsOnboarded} = useContextNullCheck(OnboardContext)
 
-  const {contextCurrentAccount, contextSessionSigs } = useContextNullCheck(AuthContext)
+  const {contextCurrentAccount, contextSessionSigs, jwt } = useContextNullCheck(AuthContext)
 
-  if (!isOnboarded && contextCurrentAccount && contextSessionSigs &&  langs.length && name.length) {
+  if (!isOnboarded && contextCurrentAccount && contextSessionSigs &&  langs.length && name.length && jwt?.length ) {
     const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
       NAME: name,
       WANTS_TO_TEACH_LANGS: langs,
@@ -31,6 +30,7 @@ export const submitOnboardTeach = async ({langs, name}:SubmitOnboardTeachParams 
     const insertedRows: Database["public"]["Tables"]["User"]["Row"][] | null = User;
 
   User ? console.log('insertedRows', insertedRows) : console.log(error);
+    setIsOnboarded(true)
     return true
   } else {
     throw new Error(`Failed to insert`)

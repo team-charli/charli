@@ -1,9 +1,17 @@
-import { Database } from './supabaseTypes'
 import { createClient } from "@supabase/supabase-js";
 
-if (!import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY) {
-  throw new Error('SUPABASE_PUBLIC_API_KEY is not set');
-}
+const supabaseUrl = "https://onhlhmondvxwwiwnruvo.supabase.co";
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY;
 
-export const supabase = createClient<Database>("https://onhlhmondvxwwiwnruvo.supabase.co", import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY);
+const userJWT = localStorage.getItem('userJWT');
+
+const options = {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    session: userJWT ? { Authorization: `Bearer ${userJWT}` } : undefined,
+  }
+}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, options );
 

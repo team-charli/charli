@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { AuthMethod } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '../../utils/lit';
 import { IRelayPKP } from '@lit-protocol/types';
 import { AuthContext } from '../../contexts/AuthContext'
 import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
+import { useFetchJWT } from '../Supabase/useFetchJWT';
 
 export default function useAccounts() {
   const [accounts, setAccounts] = useState<IRelayPKP[]>([]);
@@ -12,22 +13,20 @@ export default function useAccounts() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
 
+
   /**
    * Fetch PKPs tied to given auth method
    */
+
   const fetchAccounts = useCallback(
     async (authMethod: AuthMethod): Promise<void> => {
       setLoading(true);
       setError(undefined);
       try {
-        // Fetch PKPs tied to given auth method
         const myPKPs = await getPKPs(authMethod);
         setAccounts([myPKPs[0]]);
-        // If only one PKP, set as current account
-        // if (myPKPs.length === 1) {
           setCurrentAccount(myPKPs[0]);
           contextSetCurrentAccount(myPKPs[0]);
-        // }
       } catch (err) {
         setError(err as Error);
       } finally {

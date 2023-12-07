@@ -1,4 +1,5 @@
-import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
+ {SupabaseClient } from '@supabase/supabase-js';import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { RouteProps } from 'react-router-dom';
 
@@ -72,7 +73,11 @@ export interface AuthContextObj {
   contextSessionSigs: SessionSigs | null;
   contextSetSessionSigs: Dispatch<SetStateAction<SessionSigs | null>>;
   isAuthenticated: boolean | null;
-}
+  jwt: string | null;
+  updateJwt: Function;
+  supabaseClient: SupabaseClient | null;
+ }
+
 
 export interface UIContextObj {
   firedLogin: boolean;

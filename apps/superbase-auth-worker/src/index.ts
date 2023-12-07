@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { ethers } from 'ethers';
-import jwt from 'jsonwebtoken'; // Use 'npm:jsonwebtoken' when deploying to Cloudflare Workers
+import jwt from '@tsndr/cloudflare-worker-jwt'
+// import jwt from 'jsonwebtoken'; // Use 'npm:jsonwebtoken' when deploying to Cloudflare Workers
 
 interface RequestBody {
   ethereumAddress: string;
@@ -36,6 +37,7 @@ export default {
 
 // JWT Worker Logic
 async function handleJWTRequest(request: Request, env: Env): Promise<Response> {
+
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }

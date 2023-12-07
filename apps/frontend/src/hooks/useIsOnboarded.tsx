@@ -1,4 +1,4 @@
-import {  useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../supabaseClient';
 import { useAsyncEffect } from './utils/useAsyncEffect';
 import { UseIsOnboardedParam  } from '../types/types'

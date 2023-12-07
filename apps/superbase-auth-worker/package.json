@@ -5,10 +5,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "ethers": "^6.9.0",
-    "jsonwebtoken": "^9.0.2"
-  },
-  "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.5"
+    "@tsndr/cloudflare-worker-jwt": "^2.3.2",
+    "ethers": "^6.9.0"
   }
 }

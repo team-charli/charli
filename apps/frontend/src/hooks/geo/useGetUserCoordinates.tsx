@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { GeolocationApiResponse } from '../../types/types';
-import got from 'got';
+import ky from 'ky';
 
 type LocationState = {
   lat: number;
@@ -12,7 +12,7 @@ export const useGetUserCoordinates = () => {
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    got('http://ip-api.com/json/').json<GeolocationApiResponse>()
+    ky('http://ip-api.com/json/').json<GeolocationApiResponse>()
       .then(response => {
         if (response.lat !== null && response.lon !== null) {
           setLocation({
