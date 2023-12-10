@@ -1,8 +1,9 @@
-/// <reference types='vitest' />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import { NodeGlobalsPolyfillPlugin } from "@esbuild-plugins/node-globals-polyfill";
+import inject from "@rollup/plugin-inject";
+import nodePolyfills from "rollup-plugin-polyfill-node";
 
 export default defineConfig({
   root: __dirname,
@@ -18,16 +19,21 @@ export default defineConfig({
     host: 'localhost',
   },
 
-  plugins: [react(), nxViteTsPaths(), nodePolyfills()],
-
-  // Uncomment this if you are using workers.
-  // worker: {
-  //  plugins: [ nxViteTsPaths() ],
-  // },
+  plugins: [
+    react(),
+    // Order of plugins might be crucial, adjust as needed
+    nxViteTsPaths(),
+    inject({
+      util: "util/", // as in the sample config
+    }),
+  ],
 
   build: {
     outDir: '../../dist/apps/frontend',
     reportCompressedSize: true,
+    rollupOptions: {
+      plugins: [nodePolyfills()], // Include Node.js polyfills
+    },
     commonjsOptions: {
       transformMixedEsModules: true,
     },
@@ -47,5 +53,17 @@ export default defineConfig({
       provider: 'v8',
     },
   },
-});
 
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: "globalThis", // Ensures global object compatibility
+      },
+      plugins: [
+        NodeGlobalsPolyfillPlugin({
+          buffer: true, // Polyfills for Node.js Buffer module
+        }),
+      ],
+    },
+  },
+});

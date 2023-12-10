@@ -1,17 +1,35 @@
-import { submitOnboardLearn } from "../../api/onboardLearnAPI";
-import { submitOnboardTeach } from "../../api/onboardTeachAPI";
-import { CombinedFormProps } from '../../types/types'
+import { useSubmitOnboardLearnAPI } from "../../api/useSubmitOnboardLearnAPI";
+import { useSubmitOnboardTeachAPI } from "../../api/useSubmitOnboardTeachAPI";
+import { OnboardContext } from "../../contexts/OnboardContext";
+import { useContextNullCheck } from "../utils/useContextNullCheck";
 
-const useSubmitForm = ({ onboardMode, languages }: CombinedFormProps) => {
-  return (values) => {
-    const selectedLanguages = languages.filter(language => values[language]);
+interface OnboardFormData {
+  name: string;
+  [key: string]: boolean; // For each language toggle button
+}
+
+export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
+  const { setTeachingLangs, setLearningLangs, setName } = useContextNullCheck(OnboardContext);
+
+  return async (formData: OnboardFormData) => {
+    setName(formData.name);
+
+    const selectedLanguages = Object.keys(formData).filter(key => formData[key] === true);
+
     if (onboardMode === "Learn") {
-      submitOnboardLearn({ langs: selectedLanguages, name: values.name })
+      setLearningLangs(selectedLanguages);
+
     } else {
-      submitOnboardTeach({ langs: selectedLanguages, name: values.name })
+      setTeachingLangs(selectedLanguages);
+    }
+
+    if (onboardMode === "Learn") {
+      useSubmitOnboardLearnAPI();
+    } else if (onboardMode === "Teach")  {
+      useSubmitOnboardTeachAPI();
+    } else {
+      throw new Error('no onboard mode set')
     }
   };
 };
-
-export default useSubmitForm;
 

@@ -39,12 +39,12 @@ const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
     onboardMode,
     walletAddress,
     setWalletAddress,
-    //setName,
-    // name,
-    // teachingLangs,
-    // setTeachingLangs,
-    // learningLangs,
-    // setLearningLangs,
+    setName,
+    name,
+    teachingLangs,
+    setTeachingLangs,
+    learningLangs,
+    setLearningLangs,
   };
 
   return (

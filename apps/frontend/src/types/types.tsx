@@ -43,25 +43,25 @@ export type FormValues = {
 };
 
 export interface OnboardContextObj {
-
   hasBalance: boolean;
 
   isOnboarded: boolean | null;
   setIsOnboarded: Dispatch<SetStateAction<boolean| null>>;
+
   nativeLang: string;
   setNativeLang: Function;
 
-  // setTeachingLangs: Dispatch<SetStateAction<string[]>>;
-  // teachingLangs: string[];
+  teachingLangs: string[];
+  setTeachingLangs: Dispatch<SetStateAction<string[]>>;
 
-  // learningLangs?: string[] | undefined;
-  // setLearningLangs: Dispatch<SetStateAction<string[]>>;
+  learningLangs: string[];
+  setLearningLangs: Dispatch<SetStateAction<string[]>>;
 
   onboardMode: "Learn" | "Teach" | null;
   setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>;
 
-  // name: string;
-  // setName: Dispatch<SetStateAction<string>>;
+   name: string;
+   setName: Dispatch<SetStateAction<string>>;
 
   walletAddress: string;
   setWalletAddress:Dispatch<SetStateAction<string>>;

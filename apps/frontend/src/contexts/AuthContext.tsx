@@ -5,7 +5,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 export const AuthContext = createContext<AuthContextObj | null>(null);
 export const useAuthContext = () => useContext(AuthContext);
 const supabaseUrl = "https://onhlhmondvxwwiwnruvo.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY || "";
 
 const AuthProvider = ({children}: AuthProviderProps) => {
   const [jwt, setJwt] = useState(localStorage.getItem('userJWT'));
@@ -55,5 +55,4 @@ const AuthProvider = ({children}: AuthProviderProps) => {
 
 export default AuthProvider
 
-//TODO: safer check for sigs and auth.  prefer a function that tests it
-
+//OPTIM: safer check for sigs and auth.  prefer a function that tests it

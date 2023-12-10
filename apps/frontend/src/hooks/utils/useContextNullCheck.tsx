@@ -3,17 +3,20 @@ import { useContext, Context } from 'react';
 export function useContextNullCheck<T>(context: Context<T | null>, ...values: (keyof T)[]): T {
   const contextValue = useContext(context);
 
-  // Throw an error if contextValue is null or undefined
   if (contextValue === null || contextValue === undefined) {
     throw new Error('useContextNullCheck must be used within a Context.Provider');
   }
 
-  // Iterate over each value and check if it's null in the contextValue
   values.forEach(value => {
-    if (contextValue[value] === null) {
-      throw new Error(`Property '${String(value)}' is null in the context`);
+    if (contextValue[value] === null || contextValue[value] === undefined) {
+      throw new Error(`Property '${String(value)}' is null or undefined in the context`);
     }
   });
 
-  return contextValue;
+  // Type guard to assure TypeScript that none of the properties are null or undefined
+  if (values.every(value => contextValue[value] !== null && contextValue[value] !== undefined)) {
+    return contextValue as T;
+  }
+
+  throw new Error('Unexpected error in useContextNullCheck');
 }

@@ -1,6 +1,6 @@
 import LoginView from "../../Components/Views/LoginView"
 import BannerHeader from '../../Components/Headers/BannerHeader'
-import IconHeader from '../../Components/Headers/IconHeader.tsx'
+import IconHeader from '../../Components/Headers/IconHeader'
 
 export const Login = () => {
   return (

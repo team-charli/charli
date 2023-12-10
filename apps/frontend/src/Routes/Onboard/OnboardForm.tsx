@@ -1,17 +1,15 @@
 import { useForm } from 'react-hook-form';
 import LanguageToggleButtons from '../../Components/Onboard/Form/LanguageToggleButtons';
 import NameInputField from '../../Components/Onboard/Form/NameInputField';
-import useSubmitForm from '../../hooks/forms/useSubmitOnboardForm';
+import { useSubmitOnboardForm } from '../../hooks/forms/useSubmitOnboardForm';
 import { CombinedFormProps } from '../../types/types';
 
 export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
   const { handleSubmit, control, setValue, register, formState: { errors } } = useForm();
 
-  const onSubmit = useSubmitForm({ onboardMode});
-
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <LanguageToggleButtons languages={languages} control={control} setValue={setValue} />
+    <form onSubmit={handleSubmit(useSubmitOnboardForm(onboardMode))}>
+      <LanguageToggleButtons control={control} setValue={setValue} />
       <NameInputField register={register} errors={errors} />
       <div className="__submit-button-container__ flex justify-center mt-7">
         <button className="bg-zinc-300 rounded border p-1 border-black" type="submit">Submit</button>
