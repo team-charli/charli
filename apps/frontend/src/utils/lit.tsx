@@ -32,10 +32,8 @@ export const litNodeClient: LitNodeClient = new LitNodeClient({
 export const litAuthClient: LitAuthClient = new LitAuthClient({
   litRelayConfig: {
     // relayUrl: 'http://localhost:3001',
-    relayApiKey: "E02B0102-DFF4-67E9-3385-5C71096D7CA0_charli"
+    relayApiKey: import.meta.env.VITE_LIT_RELAY_API_KEY,
   },
-    //HACK: put back in .env
-    //relayApiKey: import.meta.env.VITE_LIT_RELAY_API_KEY,
 
   litOtpConfig: {
     baseUrl: 'https://auth-api.litgateway.com',

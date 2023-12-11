@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import tsconfigPaths from 'vite-tsconfig-paths'
 
 export default defineConfig({
   root: __dirname,
@@ -18,11 +19,11 @@ export default defineConfig({
     host: 'localhost',
   },
 
-  plugins: [react(), nxViteTsPaths(), nodePolyfills()],
+  plugins: [react(), , nodePolyfills(), tsconfigPaths({root: '../../'}) ],
 
   // Uncomment this if you are using workers.
   // worker: {
-  //  plugins: [ nxViteTsPaths() ],
+  //  plugins: [ nxViteTsPaths(),  ],
   // },
 
   build: {
@@ -47,5 +48,10 @@ export default defineConfig({
       provider: 'v8',
     },
   },
+  logLevel: 'info',
+define: {
+  'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+  '__dirname': JSON.stringify('/')
+},
 });
 
