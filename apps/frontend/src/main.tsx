@@ -1,3 +1,5 @@
+import { WagmiConfig, configureChains, mainnet } from 'wagmi'
+import {config} from '../wagmi.config'
 import "./index.css" // make sure the path.
 import { StrictMode } from 'react';
 import * as ReactDOM from 'react-dom/client';
@@ -13,9 +15,11 @@ const root = ReactDOM.createRoot(
 root.render(
   <StrictMode>
     <ErrorBoundary>
-      <Router>
-        <App />
-      </Router>
+      <WagmiConfig config={config}>
+        <Router>
+          <App />
+        </Router>
+      </WagmiConfig>
     </ErrorBoundary>
   </StrictMode>
 );

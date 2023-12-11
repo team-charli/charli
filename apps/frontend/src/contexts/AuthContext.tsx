@@ -7,17 +7,32 @@ export const useAuthContext = () => useContext(AuthContext);
 const supabaseUrl = "https://onhlhmondvxwwiwnruvo.supabase.co";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY || "";
 
+// Singleton pattern for Supabase client
+let supabaseInstance: SupabaseClient | null = null;
+const getSupabaseClient = (jwt: string) => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${jwt}`
+        }
+      }
+    });
+  }
+  return supabaseInstance;
+};
+
 const AuthProvider = ({children}: AuthProviderProps) => {
   const [jwt, setJwt] = useState(localStorage.getItem('userJWT'));
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
-
   useEffect(() => {
-    const clientOptions = jwt ? {
-      global: { headers: { Authorization: `Bearer ${jwt}` } }
-    } : {};
-    const client = createClient(supabaseUrl, supabaseAnonKey, clientOptions);
-    setSupabaseClient(client);
-  }, [jwt]);
+      if (jwt) {
+        console.log(`has jwt`)
+        const client = getSupabaseClient(jwt);
+        setSupabaseClient(client);
+      }
+    }, [jwt]);
+
 
   const [contextCurrentAccount, contextSetCurrentAccount] = useState<IRelayPKP | null>(null);
   const [contextSessionSigs, contextSetSessionSigs]  = useState<SessionSigs | null>(null);

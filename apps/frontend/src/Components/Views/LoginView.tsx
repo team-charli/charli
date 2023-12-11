@@ -19,7 +19,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const {isOnboarded} = useContextNullCheck(OnboardContext);
   const {firedLogin, setFiredLogin} = useContextNullCheck(UIContext);
 
-  const redirectUri = "http://localhost:5173/login"
+  const redirectUri = "http://localhost:4200/login"
   const {
     authMethod,
     error: authError,
