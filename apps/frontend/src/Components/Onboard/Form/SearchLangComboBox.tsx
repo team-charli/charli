@@ -14,9 +14,9 @@ const SearchLangComboBox = ({
   getValues
 }: SearchLangComboBoxProps) => {
   //debug useEffect
-  useEffect(() => {
-    console.log(`getValues, ${JSON.stringify(getValues())}`);
-  }, [getValues()])
+  // useEffect(() => {
+  //   console.log(`getValues, ${JSON.stringify(getValues())}`);
+  // }, [getValues()])
 
 
   const [selectedLanguage, setSelectedLanguage] = useState('');
@@ -35,7 +35,6 @@ const SearchLangComboBox = ({
 
     // Check if language is already rendered as a button
     const isLanguageExists = combinedLanguages.some(lang => lang.language === selectedLanguage);
-    console.log({isLanguageExists});
 
     if (isLanguageExists) {
       // Toggle selection state if button already exists
@@ -43,7 +42,6 @@ const SearchLangComboBox = ({
       setValue(buttonName, !currentValue);
     } else {
       // Add new language button and select it
-      console.log('called new button');
 
       const newLanguageButton = { language: selectedLanguage, primaryFlag };
       setCombinedLanguages(prev => [...prev, newLanguageButton]);

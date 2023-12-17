@@ -36,10 +36,8 @@ export default function useAuthenticate(redirectUri?: string) {
 
 
   useEffect(() => {
-    // Check if user is redirected from social login
     if (redirectUri && isSignInRedirect(redirectUri)) {
 
-      // If redirected, authenticate with social provider
       const providerName = getProviderFromUrl();
       if (providerName === 'google') {
         authWithGoogle();

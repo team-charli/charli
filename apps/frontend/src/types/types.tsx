@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
+import { IRelayPKP, SessionSigs, AuthMethod  } from '@lit-protocol/types';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { RouteProps } from 'react-router-dom';
 
@@ -67,14 +67,22 @@ export interface OnboardContextObj {
 }
 
 export interface AuthContextObj {
-  contextCurrentAccount: IRelayPKP | null;
-  contextSetCurrentAccount: Dispatch<SetStateAction<IRelayPKP | null>>;
-  contextSessionSigs: SessionSigs | null;
-  contextSetSessionSigs: Dispatch<SetStateAction<SessionSigs | null>>;
-  isAuthenticated: boolean | null;
+  authMethod: AuthMethod | undefined;
+  // setAuthMethod: Dispatch<SetStateAction<AuthMethod | undefined>>;
+  currentAccount: IRelayPKP | undefined;
+  // setCurrentAccount: Dispatch<SetStateAction<IRelayPKP | null>>;
+  sessionSigs: SessionSigs | undefined;
+  // setSessionSigs: Dispatch<SetStateAction<SessionSigs | undefined>>;
   jwt: string | null;
   updateJwt: Function;
   supabaseClient: SupabaseClient | null;
+  isAuthenticated: boolean | null;
+  authLoading: boolean;
+  accountsLoading: boolean;
+  sessionLoading: boolean;
+  authError: Error | undefined;
+  accountsError: Error | undefined;
+  sessionError: Error | undefined;
 }
 
 

@@ -8,11 +8,11 @@ import { ErrorModal } from '../Components/Errors/ErrorModal'
 
 export const useSubmitOnboardLearnAPI = () => {
   const {isOnboarded, setIsOnboarded, learningLangs, name, hasBalance} = useContextNullCheck(OnboardContext)
-  const { contextCurrentAccount, contextSessionSigs, jwt, supabaseClient } = useContextNullCheck(AuthContext, 'contextCurrentAccount', 'contextSessionSigs', 'jwt', 'supabaseClient');
+  const { currentAccount,  sessionSigs, jwt, supabaseClient } = useContextNullCheck(AuthContext, 'currentAccount', 'sessionSigs', 'jwt', 'supabaseClient');
 
   useAsyncEffect(async () => {
 
-    if (!isOnboarded && contextCurrentAccount && contextSessionSigs &&  learningLangs.length && name.length && jwt?.length && supabaseClient ) {
+    if (!isOnboarded && currentAccount && sessionSigs &&  learningLangs.length && name.length && jwt?.length && supabaseClient ) {
       if (!hasBalance) {
         return <ErrorModal errorText="To learn you either need money in your account or you need to be a teacher" />
         //OPTIM: Better user handling
@@ -20,7 +20,7 @@ export const useSubmitOnboardLearnAPI = () => {
       const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
         NAME: name,
         WANTS_TO_LEARN_LANGS: learningLangs,
-        USER_ADDRESS: contextCurrentAccount.ethAddress,
+        USER_ADDRESS: currentAccount.ethAddress,
         DEFAULT_NATIVE_LANGUAGE: 'ENG',
       };
 
@@ -42,7 +42,7 @@ export const useSubmitOnboardLearnAPI = () => {
     }
   },
     async () => Promise.resolve(),
-    [isOnboarded, contextCurrentAccount, contextSessionSigs, learningLangs, name, jwt, supabaseClient]
+    [isOnboarded, currentAccount, sessionSigs, learningLangs, name, jwt, supabaseClient]
 
   )
 

@@ -13,6 +13,7 @@ import Room from './Room/Room'
 
 const Routes = () => {
   useReturnToRoom()
+      //<Route path="/onboard" component={Onboard} />
 
   return (
     <Switch>
@@ -20,18 +21,21 @@ const Routes = () => {
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Login} />
       <Route path="/bolsa" component={Bolsa} />
-      <Route path="/onboard" component={Onboard} />
       <AuthedAndOnboarded path="/lounge" component={Lounge} />
       <AuthedAndOnboarded path="/room" component={Room} />
     </Switch>
   )};
+
+const Authed: React.FC<PrivateRouteProps> = ({component: Component, ...rest}) => {
+
+}
 
 const AuthedAndOnboarded:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
   const {isAuthenticated} = useContextNullCheck(AuthContext);
 
   const { isOnboarded } = useContextNullCheck(OnboardContext);
 
-  console.log("isOnboarded, isAuthenticated", {isOnboarded, isAuthenticated})
+  // console.log("isOnboarded, isAuthenticated", {isOnboarded, isAuthenticated})
   return (
     <Route
       {...rest}

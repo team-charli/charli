@@ -11,11 +11,11 @@ export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
     setName(formData.name);
 
     const languageData = formData.languages;
+    console.log(`formData.languages: ${formData.languages}`)
     const selectedLanguages = Object.keys(languageData).filter(key => languageData[key]);
 
     if (onboardMode === "Learn") {
       setLearningLangs(selectedLanguages);
-
     } else {
       setTeachingLangs(selectedLanguages);
     }

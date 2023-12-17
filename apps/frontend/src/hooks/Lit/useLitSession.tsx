@@ -8,7 +8,6 @@ import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
 
 export default function useSession() {
   const [sessionSigs, setSessionSigs] = useState<SessionSigs>();
-  const {contextSessionSigs, contextSetSessionSigs} = useContextNullCheck(AuthContext);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
 
@@ -44,7 +43,6 @@ export default function useSession() {
         });
 
         setSessionSigs(sessionSigs);
-        contextSetSessionSigs(sessionSigs);
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -56,6 +54,7 @@ export default function useSession() {
 
   return {
     initSession,
+    setSessionSigs,
     sessionSigs,
     loading,
     error,

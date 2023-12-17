@@ -15,9 +15,6 @@ export const useGetUsersFlags = (): LanguageInfo[] | null => {
   const geoLoCountry = useGetUserCountry();
 
   const getFlagEmojis = (language: string, geLoCountryA3Code: string): [string, string] => {
-    // if (language === 'deu') {
-    //   debugger;
-    // }
     const countryInfo = countryDataset[geLoCountryA3Code];
     if (!countryInfo) throw new Error(`Country information not found for code: ${geLoCountryA3Code}`);
 
@@ -34,9 +31,6 @@ export const useGetUsersFlags = (): LanguageInfo[] | null => {
     const languageData = languageDataset[languageName];
 
     if (!languageData) throw new Error(`Language data not found for language: ${language}`);
-    // if (language === 'fra') {
-    //   debugger;
-    // }
     const primaryFlag = languageData.flags[languageData.countries.indexOf(primaryCountryCode)];
     const secondaryFlags = languageData.flags.filter((_, index: number) => languageData.countries[index] !== primaryCountryCode);
     const randomSecondaryFlag = secondaryFlags[Math.floor(Math.random() * secondaryFlags.length)];
@@ -66,6 +60,9 @@ export const useGetUsersFlags = (): LanguageInfo[] | null => {
 
   // No need for useEffect and useState anymore
   // console.log({langArr});
+
+
+  console.log(langArr);
 
   return langArr;
 };

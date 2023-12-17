@@ -1,68 +1,32 @@
+import { useAuth } from '../hooks/useAuth'
 import { useState, createContext, useContext, useEffect} from 'react'
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { AuthContextObj, AuthProviderProps  } from '../types/types'
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 export const AuthContext = createContext<AuthContextObj | null>(null);
 export const useAuthContext = () => useContext(AuthContext);
-const supabaseUrl = "https://onhlhmondvxwwiwnruvo.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY || "";
-
-// Singleton pattern for Supabase client
-let supabaseInstance: SupabaseClient | null = null;
-const getSupabaseClient = (jwt: string) => {
-  if (!supabaseInstance) {
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${jwt}`
-        }
-      }
-    });
-  }
-  return supabaseInstance;
-};
 
 const AuthProvider = ({children}: AuthProviderProps) => {
-  const [jwt, setJwt] = useState(localStorage.getItem('userJWT'));
-  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
-  useEffect(() => {
-      if (jwt) {
-        console.log(`has jwt`)
-        const client = getSupabaseClient(jwt);
-        setSupabaseClient(client);
-      }
-    }, [jwt]);
+const { isAuthenticated, authMethod, currentAccount, sessionSigs, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError, supabaseClient, jwt, updateJwt } = useAuth();
 
 
-  const [contextCurrentAccount, contextSetCurrentAccount] = useState<IRelayPKP | null>(null);
-  const [contextSessionSigs, contextSetSessionSigs]  = useState<SessionSigs | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  const updateJwt = (newToken:string) => {
-    localStorage.setItem('userJWT', newToken);
-    setJwt(newToken);
-  };
-  useEffect(() => {
-    if (contextCurrentAccount && contextSessionSigs) {
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-    }
-  }, [contextCurrentAccount, contextSessionSigs]);
-
-  const authObj: AuthContextObj = {
-    contextSetCurrentAccount,
-    contextCurrentAccount,
-    contextSessionSigs,
-    contextSetSessionSigs,
-    isAuthenticated,
+  const auth: AuthContextObj = {
+    authMethod,
+    currentAccount,
+    sessionSigs,
+    authLoading,
+    accountsLoading,
+    sessionLoading,
+    authError,
+    accountsError,
+    sessionError,
+    // setSessionSigs,
     jwt,
     updateJwt,
     supabaseClient,
+    isAuthenticated,
   };
 
   return (
-    <AuthContext.Provider value={authObj}>
+    <AuthContext.Provider value={auth}>
       {children}
     </AuthContext.Provider>
   )
@@ -70,4 +34,3 @@ const AuthProvider = ({children}: AuthProviderProps) => {
 
 export default AuthProvider
 
-//OPTIM: safer check for sigs and auth.  prefer a function that tests it

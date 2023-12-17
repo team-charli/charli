@@ -6,6 +6,7 @@ import SearchLangComboBox from '../../Components/Onboard/Form/SearchLangComboBox
 import { useSubmitOnboardForm } from '../../hooks/forms/useSubmitOnboardForm';
 import { useGetUsersFlags } from '../../hooks/geo/useGetUsersFlags';
 import { CombinedFormProps, OnboardFormData, LanguageButton } from '../../types/types';
+import isEqual from 'lodash.isequal';
 
 export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
   const initialLanguages = useGetUsersFlags() || [];
@@ -13,14 +14,15 @@ export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
   const { handleSubmit, register, control, setValue, getValues, formState: { errors } } = useForm<OnboardFormData>();
   const callback = useSubmitOnboardForm(onboardMode);
 
- useEffect(() => {
-    setCombinedLanguages(initialLanguages);
-  }, [initialLanguages]);
-
-//debugging useEffect
   useEffect(() => {
+    console.log(`initialLanguages: ${initialLanguages}`)
     console.log(`combinedLanguages: ${combinedLanguages}`);
-  }, [combinedLanguages])
+
+    // if (!isEqual(initialLanguages, combinedLanguages)) {
+      console.log('passed isEqual, setting combinedLanguages with initialLanguages: ', initialLanguages )
+      setCombinedLanguages(initialLanguages);
+    // }
+  }, [initialLanguages]);
 
   return (
     <div>

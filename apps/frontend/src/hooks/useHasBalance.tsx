@@ -10,25 +10,25 @@ export function useHasBalance() {
   const [address, setAddress] = useState<`0x${string}`| undefined>(undefined)
 
   useAsyncEffect( async () => {
-    if (authContext?.contextCurrentAccount && authContext?.contextSessionSigs) {
+    if (authContext?.currentAccount && authContext?.sessionSigs) {
       const pkpWallet = new PKPEthersWallet({
-        pkpPubKey: authContext.contextCurrentAccount.publicKey,
-        controllerSessionSigs: authContext.contextSessionSigs,
+        pkpPubKey: authContext.currentAccount.publicKey,
+        controllerSessionSigs: authContext.sessionSigs,
       });
 
       await pkpWallet.init()
-      const balance =  await pkpWallet.getBalance(authContext.contextCurrentAccount.ethAddress)
+      const balance =  await pkpWallet.getBalance(authContext.currentAccount.ethAddress)
       console.log({balance})
     }
   },
     async () => Promise.resolve(),
 
-    [authContext?.contextCurrentAccount, authContext?.contextSessionSigs]
+    [authContext?.currentAccount, authContext?.sessionSigs]
   )
 
   // useEffect(() => {
-  //   if (contextCurrentAccount?.ethAddress) {
-  //      setAddress(contextCurrentAccount.ethAddress)
+  //   if (currentAccount?.ethAddress) {
+  //      setAddress(currentAccount.ethAddress)
   //   }
 
   //   const balance:BigInt = balance(address)

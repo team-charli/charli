@@ -6,16 +6,16 @@ import { Database } from '../supabaseTypes';
 
 export const useSubmitOnboardTeachAPI = () => {
   const {isOnboarded, setIsOnboarded, teachingLangs, name} = useContextNullCheck(OnboardContext)
-  const { contextCurrentAccount, contextSessionSigs, jwt, supabaseClient } = useContextNullCheck(AuthContext, 'contextCurrentAccount', 'contextSessionSigs', 'jwt', 'supabaseClient');
+  const { currentAccount, sessionSigs, jwt, supabaseClient } = useContextNullCheck(AuthContext, 'currentAccount', 'sessionSigs', 'jwt', 'supabaseClient');
 
 
   useAsyncEffect( async () => {
 
-    if (!isOnboarded && contextCurrentAccount && contextSessionSigs &&  teachingLangs.length && name.length && jwt?.length && supabaseClient ) {
+    if (!isOnboarded && currentAccount && sessionSigs &&  teachingLangs.length && name.length && jwt?.length && supabaseClient ) {
       const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
         NAME: name,
         WANTS_TO_TEACH_LANGS: teachingLangs,
-        USER_ADDRESS: contextCurrentAccount.ethAddress,
+        USER_ADDRESS: currentAccount.ethAddress,
         DEFAULT_NATIVE_LANGUAGE: 'ENG',
       };
 
@@ -33,7 +33,7 @@ export const useSubmitOnboardTeachAPI = () => {
     }
   },
     async () => Promise.resolve(),
-    [isOnboarded, contextCurrentAccount, contextSessionSigs, teachingLangs, name, jwt, supabaseClient]
+    [isOnboarded, currentAccount, sessionSigs, teachingLangs, name, jwt, supabaseClient]
   )
 }
 

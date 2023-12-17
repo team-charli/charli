@@ -5,19 +5,19 @@ import { useFetchNonce } from './useFetchNonce';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 
 export function useFetchJWT() {
-  const { contextCurrentAccount, contextSessionSigs, updateJwt } = useContextNullCheck(AuthContext);
+  const { currentAccount, sessionSigs, updateJwt } = useContextNullCheck(AuthContext);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const nonce = useFetchNonce()
 
   useEffect(() => {
     async function fetchJWT() {
-      if (contextCurrentAccount && contextSessionSigs && nonce) {
+      if (currentAccount && sessionSigs && nonce) {
         setLoading(true);
-        const ethereumAddress = contextCurrentAccount.ethAddress;
+        const ethereumAddress = currentAccount.ethAddress;
         const pkpWallet = new PKPEthersWallet({
-          controllerSessionSigs: contextSessionSigs,
-          pkpPubKey: contextCurrentAccount.publicKey,
+          controllerSessionSigs: sessionSigs,
+          pkpPubKey: currentAccount.publicKey,
         });
         await pkpWallet.init();
 
@@ -42,7 +42,7 @@ export function useFetchJWT() {
     }
 
     fetchJWT();
-  }, [contextCurrentAccount, contextSessionSigs, nonce ]); // Dependency on contextCurrentAccount
+  }, [currentAccount, sessionSigs, nonce ]); // Dependency on contextCurrentAccount
 
   return { loading, error };
 }

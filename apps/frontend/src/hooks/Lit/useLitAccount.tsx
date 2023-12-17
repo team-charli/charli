@@ -8,7 +8,7 @@ import { useFetchJWT } from '../Supabase/useFetchJWT';
 
 export default function useAccounts() {
   const [accounts, setAccounts] = useState<IRelayPKP[]>([]);
-  const {contextCurrentAccount, contextSetCurrentAccount} = useContextNullCheck(AuthContext);
+  // const {contextCurrentAccount, contextSetCurrentAccount} = useContextNullCheck(AuthContext);
   const [currentAccount, setCurrentAccount] = useState<IRelayPKP>();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
@@ -26,7 +26,7 @@ export default function useAccounts() {
         const myPKPs = await getPKPs(authMethod);
         setAccounts([myPKPs[0]]);
           setCurrentAccount(myPKPs[0]);
-          contextSetCurrentAccount(myPKPs[0]);
+          // contextSetCurrentAccount(myPKPs[0]);
       } catch (err) {
         setError(err as Error);
       } finally {
