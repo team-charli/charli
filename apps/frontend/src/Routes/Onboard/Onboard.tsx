@@ -2,13 +2,11 @@ import IconHeader from '../../Components/Headers/IconHeader'
 import BannerHeader from '../../Components/Headers/BannerHeader'
 import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
 import { OnboardContext } from '../../contexts/OnboardContext'
-import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
 import OnboardForm from './OnboardForm'
 import NonButtonLink from '../../Components/Elements/NonButtonLink'
 
 export const Onboard = () => {
   const { onboardMode: _onboardMode } = useContextNullCheck(OnboardContext, "onboardMode");
-  console.log('_onboardMode:', _onboardMode)
   let fakeButton, form
 
   if (_onboardMode && _onboardMode  === "Learn") {
@@ -35,3 +33,5 @@ export const Onboard = () => {
   )
 }
 export default Onboard;
+
+//FIX: Have to login in repeatedly.  Maybe not reading the localstorage

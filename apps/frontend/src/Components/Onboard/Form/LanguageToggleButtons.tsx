@@ -1,32 +1,33 @@
+import React from 'react';
 import { Controller } from 'react-hook-form';
-import { ToggleButtonProps } from '../../../types/types';
-import { useGetUsersFlags } from '../../../hooks/geo/useGetUsersFlags';
+import { LanguageToggleButtonsProps, ToggleButtonProps } from '../../../types/types';
 
-
-const LanguageToggleButtons = ({ control, setValue }: Pick<ToggleButtonProps, 'control' | 'setValue'>) => {
-  const languages = useGetUsersFlags();
+const LanguageToggleButtons = ({ control, setValue, combinedLanguages }: LanguageToggleButtonsProps) => {
+  if (combinedLanguages.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="__language-button-container__ flex justify-center mt-24">
-      {languages.map(language => (
-        <>
+    <div className="__language-button-container__ grid grid-cols-4 gap-2 justify-center mt-24 w-1/3 mx-auto">
+      {combinedLanguages.map((language, index) => (
+        <React.Fragment key={index}>
           <ToggleButton
-            key={`${language.country_a2}-${language.primaryFlag}`}
-            label={language.language}
-            name={`${language.country_a2} ${language.primaryFlag}`}
+            key={`${language.language}-${language.primaryFlag}`}
+            label={`${language.language}-${language.primaryFlag}`}
+            name={`${language.language}-${language.primaryFlag}`}
             control={control}
             setValue={setValue}
           />
-          {language.secondaryFlag && (
+          {!language.omitSecondaryFlag && language.secondaryFlag && (
             <ToggleButton
-              key={`${language.country_a2}-${language.secondaryFlag}`}
-              label={language.language}
-              name={`${language.country_a2} ${language.secondaryFlag}`}
+              key={`${language.language}-${language.secondaryFlag}`}
+              label={`${language.language}-${language.secondaryFlag}`}
+              name={`${language.language}-${language.secondaryFlag}`}
               control={control}
               setValue={setValue}
             />
           )}
-        </>
+        </React.Fragment>
       ))}
     </div>
   );
@@ -53,8 +54,4 @@ const ToggleButton = ({ label, name, control, setValue }: ToggleButtonProps) => 
 };
 
 export default LanguageToggleButtons;
-
-
-
-
-
+//FIX: Some buttons render larger

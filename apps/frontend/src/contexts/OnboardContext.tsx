@@ -19,14 +19,13 @@ const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
   const [nativeLang, setNativeLang] = useState('');
 
   const [name, setName] = useState("");
-  const [teachingLangs, setTeachingLangs] = useState([] as string[])
-  const [learningLangs, setLearningLangs] = useState([] as string[])
-  const [walletAddress, setWalletAddress] = useState("")
+  const [teachingLangs, setTeachingLangs] = useState([] as string[]);
+  const [learningLangs, setLearningLangs] = useState([] as string[]);
 
   /*Debug Hook*/
-  useEffect(() => {
-    console.log('onboardMode:', onboardMode)
-  }, [onboardMode])
+  // useEffect(() => {
+  //   console.log('onboardMode:', onboardMode)
+  // }, [onboardMode]);
 
 
   const contextObj: OnboardContextObj = {
@@ -37,8 +36,6 @@ const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
     setNativeLang,
     setOnboardMode,
     onboardMode,
-    walletAddress,
-    setWalletAddress,
     setName,
     name,
     teachingLangs,

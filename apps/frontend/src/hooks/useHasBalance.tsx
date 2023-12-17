@@ -1,22 +1,43 @@
-import {useState, useEffect} from 'react'
+import {useState, useEffect, useContext} from 'react'
+import { AuthContext } from '../contexts/AuthContext'
+import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
+import { useAsyncEffect } from './utils/useAsyncEffect';
 
 export function useHasBalance() {
-  // checks if user has balance > 1 hour talk time @ $0.20 /min
+  const authContext = useContext(AuthContext);
 
   const [hasBalance, setHasBalance] = useState(false)
+  const [address, setAddress] = useState<`0x${string}`| undefined>(undefined)
 
-  useEffect(() => {
-    //TODO: check balance call for submitAPI
-    //TODO: app-wide ethereum transactions and calls
-    let balance // = contract call (userid => contract(contractAddr)) // need user id system that maps to wallet <address>
+  useAsyncEffect( async () => {
+    if (authContext?.contextCurrentAccount && authContext?.contextSessionSigs) {
+      const pkpWallet = new PKPEthersWallet({
+        pkpPubKey: authContext.contextCurrentAccount.publicKey,
+        controllerSessionSigs: authContext.contextSessionSigs,
+      });
 
-    balance = 11;  // placeholder
-    if (balance > 12) {
-      setHasBalance(true)
-    } else {
-      setHasBalance(false)
+      await pkpWallet.init()
+      const balance =  await pkpWallet.getBalance(authContext.contextCurrentAccount.ethAddress)
+      console.log({balance})
     }
-  })
+  },
+    async () => Promise.resolve(),
+
+    [authContext?.contextCurrentAccount, authContext?.contextSessionSigs]
+  )
+
+  // useEffect(() => {
+  //   if (contextCurrentAccount?.ethAddress) {
+  //      setAddress(contextCurrentAccount.ethAddress)
+  //   }
+
+  //   const balance:BigInt = balance(address)
+  //   if (balance >= 3378590000000000) {
+  //   setHasBalance(true)
+  // }
+  // })
 
   return hasBalance
 }
+    //TODO: check balance call for submitAPI
+    //TODO: app-wide ethereum transactions and calls

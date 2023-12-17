@@ -6,8 +6,8 @@ export type SelectionType = "Learn" | "Teach" | "All" | "";
 interface ToggleButtonProps {
   label: SelectionType;
   name: string;
-  control: any; // For better typing, consider using the specific type from react-hook-form
-  setValue: any; // For better typing, use SetValue<FormValues>
+  control: any; //OPTIM:  For better typing, consider using the specific type from react-hook-form
+  setValue: any; //OPTIM: For better typing, use SetValue<FormValues>
 }
 
 type FormValues = {

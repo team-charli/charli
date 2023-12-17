@@ -2,11 +2,7 @@ import { useSubmitOnboardLearnAPI } from "../../api/useSubmitOnboardLearnAPI";
 import { useSubmitOnboardTeachAPI } from "../../api/useSubmitOnboardTeachAPI";
 import { OnboardContext } from "../../contexts/OnboardContext";
 import { useContextNullCheck } from "../utils/useContextNullCheck";
-
-interface OnboardFormData {
-  name: string;
-  [key: string]: boolean; // For each language toggle button
-}
+import {OnboardFormData} from '../../types/types'
 
 export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
   const { setTeachingLangs, setLearningLangs, setName } = useContextNullCheck(OnboardContext);
@@ -14,7 +10,8 @@ export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
   return async (formData: OnboardFormData) => {
     setName(formData.name);
 
-    const selectedLanguages = Object.keys(formData).filter(key => formData[key] === true);
+    const languageData = formData.languages;
+    const selectedLanguages = Object.keys(languageData).filter(key => languageData[key]);
 
     if (onboardMode === "Learn") {
       setLearningLangs(selectedLanguages);

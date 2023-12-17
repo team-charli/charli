@@ -1,4 +1,6 @@
-export default [
+import { LanguageEntry } from  '../../types/types'
+//langs --> countries
+const languages: LanguageEntry[]   =  [
   {
     "Dutch": [
       {
@@ -2680,3 +2682,6 @@ export default [
     ]
   }
 ];
+
+export default languages;
+

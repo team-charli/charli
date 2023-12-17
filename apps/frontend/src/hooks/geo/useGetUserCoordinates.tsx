@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { GeolocationApiResponse } from '../../types/types';
 import ky from 'ky';
+import { useAsyncEffect } from '../utils/useAsyncEffect';
 
 type LocationState = {
   lat: number;
@@ -11,9 +12,11 @@ export const useGetUserCoordinates = () => {
   const [location, setLocation] = useState<LocationState | null>(null);
   const [error, setError] = useState<string>('');
 
-  useEffect(() => {
-    ky('http://ip-api.com/json/').json<GeolocationApiResponse>()
-      .then(response => {
+  useAsyncEffect(async () => {
+    console.log("call ip")
+    try {
+    const response =  await ky('http://ip-api.com/json/').json<GeolocationApiResponse>()
+        console.log(' ip location',  response)
         if (response.lat !== null && response.lon !== null) {
           setLocation({
             lat: response.lat,
@@ -22,12 +25,14 @@ export const useGetUserCoordinates = () => {
         } else {
           throw new Error('Location data is null');
         }
-      })
-      .catch(err => {
-        setError('Unable to retrieve location: ' + err.message);
+    }
+       catch(err: any)  {
+        setError('Unable to retrieve location: ' + err.message );
         throw err;  // Propagating the error
-      });
-  }, []);
+      }
+  },
+    async () => Promise.resolve(),
 
+  );
   return { location, error };
 };
