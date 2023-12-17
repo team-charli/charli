@@ -1,4 +1,4 @@
-import { useState, useDebugValue  } from 'react';
+import { useState, useEffect  } from 'react';
 import { Combobox } from '@headlessui/react';
 import languageDataset from '../../../data/languageDataset.json';
 import _popFlags from '../../../data/highestPopulationPerLanguageWithFlags.json';
@@ -13,6 +13,12 @@ const SearchLangComboBox = ({
   setValue,
   getValues
 }: SearchLangComboBoxProps) => {
+  //debug useEffect
+  useEffect(() => {
+    console.log(`getValues, ${JSON.stringify(getValues())}`);
+  }, [getValues()])
+
+
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [query, setQuery] = useState('');
 
@@ -43,18 +49,17 @@ const SearchLangComboBox = ({
       setCombinedLanguages(prev => [...prev, newLanguageButton]);
       setValue(buttonName, true);
     }
-    console.log(`combinedLanguages ${combinedLanguages}`);
-
-    console.log(`getValues, ${JSON.stringify(getValues())}`);
 
     setSelectedLanguage(''); // Reset combobox selection
   };
 
-  return (
-    <Combobox as="div" value={selectedLanguage} onChange={handleSelectLanguage}>
+return (
+  <Combobox as="div" value={selectedLanguage} onChange={handleSelectLanguage} className="flex justify-center">
+    <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
       <Combobox.Input
         as="input"
         onChange={(event) => setQuery(event.target.value)}
+        className="w-full p-2 border-2 border-2 border-black rounded-lg focus:border-blue-500 focus:outline-none"
       />
       <Combobox.Options className="absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 max-h-60 overflow-auto">
         {filteredLanguageOptions.map((option, idx) => (
@@ -63,8 +68,9 @@ const SearchLangComboBox = ({
           </Combobox.Option>
         ))}
       </Combobox.Options>
-    </Combobox>
-  );
+    </div>
+  </Combobox>
+);
 };
 
 export default SearchLangComboBox;

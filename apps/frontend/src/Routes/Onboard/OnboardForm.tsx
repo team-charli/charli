@@ -8,10 +8,19 @@ import { useGetUsersFlags } from '../../hooks/geo/useGetUsersFlags';
 import { CombinedFormProps, OnboardFormData, LanguageButton } from '../../types/types';
 
 export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
-const initialLanguages = useGetUsersFlags() || [];
-const [combinedLanguages, setCombinedLanguages] = useState<LanguageButton[]>(initialLanguages);
+  const initialLanguages = useGetUsersFlags() || [];
+  const [combinedLanguages, setCombinedLanguages] = useState<LanguageButton[]>(initialLanguages);
   const { handleSubmit, register, control, setValue, getValues, formState: { errors } } = useForm<OnboardFormData>();
   const callback = useSubmitOnboardForm(onboardMode);
+
+ useEffect(() => {
+    setCombinedLanguages(initialLanguages);
+  }, [initialLanguages]);
+
+//debugging useEffect
+  useEffect(() => {
+    console.log(`combinedLanguages: ${combinedLanguages}`);
+  }, [combinedLanguages])
 
   return (
     <div>

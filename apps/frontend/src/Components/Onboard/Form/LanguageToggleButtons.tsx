@@ -9,31 +9,37 @@ const LanguageToggleButtons = ({ control, setValue, combinedLanguages }: Languag
 
   return (
     <div className="__language-button-container__ grid grid-cols-4 gap-2 justify-center mt-24 w-1/3 mx-auto">
-      {combinedLanguages.map((language, index) => (
-        <React.Fragment key={index}>
-          <ToggleButton
-            key={`${language.language}-${language.primaryFlag}`}
-            label={`${language.language}-${language.primaryFlag}`}
-            name={`${language.language}-${language.primaryFlag}`}
-            control={control}
-            setValue={setValue}
-          />
-          {!language.omitSecondaryFlag && language.secondaryFlag && (
+      {combinedLanguages.map((language, index) => {
+        console.log(`inside combinedLanguages.map, language: ${JSON.stringify(language)}`);
+
+        return (
+          <React.Fragment key={index}>
             <ToggleButton
-              key={`${language.language}-${language.secondaryFlag}`}
-              label={`${language.language}-${language.secondaryFlag}`}
-              name={`${language.language}-${language.secondaryFlag}`}
+              key={`${language.language}-${language.primaryFlag}`}
+              label={`${language.language}-${language.primaryFlag}`}
+              name={`${language.language}-${language.primaryFlag}`}
               control={control}
               setValue={setValue}
             />
-          )}
-        </React.Fragment>
-      ))}
+            {!language.omitSecondaryFlag && language.secondaryFlag && (
+              <ToggleButton
+                key={`${language.language}-${language.secondaryFlag}`}
+                label={`${language.language}-${language.secondaryFlag}`}
+                name={`${language.language}-${language.secondaryFlag}`}
+                control={control}
+                setValue={setValue}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 };
 
 const ToggleButton = ({ label, name, control, setValue }: ToggleButtonProps) => {
+  console.log(`Inside ToggleButton, name prop: ${name}`);
+  console.log(`Inside ToggleButton, label prop: ${label}`);
   return (
     <Controller
       control={control}

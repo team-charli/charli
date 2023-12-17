@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { primaryFlagRules } from '../../utils/geo/primaryFlags';
 import { useGetUserCountry } from './useGetUserCountry';
 import { LanguageInfo, CountryDataset, LanguageDataset, LangIso2NameMap  } from '../../types/types';
@@ -12,7 +12,6 @@ const languageDataset: LanguageDataset = languageDatasetJson;
 
 export const useGetUsersFlags = (): LanguageInfo[] | null => {
   const primaryLanguages: string[] = ['eng', 'spa', 'zho', 'tha', 'fra', 'deu', 'ita', 'por', 'jpn', 'kor', 'hin'];
-  const [langArr, setLangArr] = useState<LanguageInfo[] | null>(null);
   const geoLoCountry = useGetUserCountry();
 
   const getFlagEmojis = (language: string, geLoCountryA3Code: string): [string, string] => {
@@ -44,10 +43,9 @@ export const useGetUsersFlags = (): LanguageInfo[] | null => {
 
     return [primaryFlag, randomSecondaryFlag];
   };
-
-  useEffect(() => {
+  const langArr = useMemo(() => {
     if (geoLoCountry && geoLoCountry.country_a3) {
-      const _langArr = primaryLanguages.map(langA3 => {
+      return primaryLanguages.map(langA3 => {
         const language = langIso2Name[langA3];
         let omitSecondaryFlag = false;
         if (['ita', 'tha', 'zho', 'kor', 'jpn', 'hin'].includes(langA3)) {
@@ -62,9 +60,11 @@ export const useGetUsersFlags = (): LanguageInfo[] | null => {
           omitSecondaryFlag,
         };
       });
-      setLangArr(_langArr);
     }
+    return null;
   }, [geoLoCountry]);
+
+  // No need for useEffect and useState anymore
   // console.log({langArr});
 
   return langArr;
