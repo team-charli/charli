@@ -7,6 +7,7 @@ import { useContextNullCheck } from  '../../hooks/utils/useContextNullCheck'
 import { signInWithGoogle } from '../../utils/lit';
 import LoginMethods from '../../Components/Lit/LoginMethods';
 import { useSetLoginViewCSS } from '../../hooks/css/useSetLoginViewCSS';
+import { useRouteRedirect } from '../../hooks/useRouteRedirect';
 
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
 
@@ -15,6 +16,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useContextNullCheck(AuthContext)
   const history = useHistory();
   const error = authError || accountsError || sessionError;
+  useRouteRedirect();
 
   async function handleGoogleLogin() {
     setFiredLogin(true);
@@ -25,25 +27,24 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     history.push('/');
   }
 
-  let loginMethods =  (
-    <div className={`_LoginMethods_ ${flex} justify-center ${marginTop}`}>
-      <LoginMethods handleGoogleLogin={handleGoogleLogin} signUp={goToSignUp} error={error} />
-    </div>
-  );
+const loadingMessage = authLoading ? 'auth loading'
+                  : accountsLoading ? 'accounts loading'
+                  : sessionLoading ? 'session loading'
+                  : null;
 
+if (loadingMessage) {
+  return <p className={`${flex} justify-center ${marginTop}`}>{loadingMessage}</p>;
+}
 
-<p className={`${flex} justify-center ${marginTop}`}>auth loading</p>
-  if (authLoading) {
-    return <p className={`${flex} justify-center ${marginTop}`}>auth loading</p>
-  } else if (accountsLoading) {
-    return <p className={`${flex} justify-center ${marginTop}`}>accounts loading</p>
-  } else if (sessionLoading) {
-    return <p className={`${flex} justify-center ${marginTop}`}>session loading</p>
-  } else if (authMethod || firedLogin){
-    return null
-  } else {
-    return loginMethods
-  }
+if (authMethod || firedLogin) {
+  return null;
+}
+
+return (
+  <div className={`_LoginMethods_ ${flex} justify-center ${marginTop}`}>
+    <LoginMethods handleGoogleLogin={handleGoogleLogin} signUp={goToSignUp} error={error} />
+  </div>
+);
 }
 export default LoginView
 //FIX: Buttons still flashing on login

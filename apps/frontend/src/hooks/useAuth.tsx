@@ -1,14 +1,10 @@
-import { IRelayPKP, SessionSigs, AuthMethod  } from '@lit-protocol/types';
 import { useEffect, useState } from 'react'
 import useAuthenticate from '../hooks/Lit/useLitAuthenticate';
 import useLitAccounts from '../hooks/Lit/useLitAccount';
 import useLitSession from '../hooks/Lit/useLitSession';
 import { useSupabase } from '../hooks/Supabase/useSupabase'
 
-const [ isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
 export const useAuth = () => {
-
   const {supabaseClient, updateJwt, jwt} = useSupabase()
   const {
     authMethod,
@@ -41,13 +37,6 @@ export const useAuth = () => {
     }
   }, [authMethod, currentAccount, initSession]);
 
-  useEffect(() => {
-    if (currentAccount && sessionSigs) {
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-    }
-  }, [currentAccount, sessionSigs]);
 
- return {authMethod, currentAccount, sessionSigs, isAuthenticated, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError, supabaseClient, jwt, updateJwt };
+  return {authMethod, currentAccount, sessionSigs, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError, supabaseClient, jwt, updateJwt };
 }

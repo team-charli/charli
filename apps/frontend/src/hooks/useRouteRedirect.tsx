@@ -3,19 +3,19 @@ import { useHistory } from 'react-router-dom';
 import { useContextNullCheck } from  './utils/useContextNullCheck'
 import { AuthContext } from '../contexts/AuthContext'
 import { OnboardContext } from '../contexts/OnboardContext'
-const {isOnboarded} = useContextNullCheck(OnboardContext);
-const {authMethod, currentAccount, sessionSigs} = useContextNullCheck(AuthContext)
+
 export const useRouteRedirect = () => {
+  const {isOnboarded} = useContextNullCheck(OnboardContext);
+  const {authMethod} = useContextNullCheck(AuthContext)
 
   const history = useHistory();
+
   useEffect(() => {
     if (authMethod) {
       if (!isOnboarded) {
-        // Redirect to Lounge with state
-       history.push('/onboard', { currentAccount, sessionSigs });
+       history.push('/onboard');
       } else {
-        // Redirect to Onboard with state
-      history.push('/lounge', { currentAccount, sessionSigs });
+      history.push('/lounge');
       }
     }
   }, [authMethod, isOnboarded, history]);

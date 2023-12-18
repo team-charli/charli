@@ -13,6 +13,15 @@ export default function useAccounts() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
 
+  /**
+  * Check localstorage for PKPs
+  **/
+  // useEffect(() => {
+  //   if (!currentAccount) {
+  //     const pkps = localStorage.getItem('lit-wallet-sig')
+  //   }
+  // }, [])
+
 
   /**
    * Fetch PKPs tied to given auth method
@@ -24,9 +33,9 @@ export default function useAccounts() {
       setError(undefined);
       try {
         const myPKPs = await getPKPs(authMethod);
+        console.log(`pkps == ${JSON.stringify(myPKPs)}`)
         setAccounts([myPKPs[0]]);
-          setCurrentAccount(myPKPs[0]);
-          // contextSetCurrentAccount(myPKPs[0]);
+        setCurrentAccount(myPKPs[0]);
       } catch (err) {
         setError(err as Error);
       } finally {

@@ -9,25 +9,23 @@ type LocationState = {
 };
 
 export const useGetUserCoordinates = () => {
-const [location, /* setLocation */] = useState<LocationState | null>(null);
+  const [location, setLocation] = useState<LocationState | null>(null);
   const [error, setError] = useState<string>('');
 
   useAsyncEffect(async () => {
     try {
       const response = await ky('http://ip-api.com/json/').json<GeolocationApiResponse>();
-      return {
+      setLocation({
         lat: response.lat,
         long: response.lon,
-      };
+      });
     } catch (err: any) {
       setError('Unable to retrieve location: ' + err.message);
-      throw err;
     }
-  },
-  () => Promise.resolve(),
-    []);
+  }, () => Promise.resolve(), []);
 
-  const memoizedLocation = useMemo(() => location, [location.lat, location.long]);
+  // Only include location in the dependency array. If location is null, useMemo won't throw an error.
+  const memoizedLocation = useMemo(() => location, [location]);
 
   return { location: memoizedLocation, error };
 };

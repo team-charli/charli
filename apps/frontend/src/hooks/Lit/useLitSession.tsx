@@ -42,6 +42,7 @@ export default function useSession() {
           },
         });
 
+        console.log(`set sessionSigs == ${JSON.stringify(sessionSigs)}`)
         setSessionSigs(sessionSigs);
       } catch (err) {
         setError(err as Error);

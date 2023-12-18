@@ -7,6 +7,7 @@ import NonButtonLink from '../../Components/Elements/NonButtonLink'
 
 export const Onboard = () => {
   const { onboardMode: _onboardMode } = useContextNullCheck(OnboardContext, "onboardMode");
+
   let fakeButton, form
 
   if (_onboardMode && _onboardMode  === "Learn") {
