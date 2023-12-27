@@ -9,15 +9,8 @@ const AuthProvider = ({children}: AuthProviderProps) => {
 
 const { authMethod, currentAccount, sessionSigs, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError, supabaseClient, jwt, updateJwt } = useAuth();
 
-  useEffect(() => {
-    const currentAccount = localStorage.getItem('lit-wallet-sig')
-    const sessionSigs = localStorage.getItem('lit-session-key')
-    if (sessionSigs) console.log('sessionSigs', JSON.parse(sessionSigs));
-    if (currentAccount) console.log('currentAccount', JSON.parse(currentAccount))
-    } ,[currentAccount, sessionSigs])
-  const isAuthenticated = useIsAuthenticated({currentAccount, sessionSigs})
+  const isAuthenticated = useIsAuthenticated();
 
-   // const isAuthenticated = null;
   const auth: AuthContextObj = {
     authMethod,
     currentAccount,

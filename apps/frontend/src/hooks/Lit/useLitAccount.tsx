@@ -2,26 +2,12 @@ import { useCallback, useState, useEffect } from 'react';
 import { AuthMethod } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '../../utils/lit';
 import { IRelayPKP } from '@lit-protocol/types';
-import { AuthContext } from '../../contexts/AuthContext'
-import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
-import { useFetchJWT } from '../Supabase/useFetchJWT';
 
 export default function useAccounts() {
   const [accounts, setAccounts] = useState<IRelayPKP[]>([]);
-  // const {contextCurrentAccount, contextSetCurrentAccount} = useContextNullCheck(AuthContext);
   const [currentAccount, setCurrentAccount] = useState<IRelayPKP>();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
-
-  /**
-  * Check localstorage for PKPs
-  **/
-  // useEffect(() => {
-  //   if (!currentAccount) {
-  //     const pkps = localStorage.getItem('lit-wallet-sig')
-  //   }
-  // }, [])
-
 
   /**
    * Fetch PKPs tied to given auth method
@@ -33,9 +19,9 @@ export default function useAccounts() {
       setError(undefined);
       try {
         const myPKPs = await getPKPs(authMethod);
-        console.log(`pkps == ${JSON.stringify(myPKPs)}`)
         setAccounts([myPKPs[0]]);
         setCurrentAccount(myPKPs[0]);
+        localStorage.setItem("accountPubK", myPKPs[0].publicKey)
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -54,10 +40,11 @@ export default function useAccounts() {
       setError(undefined);
       try {
         if (!accounts.length) {
-        const newPKP = await mintPKP(authMethod);
-        // console.log('createAccount pkp: ', newPKP);
-        setAccounts(prev => [...prev, newPKP]);
-        setCurrentAccount(newPKP);
+          const newPKP = await mintPKP(authMethod);
+          // console.log('createAccount pkp: ', newPKP);
+          setAccounts(prev => [...prev, newPKP]);
+          setCurrentAccount(newPKP);
+          localStorage.setItem("accountPubK", newPKP.publicKey)
         } else {
           throw new Error("already has account: " + accounts[0])
         }

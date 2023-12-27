@@ -25,7 +25,8 @@ export const primaryFlagRules: FlagRules = {
     "Caribbean": "USA",
     "Melanesia": "USA",
     "Micronesia": "USA",
-    "Polynesia": "USA"
+    "Polynesia": "USA",
+    "All": "USA"
   },
   "spa": {
     "Middle Africa": "ESP",
@@ -51,7 +52,8 @@ export const primaryFlagRules: FlagRules = {
     "Eastern Europe": "ESP",
     "Melanesia": "ESP",
     "Micronesia": "ESP",
-    "Polynesia": "ESP"
+    "Polynesia": "ESP",
+    "All": "ESP",
   },
   "fra": {
     "Middle Africa": "FRA",
@@ -77,7 +79,8 @@ export const primaryFlagRules: FlagRules = {
     "Eastern Europe": "FRA",
     "Melanesia": "FRA",
     "Micronesia": "FRA",
-    "Polynesia": "FRA"
+    "Polynesia": "FRA",
+    "All": "FRA"
   },
   "ita": {
     "All": "ITA"
@@ -106,7 +109,8 @@ export const primaryFlagRules: FlagRules = {
     "Eastern Europe": "PRT",
     "Melanesia": "BRA",
     "Micronesia": "BRA",
-    "Polynesia": "BRA"
+    "Polynesia": "BRA",
+    "All": "PRT"
   },
   "jpn": {
     "All": "JPN"

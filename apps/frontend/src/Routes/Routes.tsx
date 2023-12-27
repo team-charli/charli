@@ -14,34 +14,34 @@ import Room from './Room/Room'
 
 const Routes = () => {
   const {isAuthenticated} = useContextNullCheck(AuthContext);
-  const { isOnboarded } = useContextNullCheck(OnboardContext);
+  const { isOnboarded, onboardMode  } = useContextNullCheck(OnboardContext);
   useReturnToRoom()
 
-  // useEffect(() => {
-  //   console.log(`isAuthenticated ${isAuthenticated}`)
-  // }, [isAuthenticated])
+  useEffect(() => {
+    // console.log(`isAuthenticated ${isAuthenticated}`)
+  }, [isAuthenticated])
 
-const AuthedAndOnboarded:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
-  return (
-    <Route
-      {...rest}
-      render={props => {
-        if (isAuthenticated && isOnboarded) {
-        console.log(`isAuthenticated == true; isOnboarded == true`)
+  const AuthedAndOnboarded:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
+    return (
+      <Route
+        {...rest}
+        render={props => {
+          if (isAuthenticated && isOnboarded) {
+            console.log(`isAuthenticated == true; isOnboarded == true`)
 
-          return <Component {...props} />;
-        }
-        if (isAuthenticated && !isOnboarded) {
-        console.log(`isAuthenticated == true; isOnboarded == false`)
+            return <Component {...props} />;
+          }
+          if (isAuthenticated && !isOnboarded) {
+            // console.log(`isAuthenticated == true; isOnboarded == false`)
 
-          return <Redirect to="/onboard" />;
-        }
-        console.log(`access to protected route failed. isAuthenticated == ${isAuthenticated} isOnboarded == ${isOnboarded}`)
-        return <Redirect to="/login" />;
-      }}
-    />
-  );
-}
+            return <Redirect to="/onboard" />;
+          }
+          console.log(`access to protected route failed. isAuthenticated == ${isAuthenticated} isOnboarded == ${isOnboarded}`)
+          return <Redirect to="/login" />;
+        }}
+      />
+    );
+  }
   return (
     <Switch>
       <Route exact path="/" component={Entry} />

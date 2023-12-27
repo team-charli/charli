@@ -8,7 +8,7 @@ export const useGetUserCountry = () => {
   const [country, setCountry] = useState<RegionInfo | null>(null);
 
   useEffect(() => {
-   console.log({location});
+   // console.log({location});
 
     if (location) {
       try {

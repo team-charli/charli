@@ -38,6 +38,7 @@ if (loadingMessage) {
 
 if (authMethod || firedLogin) {
   return null;
+    //FIX: Buttons still flashing on login
 }
 
 return (
@@ -47,4 +48,3 @@ return (
 );
 }
 export default LoginView
-//FIX: Buttons still flashing on login

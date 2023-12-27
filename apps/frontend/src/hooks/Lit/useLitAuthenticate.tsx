@@ -37,7 +37,6 @@ export default function useAuthenticate(redirectUri?: string) {
 
   useEffect(() => {
     if (redirectUri && isSignInRedirect(redirectUri)) {
-
       const providerName = getProviderFromUrl();
       if (providerName === 'google') {
         authWithGoogle();

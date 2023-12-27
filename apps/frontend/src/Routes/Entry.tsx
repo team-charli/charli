@@ -3,11 +3,9 @@ import BannerHeader from '../Components/Headers/BannerHeader'
 import ButtonLink from '../Components/Elements/ButtonLink'
 import {OnboardContext} from '../contexts/OnboardContext'
 import { useContextNullCheck } from '../hooks/utils/useContextNullCheck'
-import { AuthContext } from '../contexts/AuthContext'
 
 const Entry = () => {
   const {setOnboardMode} = useContextNullCheck(OnboardContext);
-  const { isAuthenticated } =  useContextNullCheck(AuthContext)
 
   return (
     <>

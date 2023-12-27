@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import LanguageToggleButtons from '../../Components/Onboard/Form/LanguageToggleButtons';
 import NameInputField from '../../Components/Onboard/Form/NameInputField';
@@ -10,19 +10,14 @@ import isEqual from 'lodash.isequal';
 
 export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
   const initialLanguages = useGetUsersFlags() || [];
-  const [combinedLanguages, setCombinedLanguages] = useState<LanguageButton[]>(initialLanguages);
+  const [combinedLanguages, setCombinedLanguages] = useState<LanguageButton[]>([]);
   const { handleSubmit, register, control, setValue, getValues, formState: { errors } } = useForm<OnboardFormData>();
   const callback = useSubmitOnboardForm(onboardMode);
-
   useEffect(() => {
-    console.log(`initialLanguages: ${initialLanguages}`)
-    console.log(`combinedLanguages: ${combinedLanguages}`);
-
-    // if (!isEqual(initialLanguages, combinedLanguages)) {
-      console.log('passed isEqual, setting combinedLanguages with initialLanguages: ', initialLanguages )
-      setCombinedLanguages(initialLanguages);
-    // }
-  }, [initialLanguages]);
+    if (initialLanguages.length) {
+      setCombinedLanguages(current => [...current, ...initialLanguages])
+    }
+  }, [initialLanguages])
 
   return (
     <div>
@@ -49,8 +44,6 @@ export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
 };
 
 export default OnboardForm;
-//TODO: use a headless Combo-box to input another language and add it as selected.When you deselect that language it stays in the button list but is deselected.
-//TODO: Style input box like headless input
 //TODO: The language must associate the teaching langs with countries in db, in order to provide students teachers from the countries they're shown
 //OPTIM: Eventually flags should be drawn from where we have the most teachers
 

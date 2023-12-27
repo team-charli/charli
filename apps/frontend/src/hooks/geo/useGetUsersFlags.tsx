@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { primaryFlagRules } from '../../utils/geo/primaryFlags';
 import { useGetUserCountry } from './useGetUserCountry';
 import { LanguageInfo, CountryDataset, LanguageDataset, LangIso2NameMap  } from '../../types/types';
@@ -13,6 +13,16 @@ const languageDataset: LanguageDataset = languageDatasetJson;
 export const useGetUsersFlags = (): LanguageInfo[] | null => {
   const primaryLanguages: string[] = ['eng', 'spa', 'zho', 'tha', 'fra', 'deu', 'ita', 'por', 'jpn', 'kor', 'hin'];
   const geoLoCountry = useGetUserCountry();
+  const geoLoCountryRef = useRef(geoLoCountry);
+
+  // useEffect(() => {
+  //     // Log the previous and current value of the dependency
+  //     console.log('Previous dependency:', geoLoCountryRef.current);
+  //     console.log('Current dependency:', geoLoCountry);
+
+  //     // Update the ref with the current value for the next render
+  //     geoLoCountryRef.current = geoLoCountry;
+  //   }, [geoLoCountry]); // Dependency array
 
   const getFlagEmojis = (language: string, geLoCountryA3Code: string): [string, string] => {
     const countryInfo = countryDataset[geLoCountryA3Code];
@@ -25,7 +35,7 @@ export const useGetUsersFlags = (): LanguageInfo[] | null => {
       primaryFlagRules[language]?.[intermediateRegion] ||
       primaryFlagRules[language]?.['All'];
 
-    if (!primaryCountryCode) throw new Error(`Primary flag code not found for language: ${language}`);
+    if (!primaryCountryCode) throw new Error(`Primary country code not found for language: ${language} subRegion ${subRegion} intermediateRegion ${intermediateRegion}`);
 
     const languageName = langIso2Name[language]
     const languageData = languageDataset[languageName];
@@ -58,11 +68,7 @@ export const useGetUsersFlags = (): LanguageInfo[] | null => {
     return null;
   }, [geoLoCountry]);
 
-  // No need for useEffect and useState anymore
-  // console.log({langArr});
-
-
-  console.log(langArr);
+  // console.log(langArr);
 
   return langArr;
 };

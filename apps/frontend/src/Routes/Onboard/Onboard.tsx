@@ -35,4 +35,3 @@ export const Onboard = () => {
 }
 export default Onboard;
 
-//FIX: Have to login in repeatedly.  Maybe not reading the localstorage

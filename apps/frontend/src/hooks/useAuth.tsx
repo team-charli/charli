@@ -3,7 +3,7 @@ import useAuthenticate from '../hooks/Lit/useLitAuthenticate';
 import useLitAccounts from '../hooks/Lit/useLitAccount';
 import useLitSession from '../hooks/Lit/useLitSession';
 import { useSupabase } from '../hooks/Supabase/useSupabase'
-
+//NOTE: Gives you the sigs in state
 export const useAuth = () => {
   const {supabaseClient, updateJwt, jwt} = useSupabase()
   const {
