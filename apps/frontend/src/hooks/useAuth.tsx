@@ -3,7 +3,7 @@ import useAuthenticate from '../hooks/Lit/useLitAuthenticate';
 import useLitAccounts from '../hooks/Lit/useLitAccount';
 import useLitSession from '../hooks/Lit/useLitSession';
 import { useSupabase } from '../hooks/Supabase/useSupabase'
-//NOTE: Gives you the sigs in state
+
 export const useAuth = () => {
   const {supabaseClient, updateJwt, jwt} = useSupabase()
   const {
@@ -37,6 +37,12 @@ export const useAuth = () => {
     }
   }, [authMethod, currentAccount, initSession]);
 
+  useEffect(() => {
+    if (currentAccount && sessionSigs){
+      localStorage.setItem('currentAccount', JSON.stringify(currentAccount));
+      localStorage.setItem('sessionSigs', JSON.stringify(sessionSigs));
+    }
+  }, [currentAccount, sessionSigs])
 
   return {authMethod, currentAccount, sessionSigs, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError, supabaseClient, jwt, updateJwt };
 }

@@ -14,3 +14,26 @@ export function deduplicateLanguages(languages: string[]) {
   });
 }
 
+export function getStorage(key: string) {
+  const item = localStorage.getItem(key);
+  if (item && item.length) {
+    return JSON.parse(item)
+  } else {
+    return undefined;
+  }
+}
+
+export function loadCurrentAccount() {
+  return getStorage('currentAccount')
+}
+
+export function loadSessionKeys() {
+  return getStorage('sessionKeys')
+}
+
+export function loadAccountAndSessionKeys() {
+  const currentAccount = loadCurrentAccount();
+  const sessionKeys = loadSessionKeys();
+  return {currentAccount, sessionKeys}
+}
+

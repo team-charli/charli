@@ -10,9 +10,15 @@ export const OnboardContext = createContext<OnboardContextObj | null>(null);
 export const useOnboardContext = () => useContext(OnboardContext);
 
 const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
-  const {contextCurrentAccount} = useContextNullCheck(AuthContext)
+  const {currentAccount} = useContextNullCheck(AuthContext)
+  const [checkIsOnboarded, setCheckIsOnboarded] = useState(false);
+  const {isOnboarded, setIsOnboarded} = useIsOnboarded({currentAccount, checkIsOnboarded});
 
-  const {isOnboarded, setIsOnboarded} = useIsOnboarded({contextCurrentAccount});
+  useEffect(() => {
+    console.log('run')
+    setCheckIsOnboarded(prev => !prev)
+  }, [])
+
   const {onboardMode, setOnboardMode} = useOnboardMode();
 
   const hasBalance = useHasBalance();
@@ -42,6 +48,8 @@ const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
     setTeachingLangs,
     learningLangs,
     setLearningLangs,
+    checkIsOnboarded,
+    setCheckIsOnboarded
   };
 
   return (

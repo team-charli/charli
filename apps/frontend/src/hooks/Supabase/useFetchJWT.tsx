@@ -3,16 +3,18 @@ import { AuthContext } from '../../contexts/AuthContext';
 import { useContextNullCheck } from '../utils/useContextNullCheck';
 import { useFetchNonce } from './useFetchNonce';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-
+import { getStorage } from '../../utils/app'
 export function useFetchJWT() {
   const { currentAccount, sessionSigs, updateJwt } = useContextNullCheck(AuthContext);
+  const caLS = getStorage('currentAccount')
+  const ssLS = getStorage('sessionSigs')
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const nonce = useFetchNonce()
 
   useEffect(() => {
     async function fetchJWT() {
-      if (currentAccount && sessionSigs && nonce) {
+      if (nonce && (currentAccount || caLS) && (sessionSigs || ssLS)) {
         setLoading(true);
         const ethereumAddress = currentAccount.ethAddress;
         const pkpWallet = new PKPEthersWallet({

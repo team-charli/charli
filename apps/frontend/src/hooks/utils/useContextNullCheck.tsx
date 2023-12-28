@@ -1,22 +1,25 @@
 import { useContext, Context } from 'react';
 
-export function useContextNullCheck<T>(context: Context<T | null>, ...values: (keyof T)[]): T {
+type NonNullableProperties<T> = {
+  [P in keyof T]-?: NonNullable<T[P]>;
+};
+
+function isNotNullOrUndefined<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined;
+}
+
+export function useContextNullCheck<T>(context: Context<T | null>, ...values: (keyof T)[]): NonNullableProperties<T> {
   const contextValue = useContext(context);
 
-  if (contextValue === null || contextValue === undefined) {
+  if (!isNotNullOrUndefined(contextValue)) {
     throw new Error('useContextNullCheck must be used within a Context.Provider');
   }
 
   values.forEach(value => {
-    if (contextValue[value] === null || contextValue[value] === undefined) {
+    if (!isNotNullOrUndefined(contextValue[value])) {
       throw new Error(`Property '${String(value)}' is null or undefined in the context`);
     }
   });
 
-  // Type guard to assure TypeScript that none of the properties are null or undefined
-  if (values.every(value => contextValue[value] !== null && contextValue[value] !== undefined)) {
-    return contextValue as T;
-  }
-
-  throw new Error('Unexpected error in useContextNullCheck');
+  return contextValue as NonNullableProperties<T>;
 }

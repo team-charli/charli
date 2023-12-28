@@ -63,7 +63,8 @@ export interface OnboardContextObj {
 
   name: string;
   setName: Dispatch<SetStateAction<string>>;
-
+  checkIsOnboarded: boolean;
+  setCheckIsOnboarded:Dispatch<SetStateAction<boolean>>;
 }
 
 export interface AuthContextObj {
@@ -100,7 +101,8 @@ export interface AuthProviderProps {
 }
 
 export interface UseIsOnboardedParam {
-  contextCurrentAccount: IRelayPKP | null;
+  currentAccount: IRelayPKP | null;
+  checkIsOnboarded: boolean;
 }
 
 export interface ButtonLinkPropTypes {
@@ -263,8 +265,6 @@ export type LanguageToggleButtonsProps = {
 
 export interface OnboardFormData {
   name: string;
-  languages: {
-    [key: string]: boolean; // For each language toggle button
-  };
+  [key: string]: boolean | string;
 }
 

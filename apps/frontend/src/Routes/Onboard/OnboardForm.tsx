@@ -11,13 +11,19 @@ import isEqual from 'lodash.isequal';
 export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
   const initialLanguages = useGetUsersFlags() || [];
   const [combinedLanguages, setCombinedLanguages] = useState<LanguageButton[]>([]);
-  const { handleSubmit, register, control, setValue, getValues, formState: { errors } } = useForm<OnboardFormData>();
+  const { handleSubmit, register, control, setValue, getValues, formState: { errors }, watch } = useForm<OnboardFormData>();
   const callback = useSubmitOnboardForm(onboardMode);
+
   useEffect(() => {
     if (initialLanguages.length) {
       setCombinedLanguages(current => [...current, ...initialLanguages])
     }
   }, [initialLanguages])
+
+  // const watchedFields = watch(); // Watch all fields
+  // useEffect(() => {
+  //   console.log(watchedFields)
+  // }, [watchedFields])
 
   return (
     <div>
