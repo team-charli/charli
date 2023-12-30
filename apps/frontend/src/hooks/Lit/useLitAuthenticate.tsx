@@ -1,3 +1,4 @@
+import { useHistory } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import {
   isSignInRedirect,
@@ -9,6 +10,7 @@ import {
 } from '../../utils/lit';
 
 export default function useAuthenticate(redirectUri?: string) {
+  const history = useHistory();
   const [authMethod, setAuthMethod] = useState<AuthMethod>();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
@@ -24,7 +26,8 @@ export default function useAuthenticate(redirectUri?: string) {
 
     try {
       const result: AuthMethod = (await authenticateWithGoogle(
-        redirectUri as any
+        redirectUri as any,
+        history
       )) as any;
       setAuthMethod(result);
     } catch (err) {

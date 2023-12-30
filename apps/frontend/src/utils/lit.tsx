@@ -54,26 +54,49 @@ export function isSocialLoginSupported(provider: string): boolean {
 /**
  * Redirect to Lit login
  */
-export async function signInWithGoogle(redirectUri: string): Promise<void> {
+//uses callback in PR #268
+export async function signInWithGoogle(redirectUri: string, history: any): Promise<void> {
   const googleProvider = litAuthClient.initProvider<GoogleProvider>(
     ProviderType.Google,
     { redirectUri }
   );
-  console.log(`sign in with Google. Redirect uri: ${redirectUri}`)
-  await googleProvider.signIn();
+
+  await googleProvider.signIn((url) => {
+    // Use React Router's history object to navigate
+    history.push(url);
+  });
 }
+
 
 /**
  * Get auth method object from redirect
  */
+// export async function authenticateWithGoogle(
+//   redirectUri: string
+// ): Promise<AuthMethod | undefined> {
+//   const googleProvider = litAuthClient.initProvider<GoogleProvider>(
+//     ProviderType.Google,
+//     { redirectUri }
+//   );
+//   const authMethod = await googleProvider.authenticate();
+//   return authMethod;
+// }
+
 export async function authenticateWithGoogle(
-  redirectUri: string
+  redirectUri: string, history: any
 ): Promise<AuthMethod | undefined> {
   const googleProvider = litAuthClient.initProvider<GoogleProvider>(
     ProviderType.Google,
     { redirectUri }
   );
-  const authMethod = await googleProvider.authenticate();
+  const authMethod = await googleProvider.authenticate(undefined, (currentUrl, redirectUri) => {
+    // Check if the current URL is the redirect URI
+    if (currentUrl.startsWith(redirectUri)) {
+      history.push('/onboard'); // Navigate to the onboard route
+      return true;
+    }
+    return false;
+  });
   return authMethod;
 }
 

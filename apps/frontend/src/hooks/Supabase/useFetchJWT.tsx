@@ -14,7 +14,9 @@ export function useFetchJWT() {
 
   useEffect(() => {
     async function fetchJWT() {
+
       if (nonce && (currentAccount || caLS) && (sessionSigs || ssLS)) {
+        console.log('trying fetchJWT');
         setLoading(true);
         const ethereumAddress = currentAccount.ethAddress;
         const pkpWallet = new PKPEthersWallet({
@@ -40,11 +42,12 @@ export function useFetchJWT() {
         } finally {
           setLoading(false);
         }
+      } else {
+        console.log(`failed fetch jwt; nonce: ${nonce}; currentAccount: ${currentAccount}; caLS: ${caLS}; sessionSigs: ${sessionSigs}; ssLS ${ssLS}) `)
       }
     }
-
     fetchJWT();
-  }, [currentAccount, sessionSigs, nonce ]); // Dependency on contextCurrentAccount
+  }, [nonce ]); // Dependency on contextCurrentAccount
 
   return { loading, error };
 }

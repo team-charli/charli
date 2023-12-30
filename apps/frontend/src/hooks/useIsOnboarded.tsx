@@ -3,11 +3,11 @@ import { useAsyncEffect } from './utils/useAsyncEffect';
 import { UseIsOnboardedParam  } from '../types/types'
 import { useContextNullCheck } from './utils/useContextNullCheck';
 import { AuthContext } from '../contexts/AuthContext';
-import { loadAccountAndSessionKeys } from '../utils/app/loadAccountAndSessionKeys'
-export const useIsOnboarded = ( {currentAccount: currentAccount, checkIsOnboarded}: UseIsOnboardedParam  ) => {
+import { loadAccountAndSessionKeys } from '../utils/app'
 
+export const useIsOnboarded = ( {checkIsOnboarded}: UseIsOnboardedParam  ) => {
   const { supabaseClient } = useContextNullCheck(AuthContext)
-  const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
+  const [isOnboarded, setIsOnboarded] = useState<boolean | null>(false);
   const {currentAccount, sessionKeys} = loadAccountAndSessionKeys();
 
   useAsyncEffect(

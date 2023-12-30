@@ -12,7 +12,7 @@ export const useOnboardContext = () => useContext(OnboardContext);
 const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
   const {currentAccount} = useContextNullCheck(AuthContext)
   const [checkIsOnboarded, setCheckIsOnboarded] = useState(false);
-  const {isOnboarded, setIsOnboarded} = useIsOnboarded({currentAccount, checkIsOnboarded});
+  const {isOnboarded, setIsOnboarded} = useIsOnboarded({checkIsOnboarded});
 
   useEffect(() => {
     console.log('run')

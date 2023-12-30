@@ -20,7 +20,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
 
   async function handleGoogleLogin() {
     setFiredLogin(true);
-    await signInWithGoogle(import.meta.env.VITE_GOOGLE_REDIRECT_URI);
+    await signInWithGoogle(import.meta.env.VITE_GOOGLE_REDIRECT_URI, history);
   }
 
   function goToSignUp() {

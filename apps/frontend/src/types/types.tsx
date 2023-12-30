@@ -101,7 +101,7 @@ export interface AuthProviderProps {
 }
 
 export interface UseIsOnboardedParam {
-  currentAccount: IRelayPKP | null;
+  // currentAccount: IRelayPKP | null;
   checkIsOnboarded: boolean;
 }
 
