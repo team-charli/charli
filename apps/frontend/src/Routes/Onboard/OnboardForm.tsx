@@ -20,11 +20,6 @@ export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
     }
   }, [initialLanguages])
 
-  // const watchedFields = watch(); // Watch all fields
-  // useEffect(() => {
-  //   console.log(watchedFields)
-  // }, [watchedFields])
-
   return (
     <div>
       <SearchLangComboBox

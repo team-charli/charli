@@ -1,53 +1,52 @@
-import { useEffect, useState } from 'react';
-import { AuthContext } from '../../contexts/AuthContext';
-import { useContextNullCheck } from '../utils/useContextNullCheck';
+import { useState, useEffect } from 'react';
 import { useFetchNonce } from './useFetchNonce';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import { getStorage } from '../../utils/app'
+import { getStorage } from '../../utils/app';
+import { useAsyncEffect } from '../utils/useAsyncEffect';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+
 export function useFetchJWT() {
-  const { currentAccount, sessionSigs, updateJwt } = useContextNullCheck(AuthContext);
-  const caLS = getStorage('currentAccount')
-  const ssLS = getStorage('sessionSigs')
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const nonce = useFetchNonce()
+    const [currentAccount, setCurrentAccount] = useState<IRelayPKP | null>(null);
+    const [sessionSigs, setSessionSigs] = useState<SessionSigs | null>(null);
+
+    useEffect(() => {
+        const storedCurrentAccount = localStorage.getItem('currentAccount');
+        const storedSessionSigs = localStorage.getItem('sessionSigs');
+        setCurrentAccount(storedCurrentAccount ? JSON.parse(storedCurrentAccount) : null);
+        setSessionSigs(storedSessionSigs ? JSON.parse(storedSessionSigs) : null);
+    }, []);
+
+    const nonce = useFetchNonce(currentAccount, sessionSigs);
 
   useEffect(() => {
-    async function fetchJWT() {
+    console.log("nonce", nonce)
+  }, [nonce])
 
-      if (nonce && (currentAccount || caLS) && (sessionSigs || ssLS)) {
-        console.log('trying fetchJWT');
-        setLoading(true);
-        const ethereumAddress = currentAccount.ethAddress;
-        const pkpWallet = new PKPEthersWallet({
-          controllerSessionSigs: sessionSigs,
-          pkpPubKey: currentAccount.publicKey,
-        });
-        await pkpWallet.init();
+    const fetchJWT = async () => {
+        if (nonce && currentAccount && sessionSigs) {
+            const authSig = getStorage("lit-wallet-sig");
+            const ethereumAddress = currentAccount.ethAddress;
+            const pkpWallet = new PKPEthersWallet({
+                controllerAuthSig: authSig,
+                pkpPubKey: currentAccount.publicKey,
+            });
+            await pkpWallet.init();
 
-        const signature = await pkpWallet.signMessage(nonce);
-
-        try {
-          const response = await fetch('https://supabase-auth.zach-greco.workers.dev/jwt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ethereumAddress, signature, nonce }),
-          });
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          const data = await response.json();
-          updateJwt(data.token);
-          localStorage.setItem('userJWT', data.token);
-        } catch (e) {
-          setError(e as Error);
-        } finally {
-          setLoading(false);
+            const signature = await pkpWallet.signMessage(nonce);
+            const response = await fetch('https://supabase-auth.zach-greco.workers.dev/jwt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ethereumAddress, signature, nonce }),
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            localStorage.setItem('userJWT', data.token);
         }
-      } else {
-        console.log(`failed fetch jwt; nonce: ${nonce}; currentAccount: ${currentAccount}; caLS: ${caLS}; sessionSigs: ${sessionSigs}; ssLS ${ssLS}) `)
-      }
-    }
-    fetchJWT();
-  }, [nonce ]); // Dependency on contextCurrentAccount
+    };
 
-  return { loading, error };
+    const { error, isLoading } = useAsyncEffect(fetchJWT, async () => { /* Unmount logic here */ }, [nonce, currentAccount, sessionSigs]);
+
+    return { loading: isLoading, error };
 }

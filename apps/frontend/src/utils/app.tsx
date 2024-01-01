@@ -27,13 +27,13 @@ export function loadCurrentAccount() {
   return getStorage('currentAccount')
 }
 
-export function loadSessionKeys() {
-  return getStorage('sessionKeys')
+export function loadSessionSigs() {
+  return getStorage('sessionSigs')
 }
 
 export function loadAccountAndSessionKeys() {
   const currentAccount = loadCurrentAccount();
-  const sessionKeys = loadSessionKeys();
-  return {currentAccount, sessionKeys}
+  const sessionSigs = loadSessionSigs();
+  return {currentAccount, sessionSigs}
 }
 

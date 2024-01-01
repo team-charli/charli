@@ -1,20 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAsyncEffect } from './utils/useAsyncEffect';
 import { UseIsOnboardedParam  } from '../types/types'
 import { useContextNullCheck } from './utils/useContextNullCheck';
 import { AuthContext } from '../contexts/AuthContext';
 import { loadAccountAndSessionKeys } from '../utils/app'
 
-export const useIsOnboarded = ( {checkIsOnboarded}: UseIsOnboardedParam  ) => {
+export const useIsOnboarded = ( {checkIsOnboarded, setCheckIsOnboarded}: UseIsOnboardedParam  ) => {
   const { supabaseClient } = useContextNullCheck(AuthContext)
   const [isOnboarded, setIsOnboarded] = useState<boolean | null>(false);
-  const {currentAccount, sessionKeys} = loadAccountAndSessionKeys();
+
+  useEffect(() => {
+    setCheckIsOnboarded(prev => !prev)
+  }, [])
+//FIX: After supabaseClient works
 
   useAsyncEffect(
     async () => {
-      if (currentAccount && sessionKeys) {
-      console.log('hello');
-      console.log('supabaseClient?', supabaseClient);
+      const {currentAccount, sessionSigs} = loadAccountAndSessionKeys();
+      if (currentAccount && sessionSigs) {
       if (supabaseClient) {
         try {
           console.log('tried');
@@ -37,7 +40,7 @@ export const useIsOnboarded = ( {checkIsOnboarded}: UseIsOnboardedParam  ) => {
       }
     }},
     async () => Promise.resolve(),
-    [currentAccount, checkIsOnboarded]
+    [checkIsOnboarded, supabaseClient]
   )
   return {isOnboarded, setIsOnboarded};
 }

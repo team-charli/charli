@@ -1,15 +1,15 @@
+import {useHistory} from 'react-router-dom'
 import { useCallback, useState } from 'react';
 import { AuthMethod } from '@lit-protocol/types';
 import { getSessionSigs } from '../../utils/lit';
 import { LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
 import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
-import { AuthContext } from '../../contexts/AuthContext'
-import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
 
-export default function useSession() {
+export default function useLitSession() {
   const [sessionSigs, setSessionSigs] = useState<SessionSigs>();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
+  const history = useHistory();
 
   /**
    * Generate session sigs and store new session data
@@ -34,6 +34,7 @@ export default function useSession() {
         // Generate session sigs
         const sessionSigs = await getSessionSigs({
           pkpPublicKey: pkp.publicKey,
+          // authSig,
           authMethod,
           sessionSigsParams: {
             chain,
@@ -41,22 +42,25 @@ export default function useSession() {
             resourceAbilityRequests: resourceAbilities,
           },
         });
-
-        console.log(`set sessionSigs == ${JSON.stringify(sessionSigs)}`)
+        console.log("sessionSigs", JSON.stringify(sessionSigs))
+        console.log(`setting sessionSigs`)
+        localStorage.setItem('sessionSigs', JSON.stringify(sessionSigs))
         setSessionSigs(sessionSigs);
       } catch (err) {
+        console.log("error", err)
         setError(err as Error);
+
       } finally {
         setLoading(false);
+        history.push('/onboard')
       }
     },
     []
   );
 
   return {
-    initSession,
-    setSessionSigs,
     sessionSigs,
+    initSession,
     loading,
     error,
   };

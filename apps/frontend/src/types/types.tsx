@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { IRelayPKP, SessionSigs, AuthMethod  } from '@lit-protocol/types';
+import { AuthMethod  } from '@lit-protocol/types';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { RouteProps } from 'react-router-dom';
 
@@ -19,7 +19,6 @@ export interface LoginProps {
   authWithOTP?: any;
   authWithWebAuthn?: any;
   authWithStytch?: any;
-  signUp: any;
   error?: Error;
 }
 
@@ -63,19 +62,15 @@ export interface OnboardContextObj {
 
   name: string;
   setName: Dispatch<SetStateAction<string>>;
+
   checkIsOnboarded: boolean;
   setCheckIsOnboarded:Dispatch<SetStateAction<boolean>>;
 }
 
 export interface AuthContextObj {
+  // jwt: string | null;
+  // updateJwt: Function;
   authMethod: AuthMethod | undefined;
-  // setAuthMethod: Dispatch<SetStateAction<AuthMethod | undefined>>;
-  currentAccount: IRelayPKP | undefined;
-  // setCurrentAccount: Dispatch<SetStateAction<IRelayPKP | null>>;
-  sessionSigs: SessionSigs | undefined;
-  // setSessionSigs: Dispatch<SetStateAction<SessionSigs | undefined>>;
-  jwt: string | null;
-  updateJwt: Function;
   supabaseClient: SupabaseClient | null;
   isAuthenticated: boolean | null;
   authLoading: boolean;
@@ -100,9 +95,13 @@ export interface AuthProviderProps {
   children: ReactNode;
 }
 
+export interface SupabaseProviderProps {
+  children: ReactNode;
+}
+
 export interface UseIsOnboardedParam {
-  // currentAccount: IRelayPKP | null;
   checkIsOnboarded: boolean;
+  setCheckIsOnboarded: Dispatch<SetStateAction<true | false>>;
 }
 
 export interface ButtonLinkPropTypes {

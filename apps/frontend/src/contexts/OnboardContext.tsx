@@ -10,16 +10,9 @@ export const OnboardContext = createContext<OnboardContextObj | null>(null);
 export const useOnboardContext = () => useContext(OnboardContext);
 
 const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
-  const {currentAccount} = useContextNullCheck(AuthContext)
-  const [checkIsOnboarded, setCheckIsOnboarded] = useState(false);
-  const {isOnboarded, setIsOnboarded} = useIsOnboarded({checkIsOnboarded});
-
-  useEffect(() => {
-    console.log('run')
-    setCheckIsOnboarded(prev => !prev)
-  }, [])
-
   const {onboardMode, setOnboardMode} = useOnboardMode();
+  const [checkIsOnboarded, setCheckIsOnboarded] = useState(false);
+  const {isOnboarded = false , setIsOnboarded} = useIsOnboarded({checkIsOnboarded, setCheckIsOnboarded});
 
   const hasBalance = useHasBalance();
   const [nativeLang, setNativeLang] = useState('');
@@ -28,10 +21,6 @@ const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
   const [teachingLangs, setTeachingLangs] = useState([] as string[]);
   const [learningLangs, setLearningLangs] = useState([] as string[]);
 
-  /*Debug Hook*/
-  // useEffect(() => {
-  //   console.log('onboardMode:', onboardMode)
-  // }, [onboardMode]);
 
 
   const contextObj: OnboardContextObj = {

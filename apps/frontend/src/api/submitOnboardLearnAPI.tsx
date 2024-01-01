@@ -3,10 +3,12 @@ import { ErrorModal } from '../Components/Errors/ErrorModal'
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Dispatch, SetStateAction } from 'react'
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { loadAccountAndSessionKeys } from '../utils/app';
 
-export const submitOnboardLearnAPI = async (learningLangs: string[] , isOnboarded: boolean, name: string, hasBalance: boolean, setIsOnboarded: Dispatch<SetStateAction<boolean| null>> , currentAccount: IRelayPKP , sessionSigs: SessionSigs, supabaseClient: SupabaseClient, jwt: string)=> {
+export const submitOnboardLearnAPI = async (learningLangs: string[] , isOnboarded: boolean, name: string, hasBalance: boolean, setIsOnboarded: Dispatch<SetStateAction<boolean| null>>, supabaseClient: SupabaseClient)=> {
 
-  if (!isOnboarded && currentAccount && sessionSigs &&  learningLangs.length && name.length && jwt?.length && supabaseClient ) {
+  const {currentAccount, sessionSigs} = loadAccountAndSessionKeys();
+  if (!isOnboarded && currentAccount && sessionSigs &&  learningLangs.length && name.length /*&& jwt?.length */&& supabaseClient ) {
     if (!hasBalance) {
       return <ErrorModal errorText="To learn you either need money in your account or you need to be a teacher" />
       //OPTIM: Better user handling

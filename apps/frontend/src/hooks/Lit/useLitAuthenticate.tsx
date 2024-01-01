@@ -27,7 +27,6 @@ export default function useAuthenticate(redirectUri?: string) {
     try {
       const result: AuthMethod = (await authenticateWithGoogle(
         redirectUri as any,
-        history
       )) as any;
       setAuthMethod(result);
     } catch (err) {

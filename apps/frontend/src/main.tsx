@@ -15,11 +15,11 @@ const root = ReactDOM.createRoot(
 root.render(
   <StrictMode>
     <ErrorBoundary>
-      <WagmiConfig config={config}>
+{ /*     <WagmiConfig config={config}> */}
         <Router>
           <App />
         </Router>
-      </WagmiConfig>
+   {/*  </WagmiConfig> */}
     </ErrorBoundary>
   </StrictMode>
 );

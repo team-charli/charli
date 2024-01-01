@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react'
 import useAuthenticate from '../hooks/Lit/useLitAuthenticate';
 import useLitAccounts from '../hooks/Lit/useLitAccount';
 import useLitSession from '../hooks/Lit/useLitSession';
-import { useSupabase } from '../hooks/Supabase/useSupabase'
 
 export const useAuth = () => {
-  const {supabaseClient, updateJwt, jwt} = useSupabase()
   const {
     authMethod,
     error: authError,
@@ -20,7 +18,6 @@ export const useAuth = () => {
   const {
     initSession,
     sessionSigs,
-    setSessionSigs,
     loading: sessionLoading,
     error: sessionError,
   } = useLitSession();
@@ -33,16 +30,11 @@ export const useAuth = () => {
 
   useEffect(() => {
     if (authMethod && currentAccount) {
+      console.log('run initSession');
       initSession(authMethod, currentAccount);
     }
   }, [authMethod, currentAccount, initSession]);
 
-  useEffect(() => {
-    if (currentAccount && sessionSigs){
-      localStorage.setItem('currentAccount', JSON.stringify(currentAccount));
-      localStorage.setItem('sessionSigs', JSON.stringify(sessionSigs));
-    }
-  }, [currentAccount, sessionSigs])
 
-  return {authMethod, currentAccount, sessionSigs, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError, supabaseClient, jwt, updateJwt };
+  return {authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError };
 }
