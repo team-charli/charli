@@ -1,12 +1,17 @@
+import {useContext} from 'react'
 import IconHeader from '../../Components/Headers/IconHeader'
 import BannerHeader from '../../Components/Headers/BannerHeader'
-import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
 import { OnboardContext } from '../../contexts/OnboardContext'
 import OnboardForm from './OnboardForm'
 import NonButtonLink from '../../Components/Elements/NonButtonLink'
 
 export const Onboard = () => {
-  const { onboardMode: _onboardMode } = useContextNullCheck(OnboardContext, "onboardMode");
+  const context = useContext(OnboardContext);
+  if (!context) {
+    return null;
+  }
+  const { onboardMode: _onboardMode } =context;
+
 
   let fakeButton, form
 

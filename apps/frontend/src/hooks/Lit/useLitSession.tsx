@@ -42,7 +42,6 @@ export default function useLitSession() {
             resourceAbilityRequests: resourceAbilities,
           },
         });
-        console.log("sessionSigs", JSON.stringify(sessionSigs))
         console.log(`setting sessionSigs`)
         localStorage.setItem('sessionSigs', JSON.stringify(sessionSigs))
         setSessionSigs(sessionSigs);

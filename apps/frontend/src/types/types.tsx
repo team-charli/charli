@@ -68,10 +68,7 @@ export interface OnboardContextObj {
 }
 
 export interface AuthContextObj {
-  // jwt: string | null;
-  // updateJwt: Function;
   authMethod: AuthMethod | undefined;
-  supabaseClient: SupabaseClient | null;
   isAuthenticated: boolean | null;
   authLoading: boolean;
   accountsLoading: boolean;

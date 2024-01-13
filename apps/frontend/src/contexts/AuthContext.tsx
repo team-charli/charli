@@ -4,9 +4,12 @@ import { AuthContextObj, AuthProviderProps  } from '../types/types'
 import { useIsAuthenticated } from '../hooks/auth/checks/useIsAuthenticated';
 export const AuthContext = createContext<AuthContextObj | null>(null);
 
+export const useAuthContext = () => useContext(AuthContext);
+
+
 const AuthProvider = ({children}: AuthProviderProps) => {
 
-const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError, supabaseClient, /*jwt, updateJwt*/ } = useAuth();
+const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuth();
 
   const isAuthenticated = useIsAuthenticated();
 
@@ -18,9 +21,6 @@ const { authMethod, authLoading, accountsLoading, sessionLoading, authError, acc
     accountsError,
     sessionError,
     authMethod,
-    // jwt,
-    // updateJwt,
-    supabaseClient,
     isAuthenticated,
   };
 

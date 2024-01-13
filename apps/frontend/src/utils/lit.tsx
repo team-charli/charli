@@ -1,3 +1,4 @@
+import { getAddress } from 'ethers/lib/utils';
 import { SiweMessage } from 'siwe';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import {
@@ -74,69 +75,27 @@ export async function authenticateWithGoogle(
 }
 
 export async function getSessionSigs({
-  // authSig
   pkpPublicKey,
   authMethod,
   sessionSigsParams,
 }: {
   pkpPublicKey: string;
   authMethod: AuthMethod;
-  // authSig: AuthSig;
   sessionSigsParams: GetSessionSigsProps;
 }): Promise<SessionSigs> {
-  // Create a new ethers.js Wallet instance
-  // const authMethods = [authMethod]
-  const pkpWallet = new PKPEthersWallet({
-    controllerAuthMethods: [authMethod],
-    // controllerAuthSig: authSig,
-    pkpPubKey: pkpPublicKey,
-  });
-  await pkpWallet.init();
-  console.log("pkpWallet address", pkpWallet?.address )
-
-  // Instantiate a LitNodeClient
-  await litNodeClient.connect();
-  let nonce = litNodeClient.getLatestBlockhash();
-
-const authNeededCallback = async (params: AuthCallbackParams): Promise<AuthSig> => {
-  const { chain, resources = [], expiration, uri } = params;
-  const domain = "localhost:4200";
-
-  try {
-    const message = new SiweMessage({
-      domain,
-      address: String(pkpWallet.address),
-      statement: "Sign a session key to use with Lit Protocol",
-      uri,
-      version: "1",
-      chainId: 1,
-      expirationTime: expiration,
-      resources,
-      nonce: nonce ?? undefined,
+  const provider = getProviderByAuthMethod(authMethod);
+  if (provider) {
+    const sessionSigs = await provider.getSessionSigs({
+      pkpPublicKey,
+      authMethod,
+      sessionSigsParams,
     });
-
-    const toSign = message.prepareMessage();
-    const signature = await pkpWallet.signMessage(toSign);
-
-    return {
-      sig: signature,
-      derivedVia: "web3.eth.personal.sign",
-      signedMessage: toSign,
-      address: pkpWallet.address,
-    };
-  } catch (error) {
-    console.error("Error in authNeededCallback:", error);
-    // Handle error appropriately, maybe by throwing an error or returning a default/fallback AuthSig
-    throw new Error("authNeededCallback failed");
+    return sessionSigs;
+  } else {
+    throw new Error(
+      `Provider not found for auth method type ${authMethod.authMethodType}`
+    );
   }
-};
-
-  const sessionSigs = await litNodeClient.getSessionSigs({
-    ...sessionSigsParams,
-    authNeededCallback,
-  });
-
-  return sessionSigs;
 }
 
 export async function updateSessionSigs(
@@ -174,9 +133,9 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
     ).verifyAndMintPKPThroughRelayer(options);
   } else {
     // Mint PKP through relay server
-  const options = {
-    permittedAuthMethodScopes: [[1]],
-  };
+    const options = {
+      permittedAuthMethodScopes: [[1]],
+    };
 
     if (!isDefined(provider)) throw new Error('provider not defined')
     txHash = await provider.mintPKPThroughRelayer(authMethod, options);
@@ -188,14 +147,14 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
     throw new Error('Minting failed');
   }
 
-    if (isDefined(response.pkpTokenId) && isDefined(response.pkpPublicKey) && isDefined(response.pkpEthAddress)) {
-      const newPKP: IRelayPKP = {
-        tokenId: response.pkpTokenId,
-        publicKey: response.pkpPublicKey,
-        ethAddress: response.pkpEthAddress,
-      };
-      return newPKP;
-    } else {
+  if (isDefined(response.pkpTokenId) && isDefined(response.pkpPublicKey) && isDefined(response.pkpEthAddress)) {
+    const newPKP: IRelayPKP = {
+      tokenId: response.pkpTokenId,
+      publicKey: response.pkpPublicKey,
+      ethAddress: response.pkpEthAddress,
+    };
+    return newPKP;
+  } else {
     throw new Error('Response properties are not defined');
 
   }

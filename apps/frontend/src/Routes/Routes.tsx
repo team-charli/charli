@@ -1,6 +1,6 @@
 import {useEffect} from 'react'
-import { AuthContext } from '../contexts/AuthContext'
-import { OnboardContext } from '../contexts/OnboardContext'
+import { AuthContext, useAuthContext } from '../contexts/AuthContext'
+import { OnboardContext, useOnboardContext } from '../contexts/OnboardContext'
 import { useContextNullCheck } from '../hooks/utils/useContextNullCheck'
 import { Switch, Route, Redirect} from 'react-router-dom';
 import {PrivateRouteProps} from '../types/types'
@@ -13,8 +13,12 @@ import Lounge from './Lounge/Lounge'
 import Room from './Room/Room'
 
 const Routes = () => {
-  const {isAuthenticated = false} = useContextNullCheck(AuthContext);
-  const { isOnboarded = false, onboardMode  } = useContextNullCheck(OnboardContext);
+  const context1 = useAuthContext()
+  const context2 = useOnboardContext();
+  if (!context1 || !context2 ) return null;
+  const {isAuthenticated = false} = context1;
+  const { isOnboarded = false, onboardMode  } = context2;
+
   const AuthedAndOnboarded:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
     return (
       <Route
