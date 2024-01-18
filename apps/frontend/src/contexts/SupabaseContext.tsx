@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { useFetchJWT } from '../hooks/Supabase/useFetchJWT'; // adjust the path as necessary
-import { SupabaseProviderProps } from '../types/types';
+import { useFetchJWT } from '../hooks/Supabase/useFetchJWT';
+import { SupabaseContextValue, SupabaseProviderProps } from '../types/types';
+import { useFetchNonce } from '../hooks/Supabase/useFetchNonce';
+import { useAuthContext } from './AuthContext';
+import { useLocalStorage } from '@rehooks/local-storage';
 
-const SupabaseContext = createContext<{ client: SupabaseClient | null, isLoading: boolean }>({ client: null, isLoading: true });
+const SupabaseContext = createContext<SupabaseContextValue>({ client: null, isLoading: true });
 
 const createSupabaseClient = (jwt: string): SupabaseClient => {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -15,16 +18,18 @@ const createSupabaseClient = (jwt: string): SupabaseClient => {
 };
 
 export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
-  const { loading: jwtLoading, error: jwtError } = useFetchJWT();
+  const {authSig, currentAccount, sessionSigs} = useAuthContext();
+  const [cachedJWT, setCachedJWT] = useLocalStorage('userJWT');
+  const nonce = useFetchNonce(currentAccount, sessionSigs, cachedJWT);
+  const { loading: jwtLoading, error: jwtError } = useFetchJWT(currentAccount, sessionSigs, authSig, nonce, setCachedJWT, cachedJWT );
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
 
   useEffect(() => {
-    const jwt = localStorage.getItem('userJWT');
-    if (jwt && !supabaseClient) {
-      const client = createSupabaseClient(jwt);
+    if (cachedJWT && !supabaseClient) {
+      const client = createSupabaseClient(cachedJWT);
       setSupabaseClient(client);
     }
-  }, [jwtLoading]); // Depend on the JWT loading state
+  }, [jwtLoading, cachedJWT, supabaseClient]); // Depend on the JWT loading state
 
   const isLoading = jwtLoading || !supabaseClient;
 
@@ -35,7 +40,7 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
   );
 };
 
-export const useSupabase = () => {
+export const useSupabase = (): SupabaseContextValue => {
   const context = useContext(SupabaseContext);
   if (!context) {
     throw new Error('useSupabase must be used within a SupabaseProvider');

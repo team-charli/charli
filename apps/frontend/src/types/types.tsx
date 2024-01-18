@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { AuthMethod  } from '@lit-protocol/types';
+import { AuthMethod, AuthSig, IRelayPKP, SessionSigs  } from '@lit-protocol/types';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { RouteProps } from 'react-router-dom';
 
@@ -43,10 +43,10 @@ export type FormValues = {
 };
 
 export interface OnboardContextObj {
-  hasBalance: boolean;
+  hasBalance: boolean | null;
 
   isOnboarded: boolean | null;
-  setIsOnboarded: Dispatch<SetStateAction<boolean| null>>;
+  setIsOnboarded: LocalStorageSetter<boolean>;
 
   nativeLang: string;
   setNativeLang: Function;
@@ -62,20 +62,22 @@ export interface OnboardContextObj {
 
   name: string;
   setName: Dispatch<SetStateAction<string>>;
-
-  checkIsOnboarded: boolean;
-  setCheckIsOnboarded:Dispatch<SetStateAction<boolean>>;
 }
 
 export interface AuthContextObj {
   authMethod: AuthMethod | undefined;
-  isAuthenticated: boolean | null;
   authLoading: boolean;
   accountsLoading: boolean;
   sessionLoading: boolean;
   authError: Error | undefined;
   accountsError: Error | undefined;
   sessionError: Error | undefined;
+  currentAccount: IRelayPKP | null;
+  sessionSigs: SessionSigs | null;
+  authSig: AuthSig | null;
+  setCurrentAccount: LocalStorageSetter<IRelayPKP>;
+  setSessionSigs: LocalStorageSetter<SessionSigs>;
+  setAuthSig: LocalStorageSetter<AuthSig>;
 }
 
 
@@ -262,5 +264,13 @@ export type LanguageToggleButtonsProps = {
 export interface OnboardFormData {
   name: string;
   [key: string]: boolean | string;
+}
+
+type LocalStorageSetStateValue<TValue> = TValue | ((prevState: TValue | null) => TValue);
+export type LocalStorageSetter<TValue> = (newValue: LocalStorageSetStateValue<TValue> | null) => void;
+
+export interface SupabaseContextValue {
+  client: SupabaseClient | null;
+  isLoading: boolean;
 }
 

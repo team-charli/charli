@@ -12,7 +12,6 @@ export const Onboard = () => {
   }
   const { onboardMode: _onboardMode } =context;
 
-
   let fakeButton, form
 
   if (_onboardMode && _onboardMode  === "Learn") {

@@ -1,17 +1,17 @@
 import { Database } from '../supabaseTypes';
 import { ErrorModal } from '../Components/Errors/ErrorModal'
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Dispatch, SetStateAction } from 'react'
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { loadAccountAndSessionKeys } from '../utils/app';
+import { LocalStorageSetter } from '../types/types';
 
-export const submitOnboardLearnAPI = async (learningLangs: string[] , isOnboarded: boolean, name: string, hasBalance: boolean, setIsOnboarded: Dispatch<SetStateAction<boolean| null>>, supabaseClient: SupabaseClient)=> {
+export const submitOnboardLearnAPI = async (learningLangs: string[] , isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient, currentAccount: IRelayPKP, sessionSigs: SessionSigs)=> {
 
-  const {currentAccount, sessionSigs} = loadAccountAndSessionKeys();
-  if (!isOnboarded && currentAccount && sessionSigs &&  learningLangs.length && name.length /*&& jwt?.length */&& supabaseClient ) {
-    if (!hasBalance) {
+  if (isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient ) {
+    if (hasBalance === false) {
       return <ErrorModal errorText="To learn you either need money in your account or you need to be a teacher" />
       //OPTIM: Better user handling
+    } else if (hasBalance === null) {
+      throw new Error('check hasBalance should have been run but has not been')
     }
     const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
       NAME: name,

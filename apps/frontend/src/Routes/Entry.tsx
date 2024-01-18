@@ -10,9 +10,7 @@ const Entry = () => {
     return null
   }
 
- const {setOnboardMode}  = context;
-
-
+ const {setOnboardMode} = context;
 
   // useEffect( () => {
   //   setCheckIsOnboarded(prev => !prev)

@@ -7,20 +7,23 @@ interface NonceData {
   nonce: string;
 }
 
-export const useFetchNonce = (currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null) => {
-  const [nonce, setNonce] = useState<string | null>(null);
+export const useFetchNonce = (currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, cachedJWT: string | null) => {
+
+  const [nonce, setNonce] = useState<string | null>(null)
 
   useAsyncEffect(async () => {
-    if (currentAccount && sessionSigs) {
+    if (currentAccount && sessionSigs && !cachedJWT) {
+      console.log("fetch nonce");
+
       try {
         const response = await ky('https://supabase-auth.zach-greco.workers.dev/nonce');
         const data: NonceData = await response.json(); // Cast the response to NonceData
-        setNonce(data.nonce); // Use data.nonce, ensuring TypeScript knows about the nonce property
+        setNonce(data.nonce)
+
       } catch (error) {
         console.error('Error fetching nonce:', error);
       }
     }
-  }, async () => { /* Unmount cleanup logic here */ }, [currentAccount, sessionSigs]); // Correctly passing dependencies array
-
-  return nonce;
+  }, async () => {}, [currentAccount, sessionSigs, cachedJWT]);
+  return nonce
 };

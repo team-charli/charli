@@ -1,13 +1,12 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Dispatch, SetStateAction } from 'react'
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { Database } from '../supabaseTypes';
-import { loadAccountAndSessionKeys } from '../utils/app';
+import { LocalStorageSetter } from '../types/types';
+import { IRelayPKP, SessionSig, SessionSigs } from '@lit-protocol/types';
 
-export const submitOnboardTeachAPI = async (isOnboarded: boolean, setIsOnboarded:Dispatch<SetStateAction<boolean| null>>, teachingLangs: string[], name: string, supabaseClient: SupabaseClient) => {
+export const submitOnboardTeachAPI = async (isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, teachingLangs: string[], name: string, supabaseClient: SupabaseClient, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null) => {
 
-  const {currentAccount, sessionSigs} = loadAccountAndSessionKeys();
-  if (!isOnboarded && currentAccount && sessionSigs &&  teachingLangs.length && name.length /*&& jwt?.length*/ && supabaseClient ) {
+  if (isOnboarded === false && currentAccount && sessionSigs &&  teachingLangs.length && name.length /*&& jwt?.length*/ && supabaseClient ) {
     const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
       NAME: name,
       WANTS_TO_TEACH_LANGS: teachingLangs,

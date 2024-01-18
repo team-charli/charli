@@ -1,14 +1,10 @@
 import {useEffect} from 'react'
 import { useHistory } from 'react-router-dom';
 import { useContextNullCheck } from  './utils/useContextNullCheck'
-import { AuthContext } from '../contexts/AuthContext'
-import { OnboardContext } from '../contexts/OnboardContext'
-import { loadAccountAndSessionKeys } from '../utils/app';
+import { AuthContext, useAuthContext } from '../contexts/AuthContext'
 
 export const useRouteRedirect = () => {
-  const {isOnboarded} = useContextNullCheck(OnboardContext);
-  const {authMethod} = useContextNullCheck(AuthContext)
-  const {currentAccount, sessionSigs} = loadAccountAndSessionKeys();
+  const {currentAccount, sessionSigs, authMethod} = useAuthContext();
   const history = useHistory();
 
   useEffect(() => {
@@ -19,6 +15,6 @@ export const useRouteRedirect = () => {
       history.push('/lounge');
       }
     }
-  }, [authMethod, currentAccount, sessionSigs, isOnboarded, history]);
+  }, [authMethod, currentAccount, sessionSigs, history]);
 
 }

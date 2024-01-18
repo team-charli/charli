@@ -1,10 +1,10 @@
-
 import { LoginViewProps } from '../../types/types'
 import { signInWithGoogle } from '../../utils/lit';
 import { useSetLoginViewCSS } from '../../hooks/css/useSetLoginViewCSS';
 import AuthMethods from '../Lit/AuthMethods';
 import { AuthContext } from '../../contexts/AuthContext'
 import { UIContext} from '../../contexts/UIContext'
+import {OnboardContext } from '../../contexts/OnboardContext';
 import { useContextNullCheck } from  '../../hooks/utils/useContextNullCheck'
 import { useRouteRedirect } from '../../hooks/useRouteRedirect';
 
@@ -13,6 +13,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
 
   const { firedLogin, setFiredLogin } = useContextNullCheck(UIContext);
   const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useContextNullCheck(AuthContext)
+  const {onboardMode} = useContextNullCheck(OnboardContext);
   const error = authError || accountsError || sessionError;
   useRouteRedirect();
 
@@ -35,6 +36,9 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
       //FIX: Buttons still flashing on login
   }
 
+  if (!onboardMode) {
+    return 'loading'
+  }
 
   return (
     <div className={`_LoginMethods_ ${flex} justify-center ${marginTop}`}>

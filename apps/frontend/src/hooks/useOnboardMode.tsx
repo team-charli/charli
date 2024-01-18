@@ -9,7 +9,7 @@ export const useOnboardMode = () => {
   );
   useEffect(() => {
     if (onboardMode !== null) {
-
+      console.log("setting onboardMode");
       localStorage.setItem('onboardMode', onboardMode);
     }
   }, [onboardMode]);

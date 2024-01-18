@@ -29,7 +29,7 @@ export const ORIGIN =
 export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
   litNetwork: 'cayenne',
-  debug: true,
+  // debug: true,
 });
 
 export const litAuthClient: LitAuthClient = new LitAuthClient({

@@ -1,14 +1,15 @@
 import {useEffect} from 'react'
 import { submitOnboardLearnAPI } from "../../api/submitOnboardLearnAPI";
 import { submitOnboardTeachAPI } from "../../api/submitOnboardTeachAPI";
-import { OnboardContext } from "../../contexts/OnboardContext";
-import { useContextNullCheck } from "../utils/useContextNullCheck";
 import {OnboardFormData} from '../../types/types'
-import { AuthContext } from '../../contexts/AuthContext';
 import { useSupabase } from "../../contexts/SupabaseContext";
+import { useOnboardContext } from '../../contexts/OnboardContext';
+import { useAuthContext } from '../../contexts/AuthContext';
 
 export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
-  const {isOnboarded, setIsOnboarded, learningLangs, teachingLangs, name, hasBalance, setTeachingLangs, setLearningLangs, setName } = useContextNullCheck(OnboardContext, "isOnboarded")
+
+  const {isOnboarded, setIsOnboarded, learningLangs, teachingLangs, name, hasBalance, setTeachingLangs, setLearningLangs, setName } = useOnboardContext();
+  const {currentAccount, sessionSigs} = useAuthContext();
 
   const { client: supabaseClient, isLoading } = useSupabase();
 
@@ -45,9 +46,9 @@ export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
     }
 
     if (onboardMode === "Learn") {
-      await submitOnboardLearnAPI(learningLangs, isOnboarded, name, hasBalance, setIsOnboarded, supabaseClient);
+      await submitOnboardLearnAPI(learningLangs, isOnboarded, name, hasBalance, setIsOnboarded, supabaseClient, currentAccount, sessionSigs);
     } else if (onboardMode === "Teach")  {
-      submitOnboardTeachAPI(isOnboarded, setIsOnboarded, teachingLangs, name, supabaseClient);
+      submitOnboardTeachAPI(isOnboarded, setIsOnboarded, teachingLangs, name, supabaseClient, currentAccount, sessionSigs);
     } else {
       throw new Error('no onboard mode set')
     }

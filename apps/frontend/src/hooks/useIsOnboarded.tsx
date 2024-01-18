@@ -1,26 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAsyncEffect } from './utils/useAsyncEffect';
-import { UseIsOnboardedParam  } from '../types/types'
-import { useContextNullCheck } from './utils/useContextNullCheck';
-import { AuthContext } from '../contexts/AuthContext';
-import { loadAccountAndSessionKeys } from '../utils/app'
+import {  useAuthContext } from '../contexts/AuthContext';
+import { useSupabase } from '../contexts/SupabaseContext';
+import useLocalStorage from '@rehooks/local-storage';
+import { LocalStorageSetter } from '../types/types';
 
-export const useIsOnboarded = ( {checkIsOnboarded, setCheckIsOnboarded}: UseIsOnboardedParam  ) => {
-  const { supabaseClient } = useContextNullCheck(AuthContext)
-  const [isOnboarded, setIsOnboarded] = useState<boolean | null>(false);
-
-  useEffect(() => {
-    setCheckIsOnboarded(prev => !prev)
-  }, [])
-//FIX: After supabaseClient works
-
+export const useIsOnboarded = (isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>) => {
+  const { client: supabaseClient } = useSupabase();
+  const {currentAccount, sessionSigs} = useAuthContext();
   useAsyncEffect(
     async () => {
-      const {currentAccount, sessionSigs} = loadAccountAndSessionKeys();
-      if (currentAccount && sessionSigs) {
-      if (supabaseClient) {
+      if (currentAccount && sessionSigs && supabaseClient) {
         try {
-          console.log('tried');
+          console.log('check db ethAddress');
 
           if (!currentAccount?.ethAddress) throw new Error('no current account address')
           let { data: User, error: supabaseError } = await supabaseClient
@@ -29,6 +21,7 @@ export const useIsOnboarded = ( {checkIsOnboarded, setCheckIsOnboarded}: UseIsOn
             .eq('USER_ADDRESS', currentAccount?.ethAddress)
             .single()
           if (!supabaseError) {
+            console.log('has db ethAddress');
             setIsOnboarded(true);
           } else {
             setIsOnboarded(false);
@@ -37,10 +30,10 @@ export const useIsOnboarded = ( {checkIsOnboarded, setCheckIsOnboarded}: UseIsOn
         } catch(e) {
           throw new Error(`Error: ${e}`)
         }
-      }
+
     }},
     async () => Promise.resolve(),
-    [checkIsOnboarded, supabaseClient]
+    [supabaseClient, isOnboarded]
   )
   return {isOnboarded, setIsOnboarded};
 }

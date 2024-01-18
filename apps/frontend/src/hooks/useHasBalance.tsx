@@ -2,14 +2,14 @@ import { useState } from 'react'
 import {utils} from 'ethers'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useAsyncEffect } from './utils/useAsyncEffect';
-import { loadAccountAndSessionKeys } from '../utils/app';
+import { useAuthContext } from '../contexts/AuthContext';
+import { LocalStorageSetter } from '../types/types';
 
-export function useHasBalance() {
-  const [hasBalance, setHasBalance] = useState(false);
+export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalStorageSetter<boolean> ) {
+  const {currentAccount, sessionSigs} = useAuthContext();
 
   useAsyncEffect( async () => {
-    const {currentAccount, sessionSigs} = loadAccountAndSessionKeys();
-    if (currentAccount && sessionSigs) {
+    if (currentAccount && sessionSigs && hasBalance === null) {
       const pkpWallet = new PKPEthersWallet({
         pkpPubKey: currentAccount.publicKey,
         controllerSessionSigs: sessionSigs,
@@ -25,7 +25,7 @@ export function useHasBalance() {
     }
   },
     async () => Promise.resolve(),
-    []
+    [hasBalance, currentAccount, sessionSigs]
   )
 
   return hasBalance
