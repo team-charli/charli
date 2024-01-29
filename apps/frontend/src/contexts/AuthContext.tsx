@@ -2,8 +2,12 @@ import { useAuth } from '../hooks/useAuth'
 import { createContext, useContext } from 'react'
 import { AuthContextObj, AuthProviderProps  } from '../types/types'
 import { useRehydrate } from '../hooks/utils/useRehydrate';
+import useLocalStorage from '@rehooks/local-storage';
+import { AuthMethod, AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types';
+
 const defaultAuthContext: AuthContextObj = {
-    authMethod: undefined, // or a valid default AuthMethod value
+    authMethod: null, // or a valid default AuthMethod value
+    setAuthMethod: () => {},
     authLoading: false,
     accountsLoading: false,
     sessionLoading: false,
@@ -18,15 +22,17 @@ const defaultAuthContext: AuthContextObj = {
     setAuthSig: () => {}, // Dummy function or a valid setter function
 };
 
-export const AuthContext = createContext<AuthContextObj>(defaultAuthContext);
 
 export const useAuthContext = () => useContext(AuthContext);
 
 const AuthProvider = ({children}: AuthProviderProps) => {
 
-  const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuth();
 
-  const { currentAccount, sessionSigs, authSig, setCurrentAccount, setSessionSigs, setAuthSig } = useRehydrate();
+  const { currentAccount, sessionSigs, authSig, setCurrentAccount, setSessionSigs, setAuthSig, authMethod, setAuthMethod } = useRehydrate();
+
+
+  const { authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuth(currentAccount, sessionSigs, authSig, setCurrentAccount, setSessionSigs, setAuthSig, authMethod, setAuthMethod);
+
 
   const auth: AuthContextObj = {
     authLoading,
@@ -36,6 +42,7 @@ const AuthProvider = ({children}: AuthProviderProps) => {
     accountsError,
     sessionError,
     authMethod,
+    setAuthMethod,
     currentAccount,
     sessionSigs,
     authSig,
@@ -52,4 +59,5 @@ const AuthProvider = ({children}: AuthProviderProps) => {
 }
 
 export default AuthProvider
+export const AuthContext = createContext<AuthContextObj>(defaultAuthContext);
 

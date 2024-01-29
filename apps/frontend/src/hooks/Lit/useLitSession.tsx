@@ -3,10 +3,11 @@ import { useCallback, useState } from 'react';
 import { AuthMethod } from '@lit-protocol/types';
 import { getSessionSigs } from '../../utils/lit';
 import { LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
-import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
+import { IRelayPKP } from '@lit-protocol/types';
+import { useAuthContext } from '../../contexts/AuthContext';
 
 export default function useLitSession() {
-  const [sessionSigs, setSessionSigs] = useState<SessionSigs>();
+  const {sessionSigs, setSessionSigs} = useAuthContext();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
   const history = useHistory();
@@ -34,7 +35,6 @@ export default function useLitSession() {
         // Generate session sigs
         const sessionSigs = await getSessionSigs({
           pkpPublicKey: pkp.publicKey,
-          // authSig,
           authMethod,
           sessionSigsParams: {
             chain,
@@ -43,7 +43,6 @@ export default function useLitSession() {
           },
         });
         console.log(`setting sessionSigs`)
-        localStorage.setItem('sessionSigs', JSON.stringify(sessionSigs))
         setSessionSigs(sessionSigs);
       } catch (err) {
         console.log("error", err)

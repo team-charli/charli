@@ -1,14 +1,12 @@
 import { useCallback, useState, useEffect } from 'react';
-import { AuthMethod } from '@lit-protocol/types';
+import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '../../utils/lit';
-import { IRelayPKP } from '@lit-protocol/types';
 import { useAuthContext } from '../../contexts/AuthContext';
+import { LocalStorageSetter } from '../../types/types';
 
-export default function useAccounts() {
-  // const [currentAccount, setCurrentAccount] = useState<IRelayPKP>();
+export default function useAccounts(currentAccount: IRelayPKP | null, setCurrentAccount: LocalStorageSetter<IRelayPKP> ) {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
-  const {currentAccount, setCurrentAccount} = useAuthContext();
 
   /**
    * Fetch PKPs tied to given auth method

@@ -1,18 +1,7 @@
-import { useState, useEffect } from 'react'
+import useLocalStorage from '@rehooks/local-storage';
 
 export const useOnboardMode = () => {
-  const [onboardMode, setOnboardMode] = useState<"Learn" | "Teach" | null>(
-    () => {
-    const storedOnboardMode = localStorage.getItem('onboardMode');
-    return storedOnboardMode ? storedOnboardMode as "Learn" | "Teach" : null;
-  }
-  );
-  useEffect(() => {
-    if (onboardMode !== null) {
-      console.log("setting onboardMode");
-      localStorage.setItem('onboardMode', onboardMode);
-    }
-  }, [onboardMode]);
+  const [onboardMode, setOnboardMode] = useLocalStorage<"Learn" | "Teach" | null>('onboardMode');
 
   return {onboardMode, setOnboardMode}
 }

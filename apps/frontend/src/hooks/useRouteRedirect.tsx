@@ -1,13 +1,17 @@
 import {useEffect} from 'react'
 import { useHistory } from 'react-router-dom';
-import { useContextNullCheck } from  './utils/useContextNullCheck'
-import { AuthContext, useAuthContext } from '../contexts/AuthContext'
+import { useAuthContext } from '../contexts/AuthContext'
+import { useOnboardContext } from '../contexts/OnboardContext';
 
 export const useRouteRedirect = () => {
   const {currentAccount, sessionSigs, authMethod} = useAuthContext();
+  const {isOnboarded} = useOnboardContext();
   const history = useHistory();
 
   useEffect(() => {
+    console.log({ authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount),sessionSigs: Boolean(sessionSigs)  })
+
+
     if (authMethod && currentAccount && sessionSigs) {
       if (!isOnboarded) {
        history.push('/onboard');

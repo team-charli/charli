@@ -11,6 +11,7 @@ import {
 } from '@lit-protocol/types';
 import {
   GoogleProvider,
+  DiscordProvider,
   EthWalletProvider,
   WebAuthnProvider,
   LitAuthClient,
@@ -29,7 +30,6 @@ export const ORIGIN =
 export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
   litNetwork: 'cayenne',
-  // debug: true,
 });
 
 export const litAuthClient: LitAuthClient = new LitAuthClient({
@@ -74,6 +74,25 @@ export async function authenticateWithGoogle(
   return authMethod;
 }
 
+export async function signInWithDiscord(redirectUri: string): Promise<void> {
+  const discordProvider = litAuthClient.initProvider<DiscordProvider>(
+    ProviderType.Discord,
+    { redirectUri }
+  );
+  await discordProvider.signIn();
+}
+
+export async function authenticateWithDiscord(
+  redirectUri: string
+): Promise<AuthMethod | undefined> {
+  const discordProvider = litAuthClient.initProvider<DiscordProvider>(
+    ProviderType.Discord,
+    { redirectUri }
+  );
+  const authMethod = await discordProvider.authenticate();
+  return authMethod;
+}
+
 export async function getSessionSigs({
   pkpPublicKey,
   authMethod,
@@ -84,6 +103,8 @@ export async function getSessionSigs({
   sessionSigsParams: GetSessionSigsProps;
 }): Promise<SessionSigs> {
   const provider = getProviderByAuthMethod(authMethod);
+  console.log({provider});
+
   if (provider) {
     const sessionSigs = await provider.getSessionSigs({
       pkpPublicKey,
@@ -156,9 +177,9 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
     return newPKP;
   } else {
     throw new Error('Response properties are not defined');
-
   }
 }
+
 /**
  * Get provider for given auth method
  */

@@ -1,20 +1,12 @@
-import {useEffect, useContext} from 'react'
+import {useContext} from 'react'
 import IconHeader from '../Components/Headers/IconHeader'
 import BannerHeader from '../Components/Headers/BannerHeader'
 import ButtonLink from '../Components/Elements/ButtonLink'
-import { useOnboardContext, OnboardContext} from '../contexts/OnboardContext'
+import { OnboardContext, useOnboardContext} from '../contexts/OnboardContext'
 
 const Entry = () => {
-  const context  = useContext(OnboardContext);
-  if (!context) {
-    return null
-  }
 
- const {setOnboardMode} = context;
-
-  // useEffect( () => {
-  //   setCheckIsOnboarded(prev => !prev)
-  // }, [])
+ const {setOnboardMode} = useOnboardContext();
 
   return (
     <>

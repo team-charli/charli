@@ -8,7 +8,7 @@ export interface PrivateRouteProps extends RouteProps {
 }
 export interface AuthMethodsProps {
   handleGoogleLogin: () => Promise<void>;
-  /* handleDiscordLogin: () => Promise<void>; */
+  handleDiscordLogin: () => Promise<void>;
   /*setView: React.Dispatch<React.SetStateAction<string>>;*/
 }
 
@@ -65,7 +65,8 @@ export interface OnboardContextObj {
 }
 
 export interface AuthContextObj {
-  authMethod: AuthMethod | undefined;
+  authMethod: AuthMethod | null;
+  setAuthMethod: LocalStorageSetter<AuthMethod>;
   authLoading: boolean;
   accountsLoading: boolean;
   sessionLoading: boolean;
