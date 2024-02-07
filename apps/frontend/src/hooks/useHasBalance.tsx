@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {utils} from 'ethers'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useAsyncEffect } from './utils/useAsyncEffect';

@@ -14,7 +14,7 @@ export const useAuth = (currentAccount: IRelayPKP | null, sessionSigs: SessionSi
     fetchAccounts,
     error: accountsError,
     loading: accountsLoading,
-  } = useLitAccounts();
+  } = useLitAccounts(currentAccount, setCurrentAccount);
   const {
     initSession,
     loading: sessionLoading,
@@ -28,8 +28,7 @@ export const useAuth = (currentAccount: IRelayPKP | null, sessionSigs: SessionSi
   }, [authMethod, fetchAccounts]);
 
   useEffect(() => {
-    if (authMethod && currentAccount) {
-      console.log('run initSession');
+    if (authMethod && currentAccount && !sessionSigs) {
       initSession(authMethod, currentAccount);
     }
   }, [authMethod, currentAccount, initSession]);

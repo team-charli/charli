@@ -5,7 +5,7 @@ import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../types/types';
 
 export const submitOnboardLearnAPI = async (learningLangs: string[] , isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient, currentAccount: IRelayPKP, sessionSigs: SessionSigs)=> {
-
+try {
   if (isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient ) {
     if (hasBalance === false) {
       return <ErrorModal errorText="To learn you either need money in your account or you need to be a teacher" />
@@ -34,7 +34,11 @@ export const submitOnboardLearnAPI = async (learningLangs: string[] , isOnboarde
     }
     //TODO: on success, implement cacheing
   } else {
+    console.warn({isOnboarded, currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), learningLangsLength: learningLangs.length, nameLength: name.length, supabaseClient: Boolean(supabaseClient) })
     throw new Error('User is already onboarded or missing required data');
+  }
+ } catch (e) {
+   console.error('submitOnboardLearn error', e)
   }
 }
 

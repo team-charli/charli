@@ -1,14 +1,13 @@
-import { getAddress } from 'ethers/lib/utils';
-import { SiweMessage } from 'siwe';
-import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import {
   AuthCallbackParams,
   AuthMethod,
   AuthSig,
   GetSessionSigsProps,
   IRelayPKP,
+  SessionSig,
   SessionSigs,
 } from '@lit-protocol/types';
+import { LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
 import {
   GoogleProvider,
   DiscordProvider,
@@ -96,27 +95,79 @@ export async function authenticateWithDiscord(
 export async function getSessionSigs({
   pkpPublicKey,
   authMethod,
-  sessionSigsParams,
 }: {
   pkpPublicKey: string;
   authMethod: AuthMethod;
-  sessionSigsParams: GetSessionSigsProps;
 }): Promise<SessionSigs> {
-  const provider = getProviderByAuthMethod(authMethod);
-  console.log({provider});
-
-  if (provider) {
-    const sessionSigs = await provider.getSessionSigs({
-      pkpPublicKey,
-      authMethod,
-      sessionSigsParams,
+try {
+  const sessionKeyPair = litNodeClient.getSessionKey();
+const authNeededCallback = async (params: any ) => {
+    const response = await litNodeClient.signSessionKey({
+      sessionKey: sessionKeyPair,
+      statement: params.statement,
+      // authSig: authSig,
+      // authSig: JSON.parse(authMethod.accessToken), // When this is empty or undefined, it will fail
+      authMethods: [authMethod],
+      pkpPublicKey: pkpPublicKey,
+      expiration: params.expiration,
+      resources: params.resources,
+      chainId: 1,
     });
-    return sessionSigs;
-  } else {
-    throw new Error(
-      `Provider not found for auth method type ${authMethod.authMethodType}`
-    );
-  }
+    return response.authSig;
+  };
+
+  const resourceAbilities = [
+    {
+      resource: new LitActionResource('*'),
+      ability: LitAbility.PKPSigning,
+    },
+  ];
+
+  let sessionSigs: SessionSigs;
+
+try {
+  sessionSigs = await litNodeClient.getSessionSigs({
+    chain: 'ethereum',
+    expiration: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+    resourceAbilityRequests: resourceAbilities,
+    sessionKey: sessionKeyPair,
+    authNeededCallback,
+  });
+  // If the operation is successful, you can use sessionSigs as needed
+  return sessionSigs
+} catch (e) {
+  // Handle the error
+  console.error("An error occurred while getting session signatures:", e);
+  throw e
+  // Depending on your application's needs, you might choose to rethrow the error,
+  // return a default value, or perform some other error handling logic here.
+}
+
+// Continue with your logic, potentially using sessionSigs if it was successfully assigned
+
+} catch(e) {
+  const error = e as Error;
+  console.error("litNodeClient.getSessionSigs(): stack", error.stack);
+  console.error("litNodeClient.getSessionSigs(): error", error)
+  throw error
+}
+// return sessionSigs
+
+
+  // const provider = getProviderByAuthMethod(authMethod);
+  // console.log({provider});
+  // if (provider) {
+  //   const sessionSigs = await provider.getSessionSigs({
+  //     pkpPublicKey,
+  //     authMethod,
+  //     sessionSigsParams,
+  //   });
+  //   return sessionSigs;
+  // } else {
+  //   throw new Error(
+  //     `Provider not found for auth method type ${authMethod.authMethodType}`
+  //   );
+  // }
 }
 
 export async function updateSessionSigs(
@@ -124,6 +175,10 @@ export async function updateSessionSigs(
 ): Promise<SessionSigs> {
   const sessionSigs = await litNodeClient.getSessionSigs(params);
   return sessionSigs;
+}
+
+export async function getSessionKeyPair() {
+  return litNodeClient.getSessionKey()
 }
 
 /**
@@ -183,7 +238,7 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
 /**
  * Get provider for given auth method
  */
-function getProviderByAuthMethod(authMethod: AuthMethod) {
+export function getProviderByAuthMethod(authMethod: AuthMethod) {
   switch (authMethod.authMethodType) {
     case AuthMethodType.GoogleJwt:
       return litAuthClient.getProvider(ProviderType.Google);

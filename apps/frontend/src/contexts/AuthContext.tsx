@@ -2,8 +2,6 @@ import { useAuth } from '../hooks/useAuth'
 import { createContext, useContext } from 'react'
 import { AuthContextObj, AuthProviderProps  } from '../types/types'
 import { useRehydrate } from '../hooks/utils/useRehydrate';
-import useLocalStorage from '@rehooks/local-storage';
-import { AuthMethod, AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 const defaultAuthContext: AuthContextObj = {
     authMethod: null, // or a valid default AuthMethod value

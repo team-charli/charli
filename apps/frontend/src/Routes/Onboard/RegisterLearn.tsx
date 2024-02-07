@@ -7,7 +7,7 @@ export const RegisterLearn = (props: {}) => {
       </div>
 
       <div id="form" >
-        <OnboardForm mode="Learn"/>
+        <OnboardForm onboardMode="Learn"/>
       </div>
 
       <div id="deposit">

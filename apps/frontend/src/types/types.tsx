@@ -272,6 +272,6 @@ export type LocalStorageSetter<TValue> = (newValue: LocalStorageSetStateValue<TV
 
 export interface SupabaseContextValue {
   client: SupabaseClient | null;
-  isLoading: boolean;
+  supabaseLoading: boolean;
 }
 

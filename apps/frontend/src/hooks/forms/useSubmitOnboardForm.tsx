@@ -5,26 +5,29 @@ import {OnboardFormData} from '../../types/types'
 import { useSupabase } from "../../contexts/SupabaseContext";
 import { useOnboardContext } from '../../contexts/OnboardContext';
 import { useAuthContext } from '../../contexts/AuthContext';
+import useLocalStorage from '@rehooks/local-storage';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
 
   const {isOnboarded, setIsOnboarded, learningLangs, teachingLangs, name, hasBalance, setTeachingLangs, setLearningLangs, setName } = useOnboardContext();
-  const {currentAccount, sessionSigs} = useAuthContext();
+  const [currentAccount] = useLocalStorage<IRelayPKP | null>("currentAccount");
+  const [sessionSigs] = useLocalStorage<SessionSigs>("sessionSigs")
 
-  const { client: supabaseClient, isLoading } = useSupabase();
+  const { client: supabaseClient, supabaseLoading } = useSupabase();
 
  useEffect(() => {
-    if (isLoading && !supabaseClient) {
+    if (supabaseLoading && !supabaseClient) {
       console.log("supabaseClient loading");
-    } else if (!isLoading && !supabaseClient) {
+    } else if (!supabaseLoading && !supabaseClient) {
       console.log("not loading but no client, investigate");
-    } else if (!isLoading && supabaseClient) {
+    } else if (!supabaseLoading && supabaseClient) {
       console.log("has supabaseClient");
     }
-  }, [isLoading, supabaseClient])
+  }, [supabaseLoading, supabaseClient])
 
   return async (formData: OnboardFormData) => {
-    if (isLoading) {
+    if (supabaseLoading) {
       console.error('Supabase client is still loading');
       return;
     }
@@ -34,20 +37,21 @@ export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
       return;
     }
     setName(formData.name);
-
+    //TODO: selectedLanguages not updating. Neither are learningLangs
     const selectedLanguages = Object.keys(formData).filter(key =>
       formData[key] === true && key !== 'name'
     );
 
     if (onboardMode === "Learn") {
+      console.log('selectedLanguages', selectedLanguages)
       setLearningLangs(selectedLanguages);
     } else {
       setTeachingLangs(selectedLanguages);
     }
 
-    if (onboardMode === "Learn") {
+    if (onboardMode === "Learn" && currentAccount && sessionSigs && supabaseClient) {
       await submitOnboardLearnAPI(learningLangs, isOnboarded, name, hasBalance, setIsOnboarded, supabaseClient, currentAccount, sessionSigs);
-    } else if (onboardMode === "Teach")  {
+    } else if (onboardMode === "Teach" && currentAccount && sessionSigs && supabaseClient)  {
       submitOnboardTeachAPI(isOnboarded, setIsOnboarded, teachingLangs, name, supabaseClient, currentAccount, sessionSigs);
     } else {
       throw new Error('no onboard mode set')

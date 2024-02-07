@@ -9,8 +9,6 @@ export const useRouteRedirect = () => {
   const history = useHistory();
 
   useEffect(() => {
-    console.log({ authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount),sessionSigs: Boolean(sessionSigs)  })
-
 
     if (authMethod && currentAccount && sessionSigs) {
       if (!isOnboarded) {

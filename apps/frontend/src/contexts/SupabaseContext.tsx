@@ -6,35 +6,50 @@ import { useFetchNonce } from '../hooks/Supabase/useFetchNonce';
 import { useAuthContext } from './AuthContext';
 import { useLocalStorage } from '@rehooks/local-storage';
 
-const SupabaseContext = createContext<SupabaseContextValue>({ client: null, isLoading: true });
+const SupabaseContext = createContext<SupabaseContextValue>({ client: null, supabaseLoading: true });
 
-const createSupabaseClient = (jwt: string): SupabaseClient => {
+// Adjusting the singleton pattern to work with dynamic JWTs
+const supabaseClientSingleton = (() => {
+  let instance;
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY;
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${jwt}` } },
-  });
-};
+  const createInstance = (jwt: string) => {
+    console.log('created supabase instance');
+
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+    });
+  };
+
+  return {
+    getInstance: (jwt: string) => {
+      if (!instance) {
+        instance = createInstance(jwt);
+      }
+      return instance;
+    }
+  };
+})();
 
 export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
-  const {authSig, currentAccount, sessionSigs} = useAuthContext();
+  const { authSig, currentAccount, sessionSigs } = useAuthContext();
   const [cachedJWT, setCachedJWT] = useLocalStorage('userJWT');
   const nonce = useFetchNonce(currentAccount, sessionSigs, cachedJWT);
-  const { loading: jwtLoading, error: jwtError } = useFetchJWT(currentAccount, sessionSigs, authSig, nonce, setCachedJWT, cachedJWT );
+  const { loading: jwtLoading, error: jwtError } = useFetchJWT(currentAccount, sessionSigs, authSig, nonce, setCachedJWT, cachedJWT);
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
 
   useEffect(() => {
     if (cachedJWT && !supabaseClient) {
-      const client = createSupabaseClient(cachedJWT);
+      const client = supabaseClientSingleton.getInstance(cachedJWT);
       setSupabaseClient(client);
     }
-  }, [jwtLoading, cachedJWT, supabaseClient]); // Depend on the JWT loading state
+  }, [cachedJWT, supabaseClient, jwtLoading]); // Ensure nonce is not directly a dependency to avoid re-fetching JWT unnecessarily
 
   const isLoading = jwtLoading || !supabaseClient;
 
   return (
-    <SupabaseContext.Provider value={{ client: supabaseClient, isLoading }}>
+    <SupabaseContext.Provider value={{ client: supabaseClient, supabaseLoading: isLoading }}>
       {children}
     </SupabaseContext.Provider>
   );

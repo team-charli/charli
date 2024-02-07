@@ -11,7 +11,8 @@ export const useFetchNonce = (currentAccount: IRelayPKP | null, sessionSigs: Ses
 
   const [nonce, setNonce] = useState<string | null>(null)
 
-  useAsyncEffect(async () => {
+  useAsyncEffect(
+    async () => {
     if (currentAccount && sessionSigs && !cachedJWT) {
       console.log("fetch nonce");
 
@@ -24,6 +25,9 @@ export const useFetchNonce = (currentAccount: IRelayPKP | null, sessionSigs: Ses
         console.error('Error fetching nonce:', error);
       }
     }
-  }, async () => {}, [currentAccount, sessionSigs, cachedJWT]);
+  },
+  async () => {},
+  [currentAccount, sessionSigs, cachedJWT]);
+  if (nonce) console.log("gotNonce ", nonce)
   return nonce
 };

@@ -3,13 +3,13 @@ import { useAsyncEffect } from '../utils/useAsyncEffect';
 import { IRelayPKP, SessionSigs, AuthSig } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../../types/types';
 
-export function useFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, authSig: AuthSig | null, nonce: string | null, setCachedJWT: LocalStorageSetter<string>, cachedJWT: string | null ) {
+export function useFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null ,nonce: string | null, setCachedJWT: LocalStorageSetter<string>, cachedJWT: string | null ) {
   const fetchJWT = async () => {
-    if (nonce && currentAccount && sessionSigs && authSig && !cachedJWT) {
-      console.log("fetch jwt");
+    if (nonce && currentAccount && sessionSigs && !cachedJWT) {
+      console.log("fetching jwt");
       const ethereumAddress = currentAccount.ethAddress;
       const pkpWallet = new PKPEthersWallet({
-        controllerAuthSig: authSig,
+        controllerSessionSigs: sessionSigs,
         pkpPubKey: currentAccount.publicKey,
       });
 

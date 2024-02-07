@@ -1,10 +1,9 @@
 import { useCallback, useState, useEffect } from 'react';
 import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '../../utils/lit';
-import { useAuthContext } from '../../contexts/AuthContext';
 import { LocalStorageSetter } from '../../types/types';
 
-export default function useAccounts(currentAccount: IRelayPKP | null, setCurrentAccount: LocalStorageSetter<IRelayPKP> ) {
+export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurrentAccount: LocalStorageSetter<IRelayPKP> ) {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
 

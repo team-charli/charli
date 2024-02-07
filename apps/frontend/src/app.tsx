@@ -7,13 +7,13 @@ export function App() {
 
   return (
     <AuthProvider>
-      <OnboardStateProvider>
-        <SupabaseProvider>
-        <UIProvider>
-          <Routes />
-        </UIProvider>
+      <SupabaseProvider>
+        <OnboardStateProvider>
+          <UIProvider>
+            <Routes />
+          </UIProvider>
+        </OnboardStateProvider>
       </SupabaseProvider>
-      </OnboardStateProvider>
     </AuthProvider>
   );
 }
