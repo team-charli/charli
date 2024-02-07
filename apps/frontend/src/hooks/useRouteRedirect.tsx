@@ -12,9 +12,9 @@ export const useRouteRedirect = () => {
 
     if (authMethod && currentAccount && sessionSigs) {
       if (!isOnboarded) {
-       history.push('/onboard');
+        history.push('/onboard');
       } else {
-      history.push('/lounge');
+        history.push('/lounge');
       }
     }
   }, [authMethod, currentAccount, sessionSigs, history]);

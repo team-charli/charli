@@ -6,7 +6,6 @@ import SearchLangComboBox from '../../Components/Onboard/Form/SearchLangComboBox
 import { useSubmitOnboardForm } from '../../hooks/forms/useSubmitOnboardForm';
 import { useGetUsersFlags } from '../../hooks/geo/useGetUsersFlags';
 import { CombinedFormProps, OnboardFormData, LanguageButton } from '../../types/types';
-import isEqual from 'lodash.isequal';
 
 export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
   const initialLanguages = useGetUsersFlags() || [];
@@ -19,6 +18,12 @@ export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
       setCombinedLanguages(current => [...current, ...initialLanguages])
     }
   }, [initialLanguages])
+
+  // Watch all form fields
+  // const watchedFields = watch(); // Watch everything
+  // useEffect(() => {
+  //   console.log("formData", watchedFields); // Log the entire form data as it updates
+  // }, [watchedFields]);
 
   return (
     <div>

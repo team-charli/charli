@@ -9,14 +9,12 @@ import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
-
+  const { client: supabaseClient, supabaseLoading } = useSupabase();
   const {isOnboarded, setIsOnboarded, learningLangs, teachingLangs, name, hasBalance, setTeachingLangs, setLearningLangs, setName } = useOnboardContext();
   const [currentAccount] = useLocalStorage<IRelayPKP | null>("currentAccount");
   const [sessionSigs] = useLocalStorage<SessionSigs>("sessionSigs")
 
-  const { client: supabaseClient, supabaseLoading } = useSupabase();
-
- useEffect(() => {
+  useEffect(() => {
     if (supabaseLoading && !supabaseClient) {
       console.log("supabaseClient loading");
     } else if (!supabaseLoading && !supabaseClient) {
@@ -36,8 +34,11 @@ export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
       console.error('Supabase client is not available');
       return;
     }
+
+    console.log("formData", formData)
     setName(formData.name);
-    //TODO: selectedLanguages not updating. Neither are learningLangs
+    //FIX: selectedLanguages not updating. Neither are learningLangs nor name
+    //NOTE: refactor language selection into actual component between this and onboardForm
     const selectedLanguages = Object.keys(formData).filter(key =>
       formData[key] === true && key !== 'name'
     );
@@ -50,6 +51,7 @@ export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
     }
 
     if (onboardMode === "Learn" && currentAccount && sessionSigs && supabaseClient) {
+      console.log({name, learningLangs})
       await submitOnboardLearnAPI(learningLangs, isOnboarded, name, hasBalance, setIsOnboarded, supabaseClient, currentAccount, sessionSigs);
     } else if (onboardMode === "Teach" && currentAccount && sessionSigs && supabaseClient)  {
       submitOnboardTeachAPI(isOnboarded, setIsOnboarded, teachingLangs, name, supabaseClient, currentAccount, sessionSigs);
