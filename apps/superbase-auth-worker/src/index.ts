@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ethers } from 'ethers';
-import jwt from '@tsndr/cloudflare-worker-jwt'
+import jwt from '@tsndr/cloudflare-worker-jwt';
 
 interface RequestBody {
   ethereumAddress: string;
@@ -13,34 +12,39 @@ export interface Env {
 }
 
 export default {
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // Add CORS headers to the response
+    // CORS headers
     const corsHeaders = {
       'Access-Control-Allow-Origin': 'http://localhost:4200',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': '*',
     };
 
-    // Handle OPTIONS request
     if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        status: 204,
-        headers: corsHeaders,
-      });
+      return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // Routing logic
     switch (url.pathname) {
       case '/jwt':
         return handleJWTRequest(request, env, corsHeaders);
       case '/nonce':
         return handleNonceRequest(request, env, corsHeaders);
+      case '/generate-debug-jwt':
+        const debugSecret = env.SUPABASE_JWT_SECRET; // Use the same static secret in your local script
+        const token = await jwt.sign({
+          aud: 'authenticated',
+          exp: Math.floor(Date.now() / 1000) + (60 * 60 * 1.5), // 1.5 hour expiration
+        }, debugSecret, { algorithm: 'HS256' });
+        console.log('generate-debug-jwt')
+        console.log('debugSecret', debugSecret)
+        const isValid = await jwt.verify(token, debugSecret, { algorithm: 'HS256' });
+        console.log('isValid', isValid)
+        return new Response(JSON.stringify({ token, secret: debugSecret }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
       default:
         return new Response('Not found', { status: 404 });
     }
@@ -59,6 +63,7 @@ async function handleJWTRequest(request: Request, env: Env, corsHeaders: Record<
     console.error('Error parsing request body:', error);
     return new Response(JSON.stringify({ error: 'Bad request' }), { status: 400, headers: corsHeaders });
   }
+
   const { ethereumAddress, signature, nonce } = requestBody;
   const isVerified = await verifyUserSignature(ethereumAddress, signature, nonce);
   if (!isVerified) {
@@ -66,24 +71,30 @@ async function handleJWTRequest(request: Request, env: Env, corsHeaders: Record<
   }
 
   try {
-    console.log("supabase secret", env.SUPABASE_JWT_SECRET)
-    const token = await jwt.sign(
-      {
-        aud: 'authenticated',
-        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 1.5), // 1.5 hour expiration
-        sub: ethereumAddress,
-        role: 'authenticated',
-      },
+    const token = await jwt.sign({
+      aud: 'authenticated',
+      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 1.5), // 1.5 hour expiration
+      sub: ethereumAddress,
+      role: 'authenticated',
+    },
       env.SUPABASE_JWT_SECRET,
       { algorithm: 'HS256' }
     );
+
     console.log('token', token)
-    return new Response(JSON.stringify({ token }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.log('supabase secret', env.SUPABASE_JWT_SECRET)
+    // Verification step right after signing
+    const isValid = await jwt.verify(token, env.SUPABASE_JWT_SECRET, { algorithm: 'HS256' });
+    console.log(`JWT verification result: ${isValid}`);
+
+    return new Response(JSON.stringify({ token, secret:env.SUPABASE_JWT_SECRET }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch(error) {
-    console.error('Error generating JWT:', error);
+    console.error('Error generating or verifying JWT:', error);
     return new Response(JSON.stringify({ error: 'Internal Server Error' }), { status: 500, headers: corsHeaders });
   }
 }
+
+// Remaining functions (verifyUserSignature, handleNonceRequest, errorResponse) are unchanged.
 
 async function handleNonceRequest(request: Request, env: Env, corsHeaders: Record<string, string>): Promise<Response> {
   try {
