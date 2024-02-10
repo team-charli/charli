@@ -2,12 +2,13 @@ import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useAsyncEffect } from '../utils/useAsyncEffect';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../../types/types';
+import { isJwtExpired } from '../../utils/app';
 
-export function useFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, nonce: string | null, setCachedJWT: LocalStorageSetter<{ [key: string]: any }>, cachedJWT: { [key: string]: any } | null ) {
+export function useFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, nonce: string | null, setCachedJWT: LocalStorageSetter<string>, cachedJWT: string | null ) {
   const fetchJWT = async () => {
     // console.log('useFetchJWT', {nonce, currentAccount, sessionSigs, cachedJWT});
 
-    if (nonce && currentAccount && sessionSigs && (cachedJWT === null || Object.keys(cachedJWT).length === 0)) {
+    if (nonce && currentAccount && sessionSigs && (cachedJWT === null || Object.keys(cachedJWT).length === 0 || isJwtExpired(cachedJWT))) {
       console.log("fetching jwt");
       const ethereumAddress = currentAccount.ethAddress;
       const pkpWallet = new PKPEthersWallet({
@@ -64,3 +65,4 @@ export function useFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: Sessi
 
   return { loading: isLoading, error };
 }
+//NOTE: may have to implement expiration checks/refetch

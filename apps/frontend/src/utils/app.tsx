@@ -15,4 +15,15 @@ export function deduplicateLanguages(languages: string[]) {
 }
 
 
+export function isJwtExpired(token: string) {
+    // Decode the payload
+    const payload = JSON.parse(atob(token.split('.')[1]));
 
+    // Get the current time in seconds
+    const currentTime = Date.now() / 1000;
+
+    // Check if the token is expired
+    return payload.exp < currentTime;
+}
+
+//TODO: Need a hasInternet hook

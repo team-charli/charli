@@ -14,7 +14,7 @@ export const useIsOnboarded = (isOnboarded: boolean | null, setIsOnboarded:Local
         try {
           console.log('check isOnboarded');
           let response = await supabaseClient
-          // let { data: User, error: supabaseError } = await supabaseClient
+            // let { data: User, error: supabaseError } = await supabaseClient
             .from('User')
             .select('USER_ADDRESS')
             .eq('USER_ADDRESS', currentAccount?.ethAddress)
@@ -32,7 +32,7 @@ export const useIsOnboarded = (isOnboarded: boolean | null, setIsOnboarded:Local
           throw new Error(`Error: ${e}`)
         }
 
-    }},
+      }},
     async () => Promise.resolve(),
     [supabaseClient, isOnboarded, supabaseLoading]
   )

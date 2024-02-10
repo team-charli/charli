@@ -7,7 +7,7 @@ interface NonceData {
   nonce: string;
 }
 
-export const useFetchNonce = (currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, cachedJWT: { [key: string]: any } | null) => {
+export const useFetchNonce = (currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, cachedJWT: string | null) => {
 
   const [nonce, setNonce] = useLocalStorage<string | null>("nonce")
 

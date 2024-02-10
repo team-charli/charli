@@ -274,4 +274,7 @@ export interface SupabaseContextValue {
   client: SupabaseClient | null;
   supabaseLoading: boolean;
 }
+export interface NonceData {
+  nonce: string;
+}
 
