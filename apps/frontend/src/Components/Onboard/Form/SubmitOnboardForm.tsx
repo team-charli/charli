@@ -1,18 +1,11 @@
-import {useEffect} from 'react'
-import { submitOnboardLearnAPI } from "../../api/submitOnboardLearnAPI";
-import { submitOnboardTeachAPI } from "../../api/submitOnboardTeachAPI";
-import {OnboardFormData} from '../../types/types'
-import { useSupabase } from "../../contexts/SupabaseContext";
-import { useOnboardContext } from '../../contexts/OnboardContext';
-import { useAuthContext } from '../../contexts/AuthContext';
-import useLocalStorage from '@rehooks/local-storage';
+import {Dispatch, SetStateAction, useEffect} from 'react'
+import { submitOnboardLearnAPI } from "../../../api/submitOnboardLearnAPI";
+import { submitOnboardTeachAPI } from "../../../api/submitOnboardTeachAPI";
+import {LocalStorageSetter, OnboardFormData} from '../../../types/types'
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { SupabaseClient } from '@supabase/supabase-js';
 
-export const useSubmitOnboardForm = (onboardMode: "Learn" | "Teach" | null) => {
-  const { client: supabaseClient, supabaseLoading } = useSupabase();
-  const {isOnboarded, setIsOnboarded, learningLangs, teachingLangs, name, hasBalance, setTeachingLangs, setLearningLangs, setName } = useOnboardContext();
-  const [currentAccount] = useLocalStorage<IRelayPKP | null>("currentAccount");
-  const [sessionSigs] = useLocalStorage<SessionSigs>("sessionSigs")
+export const submitOnboardForm = (onboardMode: "Learn" | "Teach" | null, setName:Dispatch<SetStateAction<string>>, name: string, setLearningLangs:Dispatch<SetStateAction<string[]>>, setTeachingLangs:Dispatch<SetStateAction<string[]>>, teachingLangs: string[], learningLangs: string[], currentAccount: IRelayPKP | null, sessionSigs:SessionSigs | null, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, setIsOnboarded: LocalStorageSetter<boolean>, isOnboarded: boolean | null, hasBalance: boolean | null) => {
 
   useEffect(() => {
     if (supabaseLoading && !supabaseClient) {

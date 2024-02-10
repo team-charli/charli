@@ -3,15 +3,24 @@ import { useForm } from 'react-hook-form';
 import LanguageToggleButtons from '../../Components/Onboard/Form/LanguageToggleButtons';
 import NameInputField from '../../Components/Onboard/Form/NameInputField';
 import SearchLangComboBox from '../../Components/Onboard/Form/SearchLangComboBox';
-import { useSubmitOnboardForm } from '../../hooks/forms/useSubmitOnboardForm';
+import { submitOnboardForm } from '../../Components/Onboard/Form/SubmitOnboardForm';
 import { useGetUsersFlags } from '../../hooks/geo/useGetUsersFlags';
 import { CombinedFormProps, OnboardFormData, LanguageButton } from '../../types/types';
+import { useSupabase } from '../../contexts/SupabaseContext';
+import { useOnboardContext } from '../../contexts/OnboardContext';
+import { IRelayPKP, SessionSig, SessionSigs } from '@lit-protocol/types';
+import useLocalStorage from '@rehooks/local-storage';
 
 export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
+  const { client: supabaseClient, supabaseLoading } = useSupabase();
+  const {isOnboarded, setIsOnboarded, learningLangs, teachingLangs, name, hasBalance, setTeachingLangs, setLearningLangs, setName } = useOnboardContext();
+  const [currentAccount] = useLocalStorage<IRelayPKP>("currentAccount");
+  const [sessionSigs] = useLocalStorage<SessionSigs>("sessionSigs")
+  const callback = submitOnboardForm(onboardMode, setName, name, setLearningLangs, setTeachingLangs, teachingLangs, learningLangs, currentAccount, sessionSigs, supabaseClient, supabaseLoading, setIsOnboarded, isOnboarded, hasBalance);
+
   const initialLanguages = useGetUsersFlags() || [];
   const [combinedLanguages, setCombinedLanguages] = useState<LanguageButton[]>([]);
   const { handleSubmit, register, control, setValue, getValues, formState: { errors }, watch } = useForm<OnboardFormData>();
-  const callback = useSubmitOnboardForm(onboardMode);
 
   useEffect(() => {
     if (initialLanguages.length) {

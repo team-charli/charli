@@ -22,10 +22,9 @@ export default function useLitSession() {
       console.log('run initSession')
       setLoading(true);
       setError(undefined);
+      let resourceAbilities;
       try {
-        // Prepare session sigs params
-        const chain = 'ethereum';
-        const resourceAbilities = [
+         resourceAbilities = [
           {
             resource: new LitActionResource('*'),
             ability: LitAbility.PKPSigning,
@@ -35,11 +34,6 @@ export default function useLitSession() {
           Date.now() + 1000 * 60 * 60 * 24 * 7
         ).toISOString(); // 1 week
 
-        // {getSessionSigs} from 'utils/lit.tsx'
-        // const sessionSigs = await getSessionSigs({
-        //   pkpPublicKey: pkp.publicKey,
-        //   authMethod
-        // });
         let provider
         try {
           provider = getProviderByAuthMethod(authMethod);

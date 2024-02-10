@@ -4,7 +4,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../types/types';
 
-export const submitOnboardLearnAPI = async (learningLangs: string[] , isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient, currentAccount: IRelayPKP, sessionSigs: SessionSigs)=> {
+export const submitOnboardLearnAPI = async (learningLangs: string[], isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient, currentAccount: IRelayPKP, sessionSigs: SessionSigs)=> {
 try {
   if (isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient ) {
     if (hasBalance === false) {

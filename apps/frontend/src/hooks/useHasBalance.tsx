@@ -3,12 +3,16 @@ import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useAsyncEffect } from './utils/useAsyncEffect';
 import { useAuthContext } from '../contexts/AuthContext';
 import { LocalStorageSetter } from '../types/types';
+import useLocalStorage from '@rehooks/local-storage';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalStorageSetter<boolean> ) {
-  const {currentAccount, sessionSigs} = useAuthContext();
-
+  const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
+  const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   useAsyncEffect( async () => {
     if (currentAccount && sessionSigs && hasBalance === null) {
+      console.log('checkHasBalance()');
+
       const pkpWallet = new PKPEthersWallet({
         pkpPubKey: currentAccount.publicKey,
         controllerSessionSigs: sessionSigs,
@@ -16,10 +20,20 @@ export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalSto
 
       await pkpWallet.init()
       const minBalanceWei = utils.parseEther('0.003259948275487362')
-      const balance =  await pkpWallet.getBalance(currentAccount.ethAddress)
-      console.log({balance})
-      if (balance.gt(minBalanceWei)) {
+      let balance
+      try {
+       balance =  await pkpWallet.getBalance(currentAccount.ethAddress)
+       console.log('balance', balance);
+      } catch(e) {
+        const error = e as Response
+        console.log(error.json())
+      }
+      if (balance?.gt(minBalanceWei)) {
+        console.log('setHasBalance(true)');
         setHasBalance(true);
+      } else {
+        console.log('setHasBalance(false)');
+        setHasBalance(false);
       }
     }
   },

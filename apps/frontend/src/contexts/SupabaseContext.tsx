@@ -5,26 +5,30 @@ import { SupabaseContextValue, SupabaseProviderProps } from '../types/types';
 import { useFetchNonce } from '../hooks/Supabase/useFetchNonce';
 import { useAuthContext } from './AuthContext';
 import { useLocalStorage } from '@rehooks/local-storage';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 const SupabaseContext = createContext<SupabaseContextValue>({ client: null, supabaseLoading: true });
 
-// Adjusting the singleton pattern to work with dynamic JWTs
 const supabaseClientSingleton = (() => {
-  let instance;
+  let instance: SupabaseClient;
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY;
 
-  const createInstance = (jwt: string) => {
-    console.log('created supabase instance');
+  const createInstance = (jwt: { [key: string]: any }) => {
+    console.log('created supabase instance', );
 
-    return createClient(supabaseUrl, supabaseAnonKey, {
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
     });
+
+    console.info(client)
+
+    return client
   };
 
   return {
-    getInstance: (jwt: string) => {
-      if (!instance) {
+    getInstance: (jwt: { [key: string]: any }) => {
+      if (!instance && jwt.length) {
         instance = createInstance(jwt);
       }
       return instance;
@@ -33,14 +37,18 @@ const supabaseClientSingleton = (() => {
 })();
 
 export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
-  const { authSig, currentAccount, sessionSigs } = useAuthContext();
-  const [cachedJWT, setCachedJWT] = useLocalStorage('userJWT');
+  //attempt to use centralized useLocalStorage in useRehydrate()
+  // const { currentAccount, sessionSigs } = useAuthContext();
+  // get directly
+  const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
+  const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
+  const [cachedJWT, setCachedJWT] = useLocalStorage<{ [key: string]: any }>('userJWT');
   const nonce = useFetchNonce(currentAccount, sessionSigs, cachedJWT);
-  const { loading: jwtLoading, error: jwtError } = useFetchJWT(currentAccount, sessionSigs, authSig, nonce, setCachedJWT, cachedJWT);
+  const { loading: jwtLoading, error: jwtError } = useFetchJWT(currentAccount, sessionSigs, nonce, setCachedJWT, cachedJWT);
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
 
   useEffect(() => {
-    if (cachedJWT && !supabaseClient) {
+    if ((cachedJWT !== null && Object.keys(cachedJWT).length > 0) && !supabaseClient) {
       const client = supabaseClientSingleton.getInstance(cachedJWT);
       setSupabaseClient(client);
     }
