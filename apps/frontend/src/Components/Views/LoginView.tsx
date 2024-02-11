@@ -15,7 +15,6 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuthContext();
   const {onboardMode} = useOnboardContext();
   const error = authError || accountsError || sessionError;
-  useRouteRedirect();
   const { isOnline } = useNetwork();
 
   async function handleGoogleLogin() {

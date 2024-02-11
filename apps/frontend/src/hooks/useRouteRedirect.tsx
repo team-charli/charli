@@ -1,11 +1,11 @@
 import {useEffect} from 'react'
 import { useHistory } from 'react-router-dom';
 import { useAuthContext } from '../contexts/AuthContext'
-import { useOnboardContext } from '../contexts/OnboardContext';
+import useLocalStorage from '@rehooks/local-storage';
 
 export const useRouteRedirect = () => {
   const {currentAccount, sessionSigs, authMethod} = useAuthContext();
-  const {isOnboarded} = useOnboardContext();
+  const [ isOnboarded ] = useLocalStorage("isOnboarded");
   const history = useHistory();
 
   useEffect(() => {
