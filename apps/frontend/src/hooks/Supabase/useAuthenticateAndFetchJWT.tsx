@@ -15,11 +15,16 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
   const {isOnline} = useNetwork();
 
   useEffect(() => {
+    if(cachedJWT && isJwtExpired(cachedJWT)) setCachedJWT(null)
+  }, [])
+
+  useEffect(() => {
     const authenticateAndFetchJWT = async () => {
       setIsLoading(true);
       try {
         // Check if we need to fetch a new nonce and JWT
         if (currentAccount && sessionSigs && isOnline && (cachedJWT === null || isJwtExpired(cachedJWT) || nonce === null)) {
+
           // Fetch new nonce
           const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
           setNonce(nonceResponse.nonce);
