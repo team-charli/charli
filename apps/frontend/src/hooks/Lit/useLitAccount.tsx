@@ -15,7 +15,7 @@ export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurr
 
   const fetchAccounts = useCallback(
     async (authMethod: AuthMethod): Promise<void> => {
-      if (isOnline) {
+      // if (isOnline) {
         setLoading(true);
         setError(undefined);
         try {
@@ -30,7 +30,7 @@ export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurr
         } finally {
           setLoading(false);
         }
-      }
+      // }
     },
     []
   );
@@ -40,7 +40,7 @@ export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurr
    */
   const createAccount = useCallback(
     async (authMethod: AuthMethod): Promise<void> => {
-      if (isOnline) {
+      // if (isOnline) {
         setLoading(true);
         setError(undefined);
         try {
@@ -51,7 +51,7 @@ export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurr
         } finally {
           setLoading(false);
         }
-      }
+      // }
     },
     []
   );

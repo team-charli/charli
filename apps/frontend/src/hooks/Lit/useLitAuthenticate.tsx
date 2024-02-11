@@ -35,7 +35,7 @@ export default function useAuthenticate(redirectUri: string, setAuthMethod: Loca
    * Handle redirect from Discord OAuth
    */
   const authWithDiscord = useCallback(async (): Promise<void> => {
-    if (isOnline) {
+    // if (isOnline) {
       setLoading(true);
       setError(undefined);
       setAuthMethod(null);
@@ -51,7 +51,7 @@ export default function useAuthenticate(redirectUri: string, setAuthMethod: Loca
       } finally {
         setLoading(false);
       }
-    }
+    // }
   }, [redirectUri]);
 
 

@@ -45,7 +45,7 @@ export default function useLitSession() {
           console.error('error obtaining provider', e)
         }
         const localSessionSigs = sessionSigs;
-        if (provider && !localSessionSigs && isOnline) {
+        if (provider && !localSessionSigs /*&& isOnline*/) {
           const sessionSigs: SessionSigs = await provider.getSessionSigs({
             authMethod,
             pkpPublicKey: pkp.publicKey,

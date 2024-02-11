@@ -24,14 +24,14 @@ export const useGetUserCoordinates = () => {
   //   }, [location]); // Dependency array
 
   useAsyncEffect(async () => {
-    if (isOnline) {
+    // if (isOnline) {
       try {
         const response = await ky('http://ip-api.com/json/').json<GeolocationApiResponse>();
         setLocation({ lat: response.lat, long: response.lon });
       } catch (err: any) {
         setError('Unable to retrieve location: ' + err.message);
       }
-    }
+    // }
   }, () => Promise.resolve(), []);
 
   // Only include location in the dependency array. If location is null, useMemo won't throw an error.
