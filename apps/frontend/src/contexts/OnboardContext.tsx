@@ -1,11 +1,11 @@
 import { useState, createContext, useContext } from 'react'
 import { OnboardContextObj, OnboardStateProviderProps } from '../types/types'
-import { useHasBalance } from '../hooks/useHasBalance';
-import { useIsOnboarded } from '../hooks/useIsOnboarded'
-import { useOnboardMode } from '../hooks/useOnboardMode';
+import { useHasBalance } from '../hooks/Onboard/useHasBalance';
+import { useIsOnboarded } from '../hooks/Onboard/useIsOnboarded'
+import { useOnboardMode } from '../hooks/Onboard/useOnboardMode';
 import useLocalStorage from '@rehooks/local-storage';
 import { useSupabase } from './SupabaseContext';
-import { useRouteRedirect } from '../hooks/useRouteRedirect';
+import { useRouteRedirect } from '../hooks/Onboard/useRouteRedirect';
 
 const defaultOnboardContext: OnboardContextObj = {
   hasBalance: null, // boolean | null
