@@ -6,7 +6,6 @@ import { useAuthContext } from '../../contexts/AuthContext'
 import { UIContext} from '../../contexts/UIContext'
 import { useOnboardContext } from '../../contexts/OnboardContext';
 import { useContextNullCheck } from  '../../hooks/utils/useContextNullCheck'
-import { useRouteRedirect } from '../../hooks/useRouteRedirect';
 import { useNetwork } from '../../contexts/NetworkContext';
 
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {

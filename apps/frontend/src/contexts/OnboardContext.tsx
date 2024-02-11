@@ -5,6 +5,7 @@ import { useIsOnboarded } from '../hooks/useIsOnboarded'
 import { useOnboardMode } from '../hooks/useOnboardMode';
 import useLocalStorage from '@rehooks/local-storage';
 import { useSupabase } from './SupabaseContext';
+import { useRouteRedirect } from '../hooks/useRouteRedirect';
 
 const defaultOnboardContext: OnboardContextObj = {
   hasBalance: null, // boolean | null
@@ -28,7 +29,7 @@ const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
   const {onboardMode, setOnboardMode} = useOnboardMode();
   const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded');
   const [hasBalance, setHasBalance] = useLocalStorage<boolean | null>('hasBalance', null)
-
+  useRouteRedirect();
   const { client: supabaseClient, supabaseLoading } = useSupabase();
   useIsOnboarded(isOnboarded, setIsOnboarded, supabaseClient, supabaseLoading);
 
