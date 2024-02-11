@@ -73,6 +73,7 @@ export async function authenticateWithGoogle(
   return authMethod;
 }
 
+//TODO: Implement redirectUri with Google Oauth project
 export async function signInWithDiscord(redirectUri: string): Promise<void> {
   const discordProvider = litAuthClient.initProvider<DiscordProvider>(
     ProviderType.Discord,
@@ -81,6 +82,7 @@ export async function signInWithDiscord(redirectUri: string): Promise<void> {
   await discordProvider.signIn();
 }
 
+//TODO: Implement redirectUri with Discord Oauth project
 export async function authenticateWithDiscord(
   redirectUri: string
 ): Promise<AuthMethod | undefined> {

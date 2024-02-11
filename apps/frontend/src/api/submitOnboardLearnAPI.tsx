@@ -9,7 +9,7 @@ try {
   if (isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient && isOnline) {
     if (hasBalance === false) {
       return <ErrorModal errorText="To learn you either need money in your account or you need to be a teacher" />
-      //OPTIM: Better user handling
+      //OPTIM: Modal choose /Bolsa/addBalnce || /Teach
     } else if (hasBalance === null) {
       throw new Error('check hasBalance should have been run but has not been')
     }
@@ -17,7 +17,7 @@ try {
       NAME: name,
       WANTS_TO_LEARN_LANGS: learningLangs,
       USER_ADDRESS: currentAccount.ethAddress,
-      DEFAULT_NATIVE_LANGUAGE: 'ENG',
+      DEFAULT_NATIVE_LANGUAGE: 'English',
     };
 
     const { data:User, error } = await supabaseClient
