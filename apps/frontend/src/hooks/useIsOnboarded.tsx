@@ -3,18 +3,18 @@ import useLocalStorage from '@rehooks/local-storage';
 import { LocalStorageSetter } from '../types/types';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { useNetwork } from '../contexts/NetworkContext';
 
 export const useIsOnboarded = (isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient| null, supabaseLoading: boolean  ) => {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
-
+  const { isOnline } = useNetwork();
   useAsyncEffect(
     async () => {
-      if (currentAccount && sessionSigs && supabaseClient && !supabaseLoading) {
+      if (currentAccount && sessionSigs && supabaseClient && !supabaseLoading && isOnline) {
         try {
           console.log('check isOnboarded');
           let response = await supabaseClient
-            // let { data: User, error: supabaseError } = await supabaseClient
             .from('User')
             .select('USER_ADDRESS')
             .eq('USER_ADDRESS', currentAccount?.ethAddress)

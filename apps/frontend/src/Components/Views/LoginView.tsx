@@ -7,6 +7,7 @@ import { UIContext} from '../../contexts/UIContext'
 import { useOnboardContext } from '../../contexts/OnboardContext';
 import { useContextNullCheck } from  '../../hooks/utils/useContextNullCheck'
 import { useRouteRedirect } from '../../hooks/useRouteRedirect';
+import { useNetwork } from '../../contexts/NetworkContext';
 
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const { marginTop, flex } = useSetLoginViewCSS(parentIsRoute);
@@ -16,28 +17,33 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const {onboardMode} = useOnboardContext();
   const error = authError || accountsError || sessionError;
   useRouteRedirect();
+  const { isOnline } = useNetwork();
 
   async function handleGoogleLogin() {
-    console.log('handle Google login called');
-    await signInWithGoogle(import.meta.env.VITE_GOOGLE_REDIRECT_URI);
+    if (isOnline) {
+      await signInWithGoogle(import.meta.env.VITE_GOOGLE_REDIRECT_URI);
+    }
   }
 
   async function handleDiscordLogin() {
-    await signInWithDiscord(import.meta.env.VITE_GOOGLE_REDIRECT_URI)
+    if (isOnline) {
+      await signInWithDiscord(import.meta.env.VITE_GOOGLE_REDIRECT_URI)
+    }
   }
 
-   const loadingMessage = authLoading ? 'auth loading'
-     : accountsLoading ? 'accounts loading'
-       : sessionLoading ? 'session loading'
-         : null;
 
-   if (loadingMessage) {
-     return <p className={`${flex} justify-center ${marginTop}`}>{loadingMessage}</p>;
-   }
+  const loadingMessage = authLoading ? 'auth loading'
+    : accountsLoading ? 'accounts loading'
+      : sessionLoading ? 'session loading'
+        : null;
+
+  if (loadingMessage) {
+    return <p className={`${flex} justify-center ${marginTop}`}>{loadingMessage}</p>;
+  }
 
   if (authMethod || firedLogin) {
     return null;
-      //FIX: Buttons still flashing on login
+    //FIX: Buttons still flashing on login
   }
 
   if (!onboardMode) {
@@ -49,5 +55,5 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
       <AuthMethods handleGoogleLogin={handleGoogleLogin} handleDiscordLogin={handleDiscordLogin}/>
     </div>
   );
-  }
+}
 export default LoginView

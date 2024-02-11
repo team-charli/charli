@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { GeolocationApiResponse } from '../../types/types';
 import ky from 'ky';
 import { useAsyncEffect } from '../utils/useAsyncEffect';
+import { useNetwork } from '../../contexts/NetworkContext';
 
 type LocationState = {
   lat: number;
@@ -11,7 +12,7 @@ type LocationState = {
 export const useGetUserCoordinates = () => {
   const [location, setLocation] = useState<LocationState | null>(null);
   const [error, setError] = useState<string>('');
-  const locationRef = useRef(location);
+  const {isOnline} = useNetwork();
 
   // useEffect(() => {
   //     // Log the previous and current value of the dependency
@@ -23,12 +24,13 @@ export const useGetUserCoordinates = () => {
   //   }, [location]); // Dependency array
 
   useAsyncEffect(async () => {
-    try {
-      const response = await ky('http://ip-api.com/json/').json<GeolocationApiResponse>();
-
-      setLocation({ lat: response.lat, long: response.lon });
-    } catch (err: any) {
-      setError('Unable to retrieve location: ' + err.message);
+    if (isOnline) {
+      try {
+        const response = await ky('http://ip-api.com/json/').json<GeolocationApiResponse>();
+        setLocation({ lat: response.lat, long: response.lon });
+      } catch (err: any) {
+        setError('Unable to retrieve location: ' + err.message);
+      }
     }
   }, () => Promise.resolve(), []);
 

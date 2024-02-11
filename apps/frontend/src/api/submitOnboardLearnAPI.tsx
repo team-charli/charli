@@ -4,9 +4,9 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../types/types';
 
-export const submitOnboardLearnAPI = async (learningLangs: string[], isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient, currentAccount: IRelayPKP, sessionSigs: SessionSigs)=> {
+export const submitOnboardLearnAPI = async (learningLangs: string[], isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient, currentAccount: IRelayPKP, sessionSigs: SessionSigs, isOnline: boolean)=> {
 try {
-  if (isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient ) {
+  if (isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient && isOnline) {
     if (hasBalance === false) {
       return <ErrorModal errorText="To learn you either need money in your account or you need to be a teacher" />
       //OPTIM: Better user handling

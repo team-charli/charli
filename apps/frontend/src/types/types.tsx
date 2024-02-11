@@ -2,6 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { AuthMethod, AuthSig, IRelayPKP, SessionSigs  } from '@lit-protocol/types';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { RouteProps } from 'react-router-dom';
+import { createContext } from 'vm';
 
 export interface PrivateRouteProps extends RouteProps {
   component: React.ComponentType<any>;
@@ -278,3 +279,12 @@ export interface NonceData {
   nonce: string;
 }
 
+export interface NetworkContextType {
+  isOnline: boolean;
+  preventRequests: boolean;
+}
+
+// Define an interface for the NetworkProvider's props to address the second error
+export interface NetworkProviderProps {
+  children: React.ReactNode; // This type is provided by React for children prop
+}

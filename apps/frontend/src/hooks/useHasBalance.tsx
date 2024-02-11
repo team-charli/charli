@@ -1,16 +1,17 @@
 import {utils} from 'ethers'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useAsyncEffect } from './utils/useAsyncEffect';
-import { useAuthContext } from '../contexts/AuthContext';
 import { LocalStorageSetter } from '../types/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { useNetwork } from '../contexts/NetworkContext';
 
 export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalStorageSetter<boolean> ) {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
+  const { isOnline } = useNetwork();
   useAsyncEffect( async () => {
-    if (currentAccount && sessionSigs && hasBalance === null) {
+    if (currentAccount && sessionSigs && isOnline && hasBalance === null) {
       console.log('checkHasBalance()');
 
       const pkpWallet = new PKPEthersWallet({

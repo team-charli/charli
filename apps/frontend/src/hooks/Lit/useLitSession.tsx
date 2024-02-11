@@ -6,6 +6,7 @@ import { AuthSig, LitAbility, LitActionResource } from '@lit-protocol/auth-helpe
 import { IRelayPKP } from '@lit-protocol/types';
 import { useAuthContext } from '../../contexts/AuthContext';
 import useLocalStorage from '@rehooks/local-storage';
+import { useNetwork } from '../../contexts/NetworkContext';
 
 export default function useLitSession() {
   const [authSig] = useLocalStorage<AuthSig>("lit-wallet-sig");
@@ -13,7 +14,7 @@ export default function useLitSession() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
   const history = useHistory();
-
+  const { isOnline } = useNetwork();
   /**
    * Generate session sigs and store new session data
    */
@@ -44,7 +45,7 @@ export default function useLitSession() {
           console.error('error obtaining provider', e)
         }
         const localSessionSigs = sessionSigs;
-        if (provider && !localSessionSigs) {
+        if (provider && !localSessionSigs && isOnline) {
           const sessionSigs: SessionSigs = await provider.getSessionSigs({
             authMethod,
             pkpPublicKey: pkp.publicKey,

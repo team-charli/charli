@@ -5,19 +5,21 @@ import { useLocalStorage } from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { isJwtExpired } from '../../utils/app';
 import { NonceData } from '../../types/types';
+import { useNetwork } from '../../contexts/NetworkContext';
 
 export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null) {
   const [cachedJWT, setCachedJWT] = useLocalStorage<string | null>("userJWT");
   const [nonce, setNonce] = useState<string | null>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const {isOnline} = useNetwork();
 
   useEffect(() => {
     const authenticateAndFetchJWT = async () => {
       setIsLoading(true);
       try {
         // Check if we need to fetch a new nonce and JWT
-        if (currentAccount && sessionSigs && (cachedJWT === null || isJwtExpired(cachedJWT) || nonce === null)) {
+        if (currentAccount && sessionSigs && isOnline && (cachedJWT === null || isJwtExpired(cachedJWT) || nonce === null)) {
           // Fetch new nonce
           const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
           setNonce(nonceResponse.nonce);

@@ -4,8 +4,11 @@ import { submitOnboardTeachAPI } from "../../../api/submitOnboardTeachAPI";
 import {LocalStorageSetter, OnboardFormData} from '../../../types/types'
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { useNetwork } from 'apps/frontend/src/contexts/NetworkContext';
 
 export const submitOnboardForm = (onboardMode: "Learn" | "Teach" | null, setName:Dispatch<SetStateAction<string>>, name: string, setLearningLangs:Dispatch<SetStateAction<string[]>>, setTeachingLangs:Dispatch<SetStateAction<string[]>>, teachingLangs: string[], learningLangs: string[], currentAccount: IRelayPKP | null, sessionSigs:SessionSigs | null, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, setIsOnboarded: LocalStorageSetter<boolean>, isOnboarded: boolean | null, hasBalance: boolean | null) => {
+
+  const {isOnline} = useNetwork();
 
   useEffect(() => {
     if (supabaseLoading && !supabaseClient) {
@@ -45,9 +48,9 @@ export const submitOnboardForm = (onboardMode: "Learn" | "Teach" | null, setName
 
     if (onboardMode === "Learn" && currentAccount && sessionSigs && supabaseClient) {
       console.log({name, learningLangs})
-      await submitOnboardLearnAPI(learningLangs, isOnboarded, name, hasBalance, setIsOnboarded, supabaseClient, currentAccount, sessionSigs);
+      await submitOnboardLearnAPI(learningLangs, isOnboarded, name, hasBalance, setIsOnboarded, supabaseClient, currentAccount, sessionSigs, isOnline);
     } else if (onboardMode === "Teach" && currentAccount && sessionSigs && supabaseClient)  {
-      submitOnboardTeachAPI(isOnboarded, setIsOnboarded, teachingLangs, name, supabaseClient, currentAccount, sessionSigs);
+      submitOnboardTeachAPI(isOnboarded, setIsOnboarded, teachingLangs, name, supabaseClient, currentAccount, sessionSigs, isOnline);
     } else {
       throw new Error('no onboard mode set')
     }
