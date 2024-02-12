@@ -14,7 +14,7 @@ export default function useLitSession() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
   const history = useHistory();
-  const { isOnline } = useNetwork();
+  // const { isOnline } = useNetwork();
   /**
    * Generate session sigs and store new session data
    */

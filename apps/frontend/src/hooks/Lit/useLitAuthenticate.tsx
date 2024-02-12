@@ -8,13 +8,13 @@ import { useNetwork } from '../../contexts/NetworkContext';
 export default function useAuthenticate(redirectUri: string, setAuthMethod: LocalStorageSetter<AuthMethod>) {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
-  const { isOnline } = useNetwork();
+  // const { isOnline } = useNetwork();
 
   /**
    * Handle redirect from Google OAuth
    */
   const authWithGoogle = useCallback(async (): Promise<void> => {
-    if (isOnline) {
+    // if (isOnline) {
       setLoading(true);
       setError(undefined);
       setAuthMethod(null);
@@ -29,7 +29,7 @@ export default function useAuthenticate(redirectUri: string, setAuthMethod: Loca
       } finally {
         setLoading(false);
       }
-    }
+    // }
   }, [redirectUri]);
   /**
    * Handle redirect from Discord OAuth

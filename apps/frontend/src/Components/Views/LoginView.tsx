@@ -15,18 +15,18 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuthContext();
   const {onboardMode} = useOnboardContext();
   const error = authError || accountsError || sessionError;
-  const { isOnline } = useNetwork();
+  // const { isOnline } = useNetwork();
 
   async function handleGoogleLogin() {
-    if (isOnline) {
+    // if (isOnline) {
       await signInWithGoogle(import.meta.env.VITE_GOOGLE_REDIRECT_URI);
-    }
+    // }
   }
 
   async function handleDiscordLogin() {
-    if (isOnline) {
+    // if (isOnline) {
       await signInWithDiscord(import.meta.env.VITE_GOOGLE_REDIRECT_URI)
-    }
+    // }
   }
 
 

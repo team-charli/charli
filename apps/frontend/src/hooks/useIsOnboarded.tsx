@@ -8,10 +8,10 @@ import { useNetwork } from '../contexts/NetworkContext';
 export const useIsOnboarded = (isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient| null, supabaseLoading: boolean  ) => {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
-  const { isOnline } = useNetwork();
+  // const { isOnline } = useNetwork();
   useAsyncEffect(
     async () => {
-      if (currentAccount && sessionSigs && supabaseClient && !supabaseLoading && isOnline) {
+      if (currentAccount && sessionSigs && supabaseClient && !supabaseLoading /*&& isOnline*/ ) {
         try {
           console.log('check isOnboarded');
           let response = await supabaseClient

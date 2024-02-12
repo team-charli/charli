@@ -12,7 +12,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
   const [nonce, setNonce] = useState<string | null>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const {isOnline} = useNetwork();
+  // const {isOnline} = useNetwork();
 
   useEffect(() => {
     if(cachedJWT && isJwtExpired(cachedJWT)) setCachedJWT(null)

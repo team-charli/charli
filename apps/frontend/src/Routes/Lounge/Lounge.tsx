@@ -19,6 +19,7 @@ export const Lounge = ({show = 'Learners'}: LoungeProps) => {
       <div className="__non-button-container__ flex justify-center m-10">
         <NonButtonLink>{buttonText}</NonButtonLink>
       </div>
+
     </>
   )
 }

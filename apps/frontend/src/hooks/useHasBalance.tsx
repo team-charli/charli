@@ -9,9 +9,9 @@ import { useNetwork } from '../contexts/NetworkContext';
 export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalStorageSetter<boolean> ) {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
-  const { isOnline } = useNetwork();
+  // const { isOnline } = useNetwork();
   useAsyncEffect( async () => {
-    if (currentAccount && sessionSigs && isOnline && hasBalance === null) {
+    if (currentAccount && sessionSigs /*&& isOnline*/ && hasBalance === null) {
 
       const pkpWallet = new PKPEthersWallet({
         pkpPubKey: currentAccount.publicKey,

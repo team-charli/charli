@@ -7,7 +7,7 @@ import { useNetwork } from '../../contexts/NetworkContext';
 export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurrentAccount: LocalStorageSetter<IRelayPKP> ) {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
-  const { isOnline } = useNetwork();
+  // const { isOnline } = useNetwork();
 
   /**
    * Fetch PKPs tied to given auth method
