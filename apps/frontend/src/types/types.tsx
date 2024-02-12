@@ -67,7 +67,6 @@ export interface OnboardContextObj {
 
 export interface AuthContextObj {
   authMethod: AuthMethod | null;
-  setAuthMethod: LocalStorageSetter<AuthMethod>;
   authLoading: boolean;
   accountsLoading: boolean;
   sessionLoading: boolean;
@@ -77,9 +76,7 @@ export interface AuthContextObj {
   currentAccount: IRelayPKP | null;
   sessionSigs: SessionSigs | null;
   authSig: AuthSig | null;
-  setCurrentAccount: LocalStorageSetter<IRelayPKP>;
-  setSessionSigs: LocalStorageSetter<SessionSigs>;
-  setAuthSig: LocalStorageSetter<AuthSig>;
+  // isLitLoggedIn: boolean;
 }
 
 

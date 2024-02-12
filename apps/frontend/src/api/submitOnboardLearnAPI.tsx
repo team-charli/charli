@@ -4,29 +4,29 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../types/types';
 
-export const submitOnboardLearnAPI = async (learningLangs: string[], isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient, currentAccount: IRelayPKP, sessionSigs: SessionSigs, isOnline: boolean)=> {
+export const submitOnboardLearnAPI = async (learningLangs: string[], isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient, currentAccount: IRelayPKP, sessionSigs: SessionSigs, isOnline: boolean, isLitLoggedIn: boolean)=> {
 try {
-  if (isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient && isOnline) {
+  if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient && isOnline) {
     if (hasBalance === false) {
       return <ErrorModal errorText="To learn you either need money in your account or you need to be a teacher" />
       //OPTIM: Modal choose /Bolsa/addBalnce || /Teach
     } else if (hasBalance === null) {
       throw new Error('check hasBalance should have been run but has not been')
     }
-    const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
+    const insertData: Database["public"]["Tables"]["user_data"]["Insert"] = {
       name: name,
       wants_to_learn_langs: learningLangs,
       user_address: currentAccount.ethAddress,
       default_native_language: 'English',
     };
 
-    const { data:User, error } = await supabaseClient
-      .from('User')
+    const { data:user_data, error } = await supabaseClient
+      .from('user_data')
       .insert([insertData])
       .select();
 
-    if (User) {
-      console.log('insertedRows', User);
+    if (user_data) {
+      console.log('insertedRows', user_data);
       setIsOnboarded(true);
     } else if (error) {
       console.error('Supabase error:', error);

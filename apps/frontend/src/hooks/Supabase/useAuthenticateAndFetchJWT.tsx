@@ -8,50 +8,79 @@ import { NonceData } from '../../types/types';
 import { useNetwork } from '../../contexts/NetworkContext';
 
 export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null) {
-  const [cachedJWT, setCachedJWT] = useLocalStorage<string | null>("userJWT");
+  const [userJWT, setUserJWT] = useLocalStorage<string | null>("userJWT");
   const [nonce, setNonce] = useState<string | null>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [debugRequestCount, setDebugRequestCount] = useState<number>(0)
   // const {isOnline} = useNetwork();
 
+ useEffect(() => {
+    if (debugRequestCount > 1) {
+      console.log("debugRequestCount",debugRequestCount)
+      }
+  }, [debugRequestCount])
+
   useEffect(() => {
-    if(cachedJWT && isJwtExpired(cachedJWT)) setCachedJWT(null)
+    if(userJWT && isJwtExpired(userJWT)) setUserJWT(null)
   }, [])
+
   useEffect(() => {
     const authenticateAndFetchJWT = async () => {
       setIsLoading(true);
       try {
-        // Check if we need to fetch a new nonce and JWT
-        if (currentAccount && sessionSigs && isOnline && (cachedJWT === null || isJwtExpired(cachedJWT) || nonce === null)) {
+        //TODO: if !currentAccount || !sessionSigs
+        if (currentAccount && sessionSigs /*&& isOnline */&& (userJWT === null || isJwtExpired(userJWT) || nonce === null)) {
 
           // Fetch new nonce
-          const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
-          setNonce(nonceResponse.nonce);
-
+          let nonceResponse
+          try {
+            setDebugRequestCount(prevCount => prevCount + 1)
+            nonceResponse= await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
+            setNonce(nonceResponse.nonce);
+          } catch(e) {
+            throw new Error(`error fetching nonce: ${e}`)
+          }
           // Use the nonce to sign a message and fetch a new JWT
           const pkpWallet = new PKPEthersWallet({
             controllerSessionSigs: sessionSigs,
             pkpPubKey: currentAccount.publicKey,
             debug: true
           });
-          await pkpWallet.init();
-          const signature = await pkpWallet.signMessage(nonceResponse.nonce);
-          const jwtResponse = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
-            json: { ethereumAddress: currentAccount.ethAddress, signature, nonce: nonceResponse.nonce },
-          }).json<{ token: string }>();
-          setCachedJWT(jwtResponse.token);
+          try {
+            await pkpWallet.init();
+          } catch (e) {
+            throw new Error(`error initializing pkpWallet: ${e}`)
+          }
+          let signature
+          try {
+            signature= await pkpWallet.signMessage(nonceResponse.nonce);
+          } catch(e) {
+            throw new Error(`problem signing: ${e}`)
+          }
+          let jwtResponse
+          try {
+            jwtResponse= await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
+              json: { ethereumAddress: currentAccount.ethAddress, signature, nonce: nonceResponse.nonce },
+            }).json<{ token: string }>();
+            setUserJWT(jwtResponse.token);
+          } catch(e) {
+            throw new Error(`problem with jwt request to worker: ${e}`)
+          }
         }
       } catch (e) {
-        setError(e instanceof Error ? e : new Error('An unknown error occurred'));
+          const errorInstance = e instanceof Error ? e : new Error('An unknown error occurred');
+          setError(errorInstance);
+          throw errorInstance; // Rethrow the error instance directly
       } finally {
         setIsLoading(false);
       }
     };
 
     authenticateAndFetchJWT();
-  }, [currentAccount, sessionSigs, cachedJWT, nonce]);
+  }, [currentAccount, sessionSigs, userJWT, nonce]);
 
-  return { cachedJWT, nonce, isLoading, error };
+  return { cachedJWT: userJWT, nonce, isLoading, error };
 }
 //TODO:  determine behavior of app if it's been sitting idle and various tokens expire
 //for instance: jwt === null in local-storage and not fetching new token because

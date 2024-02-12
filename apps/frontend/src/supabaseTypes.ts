@@ -9,7 +9,7 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      User: {
+      user_data: {
         Row: {
           created_at: string
           default_native_language: string

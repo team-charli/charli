@@ -9,7 +9,7 @@ export const useRouteRedirect = () => {
   const history = useHistory();
 
   useEffect(() => {
-
+    // console.log("useRouteRedirect: isOnboarded", isOnboarded)
     if (authMethod && currentAccount && sessionSigs) {
       if (!isOnboarded) {
         history.push('/onboard');
@@ -17,5 +17,5 @@ export const useRouteRedirect = () => {
         history.push('/lounge');
       }
     }
-  }, [authMethod, currentAccount, sessionSigs, history]);
+  }, [authMethod, currentAccount, sessionSigs, history, isOnboarded]);
 }

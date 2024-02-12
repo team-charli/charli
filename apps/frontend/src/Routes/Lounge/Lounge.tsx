@@ -1,7 +1,6 @@
 import NonButtonLink from '../../Components/Elements/NonButtonLink'
 import IconHeader from '../../Components/Headers/IconHeader'
 import LangNav from '../../Components/LangNav/LangNav'
-import useTraceRerenders from '../../hooks/utils/useTraceUpdate'
 import { LoungeProps } from '../../types/types'
 
 export const Lounge = ({show = 'Learners'}: LoungeProps) => {

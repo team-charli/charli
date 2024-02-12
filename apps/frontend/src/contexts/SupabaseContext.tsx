@@ -33,9 +33,6 @@ const supabaseClientSingleton = (() => {
 })();
 
 export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
-  //attempt to use centralized useLocalStorage in useRehydrate()
-  // const { currentAccount, sessionSigs } = useAuthContext();
-  // get directly
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   const { isLoading: jwtLoading, error: jwtError } = useAuthenticateAndFetchJWT(currentAccount, sessionSigs)

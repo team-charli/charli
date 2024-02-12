@@ -1,4 +1,3 @@
-import { sentryVitePlugin } from "@sentry/vite-plugin";
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -24,10 +23,6 @@ export default defineConfig({
     react(),
   ,  nodePolyfills(),
     tsconfigPaths({root: '../../'}),
-    sentryVitePlugin({
-      org: "charli-6t",
-      project: "javascript-react"
-    })
   ],
 
   // Uncomment this if you are using workers.

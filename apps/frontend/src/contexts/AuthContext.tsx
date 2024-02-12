@@ -2,51 +2,31 @@ import { useAuth } from '../hooks/useAuth'
 import { createContext, useContext } from 'react'
 import { AuthContextObj, AuthProviderProps  } from '../types/types'
 import { useRehydrate } from '../hooks/utils/useRehydrate';
-
-const defaultAuthContext: AuthContextObj = {
-    authMethod: null, // or a valid default AuthMethod value
-    setAuthMethod: () => {},
-    authLoading: false,
-    accountsLoading: false,
-    sessionLoading: false,
-    authError: undefined, // Error | undefined
-    accountsError: undefined, // Error | undefined
-    sessionError: undefined, // Error | undefined
-    currentAccount: null, // IRelayPKP | null
-    sessionSigs: null, // SessionSigs | null
-    authSig: null, // AuthSig | null
-    setCurrentAccount: () => {}, // Dummy function or a valid setter function
-    setSessionSigs: () => {}, // Dummy function or a valid setter function
-    setAuthSig: () => {}, // Dummy function or a valid setter function
-};
-
+import { defaultAuthContext } from './utils/defaultAUTHcontext';
+import useLitLoggedIn from '../hooks/Lit/useLitLoggedIn';
 
 export const useAuthContext = () => useContext(AuthContext);
 
 const AuthProvider = ({children}: AuthProviderProps) => {
 
-
   const { currentAccount, sessionSigs, authSig, setCurrentAccount, setSessionSigs, setAuthSig, authMethod, setAuthMethod } = useRehydrate();
-
 
   const { authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuth(currentAccount, sessionSigs, authSig, setCurrentAccount, setSessionSigs, setAuthSig, authMethod, setAuthMethod);
 
+  const isLitLoggedIn = useLitLoggedIn();
 
   const auth: AuthContextObj = {
+    authMethod,
+    currentAccount,
+    sessionSigs,
+    authSig,
     authLoading,
     accountsLoading,
     sessionLoading,
     authError,
     accountsError,
     sessionError,
-    authMethod,
-    setAuthMethod,
-    currentAccount,
-    sessionSigs,
-    authSig,
-    setCurrentAccount,
-    setSessionSigs,
-    setAuthSig,
+    // isLitLoggedIn // broken reads undefined
   };
 
   return (

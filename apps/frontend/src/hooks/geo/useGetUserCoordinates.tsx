@@ -12,7 +12,7 @@ type LocationState = {
 export const useGetUserCoordinates = () => {
   const [location, setLocation] = useState<LocationState | null>(null);
   const [error, setError] = useState<string>('');
-  const {isOnline} = useNetwork();
+  // const {isOnline} = useNetwork();
 
   // useEffect(() => {
   //     // Log the previous and current value of the dependency
