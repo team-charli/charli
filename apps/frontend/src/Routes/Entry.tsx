@@ -1,8 +1,7 @@
-import {useContext} from 'react'
 import IconHeader from '../Components/Headers/IconHeader'
 import BannerHeader from '../Components/Headers/BannerHeader'
 import ButtonLink from '../Components/Elements/ButtonLink'
-import { OnboardContext, useOnboardContext} from '../contexts/OnboardContext'
+import { useOnboardContext} from '../contexts/OnboardContext'
 
 const Entry = () => {
 

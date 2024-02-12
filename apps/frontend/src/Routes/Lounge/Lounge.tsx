@@ -1,15 +1,25 @@
+import NonButtonLink from '../../Components/Elements/NonButtonLink'
 import IconHeader from '../../Components/Headers/IconHeader'
-import second from '../../Components/Headers/IconHeader'
-import FlagNav from '../../Components/LangNav/LangNav'
+import LangNav from '../../Components/LangNav/LangNav'
+import useTraceRerenders from '../../hooks/utils/useTraceUpdate'
+import { LoungeProps } from '../../types/types'
 
-export const Lounge = (props : {}) => {
+export const Lounge = ({show = 'Learners'}: LoungeProps) => {
+  const buttonTextMap = {
+    Learners: 'Learn 🎓',
+    Teachers: 'Teach 🤑',
+    All: 'Everyone 🏫',
+  };
+  const buttonText = buttonTextMap[show];
+
   return (
-  <>
-  <div>
-    <IconHeader />
-    <FlagNav />
-  </div>
-  </>
+    <>
+      <IconHeader />
+      <LangNav show={show}/>
+      <div className="__non-button-container__ flex justify-center m-10">
+        <NonButtonLink>{buttonText}</NonButtonLink>
+      </div>
+    </>
   )
 }
 

@@ -12,7 +12,6 @@ export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalSto
   const { isOnline } = useNetwork();
   useAsyncEffect( async () => {
     if (currentAccount && sessionSigs && isOnline && hasBalance === null) {
-      console.log('checkHasBalance()');
 
       const pkpWallet = new PKPEthersWallet({
         pkpPubKey: currentAccount.publicKey,

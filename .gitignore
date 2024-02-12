@@ -39,3 +39,6 @@ testem.log
 Thumbs.db
 Charli
 .nx/cache
+
+# Sentry Config File
+.env.sentry-build-plugin

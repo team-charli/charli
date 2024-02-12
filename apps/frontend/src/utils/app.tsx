@@ -26,4 +26,3 @@ export function isJwtExpired(token: string) {
     return payload.exp < currentTime;
 }
 
-//TODO: Need a hasInternet hook

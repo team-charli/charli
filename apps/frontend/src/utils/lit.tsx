@@ -86,6 +86,7 @@ export async function signInWithDiscord(redirectUri: string): Promise<void> {
 export async function authenticateWithDiscord(
   redirectUri: string
 ): Promise<AuthMethod | undefined> {
+
   const discordProvider = litAuthClient.initProvider<DiscordProvider>(
     ProviderType.Discord,
     { redirectUri }

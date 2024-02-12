@@ -8,10 +8,10 @@ export const submitOnboardTeachAPI = async (isOnboarded: boolean | null, setIsOn
 
   if (isOnboarded === false && currentAccount && sessionSigs &&  teachingLangs.length && name.length&& supabaseClient && isOnline ) {
     const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
-      NAME: name,
-      WANTS_TO_TEACH_LANGS: teachingLangs,
-      USER_ADDRESS: currentAccount.ethAddress,
-      DEFAULT_NATIVE_LANGUAGE: 'ENG',
+      name: name,
+      wants_to_teach_langs: teachingLangs,
+      user_address: currentAccount.ethAddress,
+      default_native_language: 'ENG',
     };
 
     const { data:User, error } = await supabaseClient

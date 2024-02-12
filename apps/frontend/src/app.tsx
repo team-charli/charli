@@ -4,10 +4,10 @@ import AuthProvider from './contexts/AuthContext'
 import UIProvider from './contexts/UIContext';
 import SupabaseProvider from './contexts/SupabaseContext';
 import { NetworkProvider } from './contexts/NetworkContext';
+
 export function App() {
 
   return (
-    <NetworkProvider>
       <AuthProvider>
         <SupabaseProvider>
           <OnboardStateProvider>
@@ -17,8 +17,9 @@ export function App() {
           </OnboardStateProvider>
         </SupabaseProvider>
       </AuthProvider>
-    </NetworkProvider>
   );
 }
 
-export default App;
+export default App
+    /* <NetworkProvider> */
+    /*</NetworkProvider>*/

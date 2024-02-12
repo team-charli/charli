@@ -16,8 +16,8 @@ export const useIsOnboarded = (isOnboarded: boolean | null, setIsOnboarded:Local
           console.log('check isOnboarded');
           let response = await supabaseClient
             .from('User')
-            .select('USER_ADDRESS')
-            .eq('USER_ADDRESS', currentAccount?.ethAddress)
+            .select('user_address')
+            .eq('user_address', currentAccount?.ethAddress)
             .single()
           console.log('isOnboarded: response', response)
           if (!response.error) {

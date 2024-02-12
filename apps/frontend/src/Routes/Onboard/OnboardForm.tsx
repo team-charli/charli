@@ -61,4 +61,3 @@ export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
 export default OnboardForm;
 //TODO: The language must associate the teaching langs with countries in db, in order to provide students teachers from the countries they're shown
 //OPTIM: Eventually flags should be drawn from where we have the most teachers
-

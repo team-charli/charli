@@ -112,6 +112,4 @@ async function handleJWTRequest(request: Request, env: Env, corsHeaders: Record<
       return false;
     }
   }
-
-
 }

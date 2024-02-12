@@ -14,10 +14,10 @@ try {
       throw new Error('check hasBalance should have been run but has not been')
     }
     const insertData: Database["public"]["Tables"]["User"]["Insert"] = {
-      NAME: name,
-      WANTS_TO_LEARN_LANGS: learningLangs,
-      USER_ADDRESS: currentAccount.ethAddress,
-      DEFAULT_NATIVE_LANGUAGE: 'English',
+      name: name,
+      wants_to_learn_langs: learningLangs,
+      user_address: currentAccount.ethAddress,
+      default_native_language: 'English',
     };
 
     const { data:User, error } = await supabaseClient

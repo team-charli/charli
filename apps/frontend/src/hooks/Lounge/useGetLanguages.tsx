@@ -3,20 +3,25 @@ import { useSupabase } from "../../contexts/SupabaseContext";
 import { useAsyncEffect } from "../utils/useAsyncEffect"
 import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 import { useNetwork } from "../../contexts/NetworkContext";
+import { UseGetLanguagesResult } from "../../types/types";
 
-const useGetLanguages = () => {
+const useGetLanguages = (): UseGetLanguagesResult => {
+  // console.log('useGetLanguages');
+
   const { client: supabaseClient, supabaseLoading } = useSupabase();
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
-  const { isOnline } = useNetwork();
+  // const { isOnline } = useNetwork();
+  // console.log({supabaseClient, supabaseLoading,  isOnline})
 
-  const teachingLangs = useAsyncEffect(async () => {
-    if (supabaseClient && !supabaseLoading && isOnline) {
+  const wantsToTeachLangs = useAsyncEffect(async () => {
+    if (supabaseClient && !supabaseLoading /*&& isOnline*/) {
       try {
-
-        let { data: User, error } = await supabaseClient
+        let { data: teachingLangs, error } = await supabaseClient
           .from('User')
-          .select('WANTS_TO_TEACH_LANGS')
+          .select('wants_to_teach_langs');
+        console.log("teachingLangs", teachingLangs )
+        return teachingLangs;
       } catch (e) {
         console.error(e)
       }
@@ -26,12 +31,15 @@ const useGetLanguages = () => {
     []
   )
 
-  const learningLangs = useAsyncEffect(async () => {
+  const wantsToLearnLangs = useAsyncEffect(async () => {
     if (supabaseClient && !supabaseLoading && isOnline) {
       try {
-        let { data: User, error } = await supabaseClient
+        let { data: learningLangs, error } = await supabaseClient
           .from('User')
-          .select('WANTS_TO_LEARN_LANGS')
+          .select('wants_to_learn_langs');
+        console.log("learningLangs", learningLangs);
+
+        return learningLangs
       } catch (e) {
         console.error(e)
       }
@@ -40,6 +48,12 @@ const useGetLanguages = () => {
     async () => Promise.resolve(),
     []
   )
-  return {teachingLangs, learningLangs}
+
+return {
+    wantsToTeachLangs: wantsToTeachLangs.result || [],
+    wantsToLearnLangs: wantsToLearnLangs.result || [],
+    isLoading: wantsToTeachLangs.isLoading || wantsToLearnLangs.isLoading,
+    error: wantsToTeachLangs.error || wantsToLearnLangs.error,
+  };
 }
 export default useGetLanguages

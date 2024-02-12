@@ -11,15 +11,15 @@ export const useIsOnboarded = (isOnboarded: boolean | null, setIsOnboarded:Local
   const { isOnline } = useNetwork();
   useAsyncEffect(
     async () => {
-      if (currentAccount && sessionSigs && supabaseClient && !supabaseLoading && isOnline) {
+      if (currentAccount && sessionSigs && supabaseClient && !supabaseLoading /*&& isOnline*/) {
         try {
           console.log('check isOnboarded');
           let response = await supabaseClient
             .from('User')
-            .select('USER_ADDRESS')
-            .eq('USER_ADDRESS', currentAccount?.ethAddress)
+            .select('user_address')
+            .eq('user_address', currentAccount?.ethAddress)
             .single()
-          console.log('isOnboarded: response', response)
+          console.log('isOnboarded?', true)
           if (!response.error) {
             console.log('has db ethAddress');
             setIsOnboarded(true);

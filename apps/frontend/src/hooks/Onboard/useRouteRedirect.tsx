@@ -14,9 +14,8 @@ export const useRouteRedirect = () => {
       if (!isOnboarded) {
         history.push('/onboard');
       } else {
-        history.push('/lounge');
+        // history.push('/lounge');
       }
     }
   }, [authMethod, currentAccount, sessionSigs, history]);
-
 }

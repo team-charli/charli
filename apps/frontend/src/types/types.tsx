@@ -288,3 +288,14 @@ export interface NetworkContextType {
 export interface NetworkProviderProps {
   children: React.ReactNode; // This type is provided by React for children prop
 }
+export interface LoungeProps {
+  show:  'Learners' | 'Teachers' | 'All'
+}
+
+export interface UseGetLanguagesResult {
+  wantsToTeachLangs: string[]; // Assuming this is the correct type for your data
+  wantsToLearnLangs: string[]; // Assuming this is the correct type for your data
+  isLoading: boolean; // Represents if either teachingLangs or learningLangs is loading
+  error: Error | null; // Represents the latest error occurred, if any
+}
+

@@ -17,7 +17,6 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
   useEffect(() => {
     if(cachedJWT && isJwtExpired(cachedJWT)) setCachedJWT(null)
   }, [])
-
   useEffect(() => {
     const authenticateAndFetchJWT = async () => {
       setIsLoading(true);
@@ -54,4 +53,8 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
 
   return { cachedJWT, nonce, isLoading, error };
 }
-
+//TODO:  determine behavior of app if it's been sitting idle and various tokens expire
+//for instance: jwt === null in local-storage and not fetching new token because
+// !currentAccount && !sessionSigs.  Those need to be addressed too and considered in the larger issue of how to handle a return from idle state.
+// those can be grouped into something like isLitOnline, along with a new isSuperbaseOnline, to consolidate app state for overall idle state handling
+// this prevents you from having to check currentAccount and sessionSigs in places where they're not directly used

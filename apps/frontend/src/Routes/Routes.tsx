@@ -16,14 +16,13 @@ const Routes = () => {
   const { isOnboarded } = useOnboardContext();
   const isAuthenticated = Boolean(currentAccount && sessionSigs)
 
-
   const AuthedAndOnboarded:React.FC<PrivateRouteProps>  = ({component: Component, ...rest}) => {
+
     return (
       <Route
         {...rest}
         render={props => {
           if (isAuthenticated && isOnboarded) {
-            console.log(`authenticated and onBoarded`)
             return <Component {...props} />;
           } else if (isAuthenticated && !isOnboarded) {
             console.log('redirecting to /onboard')
@@ -42,10 +41,8 @@ const Routes = () => {
       <AuthedAndOnboarded path="/lounge" component={Lounge} />
       <AuthedAndOnboarded path="/room" component={Room} />
       <Route path="/onboard" component={Onboard} />
-
       <Route path="/signup" component={Login} />
       <Route path="/bolsa" component={Bolsa} />
-
     </Switch>
   );
 
