@@ -12,15 +12,15 @@ export const submitOnboardForm = (onboardMode: "Learn" | "Teach" | null, setName
 
   const {isOnline} = useNetwork();
   const [ isLitLoggedIn ] = useLocalStorage("isLitLoggedIn");
-  useEffect(() => {
-    if (supabaseLoading && !supabaseClient) {
-      console.log("supabaseClient loading");
-    } else if (!supabaseLoading && !supabaseClient) {
-      console.log("not loading but no client, investigate");
-    } else if (!supabaseLoading && supabaseClient) {
-      console.log("has supabaseClient");
-    }
-  }, [supabaseLoading, supabaseClient])
+  // useEffect(() => {
+  //   if (supabaseLoading && !supabaseClient) {
+  //     console.log("supabaseClient loading");
+  //   } else if (!supabaseLoading && !supabaseClient) {
+  //     console.log("not loading but no client, investigate");
+  //   } else if (!supabaseLoading && supabaseClient) {
+  //     console.log("has supabaseClient");
+  //   }
+  // }, [supabaseLoading, supabaseClient])
 
   return async (formData: OnboardFormData) => {
     if (supabaseLoading) {

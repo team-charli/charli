@@ -36,15 +36,15 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   const { isLoading: jwtLoading, error: jwtError } = useAuthenticateAndFetchJWT(currentAccount, sessionSigs)
-  const [cachedJWT, setCachedJWT] = useLocalStorage<string>('userJWT');
+  const [ userJWT ] = useLocalStorage<string>('userJWT');
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
 
   useEffect(() => {
-    if ((cachedJWT !== null && Object.keys(cachedJWT).length > 0) && !supabaseClient) {
-      const client = supabaseClientSingleton.getInstance(cachedJWT);
+    if ((userJWT !== null && Object.keys(userJWT).length > 0) && !supabaseClient) {
+      const client = supabaseClientSingleton.getInstance(userJWT);
       setSupabaseClient(client);
     }
-  }, [cachedJWT, supabaseClient, jwtLoading]); // Ensure nonce is not directly a dependency to avoid re-fetching JWT unnecessarily
+  }, [userJWT, supabaseClient, jwtLoading]); // Ensure nonce is not directly a dependency to avoid re-fetching JWT unnecessarily
 
   const isLoading = jwtLoading || !supabaseClient;
 

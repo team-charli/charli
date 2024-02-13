@@ -11,15 +11,26 @@ export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalSto
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   // const { isOnline } = useNetwork();
   useAsyncEffect( async () => {
-    if (currentAccount && sessionSigs && isOnline && hasBalance === null) {
+    if (currentAccount && sessionSigs /*&& isOnline*/ && hasBalance === null) {
 
-      const pkpWallet = new PKPEthersWallet({
+      let pkpWallet
+      try {
+        pkpWallet = new PKPEthersWallet({
         pkpPubKey: currentAccount.publicKey,
         controllerSessionSigs: sessionSigs,
       });
-
+   } catch (e) {
+        console.error(e);
+        throw new Error()
+      }
+      try {
       await pkpWallet.init()
+      } catch (e) {
+        console.error(e)
+        throw new Error;
+      }
       const minBalanceWei = utils.parseEther('0.003259948275487362')
+
       let balance
       try {
        balance =  await pkpWallet.getBalance(currentAccount.ethAddress)

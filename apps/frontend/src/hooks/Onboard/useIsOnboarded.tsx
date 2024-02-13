@@ -16,7 +16,7 @@ export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoa
   //FIX:: value from Context is 'undefined'
   useAsyncEffect(
     async () => {
-    console.warn({isOnboarded, currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), supabaseClient: Boolean(supabaseClient), supabaseLoading })
+    // console.warn({isOnboarded, currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), supabaseClient: Boolean(supabaseClient), supabaseLoading })
       if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient && !supabaseLoading /*&& isOnline*/) {
         try {
           console.log('run isOnboarded');

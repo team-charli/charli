@@ -14,12 +14,12 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
   const [error, setError] = useState<Error | null>(null);
   const [debugRequestCount, setDebugRequestCount] = useState<number>(0)
   // const {isOnline} = useNetwork();
-
- useEffect(() => {
-    if (debugRequestCount > 1) {
-      console.log("debugRequestCount",debugRequestCount)
-      }
-  }, [debugRequestCount])
+  // useEffect(() => {
+  // console.log('nonce', nonce)
+  //    if (debugRequestCount > 1) {
+  //      console.log("debugRequestCount",debugRequestCount)
+  //      }
+  // }, [nonce])
 
   useEffect(() => {
     if(userJWT && isJwtExpired(userJWT)) setUserJWT(null)
@@ -27,11 +27,11 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
 
   useEffect(() => {
     const authenticateAndFetchJWT = async () => {
+      // console.warn({isJwtExpired:  userJWT && isJwtExpired(userJWT), currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), userJWT: userJWT })
       setIsLoading(true);
       try {
         //TODO: if !currentAccount || !sessionSigs
-        if (currentAccount && sessionSigs /*&& isOnline */&& (userJWT === null || isJwtExpired(userJWT) || nonce === null)) {
-
+        if (currentAccount && sessionSigs /*&& isOnline*/&& (userJWT === null || isJwtExpired(userJWT) || nonce === null)) {
           // Fetch new nonce
           let nonceResponse
           try {
@@ -42,14 +42,21 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
             throw new Error(`error fetching nonce: ${e}`)
           }
           // Use the nonce to sign a message and fetch a new JWT
-          const pkpWallet = new PKPEthersWallet({
-            controllerSessionSigs: sessionSigs,
-            pkpPubKey: currentAccount.publicKey,
-            debug: true
-          });
+          let pkpWallet
+          try {
+            pkpWallet = new PKPEthersWallet({
+              controllerSessionSigs: sessionSigs,
+              pkpPubKey: currentAccount.publicKey,
+              // debug: true
+            });
+          } catch(e) {
+            console.error("new PKPEthersWallet", e)
+            throw new Error(`Wallet Constructor: ${e}`)
+          }
           try {
             await pkpWallet.init();
           } catch (e) {
+            console.error("pkpWallet.init", e)
             throw new Error(`error initializing pkpWallet: ${e}`)
           }
           let signature
@@ -69,16 +76,17 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
           }
         }
       } catch (e) {
-          const errorInstance = e instanceof Error ? e : new Error('An unknown error occurred');
-          setError(errorInstance);
-          throw errorInstance; // Rethrow the error instance directly
+        console.error("Error final catch", e)
+        const errorInstance = e instanceof Error ? e : new Error('An unknown error occurred');
+        setError(errorInstance);
+        throw errorInstance; // Rethrow the error instance directly
       } finally {
         setIsLoading(false);
       }
     };
 
     authenticateAndFetchJWT();
-  }, [currentAccount, sessionSigs, userJWT, nonce]);
+  }, [currentAccount, sessionSigs]);
 
   return { cachedJWT: userJWT, nonce, isLoading, error };
 }

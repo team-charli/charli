@@ -1,6 +1,6 @@
 import NonButtonLink from '../../Components/Elements/NonButtonLink'
 import IconHeader from '../../Components/Headers/IconHeader'
-import LangNav from '../../Components/LangNav/LangNav'
+import LangNav from '../../Components/Lounge/LoadLoungeData'
 import { LoungeProps } from '../../types/types'
 
 export const Lounge = ({show = 'Learners'}: LoungeProps) => {

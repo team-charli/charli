@@ -43,7 +43,7 @@ const useGetLanguages = () => {
 
           }
         } else {
-          console.log('{superbaseClient, supabaseLoading', {superbaseClient: Boolean(supabaseClient), supebaseLoading: Boolean(supabaseLoading) })
+          // console.log('{superbaseClient, supabaseLoading', {superbaseClient: Boolean(supabaseClient), supebaseLoading: Boolean(supabaseLoading) })
         }
       } catch (e) {
         setError(e instanceof Error ? e : new Error('An error occurred'));

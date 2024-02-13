@@ -34,7 +34,7 @@ try {
     }
     //TODO: on success, implement cacheing
   } else {
-    console.warn({isOnboarded, currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), learningLangsLength: learningLangs.length, nameLength: name.length, supabaseClient: Boolean(supabaseClient) })
+    // console.warn({isOnboarded, currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), learningLangsLength: learningLangs.length, nameLength: name.length, supabaseClient: Boolean(supabaseClient) })
     throw new Error('User is already onboarded or missing required data');
   }
  } catch (e) {
