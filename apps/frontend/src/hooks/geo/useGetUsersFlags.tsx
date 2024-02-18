@@ -1,3 +1,4 @@
+//TODO: Need to fix the flags to represent the language + country + flag and store all of them
 import { useMemo, useEffect, useRef } from 'react';
 import { primaryFlagRules } from '../../utils/geo/primaryFlags';
 import { useGetUserCountry } from './useGetUserCountry';

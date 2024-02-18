@@ -1,5 +1,4 @@
-import { useContextNullCheck } from '../../../hooks/utils/useContextNullCheck'
-import { OnboardContext } from '../../../contexts/OnboardContext'
+import { useOnboardContext } from '../../../contexts/OnboardContext'
 import { CheckIcon } from '@heroicons/react/20/solid'
 import { Listbox } from '@headlessui/react'
 import globe_icon from '../../../assets/globe.png'
@@ -9,7 +8,7 @@ interface NativeLangMenuPropTypes {
   languages: string[] ;
 }
 const NativeLangMenu = ({ languages }: NativeLangMenuPropTypes) => {
-  const { setNativeLang, nativeLang } = useContextNullCheck(OnboardContext);
+  const { setNativeLang, nativeLang } = useOnboardContext();
   const [selectedLang, setSelectedLang] = useState<string>(nativeLang || languages[0] || '');
 
   const handleLanguageChange = (newLang: string) => {

@@ -26,3 +26,14 @@ export function isJwtExpired(token: string) {
     return payload.exp < currentTime;
 }
 
+export const formatDateTimeLocal = (date: Date): string => {
+    const ten = (i: number): string => (i < 10 ? '0' : '') + i;
+    const YYYY: string = date.getFullYear().toString();
+    const MM: string = ten(date.getMonth() + 1); // Months are 0-indexed in JavaScript Date objects
+    const DD: string = ten(date.getDate());
+    const HH: string = ten(date.getHours());
+    const mm: string = ten(date.getMinutes());
+
+    return `${YYYY}-${MM}-${DD}T${HH}:${mm}`;
+  };
+

@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import { useSupabase } from '../../contexts/SupabaseContext';
-// import { useNetwork } from '../../contexts/NetworkContext'; // Uncomment if network status is needed
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 const useGetLanguages = () => {
-  // console.log("useGetLanguages");
-
   const { client: supabaseClient, supabaseLoading } = useSupabase();
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
-  // const { isOnline } = useNetwork(); // Uncomment if network status is checked
+  const [isOnboarded] = useLocalStorage<boolean>("isOnboarded")
 
   const [wantsToTeachLangs, setWantsToTeachLangs] = useState<string[]>([]);
   const [wantsToLearnLangs, setWantsToLearnLangs] = useState<string[]>([]);
@@ -21,7 +18,8 @@ const useGetLanguages = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        if (supabaseClient && !supabaseLoading /* && isOnline */) {
+        if (isOnboarded && supabaseClient && !supabaseLoading) {
+        console.log('superbaseClient', Boolean(supabaseClient));
           const responseTeachingLangs = await supabaseClient
             .from('user_data')
             .select('wants_to_teach_langs');
@@ -53,20 +51,7 @@ const useGetLanguages = () => {
     };
 
     fetchData();
-    // const debug = async () => {
-    //   if (supabaseClient && !supabaseLoading /* && isOnline */) {
-    //     try {
-// let { data: user_data, error } = await supabaseClient
-  // .from('user_data')
-  // .select('*')
-    //       console.log("data", user_data)
-    //     } catch (e) {
-    //       console.error(e);
-    //     }
-    //   }
-    // }
-    // debug();
-  }, [supabaseClient, supabaseLoading, currentAccount, sessionSigs /*, isOnline*/]);
+  }, [supabaseClient, supabaseLoading, currentAccount, sessionSigs, isOnboarded/*, isOnline*/]);
 
   return {
     wantsToTeachLangs,

@@ -1,7 +1,7 @@
 import {Dispatch, SetStateAction, useEffect} from 'react'
-import { submitOnboardLearnAPI } from "../../../api/submitOnboardLearnAPI";
-import { submitOnboardTeachAPI } from "../../../api/submitOnboardTeachAPI";
-import {LocalStorageSetter, OnboardFormData} from '../../../types/types'
+import { submitOnboardLearnAPI } from "../../../../api/submitOnboardLearnAPI";
+import { submitOnboardTeachAPI } from "../../../../api/submitOnboardTeachAPI";
+import {LocalStorageSetter, OnboardFormData} from '../../../../types/types'
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useNetwork } from 'apps/frontend/src/contexts/NetworkContext';
@@ -11,7 +11,7 @@ import useLocalStorage from '@rehooks/local-storage';
 export const submitOnboardForm = (onboardMode: "Learn" | "Teach" | null, setName:Dispatch<SetStateAction<string>>, name: string, setLearningLangs:Dispatch<SetStateAction<string[]>>, setTeachingLangs:Dispatch<SetStateAction<string[]>>, teachingLangs: string[], learningLangs: string[], currentAccount: IRelayPKP | null, sessionSigs:SessionSigs | null, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, setIsOnboarded: LocalStorageSetter<boolean>, isOnboarded: boolean | null, hasBalance: boolean | null) => {
 
   const {isOnline} = useNetwork();
-  const [ isLitLoggedIn ] = useLocalStorage("isLitLoggedIn");
+  const [ isLitLoggedIn ] = useLocalStorage<boolean>("isLitLoggedIn");
   // useEffect(() => {
   //   if (supabaseLoading && !supabaseClient) {
   //     console.log("supabaseClient loading");

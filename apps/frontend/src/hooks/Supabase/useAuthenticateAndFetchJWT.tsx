@@ -54,6 +54,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
             throw new Error(`Wallet Constructor: ${e}`)
           }
           try {
+            // 401 is still a question of bad sigs I think
             await pkpWallet.init();
           } catch (e) {
             console.error("pkpWallet.init", e)

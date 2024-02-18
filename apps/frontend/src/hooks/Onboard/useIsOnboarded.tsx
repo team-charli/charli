@@ -11,6 +11,7 @@ export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoa
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   const [ isLitLoggedIn ] = useLocalStorage("isLitLoggedIn");
+  const [userID, setUserID] = useLocalStorage("userID")
   // const { isOnline } = useNetwork();
   // const { isLitLoggedIn } = useAuthContext();
   //FIX:: value from Context is 'undefined'
@@ -20,13 +21,14 @@ export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoa
       if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient && !supabaseLoading /*&& isOnline*/) {
         try {
           console.log('run isOnboarded');
-          let response = await supabaseClient
+          const { data, error } = await supabaseClient
             .from("user_data")
-            .select("user_address")
+            .select("id, user_address")
             .eq("user_address", currentAccount?.ethAddress)
-            .single()
-          if (!response.error) {
+            .single();
+          if (!error) {
             console.log('isOnboarded:', true)
+            setUserID(data.id);
             setIsOnboarded(true);
           } else {
             console.log('isOnboarded:', false)

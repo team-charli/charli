@@ -1,8 +1,8 @@
 import { useState, useEffect  } from 'react';
 import { Combobox } from '@headlessui/react';
-import languageDataset from '../../../data/languageDataset.json';
-import _popFlags from '../../../data/highestPopulationPerLanguageWithFlags.json';
-import { PopFlags, SearchLangComboBoxProps } from '../../../types/types';
+import languageDataset from '../../../../data/languageDataset.json';
+import _popFlags from '../../../../data/highestPopulationPerLanguageWithFlags.json';
+import { PopFlags, SearchLangComboBoxProps } from '../../../../types/types';
 
 const popFlags: PopFlags = _popFlags;
 

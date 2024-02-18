@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
-import LanguageToggleButtons from '../../Components/Onboard/Form/LanguageToggleButtons';
-import NameInputField from '../../Components/Onboard/Form/NameInputField';
-import SearchLangComboBox from '../../Components/Onboard/Form/SearchLangComboBox';
-import { submitOnboardForm } from '../../Components/Onboard/Form/SubmitOnboardForm';
+import LanguageToggleButtons from './Components/Form/LanguageToggleButtons';
+import NameInputField from './Components/Form/NameInputField';
+import SearchLangComboBox from './Components/Form/SearchLangComboBox';
+import { submitOnboardForm } from './Components/Form/SubmitOnboardForm';
 import { useGetUsersFlags } from '../../hooks/geo/useGetUsersFlags';
 import { CombinedFormProps, OnboardFormData, LanguageButton } from '../../types/types';
 import { useSupabase } from '../../contexts/SupabaseContext';

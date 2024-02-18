@@ -1,5 +1,6 @@
 import { useForm, Controller } from 'react-hook-form';
-import UserListLearnTeachAll from "./UserListLearnTeachAll";
+
+import UserList from "./UserListLearnTeachAll";
 
 export type SelectionType = "Learn" | "Teach" | "All" | "";
 
@@ -14,7 +15,7 @@ type FormValues = {
   option: SelectionType;
 };
 
-const ButtonLearnTeachAll = ({ label, name, control, setValue }: ToggleButtonProps) => {
+const Button = ({ label, name, control, setValue }: ToggleButtonProps) => {
   return (
     <Controller
       control={control}
@@ -31,20 +32,20 @@ const ButtonLearnTeachAll = ({ label, name, control, setValue }: ToggleButtonPro
   );
 };
 
-const FormLearnTeachAll = () => {
+const DropDownButton = () => {
   const { control, setValue, watch } = useForm<FormValues>({ defaultValues: { option: "" } });
   const option = watch("option");
 
   return (
     <>
       <form>
-        <ButtonLearnTeachAll name="option" label="Learn" control={control} setValue={setValue} />
-        <ButtonLearnTeachAll name="option" label="Teach" control={control} setValue={setValue} />
-        <ButtonLearnTeachAll name="option" label="All" control={control} setValue={setValue} />
+        <Button name="option" label="Learn" control={control} setValue={setValue} />
+        <Button name="option" label="Teach" control={control} setValue={setValue} />
+        <Button name="option" label="All" control={control} setValue={setValue} />
       </form>
-      <UserListLearnTeachAll selection={option} />
+      <UserList selection={option} />
     </>
   );
 };
 
-export default FormLearnTeachAll;
+export default DropDownButton;

@@ -9,7 +9,7 @@
     "@headlessui/react": "^1.7.17",
     "@heroicons/react": "^2.0.18",
     "@huddle01/iframe": "^0.0.10",
-    "@huddle01/react": "^0.0.17",
+    "@huddle01/react": "^2.0.3",
     "@lit-protocol/lit-auth-client": "^3.1.2",
     "@lit-protocol/lit-node-client": "^3.1.2",
     "@lit-protocol/pkp-ethers": "3.1.2",

@@ -80,9 +80,15 @@ export interface AuthContextObj {
 }
 
 
+interface Notification {
+ unread: boolean;
+ text: string;
+}
+
 export interface UIContextObj {
   firedLogin: boolean;
   setFiredLogin: Dispatch<SetStateAction<true | false>>;
+  notification: Notification;
 }
 
 export interface OnboardStateProviderProps  {
@@ -94,6 +100,10 @@ export interface AuthProviderProps {
 }
 
 export interface SupabaseProviderProps {
+  children: ReactNode;
+}
+
+export interface HuddleProviderProps {
   children: ReactNode;
 }
 
@@ -284,9 +294,6 @@ export interface NetworkContextType {
 // Define an interface for the NetworkProvider's props to address the second error
 export interface NetworkProviderProps {
   children: React.ReactNode; // This type is provided by React for children prop
-}
-export interface LoungeProps {
-  show:  'Learners' | 'Teachers' | 'All'
 }
 
 export interface UseGetLanguagesResult {

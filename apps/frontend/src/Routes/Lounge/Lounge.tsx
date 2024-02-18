@@ -1,27 +1,29 @@
 import NonButtonLink from '../../Components/Elements/NonButtonLink'
 import IconHeader from '../../Components/Headers/IconHeader'
-import LangNav from '../../Components/Lounge/LoadLoungeData'
-import { LoungeProps } from '../../types/types'
+// import LangNav from './Components/LoadLoungeData'
+import DropDownButton from './Components/DropDownButton'
+import { useState } from 'react'
+import useLangNavData from '../../hooks/Lounge/useLangNavData'
+import LangNav from './Components/LangNav'
+import LearnerView from './Components/LearnerView'
+import ScheduleView from './Components/ScheduleView'
+import TeacherView from './Components/TeacherView'
 
-export const Lounge = ({show = 'Learners'}: LoungeProps) => {
-  const buttonTextMap = {
-    Learners: 'Learn 🎓',
-    Teachers: 'Teach 🤑',
-    All: 'Everyone 🏫',
-  };
-  const buttonText = buttonTextMap[show];
-
+export const Lounge = () => {
+  const [modeView, setModeView] = useState<"Learn" | "Teach" | "Schedule">("Learn")
+  const {selectedLang, languagesToShow, setSelectedLang } =  useLangNavData(modeView)
   return (
     <>
       <IconHeader />
-      <LangNav show={show}/>
-      <div className="__non-button-container__ flex justify-center m-10">
-        <NonButtonLink>{buttonText}</NonButtonLink>
-      </div>
-
+      <LangNav setSelectedLang={setSelectedLang} selectedLang={selectedLang} languagesToShow={languagesToShow} />
+      <DropDownButton modeView={modeView} setModeView={setModeView}/>
+      {modeView === "Learn" && <LearnerView modeView={modeView} selectedLang={selectedLang} />}
+      {modeView === "Teach" && <TeacherView modeView={modeView} selectedLang={selectedLang} /> }
+      {modeView === "Schedule" && <ScheduleView modeView={modeView}/>}
     </>
   )
 }
+
 
 export default Lounge
 

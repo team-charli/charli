@@ -9,6 +9,57 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      sessions: {
+        Row: {
+          confirmed_time_date: string | null
+          counter_time_date: string | null
+          created_at: string
+          learner_id: number | null
+          request_origin: Database["public"]["Enums"]["request_origin_enum"]
+          request_time_date: string | null
+          room_link: string | null
+          session_id: number
+          teacher_id: number | null
+        }
+        Insert: {
+          confirmed_time_date?: string | null
+          counter_time_date?: string | null
+          created_at?: string
+          learner_id?: number | null
+          request_origin: Database["public"]["Enums"]["request_origin_enum"]
+          request_time_date?: string | null
+          room_link?: string | null
+          session_id?: number
+          teacher_id?: number | null
+        }
+        Update: {
+          confirmed_time_date?: string | null
+          counter_time_date?: string | null
+          created_at?: string
+          learner_id?: number | null
+          request_origin?: Database["public"]["Enums"]["request_origin_enum"]
+          request_time_date?: string | null
+          room_link?: string | null
+          session_id?: number
+          teacher_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_sessions_learner_id"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_sessions_teacher_id"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       user_data: {
         Row: {
           created_at: string
@@ -47,7 +98,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      request_origin_enum: "learner" | "teacher"
     }
     CompositeTypes: {
       [_ in never]: never
