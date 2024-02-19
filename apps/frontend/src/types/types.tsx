@@ -107,6 +107,10 @@ export interface HuddleProviderProps {
   children: ReactNode;
 }
 
+export interface NotificationProviderProps {
+  children: ReactNode;
+}
+
 export interface UseIsOnboardedParam {
   checkIsOnboarded: boolean;
   setCheckIsOnboarded: Dispatch<SetStateAction<true | false>>;

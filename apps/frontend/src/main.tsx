@@ -1,27 +1,3 @@
-// if (process.env.NODE_ENV === 'development') {
-//   const originalFetch = window.fetch;
-//   let requestCount = 0;
-//   const MAX_REQUESTS = 25;
-
-//   window.fetch = async (...args) => {
-//     requestCount++;
-
-//     if (requestCount > MAX_REQUESTS) {
-//       throw new Error(`Max request limit of ${MAX_REQUESTS} exceeded`);
-//     }
-//     return originalFetch(...args);
-//   };
-
-//   const originalSend = XMLHttpRequest.prototype.send;
-//   XMLHttpRequest.prototype.send = function (...args) {
-//     requestCount++;
-//     if (requestCount > MAX_REQUESTS) {
-//       throw new Error(`Max request limit of ${MAX_REQUESTS} exceeded`);
-//     }
-//     originalSend.apply(this, args);
-//   };
-// }
-
 import "./index.css" // make sure the path.
 import { StrictMode } from 'react';
 import * as ReactDOM from 'react-dom/client';

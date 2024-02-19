@@ -15,10 +15,14 @@ export type Database = {
           counter_time_date: string | null
           created_at: string
           learner_id: number | null
-          request_origin: Database["public"]["Enums"]["request_origin_enum"]
+          request_origin: number | null
+          request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date: string | null
           room_link: string | null
           session_id: number
+          session_rejected_reason:
+            | Database["public"]["Enums"]["session_req_reject_reason"]
+            | null
           teacher_id: number | null
         }
         Insert: {
@@ -26,10 +30,14 @@ export type Database = {
           counter_time_date?: string | null
           created_at?: string
           learner_id?: number | null
-          request_origin: Database["public"]["Enums"]["request_origin_enum"]
+          request_origin?: number | null
+          request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
           room_link?: string | null
           session_id?: number
+          session_rejected_reason?:
+            | Database["public"]["Enums"]["session_req_reject_reason"]
+            | null
           teacher_id?: number | null
         }
         Update: {
@@ -37,10 +45,14 @@ export type Database = {
           counter_time_date?: string | null
           created_at?: string
           learner_id?: number | null
-          request_origin?: Database["public"]["Enums"]["request_origin_enum"]
+          request_origin?: number | null
+          request_origin_type?: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
           room_link?: string | null
           session_id?: number
+          session_rejected_reason?:
+            | Database["public"]["Enums"]["session_req_reject_reason"]
+            | null
           teacher_id?: number | null
         }
         Relationships: [
@@ -54,6 +66,13 @@ export type Database = {
           {
             foreignKeyName: "fk_sessions_teacher_id"
             columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_sessions_request_origin_fkey"
+            columns: ["request_origin"]
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
@@ -99,6 +118,7 @@ export type Database = {
     }
     Enums: {
       request_origin_enum: "learner" | "teacher"
+      session_req_reject_reason: "no_time" | "no_interest" | "other"
     }
     CompositeTypes: {
       [_ in never]: never

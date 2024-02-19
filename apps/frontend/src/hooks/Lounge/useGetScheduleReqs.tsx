@@ -6,12 +6,13 @@ import { Database } from "../../supabaseTypes";
 
 interface ScheduleDataResponse {
   session_id: number;
+  request_time_date: string;
   confirmed_time_date: string | null;
   learner_id: { name: string }[];
   teacher_id: { name: string }[];
 }
 
-export const useGetScheduleItems = (modeView: 'Learn' | 'Teach' | 'Schedule') => {
+export const useGetScheduleReqs = (modeView: 'Learn' | 'Teach' | 'Schedule') => {
   const [userID] = useLocalStorage("userID")
   const {client: supabaseClient, supabaseLoading} = useSupabase();
   const [learnerOriginReqs, setLearnerOriginReqs] = useState<ScheduleDataResponse[] | null >();
@@ -26,7 +27,7 @@ export const useGetScheduleItems = (modeView: 'Learn' | 'Teach' | 'Schedule') =>
             .select(`
               session_id,
               confirmed_time_date,
-              isExpired,
+              request_time_date,
               learner_id (name),
               teacher_id (name)
             `)

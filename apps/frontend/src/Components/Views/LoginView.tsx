@@ -3,15 +3,12 @@ import { signInWithDiscord, signInWithGoogle } from '../../utils/lit';
 import { useSetLoginViewCSS } from '../../hooks/css/useSetLoginViewCSS';
 import AuthMethods from '../Lit/AuthMethods';
 import { useAuthContext } from '../../contexts/AuthContext'
-import { UIContext} from '../../contexts/UIContext'
 import { useOnboardContext } from '../../contexts/OnboardContext';
-import { useContextNullCheck } from  '../../hooks/utils/useContextNullCheck'
 import { useNetwork } from '../../contexts/NetworkContext';
 
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const { marginTop, flex } = useSetLoginViewCSS(parentIsRoute);
 
-  const { firedLogin } = useContextNullCheck(UIContext);
   const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuthContext();
   const {onboardMode} = useOnboardContext();
   const error = authError || accountsError || sessionError;
@@ -39,9 +36,8 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     return <p className={`${flex} justify-center ${marginTop}`}>{loadingMessage}</p>;
   }
 
-  if (authMethod || firedLogin) {
+  if (authMethod) {
     return null;
-    //FIX: Buttons still flashing on login
   }
 
   if (!onboardMode) {

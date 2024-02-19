@@ -1,5 +1,4 @@
-import { useGetScheduleItems } from "apps/frontend/src/hooks/Lounge/useGetScheduleItems";
-import Learner from "./Learner";
+import { useGetScheduleReqs } from "apps/frontend/src/hooks/Lounge/useGetScheduleReqs";
 import ScheduleItem from "./ScheduleItem";
 
 interface ScheduleViewProps {
@@ -7,14 +6,16 @@ interface ScheduleViewProps {
 }
 
 const ScheduleView = ({modeView}: ScheduleViewProps ) => {
+  const {learnerOriginReqs, teacherOriginReqs} = useGetScheduleReqs(modeView);
+  const {learnerOriginReqCancs, teacherOriginReqCancs} = useGetScheduleCancs();
+  const {learnerOriginReqConfs, teacherOriginReqConfs} = useGetScheduleConfs();
 
-  const {learnerOriginReqs, teacherOriginReqs} = useGetScheduleItems(modeView);
   return (
     <>
       <ul className="flex items-center space-x-2">
         {learnerOriginReqs?.length ? learnerOriginReqs.map((item, index) => (
-        <ScheduleItem  />
-  )): null}
+          <ScheduleItem utcReqTimeDate={item.request_time_date} learnerName={item.learner_id[0].name} />
+        )): null}
       </ul>
     </>
   );

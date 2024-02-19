@@ -30,7 +30,7 @@ const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
   const [hasBalance, setHasBalance] = useLocalStorage<boolean | null>('hasBalance', null)
   useRouteRedirect();
   const { client: supabaseClient, supabaseLoading } = useSupabase();
- const {isOnboarded, setIsOnboarded} =  useIsOnboarded(supabaseClient, supabaseLoading);
+  const {isOnboarded, setIsOnboarded} =  useIsOnboarded(supabaseClient, supabaseLoading);
 
   useHasBalance(hasBalance, setHasBalance);
   const [nativeLang, setNativeLang] = useState('');

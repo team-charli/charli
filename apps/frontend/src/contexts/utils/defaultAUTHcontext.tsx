@@ -1,7 +1,6 @@
 import { AuthContextObj  } from '../../types/types'
 export const defaultAuthContext: AuthContextObj = {
     authMethod: null, // or a valid default AuthMethod value
-    setAuthMethod: () => {},
     authLoading: false,
     accountsLoading: false,
     sessionLoading: false,
@@ -11,8 +10,5 @@ export const defaultAuthContext: AuthContextObj = {
     currentAccount: null, // IRelayPKP | null
     sessionSigs: null, // SessionSigs | null
     authSig: null, // AuthSig | null
-    setCurrentAccount: () => {}, // Dummy function or a valid setter function
-    setSessionSigs: () => {}, // Dummy function or a valid setter function
-    setAuthSig: () => {}, // Dummy function or a valid setter function
 };
 

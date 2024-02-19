@@ -37,3 +37,10 @@ export const formatDateTimeLocal = (date: Date): string => {
     return `${YYYY}-${MM}-${DD}T${HH}:${mm}`;
   };
 
+
+export function checkIfNotificationExpired(dateStr: string): boolean {
+  const now = new Date();
+  const targetDate = new Date(dateStr);
+  return targetDate < now; // Returns true if the targetDate is in the past compared to now
+}
+
