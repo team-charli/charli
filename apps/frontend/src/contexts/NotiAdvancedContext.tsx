@@ -38,16 +38,18 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   // Helper function to determine the class and state of a session
 const classifySession = (session: Session): Omit<ExtendedSession, keyof Session> => {
   const isTeacherToLearner = session.request_origin === userId && session.teacher_id === userId;
+
   const isLearnerToTeacher = session.request_origin === userId && session.learner_id === userId;
 
-  // Use !! to ensure the expression evaluates to a boolean
   const isProposed = !!session.request_time_date && !session.confirmed_time_date && !session.counter_time_date && !session.session_rejected_reason;
 
-  // Ensure isAmended, isAccepted, and isRejected also strictly evaluate to boolean
   const isAmended = !!session.request_time_date && !!session.counter_time_date && !session.confirmed_time_date && !session.session_rejected_reason;
+
   const isAccepted = !!session.request_time_date && !!session.confirmed_time_date && !session.session_rejected_reason;
+
   const isRejected = !!session.request_time_date && !session.confirmed_time_date && !!session.session_rejected_reason;
-   const isExpired = session.confirmed_time_date ? checkIfNotificationExpired(session.confirmed_time_date) :
+
+  const isExpired = session.confirmed_time_date ? checkIfNotificationExpired(session.confirmed_time_date) :
                     session.counter_time_date ? checkIfNotificationExpired(session.counter_time_date) :
                     session.request_time_date ? checkIfNotificationExpired(session.request_time_date) :
                     false; // Default to false if none of the dates are set
