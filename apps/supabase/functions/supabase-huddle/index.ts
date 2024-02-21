@@ -1,19 +1,19 @@
 import axios from 'https://cdn.skypack.dev/axios';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const supabase = createClient(supabaseUrl, supabaseKey);
-
 const huddleApiKey = Deno.env.get('HUDDLE_API_KEY');
 
 console.log('Hello from Edge Function!');
 
-supabase.realtime
-  .channel('realtime:sessions')
-  .on('UPDATE', async (payload: any) => {
-    const { confirmed_time_date } = payload.new;
-    const roomResponse = await axios.post(
+Deno.serve(async (req) => {
+  try {
+    const payload = await req.json();
+    const { update_confirmed_time_date: confirmed_time_date } = payload;
+
+    const roomResponse = await (axios as any).post(
       'https://api.huddle01.com/api/v1/create-room',
       {
         title: 'Huddle01-Test',
@@ -28,13 +28,19 @@ supabase.realtime
       }
     );
     const { meetingLink } = roomResponse.data;
+
     const { data, error } = await supabase
       .from('sessions')
       .update({ huddle_room_link: meetingLink })
-      .match({ id: payload.new.id });
+      .match({ id: payload.id });
     if (error) {
       console.error(error);
       return new Response('Error updating session', { status: 500 });
     }
+
     return new Response('Session updated successfully', { status: 200 });
-  });
+  } catch (error) {
+    console.error(error);
+    return new Response('Error processing request', { status: 500 });
+  }
+});
