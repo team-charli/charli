@@ -1,35 +1,82 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { NotificationProviderProps } from '../types/types';
-import useLocalStorage from '@rehooks/local-storage';
+import React, { useEffect, useState, useContext, createContext } from 'react';
 import { useSupabase } from './SupabaseContext';
-import { Database } from '../supabaseTypes';
+import useLocalStorage from '@rehooks/local-storage';
+import { checkIfNotificationExpired } from '../utils/app';
 
-type Session = Database['public']['Tables']['sessions']['Row'];
+type ExtendedSession = Session & {
+  isTeacherToLearner: boolean;
+  isLearnerToTeacher: boolean;
+  isProposed: boolean;
+  isAmended: boolean;
+  isAccepted: boolean;
+  isRejected: boolean;
+  isExpired: boolean;
+};
 
-const NotificationContext = createContext<{ notifications: Session[] }>({ notifications: [] });
+type Session = {
+  request_origin: number;
+  learner_id: number;
+  teacher_id: number;
+  request_time_date: string;
+  counter_time_date: string | null;
+  confirmed_time_date: string | null;
+  session_rejected_reason: string | null;
+};
+
+type NotificationContextType = {
+  notifications: ExtendedSession[];
+};
+
+const NotificationContext = createContext<NotificationContextType>({ notifications: [] });
 
 export const useNotificationContext = () => useContext(NotificationContext);
 
-const NotificationProvider = ({ children }: NotificationProviderProps) => {
+// Component
+const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const { client: supabaseClient } = useSupabase();
-  const [userId] = useLocalStorage("userID");
-  const [notifications, setNotifications] = useState<Session[]>([]);
+  const [userId] = useLocalStorage<number>("userID");
+  const [notifications, setNotifications] = useState<ExtendedSession[]>([]);
+
+  // Helper function to determine the class and state of a session
+const classifySession = (session: Session): Omit<ExtendedSession, keyof Session> => {
+  const isTeacherToLearner = session.request_origin === userId && session.teacher_id === userId;
+
+  const isLearnerToTeacher = session.request_origin === userId && session.learner_id === userId;
+
+  const isProposed = !!session.request_time_date && !session.confirmed_time_date && !session.counter_time_date && !session.session_rejected_reason;
+
+  const isAmended = !!session.request_time_date && !!session.counter_time_date && !session.confirmed_time_date && !session.session_rejected_reason;
+
+  const isAccepted = !!session.request_time_date && !!session.confirmed_time_date && !session.session_rejected_reason;
+
+  const isRejected = !!session.request_time_date && !session.confirmed_time_date && !!session.session_rejected_reason;
+
+  const isExpired = session.confirmed_time_date ? checkIfNotificationExpired(session.confirmed_time_date) :
+                    session.counter_time_date ? checkIfNotificationExpired(session.counter_time_date) :
+                    session.request_time_date ? checkIfNotificationExpired(session.request_time_date) :
+                    false; // Default to false if none of the dates are set
+  return { isTeacherToLearner, isLearnerToTeacher, isProposed, isAmended, isAccepted, isRejected, isExpired };
+};
 
   useEffect(() => {
     if (supabaseClient && userId) {
       const mySubscription = supabaseClient
-      .channel('realtime:sessions')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'sessions',
-          filter: `request_origin=neq.${userId} AND (learner_id=eq.${userId} OR teacher_id=eq.${userId})`,
-        },
-        (payload: { new: Session }) => { // Explicitly type the payload
+        .channel('realtime:sessions')
+        .on( 'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'sessions',
+          },
+        (payload: any) => {
+          const baseSession: Session = payload.new;
+          const classification = classifySession(baseSession);
 
-          setNotifications(notifications => [...notifications, payload.new]);
+          const extendedSession: ExtendedSession = {
+            ...baseSession,
+            ...classification
+          };
+            setNotifications(notifications => [...notifications, extendedSession]);
         }
       )
       .subscribe();
@@ -48,3 +95,4 @@ const NotificationProvider = ({ children }: NotificationProviderProps) => {
 };
 
 export default NotificationProvider;
+

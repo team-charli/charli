@@ -6,9 +6,9 @@ interface ScheduleViewProps {
 }
 
 const ScheduleView = ({modeView}: ScheduleViewProps ) => {
-  const {learnerOriginReqs, teacherOriginReqs} = useGetScheduleReqs(modeView);
-  const {learnerOriginReqCancs, teacherOriginReqCancs} = useGetScheduleCancs();
-  const {learnerOriginReqConfs, teacherOriginReqConfs} = useGetScheduleConfs();
+  // const {learnerOriginReqs, teacherOriginReqs} = useGetScheduleReqs(modeView);
+  // const {learnerOriginReqCancs, teacherOriginReqCancs} = useGetScheduleCancs();
+  // const {learnerOriginReqConfs, teacherOriginReqConfs} = useGetScheduleConfs();
 
   return (
     <>
