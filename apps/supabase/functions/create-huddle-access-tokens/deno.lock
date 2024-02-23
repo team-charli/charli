@@ -1,0 +1,12 @@
+{
+  "version": "3",
+  "redirects": {
+    "https://esm.sh/@huddle01/server-sdk/auth": "https://esm.sh/@huddle01/server-sdk@2.0.4/auth"
+  },
+  "remote": {
+    "https://esm.sh/@huddle01/server-sdk@2.0.4/auth": "ec8b27040afdd2d12239aa05ab331e126ff345cf857ff84cbbcb925782a5d3f2",
+    "https://esm.sh/v135/@huddle01/server-sdk@2.0.4/denonext/auth.js": "8033f138ba2825ac2fd45b198e1e2497f073b1c323a1585e53be46cfed236ea8",
+    "https://esm.sh/v135/jose@4.15.4/denonext/jose.mjs": "2a603276d8c19b8aa7065a4921da7ca216be01325efc460e8ce7dacd591b4b73",
+    "https://esm.sh/v135/zod@3.22.4/denonext/zod.mjs": "660128af5d1e921745c4d452472d103d9f2fc5afa508bbf233b83d35a272ad67"
+  }
+}

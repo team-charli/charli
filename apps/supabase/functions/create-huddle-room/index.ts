@@ -29,11 +29,11 @@ Deno.serve(async (req) => {
     }
 
     const _response = await response.json();
-    const meetingLink = _response.data.roomId;
+    const roomId = _response.data.roomId;
 
     const { error } = await supabase
       .from('sessions')
-      .update({huddle_room_link: `https://app.huddle01.com/${meetingLink}`})
+      .update({huddle_room_id: roomId})
       .eq('session_id', payload.record.session_id);
 
     if (error) {
