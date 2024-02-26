@@ -38,9 +38,18 @@ export const formatDateTimeLocal = (date: Date): string => {
   };
 
 
-export function checkIfNotificationExpired(dateStr: string): boolean {
+export const checkIfNotificationExpired = (dateStr: string): boolean => {
   const now = new Date();
   const targetDate = new Date(dateStr);
   return targetDate < now; // Returns true if the targetDate is in the past compared to now
 }
 
+export const convertUtcToLocalTime = (utcTime: string) => {
+  const localDateTime = new Date(utcTime);
+  const utcDateTime = localDateTime.toISOString();
+}
+
+export const convertLocalTimetoUtc = (localTime: string) => {
+      const localDateTime = new Date(localTime);
+      const utcDateTime = localDateTime.toISOString();
+}

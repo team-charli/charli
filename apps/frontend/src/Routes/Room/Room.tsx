@@ -1,8 +1,15 @@
-const Room = (props : {}) => {
-  return (
-    <div>
+import { RouteComponentProps } from 'react-router-dom';
 
-    </div>
+interface MatchParams {
+  id: string;
+}
+const Room: React.FC<RouteComponentProps<MatchParams>> = ( {match} ) => {
+  const roomId = match.params.id
+
+
+
+  return (
+    null
   )
 }
 

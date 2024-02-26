@@ -3,6 +3,7 @@ import useLocalStorage from "@rehooks/local-storage";
 import { useEffect, useState } from "react"
 
 const useLitLoggedIn = () => {
+  //TODO: really need a method to check on expiration of currentAccount and sessionSigs
   const [currentAccount] = useLocalStorage<IRelayPKP>("currentAccount");
   const [sessionSigs] = useLocalStorage<SessionSigs>("sessionSigs")
   const [isLitLoggedIn, setIsLitLoggedIn] = useLocalStorage<boolean>("isLitLoggedIn", false)

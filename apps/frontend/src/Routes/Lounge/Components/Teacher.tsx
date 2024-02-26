@@ -3,6 +3,7 @@ import DateTimeLocalInput from "apps/frontend/src/Components/Elements/DateTimeLo
 import { usePreCalculateTimeDate } from "apps/frontend/src/hooks/Lounge/usePreCalculateTimeDate";
 import { useSupabase } from "apps/frontend/src/contexts/SupabaseContext";
 import useLocalStorage from "@rehooks/local-storage";
+import { convertLocalTimetoUtc } from "apps/frontend/src/utils/app";
 
 interface TeacherProps {
   teacherName: string;
@@ -16,14 +17,12 @@ const Teacher = ({ teacherName, teacherID }: TeacherProps) => {
   const [userID] = useLocalStorage("userID")
   const handleSubmit = async () => {
     if (supabaseClient && !supabaseLoading && userID) {
-      const localDateTime = new Date(dateTime);
-      const utcDateTime = localDateTime.toISOString();
-
+      const utcDateTime = convertLocalTimetoUtc(dateTime)
       try {
         const { data, error } = await supabaseClient
           .from('sessions')
           .insert([
-            { teacher_id: teacherID, learner_id: userID, request_time_date:utcDateTime, requestOrigin: "learner"},
+            { teacher_id: teacherID, learner_id: userID, request_time_date:utcDateTime, request_origin_type: "learner", request_origin: userID},
           ])
           .select()
         if (!error) {

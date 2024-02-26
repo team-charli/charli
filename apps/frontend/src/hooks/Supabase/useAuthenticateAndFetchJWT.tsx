@@ -6,6 +6,8 @@ import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { isJwtExpired } from '../../utils/app';
 import { NonceData } from '../../types/types';
 import { useNetwork } from '../../contexts/NetworkContext';
+//TODO: SELECT allow_all_reads on "user_data"
+
 
 export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null) {
   const [userJWT, setUserJWT] = useLocalStorage<string | null>("userJWT");
