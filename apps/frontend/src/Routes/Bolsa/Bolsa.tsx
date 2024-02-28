@@ -1,13 +1,14 @@
 import UturnModal from '../../Components/Elements/UturnModal'
 import IconHeader from "../../Components/Headers/IconHeader"
-import { OnboardContext } from '../../contexts/OnboardContext'
-import { useContextNullCheck } from '../../hooks/utils/useContextNullCheck'
-import { AuthContext } from '../../contexts/AuthContext'
 import { Redirect} from 'react-router-dom'
+import useLocalStorage from '@rehooks/local-storage'
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types'
 
 const Bolsa = () => {
-  const { isAuthenticated } = useContextNullCheck(AuthContext);
-  const { isOnboarded }= useContextNullCheck(OnboardContext);
+  const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
+  const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs');
+  const [ isOnboarded ] = useLocalStorage<boolean>('isOnboarded');
+  const isAuthenticated = currentAccount && sessionSigs;
 
   let modal
   if (isOnboarded && isAuthenticated) {
