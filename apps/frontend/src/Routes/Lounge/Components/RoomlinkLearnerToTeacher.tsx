@@ -10,7 +10,8 @@ const RoomlinkLearnerToTeacher= ({notification: {isProposed, isAmended, isAccept
   const [huddleAccessToken, setHuddleAccessToken] = useLocalStorage('huddle-access-token')
   const {client: supabaseClient, supabaseLoading} = useSupabase();
   const {localTimeAndDate: {displayLocalTime, displayLocalDate} } =   useLocalizeAndFormatDateTime(confirmed_time_date)
-    const generateAccessToken = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+
+  const generateAccessToken = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     if (supabaseClient && !supabaseLoading && huddle_room_id?.length) {
       const { data, error } = await supabaseClient
@@ -28,8 +29,8 @@ const RoomlinkLearnerToTeacher= ({notification: {isProposed, isAmended, isAccept
   return (
     <li>
       <Link to={`${huddle_room_id}`} onClick={generateAccessToken}>
-      {`Charli with ${learnerName} on ${displayLocalDate} ${displayLocalTime}`}
-     </Link>
+        {`Charli with ${learnerName} on ${displayLocalDate} ${displayLocalTime}`}
+      </Link>
     </li>
   )
 }
