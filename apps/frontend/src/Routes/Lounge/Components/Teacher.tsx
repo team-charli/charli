@@ -38,20 +38,20 @@ const Teacher = ({ teacherName, teacherID }: TeacherProps) => {
   };
 
   return (
-    <div className="flex items-center space-x-2">
+    <>
       <li onClick={() => setShowDateTimePicker(true)} className="cursor-pointer">
         <u>{teacherName}</u>
       </li>
       {showDateTimePicker && (
-        <>
+      <div className="space-x-2">
           <span>When?</span>
           <DateTimeLocalInput dateTime={dateTime} setDateTime={setDateTime} />
           <button onClick={handleSubmit} className="p-1 rounded">
             Submit
           </button>
-        </>
+        </div>
       )}
-    </div>
+    </>
   );
 };
 

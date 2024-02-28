@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePeerIds, useRemoteVideo, useRemoteAudio } from '@huddle01/react/hooks';
-import { Audio, Video } from '@huddle01/react/dist/components';
+import {Audio}  from '@huddle01/react/components';
+import {Video} from'@huddle01/react/components';
 
 const RemotePeer = () => {
   const { peerIds } = usePeerIds({ roles: ['guest'] });

@@ -13,14 +13,17 @@ const LearnerView = ({ selectedLang, modeView }: LearnerViewProps) => {
     console.log('users', teachers)
   }, [teachers])
 
-  return (
-    <>
-      <ul className="flex items-center space-x-2">
+return (
+<div className="grid grid-cols-[1fr,4fr,1fr]">
+    <div className="col-start-2 col-span-2">
+      <h3>Teachers</h3>
+      <ul>
         {teachers && teachers.map((user, index) => (
           <Teacher teacherName={user.name} key={index} teacherID={user.id} />
         ))}
       </ul>
-    </>
-  );
+    </div>
+  </div>
+);
 };
 export default LearnerView;

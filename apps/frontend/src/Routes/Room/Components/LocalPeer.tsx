@@ -1,4 +1,5 @@
-import { Video, Audio } from "@huddle01/react/dist/components";
+import {Audio}  from '@huddle01/react/components';
+import {Video} from'@huddle01/react/components';
 import { useLocalAudio, useLocalVideo } from "@huddle01/react/hooks";
 import useLocalStorage from "@rehooks/local-storage";
 import { useEffect } from "react";
