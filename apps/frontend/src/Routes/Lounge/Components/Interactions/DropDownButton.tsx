@@ -1,34 +1,40 @@
 import {  Dispatch } from 'react';
 import { Listbox } from '@headlessui/react';
-
-const userGroups: { name: "Learn" | "Teach" | "Schedule" }[] = [
+import { useNotificationContext } from 'apps/frontend/src/contexts/NotificationContext';
+import {ChevronUpDownIcon} from '@heroicons/react/24/solid'
+const userGroups: { name: "Learn" | "Teach" }[] = [
   { name: 'Learn' },
   { name: 'Teach' },
-  { name: 'Schedule' },
 ];
 interface DropDownButtonProps {
-  modeView: "Learn" | "Teach" | "Schedule";
-  setModeView: Dispatch<React.SetStateAction<"Learn" | "Teach" | "Schedule">>
+  modeView: "Learn" | "Teach";
+  setModeView: Dispatch<React.SetStateAction<"Learn" | "Teach">>
 }
 
 const DropDownButton = ({ modeView: modeView, setModeView: setModeView }: DropDownButtonProps) => {
+  const {showIndicator} = useNotificationContext()
   const selectedUserGroup = userGroups.find(group => group.name === modeView);
   const groupEmojis = {
     Learn: '🎓',
     Teach: '🤑',
-    Schedule: '🏫',
   };
 
   return (
     <div className="__dropdown-button-container__ flex justify-center m-10">
-      <div className="w-56">
+  <div className="__dropdown-button w-56 relative">
+    {showIndicator && (
+      <span className="absolute top-0 right-0 transform translate-x-1/4 -translate-y-1/4 sm:translate-x-1/2 sm:-translate-y-1/2 text-xs sm:text-sm z-10">
+        🔴
+      </span>
+    )}
         <Listbox value={selectedUserGroup} onChange={(value) => setModeView(value.name)}>
           {({ open }) => (
             <>
               <div className="mt-1 relative">
-                <Listbox.Button className="relative w-full bg-white border border-gray-300 rounded-md shadow-sm pl-3 pr-10 py-2 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <span className="block truncate">{modeView}</span>
+                <Listbox.Button className="relative w-full bg-white border border-gray-300 rounded-md shadow-sm pl-3 pr-10 py-2 text-center cursor-default focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <span className="block truncate">{`${modeView} ${groupEmojis[modeView]}`}</span>
                   <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
                   </span>
                 </Listbox.Button>
                 <Listbox.Options className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
@@ -63,6 +69,7 @@ active ? 'text-white' : 'text-indigo-600'
           )}
         </Listbox>
       </div>
+
     </div>
   );
 };

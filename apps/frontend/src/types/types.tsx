@@ -307,3 +307,44 @@ export interface UseGetLanguagesResult {
   error: Error | null; // Represents the latest error occurred, if any
 }
 
+// Base session data
+ export type Session = {
+  request_origin: number | null;
+  learner_id: number | null;
+  teacher_id: number | null;
+  learnerName: string | null;
+  teacherName: string | null
+  request_time_date: string | null;
+  counter_time_date: string | null;
+  confirmed_time_date: string | null;
+  session_rejected_reason: string | null;
+  huddle_room_id: string | null;
+  session_id: number | null;
+};
+
+type PreSessionStateFlags = {
+  isProposed: boolean;
+  isAmended: boolean;
+  isAccepted: boolean;
+  isRejected: boolean;
+};
+
+type PostSessionStateFlags = {
+  // isStarted: boolean;
+  // isEnded: boolean;
+  isExpired: boolean;
+}
+
+type SessionCategoryFlags = {
+  isTeacherToLearner: boolean;
+  isLearnerToTeacher: boolean;
+};
+
+export type ExtendedSession = Session & SessionCategoryFlags & PreSessionStateFlags & PostSessionStateFlags ;
+
+export type NotificationContextType = {
+  notificationsContextValue: ExtendedSession[];
+  showIndicator: boolean;
+  setShowIndicator: Dispatch<SetStateAction<boolean>>;
+};
+

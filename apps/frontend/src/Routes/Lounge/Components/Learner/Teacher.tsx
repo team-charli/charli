@@ -11,10 +11,12 @@ interface TeacherProps {
 }
 
 const Teacher = ({ teacherName, teacherID }: TeacherProps) => {
-  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const [toggleDateTimePicker, setToggleDateTimePicker] = useState(false);
+  const [renderSubmitConfirmation, setRenderSubmitConfirmation] = useState(false);
   const { dateTime, setDateTime } = usePreCalculateTimeDate();
   const {client: supabaseClient, supabaseLoading} = useSupabase()
   const [userID] = useLocalStorage("userID")
+
   const handleSubmit = async () => {
     if (supabaseClient && !supabaseLoading && userID) {
       const utcDateTime = convertLocalTimetoUtc(dateTime)
@@ -27,28 +29,33 @@ const Teacher = ({ teacherName, teacherID }: TeacherProps) => {
           .select()
         if (!error) {
           console.log('Submission successful', data);
+          setRenderSubmitConfirmation(true);
         } else {
           console.error('Submission failed');
         }
       } catch (error) {
         console.error('Error submitting data', error);
-        // Handle network errors
       }
     }
   };
 
-  return (
+return (
     <>
-      <li onClick={() => setShowDateTimePicker(true)} className="cursor-pointer">
+      <li onClick={() => !renderSubmitConfirmation && setToggleDateTimePicker(prevState => !prevState)} className="cursor-pointer">
         <u>{teacherName}</u>
       </li>
-      {showDateTimePicker && (
-      <div className="space-x-2">
+      {toggleDateTimePicker && !renderSubmitConfirmation && (
+        <div className="__dateTimePicker space-x-2">
           <span>When?</span>
-          <DateTimeLocalInput dateTime={dateTime} setDateTime={setDateTime} />
+          <DateTimeLocalInput  dateTime={dateTime} setDateTime={setDateTime}  />
           <button onClick={handleSubmit} className="p-1 rounded">
             Submit
           </button>
+        </div>
+      )}
+      {renderSubmitConfirmation && (
+        <div className="submissionConfirmation">
+          Session Request Submitted
         </div>
       )}
     </>

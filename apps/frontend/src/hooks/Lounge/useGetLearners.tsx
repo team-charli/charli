@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSupabase } from "../../contexts/SupabaseContext";
+import useLocalStorage from "@rehooks/local-storage";
 
 interface FetchLearnersResponse {
   name: string;
@@ -7,23 +8,25 @@ interface FetchLearnersResponse {
   id: number;
 }
 
-function useGetLearners(selectedLang: string, showUserGroup: string) {
+function useGetLearners(selectedLang: string, modeView: "Learn" | "Teach") {
+  const [userId] = useLocalStorage<number>("userID");
   const {client: supabaseClient, supabaseLoading } = useSupabase();
-  const [users, setUsers] = useState<FetchLearnersResponse[] | null> ([]);
+  const [learners, setLearners] = useState<FetchLearnersResponse[] | null> ([]);
 
   useEffect(() => {
     async function fetchData() {
-      console.log("userGroup", showUserGroup)
-      if (showUserGroup === 'Learn') {
+      if (modeView === 'Learn') {
         try {
-          if (supabaseClient && !supabaseLoading) {
+          if (supabaseClient && !supabaseLoading && modeView == "Teach" ) {
+            console.log("run useGetLearners");
+
             let {data: user_data, error} =  await supabaseClient
               .from('user_data')
               .select('*')
               .contains('wants_to_learn_langs', [selectedLang]);
-            console.log('learners user_data', user_data)
-            console.log('selectedLang', selectedLang)
-            setUsers(user_data);
+            // console.log('learners user_data', user_data)
+            // console.log('selectedLang', selectedLang)
+            setLearners(user_data?.filter(user => user.id !== userId));
           }
         } catch (e) {
           throw new Error(`Error ${e}`)
@@ -32,9 +35,9 @@ function useGetLearners(selectedLang: string, showUserGroup: string) {
     }
 
     fetchData();
-  }, [selectedLang, showUserGroup]);
+  }, [selectedLang, modeView]);
 
-  return users;
+  return learners;
 }
 
 export default useGetLearners

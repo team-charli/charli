@@ -14,7 +14,7 @@ const useLangNavData = (modeView: 'Learn' | 'Teach' | 'Schedule'  ) => {
     } else if (modeView === 'Teach') {
       //TODO: from notifications
       // languages = Array.from(new Set(wantsToLearnLangs.flatMap(subArr => subArr))).filter(language => language.trim() !== "");
-    } else if (modeView === 'All') {
+    } else if (modeView === 'Schedule') {
       // languages = Array.from(new Set([...wantsToLearnLangs.flatMap(subArr => subArr), ...wantsToTeachLangs.flatMap(subArr => subArr)])).filter(language => language.trim() !== "");
     }
 

@@ -1,8 +1,6 @@
-import { PostgrestQueryBuilder } from '@supabase/postgrest-js'
 import useLocalStorage from "@rehooks/local-storage"
 import { useSupabase } from "../../contexts/SupabaseContext"
 import { useEffect, useState } from "react";
-import { Database } from "../../supabaseTypes";
 
 interface ScheduleDataResponse {
   session_id: number;

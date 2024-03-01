@@ -2,57 +2,23 @@ import React, { useEffect, useState, useContext, createContext } from 'react';
 import { useSupabase } from './SupabaseContext';
 import useLocalStorage from '@rehooks/local-storage';
 import { checkIfNotificationExpired } from '../utils/app';
+import { ExtendedSession, NotificationContextType, Session } from '../types/types';
 
-// Base session data
-type Session = {
-  request_origin: number | null;
-  learner_id: number | null;
-  teacher_id: number | null;
-  learnerName: string | null;
-  teacherName: string | null
-  request_time_date: string | null;
-  counter_time_date: string | null;
-  confirmed_time_date: string | null;
-  session_rejected_reason: string | null;
-  huddle_room_id: string | null;
-  session_id: number | null;
-};
-
-type PreSessionStateFlags = {
-  isProposed: boolean;
-  isAmended: boolean;
-  isAccepted: boolean;
-  isRejected: boolean;
-};
-
-type PostSessionStateFlags = {
-  // isStarted: boolean;
-  // isEnded: boolean;
-  isExpired: boolean;
-}
-
-type SessionCategoryFlags = {
-  isTeacherToLearner: boolean;
-  isLearnerToTeacher: boolean;
-};
-
-export type ExtendedSession = Session & SessionCategoryFlags & PreSessionStateFlags & PostSessionStateFlags;
-
-type NotificationContextType = {
-  notificationsContextValue: ExtendedSession[];
-};
-
-const NotificationContext = createContext<NotificationContextType>({ notificationsContextValue: [] });
+const NotificationContext = createContext<NotificationContextType>({ notificationsContextValue: [], showIndicator: false, setShowIndicator: ()=>{} });
 
 export const useNotificationContext = () => useContext(NotificationContext);
 
-// Component
 const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
+  const [showIndicator, setShowIndicator] = useState<boolean>(false);
   const { client: supabaseClient, supabaseLoading } = useSupabase();
   const [userId] = useLocalStorage<number>("userID");
   const [notifications, setNotifications] = useState<ExtendedSession[]>([]);
 
-  const fetchUserNames = async (teacherId: number, learnerId: number) => {
+  useEffect(() => {
+    if (showIndicator) alert("Notification Alert Triggered!")
+  }, [showIndicator])
+
+  const fetchLearnersAndTeachers = async (teacherId: number, learnerId: number) => {
     if (supabaseClient && !supabaseLoading) {
       let teacherName = '';
       let learnerName = '';
@@ -107,25 +73,25 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    //FIX: not returning data on update
     if (supabaseClient && !supabaseLoading && userId) {
       const mySubscription = supabaseClient
-      .channel('realtime:sessions')
+      .channel('realtime:public.sessions')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'sessions',
       }, async (payload: any) => {
-          const baseSession: Session = payload.data.record;
-
+          console.log("payload", payload)
+          const baseSession: Session = payload.new;
           if (baseSession.teacher_id !== null && baseSession.learner_id !== null) {
-            const fetchUserNamesResult  = await fetchUserNames(baseSession.teacher_id, baseSession.learner_id);
+            const fetchUserNamesResult  = await fetchLearnersAndTeachers(baseSession.teacher_id, baseSession.learner_id);
 
             let teacherName
             let learnerName
             if (!fetchUserNamesResult?.teacherName || !fetchUserNamesResult?.learnerName) {
               throw new Error(`failed to fetch teacherName || learnerName from user_data table`)
             } else {
-
               teacherName = fetchUserNamesResult.teacherName;
               learnerName = fetchUserNamesResult.learnerName;
             }
@@ -146,10 +112,10 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
         mySubscription.unsubscribe();
       };
     }
-  }, [supabaseClient, userId]);
+  }, [supabaseClient, supabaseLoading, userId]);
 
   return (
-    <NotificationContext.Provider value={{ notificationsContextValue: notifications }}>
+    <NotificationContext.Provider value={{ notificationsContextValue: notifications, showIndicator, setShowIndicator }}>
       {children}
     </NotificationContext.Provider>
   );

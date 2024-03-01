@@ -19,7 +19,7 @@ const useGetLanguages = () => {
       setIsLoading(true);
       try {
         if (isOnboarded && supabaseClient && !supabaseLoading) {
-        console.log('superbaseClient', Boolean(supabaseClient));
+        // console.log('superbaseClient', Boolean(supabaseClient));
           const responseTeachingLangs = await supabaseClient
             .from('user_data')
             .select('wants_to_teach_langs');

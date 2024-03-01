@@ -20,22 +20,22 @@ export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoa
     // console.warn({isOnboarded, currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), supabaseClient: Boolean(supabaseClient), supabaseLoading })
       if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient && !supabaseLoading /*&& isOnline*/) {
         try {
-          console.log('run isOnboarded');
+          // console.log('run isOnboarded');
           const { data, error } = await supabaseClient
             .from("user_data")
             .select("id, user_address")
             .eq("user_address", currentAccount?.ethAddress)
             .single();
           if (!error) {
-            console.log('isOnboarded:', true)
+            // console.log('isOnboarded:', true)
             setUserID(data.id);
             setIsOnboarded(true);
           } else {
-            console.log('isOnboarded:', false)
+            // console.log('isOnboarded:', false)
             setIsOnboarded(false);
           }
         } catch(e) {
-          console.log('isOnboarded catch hit')
+          // console.log('isOnboarded catch hit')
           throw new Error(`Error: ${e}`)
         }
 
