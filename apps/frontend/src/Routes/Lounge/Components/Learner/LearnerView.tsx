@@ -32,33 +32,33 @@ interface BaseNotification {
   roomId?: string;
 }
 
-export interface SentLearningRequest extends BaseNotification {
+export interface SentLearningRequestType extends BaseNotification {
   subType: string;
   actions: [NotificationAction.Ok ];
 };
 
-export interface ConfirmedLearningRequest extends BaseNotification {
+export interface ConfirmedLearningRequestType extends BaseNotification {
   confirmed_time_date: string;
   roomId: string;
   subType: "ConfirmedLearningRequest";
   actions: [NotificationAction.Ok];
 }
 
-export interface TeacherProposedAlternate extends BaseNotification{
+export interface TeacherProposedAlternateType extends BaseNotification{
   counter_time_date: string;
   actions: NotificationActions;
 };
 
-export interface TeacherRejectedRequest extends BaseNotification {
+export interface TeacherRejectedRequestType extends BaseNotification {
   reason: string;
   actions: [NotificationAction.Dismiss];
 };
 
 export type LearnModeNotification =
-|SentLearningRequest
-|ConfirmedLearningRequest
-|TeacherProposedAlternate
-|TeacherRejectedRequest
+|SentLearningRequestType
+|ConfirmedLearningRequestType
+|TeacherProposedAlternateType
+|TeacherRejectedRequestType
 
 const LearnerView = ({modeView, selectedLang}: LearnerViewProps) => {
   const { notificationsContextValue } = useNotificationContext();

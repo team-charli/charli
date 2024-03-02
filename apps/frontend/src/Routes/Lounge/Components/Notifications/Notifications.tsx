@@ -14,7 +14,7 @@ export function isSentLearningRequest(notification: Notification): notification 
   return notification.subType === 'sentLearningRequest'
 }
 export function isReceivedTeachingRequest(notification: Notification): notification is ReceivedTeachingRequest {
-  return notification.subType === 'receivedTeachingRequest'
+   return notification.subType === 'receivedTeachingRequest'
 }
 export function isConfirmedLearningRequest(notification: Notification): notification is ConfirmedLearningRequest {
   return notification.subType === 'confirmedLearningRequest'

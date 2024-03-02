@@ -1,3 +1,4 @@
+import { formatUtcTimestampToLocalStrings } from 'apps/frontend/src/utils/app';
 import { LearnModeNotification } from '../../Learner/LearnerView';
 import { TeachModeNotification  } from '../../Teacher/TeacherView';
 type Notification = LearnModeNotification | TeachModeNotification;
@@ -7,6 +8,7 @@ interface ConfirmedTeachingSessionProps {
 }
 
 const ConfirmedTeachingSession = ({notification}: ConfirmedTeachingSessionProps) => {
+  const {formattedDate, formattedTime} = formatUtcTimestampToLocalStrings(notification.confirmed_time_date)
   return (
     <ul>
       <li>

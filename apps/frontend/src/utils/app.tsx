@@ -53,3 +53,25 @@ export const convertLocalTimetoUtc = (localTime: string) => {
       const localDateTime = new Date(localTime);
       const utcDateTime = localDateTime.toISOString();
 }
+
+export const formatUtcTimestampToLocalStrings = (utcTimestamp: string): { formattedDate: string, formattedTime: string } => {
+  const date = new Date(utcTimestamp);
+
+  // Formatting the date to "<weekday> <date>"
+  const formattedDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: '2-digit',
+  }).format(date);
+
+  // Formatting the time to "<time in 12 hr format>"
+  const formattedTime = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).format(date);
+
+  return { formattedDate, formattedTime };
+};
+

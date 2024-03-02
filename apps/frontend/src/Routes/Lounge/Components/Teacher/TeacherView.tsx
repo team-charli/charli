@@ -32,17 +32,17 @@ interface BaseNotification {
   // counter_time_date?: string;
 }
 
-export interface ReceivedTeachingRequest extends BaseNotification {
+export interface ReceivedTeachingRequestType extends BaseNotification {
   actions: [NotificationAction.Confirm , NotificationAction.Reject , NotificationAction.ProposeAlternate];
 };
-export interface ConfirmedTeachingSession extends BaseNotification{
+export interface ConfirmedTeachingSessionType extends BaseNotification{
   confirmed_time_date: string;
   counter_time_date?: string;
   roomId: string;
   actions: [NotificationAction.Ok];
 };
 
-export type TeachModeNotification =  ReceivedTeachingRequest | ConfirmedTeachingSession
+export type TeachModeNotification =  ReceivedTeachingRequestType | ConfirmedTeachingSessionType
 
 const TeacherView = ({modeView, selectedLang}: TeacherViewProps) => {
   const { notificationsContextValue } = useNotificationContext();
