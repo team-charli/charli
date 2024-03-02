@@ -1,6 +1,13 @@
-type TeacherProposedAlternateProps = {}
+import { LearnModeNotification } from '../../Learner/LearnerView';
+import { TeachModeNotification  } from '../../Teacher/TeacherView';
+type Notification = LearnModeNotification | TeachModeNotification;
 
-const TeacherProposedAlternate = (props: TeacherProposedAlternateProps ) => {
+interface TeacherProposedAlternateProps {
+  notification: Notification;
+
+}
+
+const TeacherProposedAlternate = ({notification}: TeacherProposedAlternateProps ) => {
   return (
     <ul>
       <li>{`${teacherName} has proposed an alternate date for learning ${language}. Would you like to accept?`}</li>

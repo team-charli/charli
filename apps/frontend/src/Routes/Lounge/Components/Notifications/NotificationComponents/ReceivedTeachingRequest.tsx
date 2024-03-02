@@ -1,9 +1,15 @@
-type ReceivedTeachingRequestProps = {}
+import { LearnModeNotification } from '../../Learner/LearnerView';
+import { TeachModeNotification  } from '../../Teacher/TeacherView';
+type Notification = LearnModeNotification | TeachModeNotification;
 
-const ReceivedTeachingRequest = (props: ReceivedTeachingRequestProps ) => {
+type ReceivedTeachingRequestProps = {
+  notification: Notification;
+};
+
+const ReceivedTeachingRequest = ({notification}: ReceivedTeachingRequestProps ) => {
   return (
     <ul>
-      <li>{`Charli with ${learnerName} at ${displayLocalTime} ${displayLocalDate}?`}
+      <li>{`Charli with ${notification.learnerName} at ${notification.request_time_date}?`}
       </li>
       <li>
       {accept}

@@ -6,23 +6,24 @@ import ReceivedTeachingRequest from './NotificationComponents/ReceivedTeachingRe
 import SentLearningRequest from './NotificationComponents/SentLearningRequest';
 import TeacherProposedAlternate from './NotificationComponents/TeacherProposedAlternate';
 import TeacherRejectedRequest from './NotificationComponents/TeacherRejectedRequest';
+import { isConfirmedLearningRequest, isConfirmedTeachingSession, isReceivedTeachingRequest, isSentLearningRequest, isTeacherProposedAlternate, isTeacherRejectedRequest } from './Notifications';
 
 type Notification = LearnModeNotification | TeachModeNotification;
 
 interface NotificationComponentProps {
-  notificaion: Notification;
+  notification: Notification;
 }
     //
 
-const NotificationComponent = ({notificaion}: NotificationComponentProps) => {
+const NotificationComponent = ({notification}: NotificationComponentProps) => {
   return (
     <>
-      {notificaion.subType === 'sentLearningRequest' ? <SentLearningRequest notificaion={notificaion}/> : null}
-      {notificaion.subType === 'receivedTeachingRequest' ? <ReceivedTeachingRequest />: null}
-      {notificaion.subType ==='confirmedTeachingSession' ? <ConfirmedTeachingSession /> : null}
-      {notificaion.subType === 'confirmedLearningRequest' ? <ConfirmedLearningRequest /> : null }
-      {notificaion.subType === 'teacherProposedAlternate' ? <TeacherProposedAlternate /> : null }
-      {notificaion.subType === 'TeacherRejectedRequest' ? <TeacherRejectedRequest /> : null}
+      {isSentLearningRequest(notification) ? <SentLearningRequest notification={notification}/> : null}
+      {isReceivedTeachingRequest(notification) ? <ReceivedTeachingRequest notification={notification}/>: null}
+      {isConfirmedTeachingSession(notification) ? <ConfirmedTeachingSession notification={notification}/> : null}
+      {isConfirmedLearningRequest(notification) ? <ConfirmedLearningRequest notification={notification}/> : null }
+      {isTeacherProposedAlternate(notification) ? <TeacherProposedAlternate notification={notification}/> : null }
+      {isTeacherRejectedRequest(notification) ? <TeacherRejectedRequest notification={notification}/> : null}
     </>
   );
 }

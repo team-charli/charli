@@ -1,13 +1,34 @@
 import { toLower } from 'lodash';
 import useLocalStorage from '@rehooks/local-storage';
 import NotificationComponent from './NotificationComponent';
-import { ConfirmedLearningRequest, LearnModeNotification, TeacherProposedAlternate } from '../Learner/LearnerView';
-import {ConfirmedTeachingSession, TeachModeNotification} from '../Teacher/TeacherView';
+import { ConfirmedLearningRequest, LearnModeNotification, SentLearningRequest, TeacherProposedAlternate, TeacherRejectedRequest } from '../Learner/LearnerView';
+import {ConfirmedTeachingSession, ReceivedTeachingRequest, TeachModeNotification} from '../Teacher/TeacherView';
 
-type NotificationUnion = LearnModeNotification | TeachModeNotification;
+type Notification = LearnModeNotification | TeachModeNotification;
+
+
+export function isConfirmedTeachingSession(notification: Notification): notification is ConfirmedTeachingSession {
+  return notification.subType === 'confirmedTeachingSession';
+}
+export function isSentLearningRequest(notification: Notification): notification is SentLearningRequest {
+  return notification.subType === 'sentLearningRequest'
+}
+export function isReceivedTeachingRequest(notification: Notification): notification is ReceivedTeachingRequest {
+  return notification.subType === 'receivedTeachingRequest'
+}
+export function isConfirmedLearningRequest(notification: Notification): notification is ConfirmedLearningRequest {
+  return notification.subType === 'confirmedLearningRequest'
+}
+export function isTeacherProposedAlternate(notification: Notification): notification is TeacherProposedAlternate {
+  return notification.subType === 'teacherProposedAlternate'
+}
+
+export function isTeacherRejectedRequest(notification: Notification): notification is TeacherRejectedRequest {
+  return notification.subType === 'teacherRejectedRequest'
+}
 
 interface NotificationsProps {
-  notifications: NotificationUnion[];
+  notifications: Notification[];
   modeView: "learn" | "teach";
 }
 

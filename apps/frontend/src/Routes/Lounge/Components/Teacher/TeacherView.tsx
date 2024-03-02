@@ -32,16 +32,16 @@ interface BaseNotification {
   // counter_time_date?: string;
 }
 
-interface ReceivedTeachingRequest extends BaseNotification {
+export interface ReceivedTeachingRequest extends BaseNotification {
   actions: [NotificationAction.Confirm , NotificationAction.Reject , NotificationAction.ProposeAlternate];
 };
-
 export interface ConfirmedTeachingSession extends BaseNotification{
   confirmed_time_date: string;
   counter_time_date?: string;
   roomId: string;
   actions: [NotificationAction.Ok];
 };
+
 export type TeachModeNotification =  ReceivedTeachingRequest | ConfirmedTeachingSession
 
 const TeacherView = ({modeView, selectedLang}: TeacherViewProps) => {

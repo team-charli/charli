@@ -1,10 +1,16 @@
-type ConfirmedTeachingSessionProps  = {}
+import { LearnModeNotification } from '../../Learner/LearnerView';
+import { TeachModeNotification  } from '../../Teacher/TeacherView';
+type Notification = LearnModeNotification | TeachModeNotification;
 
-const ConfirmedTeachingSession = (props: ConfirmedTeachingSessionProps) => {
+interface ConfirmedTeachingSessionProps {
+  notification: Notification;
+}
+
+const ConfirmedTeachingSession = ({notification}: ConfirmedTeachingSessionProps) => {
   return (
     <ul>
       <li>
-        {`Confirmed: Charli with ${learnerName} on ${date} at ${time} `}
+        {`Confirmed: Charli with ${notification.learnerName} on ${notification.type} at ${notification.} `}
       </li>
       <li>
         {`click here when this light 🟡 turns green ${link} `}

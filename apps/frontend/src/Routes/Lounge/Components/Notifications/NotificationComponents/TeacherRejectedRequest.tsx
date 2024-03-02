@@ -1,6 +1,11 @@
-type TeacherRejectedRequestProps = {}
+import { LearnModeNotification } from '../../Learner/LearnerView';
+import { TeachModeNotification  } from '../../Teacher/TeacherView';
+type Notification = LearnModeNotification | TeachModeNotification;
+interface TeacherRejectedRequestProps {
+  notification: Notification;
+}
 
-const TeacherRejectedRequest = (props: TeacherRejectedRequestProps ) => {
+const TeacherRejectedRequest = ({notification}: TeacherRejectedRequestProps ) => {
   return (
     <ul>
       <li>{`${teacherName} deeply regrets they can not satisfy the request to learn ${language}`}</li>

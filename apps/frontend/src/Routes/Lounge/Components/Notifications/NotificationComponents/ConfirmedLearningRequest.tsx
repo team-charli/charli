@@ -1,4 +1,12 @@
-const ConfirmedLearningRequest = () => {
+import { LearnModeNotification } from '../../Learner/LearnerView';
+import { TeachModeNotification  } from '../../Teacher/TeacherView';
+type Notification = LearnModeNotification | TeachModeNotification;
+
+interface ConfirmedLearningRequestProps {
+  notification: Notification;
+}
+
+const ConfirmedLearningRequest = ({notification}: ConfirmedLearningRequestProps ) => {
   return (
     <ul>
       <li>

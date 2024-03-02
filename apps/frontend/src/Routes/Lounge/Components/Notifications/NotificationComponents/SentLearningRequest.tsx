@@ -3,14 +3,18 @@ import { TeachModeNotification  } from '../../Teacher/TeacherView';
 type Notification = LearnModeNotification | TeachModeNotification;
 
 interface NotificationComponentProps {
-  notificaion: Notification;
+  notification: Notification;
 }
 
-const SentLearningRequest = ({notificaion}: NotificationComponentProps) => {
+const SentLearningRequest = ({notification}: NotificationComponentProps) => {
+  const okHandler = () => {
+   return null
+  }
+
   return (
   <ul>
-    <li>{`Ok to dismiss`}</li>
-      <li>{`${notificaion.}`}</li>
+    <li>{`Sent teaching request to ${notification.teacherName}. Ok to dismiss`}</li>
+      <li onClick={okHandler}>Ok</li>
   </ul>
   )
 }

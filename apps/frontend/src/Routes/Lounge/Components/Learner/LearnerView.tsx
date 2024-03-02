@@ -2,6 +2,11 @@ import { useNotificationContext } from "apps/frontend/src/contexts/NotificationC
 import Notifications from "../Notifications/Notifications";
 import Teachers from "./Teachers";
 
+interface LearnerViewProps {
+  modeView:"learn" | "teach";
+  selectedLang: string;
+}
+
 export enum NotificationAction {
   Ok = 'ok',
   Dismiss = 'dismiss',
@@ -11,10 +16,6 @@ export enum NotificationAction {
   Hide = 'hide',
 }
 
-interface LearnerViewProps {
-  modeView:"learn" | "teach";
-  selectedLang: string;
-}
 type NotificationActions = NotificationAction[];
 interface BaseNotification {
   type: 'learn' | 'teach';
@@ -31,7 +32,7 @@ interface BaseNotification {
   roomId?: string;
 }
 
-interface SentLearningRequest extends BaseNotification {
+export interface SentLearningRequest extends BaseNotification {
   subType: string;
   actions: [NotificationAction.Ok ];
 };
@@ -48,7 +49,7 @@ export interface TeacherProposedAlternate extends BaseNotification{
   actions: NotificationActions;
 };
 
-interface TeacherRejectedRequest extends BaseNotification {
+export interface TeacherRejectedRequest extends BaseNotification {
   reason: string;
   actions: [NotificationAction.Dismiss];
 };
