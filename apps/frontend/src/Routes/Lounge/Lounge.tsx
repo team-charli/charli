@@ -1,6 +1,4 @@
-import NonButtonLink from '../../Components/Elements/NonButtonLink'
 import IconHeader from '../../Components/Headers/IconHeader'
-// import LangNav from './Components/LoadLoungeData'
 import DropDownButton from './Components/Interactions/DropDownButton'
 import { useState } from 'react'
 import useLangNavData from '../../hooks/Lounge/useLangNavData'
@@ -10,7 +8,7 @@ import ScheduleView from './Components/Notifications/ScheduleView'
 import TeacherView from './Components/Teacher/TeacherView'
 
 export const Lounge = () => {
-  const [modeView, setModeView] = useState<"Learn" | "Teach" | "Schedule">("Learn")
+  const [modeView, setModeView] = useState<"Learn" | "Teach">("Learn")
   const {selectedLang, languagesToShow, setSelectedLang } =  useLangNavData(modeView)
   return (
     <>

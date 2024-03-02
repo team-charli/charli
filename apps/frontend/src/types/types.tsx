@@ -309,17 +309,18 @@ export interface UseGetLanguagesResult {
 
 // Base session data
  export type Session = {
-  request_origin: number | null;
-  learner_id: number | null;
-  teacher_id: number | null;
-  learnerName: string | null;
-  teacherName: string | null
-  request_time_date: string | null;
-  counter_time_date: string | null;
-  confirmed_time_date: string | null;
-  session_rejected_reason: string | null;
-  huddle_room_id: string | null;
-  session_id: number | null;
+  request_origin: number;
+  request_origin_type: 'learner' | 'teacher';
+  learner_id: number ;
+  teacher_id: number ;
+  learnerName: string ;
+  teacherName: string
+  request_time_date: string;
+  counter_time_date: string;
+  confirmed_time_date: string;
+  session_rejected_reason: string;
+  huddle_room_id: string;
+  session_id: number;
 };
 
 type PreSessionStateFlags = {
@@ -335,12 +336,12 @@ type PostSessionStateFlags = {
   isExpired: boolean;
 }
 
-type SessionCategoryFlags = {
-  isTeacherToLearner: boolean;
-  isLearnerToTeacher: boolean;
-};
+// type SessionCategoryFlags = {
+//   isTeacherToLearner: boolean;
+//   isLearnerToTeacher: boolean;
+// };
 
-export type ExtendedSession = Session & SessionCategoryFlags & PreSessionStateFlags & PostSessionStateFlags ;
+export type ExtendedSession = Session /*&& SessionCategoryFlags */& PreSessionStateFlags & PostSessionStateFlags ;
 
 export type NotificationContextType = {
   notificationsContextValue: ExtendedSession[];

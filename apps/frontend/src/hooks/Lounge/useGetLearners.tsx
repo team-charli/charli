@@ -8,16 +8,16 @@ interface FetchLearnersResponse {
   id: number;
 }
 
-function useGetLearners(selectedLang: string, modeView: "Learn" | "Teach") {
+function useGetLearners(selectedLang: string, modeView: "learn" | "teach") {
   const [userId] = useLocalStorage<number>("userID");
   const {client: supabaseClient, supabaseLoading } = useSupabase();
   const [learners, setLearners] = useState<FetchLearnersResponse[] | null> ([]);
 
   useEffect(() => {
     async function fetchData() {
-      if (modeView === 'Learn') {
+      if (modeView === 'learn') {
         try {
-          if (supabaseClient && !supabaseLoading && modeView == "Teach" ) {
+          if (supabaseClient && !supabaseLoading && modeView === "teach" ) {
             console.log("run useGetLearners");
 
             let {data: user_data, error} =  await supabaseClient

@@ -53,9 +53,9 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Helper function to determine the class and state of a session
   const classifySession = (session: Session): Omit<ExtendedSession, keyof Session> => {
-    const isTeacherToLearner = session.request_origin === userId && session.teacher_id === userId;
+    // const isTeacherToLearner = session.request_origin === userId && session.teacher_id === userId;
 
-    const isLearnerToTeacher = session.request_origin === userId && session.learner_id === userId;
+    // const isLearnerToTeacher = session.request_origin === userId && session.learner_id === userId;
 
     const isProposed = !!session.request_time_date && !session.confirmed_time_date && !session.counter_time_date && !session.session_rejected_reason;
 
@@ -69,7 +69,7 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
       session.counter_time_date ? checkIfNotificationExpired(session.counter_time_date) :
         session.request_time_date ? checkIfNotificationExpired(session.request_time_date) :
           false; // Default to false if none of the dates are set
-    return { isTeacherToLearner, isLearnerToTeacher, isProposed, isAmended, isAccepted, isRejected, isExpired };
+    return { /*isTeacherToLearner, isLearnerToTeacher,*/ isProposed, isAmended, isAccepted, isRejected, isExpired };
   };
 
   useEffect(() => {

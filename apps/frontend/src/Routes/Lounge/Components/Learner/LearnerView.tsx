@@ -1,14 +1,8 @@
-//TODO: implement counter_time_date submission and logic to set it as the confirmed_time_date if accepted
 import { useNotificationContext } from "apps/frontend/src/contexts/NotificationContext";
 import Notifications from "../Notifications/Notifications";
 import Teachers from "./Teachers";
 
-interface LearnerViewProps {
-  modeView:"Learn" | "Teach";
-  selectedLang: string;
-}
-
-enum NotificationAction {
+export enum NotificationAction {
   Ok = 'ok',
   Dismiss = 'dismiss',
   Confirm = 'confirm',
@@ -16,81 +10,121 @@ enum NotificationAction {
   ProposeAlternate = 'proposeAlternate',
   Hide = 'hide',
 }
-enum NotificationType {
-  Teacher = 'teacher',
-  Learner = 'learner'
-}
 
-type SentLearningRequest = {
-  type: NotificationType.Learner;
+interface LearnerViewProps {
+  modeView:"learn" | "teach";
+  selectedLang: string;
+}
+type NotificationActions = NotificationAction[];
+interface BaseNotification {
+  type: 'learn' | 'teach';
+  subType: string;
   session_id: number;
   request_time_date: string;
   teacherName: string;
-  learnerName: string;
-  teacher_id: string;
-  learner_id: string;
+  learnerName?: string; // Make optional properties that may not exist in all types
+  teacher_id: number;
+  learner_id: number;
+  actions: NotificationActions;
+  // confirmed_time_date?: string;
+  // counter_time_date?: string;
+  roomId?: string;
+}
+
+interface SentLearningRequest extends BaseNotification {
+  subType: string;
   actions: [NotificationAction.Ok ];
 };
 
-type ConfirmedLearningRequest = {
-  type: NotificationType.Learner;
-  session_id: number;
-  request_time_date: string;
-  teacherName: string;
-  learnerName: string;
-  teacher_id: string;
-  learner_id: string;
+export interface ConfirmedLearningRequest extends BaseNotification {
   confirmed_time_date: string;
-  roomLink: string;
+  roomId: string;
+  subType: "ConfirmedLearningRequest";
   actions: [NotificationAction.Ok];
-};
+}
 
-type TeacherProposedAlternate = {
-  type: NotificationType.Learner;
-  session_id: number;
-  request_time_date: string;
+export interface TeacherProposedAlternate extends BaseNotification{
   counter_time_date: string;
-  teacherName: string;
-  learnerName: string;
-  teacher_id: string;
-  learner_id: string;
-  actions: [NotificationAction.Confirm | NotificationAction.Reject];
+  actions: NotificationActions;
 };
 
-type TeacherRejectedRequest = {
-  type: NotificationType.Learner;
-  session_id: number;
-  request_time_date: string;
-  teacherName: string;
-  learnerName: string;
-  teacher_id: string;
-  learner_id: string;
+interface TeacherRejectedRequest extends BaseNotification {
   reason: string;
   actions: [NotificationAction.Dismiss];
 };
 
-export type Notification =
-  |SentLearningRequest
-  |ConfirmedLearningRequest
-  |TeacherProposedAlternate
-  |TeacherRejectedRequest
+export type LearnModeNotification =
+|SentLearningRequest
+|ConfirmedLearningRequest
+|TeacherProposedAlternate
+|TeacherRejectedRequest
 
 const LearnerView = ({modeView, selectedLang}: LearnerViewProps) => {
   const { notificationsContextValue } = useNotificationContext();
-    const learnerNotifications: Notification[] = notificationsContextValue.filter(sessionRow => {
-    if (sessionRow.isProposed && sessionRow.learnerName && sessionRow.request_time_date ) {
-      return true;
-    } else if (sessionRow.isAccepted && sessionRow.learnerName && sessionRow.confirmed_time_date && sessionRow.huddle_room_id) {
-      return true;
-    }  else {
-      return false;
+  const learnerNotifications: LearnModeNotification[] = notificationsContextValue.reduce((acc: LearnModeNotification[], sessionRow) => {
+    if (sessionRow.isProposed) {
+    //SentLearningRequest
+      acc.push({
+        type: 'learn',
+        subType: "sentLearningRequest",
+        session_id: sessionRow.session_id,
+        request_time_date: sessionRow.request_time_date,
+        teacherName: sessionRow.teacherName,
+        teacher_id: sessionRow.teacher_id,
+        learner_id: sessionRow.learner_id,
+        actions: [NotificationAction.Ok],
+      });
+    } else if (sessionRow.isAccepted) {
+      //ConfirmedLearningRequest
+      acc.push({
+        type: 'learn',
+        subType: "confirmedLearningRequest",
+        session_id: sessionRow.session_id,
+        request_time_date: sessionRow.request_time_date,
+        confirmed_time_date: sessionRow.confirmed_time_date,
+        roomId: "YourRoomLinkHere",
+        teacherName: sessionRow.teacherName,
+        learnerName: sessionRow.learnerName,
+        teacher_id: sessionRow.teacher_id,
+        learner_id: sessionRow.learner_id,
+        actions: [NotificationAction.Ok],
+      });
+    } else if (sessionRow.isAmended) {
+      //TeacherProposedAlternate
+      acc.push({
+        type: 'learn',
+        subType: "teacherProposedAlternate",
+        session_id: sessionRow.session_id,
+        counter_time_date: sessionRow.counter_time_date,
+        request_time_date: sessionRow.request_time_date,
+        teacherName: sessionRow.teacherName,
+        learnerName: sessionRow.learnerName,
+        teacher_id: sessionRow.teacher_id,
+        learner_id: sessionRow.learner_id,
+        actions: [NotificationAction.Confirm, NotificationAction.Reject]
+      })
+    } else if (sessionRow.isRejected) {
+      //TeacherRejectedRequest
+      acc.push({
+      type: 'learn',
+      subType: "teacherRejectedRequest",
+      session_id: sessionRow.session_id,
+      request_time_date: sessionRow.request_time_date,
+      teacherName: sessionRow.teacherName,
+      learnerName: sessionRow.learnerName,
+      teacher_id: sessionRow.teacher_id,
+      learner_id: sessionRow.learner_id,
+      reason: sessionRow.session_rejected_reason,
+      actions: [NotificationAction.Dismiss]
+    })
     }
-  });
+    return acc;
+  }, []);
 
 
   return (
     <>
-      <Notifications notifications={learnerNotifications} />
+      <Notifications notifications={learnerNotifications} modeView={modeView} />
       <Teachers modeView={modeView} selectedLang={selectedLang}/>
     </>
   );

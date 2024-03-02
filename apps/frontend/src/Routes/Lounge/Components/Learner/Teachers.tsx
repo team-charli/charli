@@ -4,7 +4,7 @@ import useGetTeachers from "apps/frontend/src/hooks/Lounge/useGetTeachers";
 
 interface TeachersProps {
   selectedLang: string;
-  modeView: "Learn" | "Teach";
+  modeView: "learn" | "teach";
 }
 
 const Teachers = ({modeView, selectedLang }: TeachersProps) => {
