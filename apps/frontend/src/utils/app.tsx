@@ -54,7 +54,10 @@ export const convertLocalTimetoUtc = (localTime: string) => {
       const utcDateTime = localDateTime.toISOString();
 }
 
-export const formatUtcTimestampToLocalStrings = (utcTimestamp: string): { formattedDate: string, formattedTime: string } => {
+export const formatUtcTimestampToLocalStrings = (utcTimestamp: string | undefined): { formattedDate: string, formattedTime: string } => {
+  if (!utcTimestamp) {
+    throw new Error('undefined timestamp ')
+  }
   const date = new Date(utcTimestamp);
 
   // Formatting the date to "<weekday> <date>"

@@ -321,6 +321,7 @@ export interface UseGetLanguagesResult {
   session_rejected_reason: string;
   huddle_room_id: string;
   session_id: number;
+  teaching_lang: string;
 };
 
 type PreSessionStateFlags = {
@@ -348,4 +349,20 @@ export type NotificationContextType = {
   showIndicator: boolean;
   setShowIndicator: Dispatch<SetStateAction<boolean>>;
 };
+
+export interface BaseNotification {
+  type: 'learn' | 'teach';
+  subType: string;
+  session_id: number;
+  teacherName: string;
+  learnerName: string;
+  teacher_id: number;
+  learner_id: number;
+  request_time_date: string;
+  confirmed_time_date?: string;
+  counter_time_date?: string;
+  session_rejected_reason?: string;
+  roomId?: string;
+  teaching_lang: string;
+}
 

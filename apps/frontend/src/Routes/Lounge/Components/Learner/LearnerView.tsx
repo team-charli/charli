@@ -1,68 +1,17 @@
 import { useNotificationContext } from "apps/frontend/src/contexts/NotificationContext";
 import Notifications from "../Notifications/Notifications";
 import Teachers from "./Teachers";
+import { BaseNotification } from "apps/frontend/src/types/types";
 
 interface LearnerViewProps {
   modeView:"learn" | "teach";
   selectedLang: string;
 }
 
-export enum NotificationAction {
-  Ok = 'ok',
-  Dismiss = 'dismiss',
-  Confirm = 'confirm',
-  Reject = 'reject',
-  ProposeAlternate = 'proposeAlternate',
-  Hide = 'hide',
-}
-
-type NotificationActions = NotificationAction[];
-interface BaseNotification {
-  type: 'learn' | 'teach';
-  subType: string;
-  session_id: number;
-  request_time_date: string;
-  teacherName: string;
-  learnerName?: string; // Make optional properties that may not exist in all types
-  teacher_id: number;
-  learner_id: number;
-  actions: NotificationActions;
-  // confirmed_time_date?: string;
-  // counter_time_date?: string;
-  roomId?: string;
-}
-
-export interface SentLearningRequestType extends BaseNotification {
-  subType: string;
-  actions: [NotificationAction.Ok ];
-};
-
-export interface ConfirmedLearningRequestType extends BaseNotification {
-  confirmed_time_date: string;
-  roomId: string;
-  subType: "ConfirmedLearningRequest";
-  actions: [NotificationAction.Ok];
-}
-
-export interface TeacherProposedAlternateType extends BaseNotification{
-  counter_time_date: string;
-  actions: NotificationActions;
-};
-
-export interface TeacherRejectedRequestType extends BaseNotification {
-  reason: string;
-  actions: [NotificationAction.Dismiss];
-};
-
-export type LearnModeNotification =
-|SentLearningRequestType
-|ConfirmedLearningRequestType
-|TeacherProposedAlternateType
-|TeacherRejectedRequestType
 
 const LearnerView = ({modeView, selectedLang}: LearnerViewProps) => {
   const { notificationsContextValue } = useNotificationContext();
-  const learnerNotifications: LearnModeNotification[] = notificationsContextValue.reduce((acc: LearnModeNotification[], sessionRow) => {
+  const learnerNotifications: BaseNotification[] = notificationsContextValue.reduce((acc: BaseNotification[], sessionRow) => {
     if (sessionRow.isProposed) {
     //SentLearningRequest
       acc.push({
@@ -71,9 +20,10 @@ const LearnerView = ({modeView, selectedLang}: LearnerViewProps) => {
         session_id: sessionRow.session_id,
         request_time_date: sessionRow.request_time_date,
         teacherName: sessionRow.teacherName,
+        learnerName: sessionRow.learnerName,
         teacher_id: sessionRow.teacher_id,
         learner_id: sessionRow.learner_id,
-        actions: [NotificationAction.Ok],
+        teaching_lang: sessionRow.teaching_lang
       });
     } else if (sessionRow.isAccepted) {
       //ConfirmedLearningRequest
@@ -88,7 +38,7 @@ const LearnerView = ({modeView, selectedLang}: LearnerViewProps) => {
         learnerName: sessionRow.learnerName,
         teacher_id: sessionRow.teacher_id,
         learner_id: sessionRow.learner_id,
-        actions: [NotificationAction.Ok],
+        teaching_lang: sessionRow.teaching_lang
       });
     } else if (sessionRow.isAmended) {
       //TeacherProposedAlternate
@@ -102,7 +52,7 @@ const LearnerView = ({modeView, selectedLang}: LearnerViewProps) => {
         learnerName: sessionRow.learnerName,
         teacher_id: sessionRow.teacher_id,
         learner_id: sessionRow.learner_id,
-        actions: [NotificationAction.Confirm, NotificationAction.Reject]
+        teaching_lang: sessionRow.teaching_lang
       })
     } else if (sessionRow.isRejected) {
       //TeacherRejectedRequest
@@ -115,8 +65,8 @@ const LearnerView = ({modeView, selectedLang}: LearnerViewProps) => {
       learnerName: sessionRow.learnerName,
       teacher_id: sessionRow.teacher_id,
       learner_id: sessionRow.learner_id,
-      reason: sessionRow.session_rejected_reason,
-      actions: [NotificationAction.Dismiss]
+      session_rejected_reason: sessionRow.session_rejected_reason,
+      teaching_lang: sessionRow.teaching_lang
     })
     }
     return acc;

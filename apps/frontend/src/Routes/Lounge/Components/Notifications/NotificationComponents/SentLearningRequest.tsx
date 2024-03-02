@@ -1,9 +1,7 @@
-import { LearnModeNotification } from '../../Learner/LearnerView';
-import { TeachModeNotification  } from '../../Teacher/TeacherView';
-type Notification = LearnModeNotification | TeachModeNotification;
+import { BaseNotification } from "apps/frontend/src/types/types";
 
 interface NotificationComponentProps {
-  notification: Notification;
+  notification: BaseNotification;
 }
 
 const SentLearningRequest = ({notification}: NotificationComponentProps) => {

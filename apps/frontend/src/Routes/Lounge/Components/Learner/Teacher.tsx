@@ -8,9 +8,10 @@ import { convertLocalTimetoUtc } from "apps/frontend/src/utils/app";
 interface TeacherProps {
   teacherName: string;
   teacherID: number;
+  teachingLang: string;
 }
 
-const Teacher = ({ teacherName, teacherID }: TeacherProps) => {
+const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   const [toggleDateTimePicker, setToggleDateTimePicker] = useState(false);
   const [renderSubmitConfirmation, setRenderSubmitConfirmation] = useState(false);
   const { dateTime, setDateTime } = usePreCalculateTimeDate();
@@ -24,7 +25,7 @@ const Teacher = ({ teacherName, teacherID }: TeacherProps) => {
         const { data, error } = await supabaseClient
           .from('sessions')
           .insert([
-            { teacher_id: teacherID, learner_id: userID, request_time_date:utcDateTime, request_origin_type: "learner", request_origin: userID},
+            { teacher_id: teacherID, learner_id: userID, request_time_date:utcDateTime, request_origin_type: "learner", request_origin: userID, teaching_lang: teachingLang},
           ])
           .select()
         if (!error) {

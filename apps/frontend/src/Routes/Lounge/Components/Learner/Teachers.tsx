@@ -16,7 +16,7 @@ const Teachers = ({modeView, selectedLang }: TeachersProps) => {
       <ul className="flex items-center space-x-2">
         {teachers && teachers
           .map((user, index) =>
-             <Teacher teacherName={user.name} teacherID={user.id}/>
+             <Teacher teacherName={user.name} teacherID={user.id} teachingLang={selectedLang}/>
           )}
       </ul>
     </>
