@@ -8,9 +8,9 @@ interface TeacherProposedAlternateProps {
 const TeacherProposedAlternate = ({notification}: TeacherProposedAlternateProps ) => {
   return (
     <ul>
-      <li>{`${notification.teacherName} has proposed an alternate date for learning ${language}. Would you like to accept?`}</li>
-      <li>{yes}</li>
-      <li>{no}</li>
+      <li>{`${notification.teacherName} has proposed an alternate date for learning ${notification.teaching_lang}. Would you like to accept?`}</li>
+      <li>yes</li>
+      <li>no</li>
     </ul>
   )
 }

@@ -1,21 +1,21 @@
+import { BaseNotification } from 'apps/frontend/src/types/types';
 import { formatUtcTimestampToLocalStrings } from 'apps/frontend/src/utils/app';
-import { LearnModeNotification } from '../../Learner/LearnerView';
-import { TeachModeNotification  } from '../../Teacher/TeacherView';
-type Notification = LearnModeNotification | TeachModeNotification;
+import { Link } from 'react-router-dom';
 
 interface ConfirmedTeachingSessionProps {
-  notification: Notification;
+  notification: BaseNotification;
 }
 
 const ConfirmedTeachingSession = ({notification}: ConfirmedTeachingSessionProps) => {
   const {formattedDate, formattedTime} = formatUtcTimestampToLocalStrings(notification.confirmed_time_date)
+  const link = "/room/" + notification.roomId
   return (
     <ul>
       <li>
-        {`Confirmed: Charli with ${notification.learnerName} on ${notification.type} at ${notification.} `}
+        {`Confirmed: Charli in ${notification.teaching_lang}with ${notification.learnerName} on ${formattedDate} at ${formattedTime} as Teacher}`}
       </li>
       <li>
-        {`click here when this light 🟡 turns green ${link} `}
+        {`${<Link to={link}>click here</Link>} when this light 🟡 turns green`}
       </li>
     </ul>
   )

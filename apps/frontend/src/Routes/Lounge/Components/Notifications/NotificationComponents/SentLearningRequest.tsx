@@ -11,7 +11,7 @@ const SentLearningRequest = ({notification}: NotificationComponentProps) => {
 
   return (
   <ul>
-    <li>{`Sent teaching request to ${notification.teacherName}. Ok to dismiss`}</li>
+    <li>{`Sent Charli request to ${notification.teacherName} for ${notification.teaching_lang}. Ok to dismiss`}</li>
       <li onClick={okHandler}>Ok</li>
   </ul>
   )

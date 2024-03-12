@@ -4,16 +4,23 @@ import { useEffect } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import RemotePeer from './Components/RemotePeer';
 import LocalPeer from './Components/LocalPeer';
+import useBellListener from '../../hooks/Room/useBellListener';
+import { IRelayPKP } from '@lit-protocol/types';
 interface MatchParams {
   id: string;
 }
-const Room: React.FC<RouteComponentProps<MatchParams>> = ( {match} ) => {
+const Room: React.FC<RouteComponentProps<MatchParams>> = ( {match, role} ) => {
   const roomId = match.params.id
   const [huddleAccessToken] = useLocalStorage<string>('huddle-access-token')
+  const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
+  const roomRole = isLearner(role) || isTeacher(role)
 
   const { joinRoom, leaveRoom, state: roomJoinState} = useRoom({
     onJoin: () => {
       //Trigger Lit Action
+      // has access to if the user is a teacher or learner --> roomRole
+      // has access to user's ethereum address  --> currentAccount.ethAddress
+      hasPrepaid(currentAccount)
       console.log('Joined the room');
     },
     onLeave: () => {
@@ -22,6 +29,8 @@ const Room: React.FC<RouteComponentProps<MatchParams>> = ( {match} ) => {
     },
   });
 
+
+
   useEffect(() => {
     // Join Room
     if (roomId && huddleAccessToken && roomJoinState === 'idle') {
@@ -29,12 +38,20 @@ const Room: React.FC<RouteComponentProps<MatchParams>> = ( {match} ) => {
     }
   }, [huddleAccessToken, roomJoinState]);
 
+  const swapWindowViews = () => {
+    //TODO: implement
+  }
+
+  useBellListener();
+
   return (
     <>
-      <div className="__localVideo">
+      {/*make small */}
+      <div onClick={swapWindowViews} className="__localVideo">
         <LocalPeer roomJoinState={roomJoinState} />
       </div>
       <div className="__remoteVideo">
+        {/*make large */}
         <RemotePeer />
       </div>
     </>

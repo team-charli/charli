@@ -1,17 +1,19 @@
-import { LearnModeNotification } from '../../Learner/LearnerView';
-import { TeachModeNotification  } from '../../Teacher/TeacherView';
-type Notification = LearnModeNotification | TeachModeNotification;
+import { BaseNotification } from "apps/frontend/src/types/types";
 interface TeacherRejectedRequestProps {
-  notification: Notification;
+  notification: BaseNotification;
 }
 
 const TeacherRejectedRequest = ({notification}: TeacherRejectedRequestProps ) => {
+  const handleYes =  () => {
+  }
+  const handleNo = () => {
+  }
   return (
     <ul>
-      <li>{`${teacherName} deeply regrets they can not satisfy the request to learn ${language}`}</li>
-      <li>{`Would you like to schedule with ${randomTeacher} instead?`}</li>
-      <li>{yes}</li>
-      <li>{no}</li>
+      <li>{`${notification.teacherName} deeply regrets they can not satisfy the request to learn ${notification.teaching_lang}`}</li>
+      <li>{`Would you like to schedule with ${()=>null/*getRandomTeacher()*/} __placeholder__instead?`}</li>
+      <li onClick={handleYes}>yes</li>
+      <li onClick={handleNo}>no</li>
     </ul>
 
   )

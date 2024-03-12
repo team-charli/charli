@@ -39,7 +39,7 @@ const Routes = () => {
       <Route exact path="/" component={Entry} />
       <Route path="/login" component={Login} />
       <AuthedAndOnboarded path="/lounge" component={Lounge} />
-      <AuthedAndOnboarded path="/room" component={Room} />
+      <AuthedAndOnboarded path="/room/:id" component={Room} />
       <Route path="/onboard" component={Onboard} />
       <Route path="/signup" component={Login} />
       <Route path="/bolsa" component={Bolsa} />
