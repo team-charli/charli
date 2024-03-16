@@ -1,0 +1,14 @@
+{
+  "name": "mint-controller-pkp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lit-protocol/constants": "^3.1.1",
+    "@lit-protocol/contracts-sdk": "^3.1.2",
+    "bs58": "^5.0.0",
+    "ethers": "^6.11.1"
+  }
+}

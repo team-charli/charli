@@ -1,3 +1,5 @@
+import bs58 from 'bs58'
+
 export function isDefined<T>(value: T | undefined): value is T {
   return typeof value !== 'undefined';
 }
@@ -77,4 +79,9 @@ export const formatUtcTimestampToLocalStrings = (utcTimestamp: string | undefine
 
   return { formattedDate, formattedTime };
 };
+
+export function getBytesFromMultihash(multihash: string): string {
+  const decoded = bs58.decode(multihash);
+  return `0x${Buffer.from(decoded).toString("hex")}`;
+}
 

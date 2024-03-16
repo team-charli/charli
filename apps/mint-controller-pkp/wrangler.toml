@@ -1,0 +1,11 @@
+name = "mint-controller-pkp"
+compatibility_date = "2023-07-31"
+main = "src/index.ts"
+[vars]
+CHRONICLE_RPC="https://chain-rpc.litprotocol.com/http"
+TEST_ENV= {
+    litNetwork: "cayenne",
+    debug: false,
+    minNodeCount: 2
+  }
+
