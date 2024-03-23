@@ -1,0 +1,11 @@
+{
+  "name": "tx-relayer",
+  "private": true,
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ethers": "^6.11.1",
+    "wrangler": "^3.36.0"
+  }
+}

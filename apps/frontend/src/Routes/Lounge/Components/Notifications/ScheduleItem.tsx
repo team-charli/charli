@@ -2,36 +2,25 @@ import { useState } from "react";
 import DateTimeLocalInput from "apps/frontend/src/Components/Elements/DateTimeLocalInput";
 import { useSupabase } from "apps/frontend/src/contexts/SupabaseContext";
 import { useLocalizeAndFormatDateTime } from "apps/frontend/src/hooks/utils/useLocalizeAndFormatDateTime";
+import { teacherChangeDateTime, teacherConfirmRequest, teacherRejectRequest } from "apps/frontend/src/Supabase/DbCalls/TeacherConfirmRejectReschedule";
+import { useExecuteTransferFromLearnerToController } from "apps/frontend/src/hooks/LitActions/useExecuteTransferFromLearnerToController";
 
 interface ScheduleItemProps {
   learnerName: string;
   utcReqTimeDate: string;
 }
-
 const ScheduleItem = ({ learnerName, utcReqTimeDate }: ScheduleItemProps) => {
   const { client: supabaseClient, supabaseLoading } = useSupabase();
-  const [uiMode, setUiMode] = useState('initial'); // 'initial', 'confirmed', 'noOptions', 'changingTime'
+  const [uiMode, setUiMode] = useState<'initial' | 'confirmed' | 'noOptions'| 'changingTime'>('initial');
   const {dateTime, setDateTime, localTimeAndDate: {displayLocalDate, displayLocalTime}} = useLocalizeAndFormatDateTime(utcReqTimeDate)
+  const {executeTransferFromLearnerToController} = useExecuteTransferFromLearnerToController(learnerAddress, controllerAddress, controllerPubKey, paymentAmount);
 
 
   const handleYesNoChange = async (action: string) => {
     //** User Confirms Request **//
     if (action === 'yes' && supabaseClient && !supabaseLoading) {
-      try {
-        const dateObj = new Date(dateTime)
-        const utcDateTime = dateObj.toISOString();
-        const { data, error } = await supabaseClient
-          .from('sessions')
-          .update({'confirmed_time_date': utcDateTime })
-          .select();
-        if (!error) {
-          setUiMode('confirmed');
-        } else {
-          console.error('Submission failed');
-        }
-      } catch (error) {
-        console.error('Error submitting data', error);
-      }
+      await teacherConfirmRequest(action, supabaseClient, setUiMode, dateTime);
+      await executeTransferFromLearnerToController();
     }
 //** User Rejects Request: Show Reason Dialog **//
     else if (action === 'no') {
@@ -45,40 +34,13 @@ const ScheduleItem = ({ learnerName, utcReqTimeDate }: ScheduleItemProps) => {
 
   const handleNoOptionsResponse = async (reason: string) => {
     if (supabaseClient && !supabaseLoading) {
-      try {
-        const {data, error} = await supabaseClient
-          .from('sessions')
-          .update({session_rejected_reason: reason})
-          .select();
-        if (!error) {
-          console.log('Submission successful', data);
-        } else {
-          console.error('Submission failed');
-        }
-      } catch (error) {
-        console.error('Error submitting data', error);
-      }
+      await teacherRejectRequest(supabaseClient, reason)
     }
   };
 
   const handleSubmitChangeDateTime = async () => {
     if (supabaseClient && !supabaseLoading) {
-      const dateObj = new Date(dateTime)
-      const utcDateTime = dateObj.toISOString();
-
-      try {
-        const {data, error} = await supabaseClient
-          .from('sessions')
-          .update({ counter_time_date: utcDateTime })
-          .select();
-        if (!error) {
-          console.log('Submission successful', data);
-        } else {
-          console.error('Submission failed');
-        }
-      } catch (error) {
-        console.error('Error submitting data', error);
-      }
+      await teacherChangeDateTime(supabaseClient, dateTime)
     }
   }
 

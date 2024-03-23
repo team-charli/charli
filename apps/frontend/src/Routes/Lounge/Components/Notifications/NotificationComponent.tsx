@@ -6,11 +6,9 @@ import SentLearningRequest from './NotificationComponents/SentLearningRequest';
 import TeacherProposedAlternate from './NotificationComponents/TeacherProposedAlternate';
 import TeacherRejectedRequest from './NotificationComponents/TeacherRejectedRequest';
 
-
 interface NotificationComponentProps {
   notification: BaseNotification;
 }
-    //
 
 const NotificationComponent = ({notification}: NotificationComponentProps) => {
   return (

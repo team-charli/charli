@@ -1,0 +1,9 @@
+name = "tx-relayer"
+compatibility_date = "2023-07-31"
+main = "src/index.ts"
+kv_namespaces = [
+  { binding = "TRANSACTIONS", id = "832db4e875384c9ea76394f536fc7a5c" }
+]
+[vars]
+RPC_URl="https://rpc.ankr.com/base_sepolia"
+

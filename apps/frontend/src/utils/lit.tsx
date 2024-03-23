@@ -99,62 +99,62 @@ export async function getSessionSigs({
   pkpPublicKey,
   authMethod,
 }: {
-  pkpPublicKey: string;
-  authMethod: AuthMethod;
-}): Promise<SessionSigs> {
-try {
-  const sessionKeyPair = litNodeClient.getSessionKey();
-const authNeededCallback = async (params: any ) => {
-    const response = await litNodeClient.signSessionKey({
-      sessionKey: sessionKeyPair,
-      statement: params.statement,
-      // authSig: authSig,
-      // authSig: JSON.parse(authMethod.accessToken), // When this is empty or undefined, it will fail
-      authMethods: [authMethod],
-      pkpPublicKey: pkpPublicKey,
-      expiration: params.expiration,
-      resources: params.resources,
-      chainId: 1,
-    });
-    return response.authSig;
-  };
+    pkpPublicKey: string;
+    authMethod: AuthMethod;
+  }): Promise<SessionSigs> {
+  try {
+    const sessionKeyPair = litNodeClient.getSessionKey();
+    const authNeededCallback = async (params: any ) => {
+      const response = await litNodeClient.signSessionKey({
+        sessionKey: sessionKeyPair,
+        statement: params.statement,
+        // authSig: authSig,
+        // authSig: JSON.parse(authMethod.accessToken), // When this is empty or undefined, it will fail
+        authMethods: [authMethod],
+        pkpPublicKey: pkpPublicKey,
+        expiration: params.expiration,
+        resources: params.resources,
+        chainId: 1,
+      });
+      return response.authSig;
+    };
 
-  const resourceAbilities = [
-    {
-      resource: new LitActionResource('*'),
-      ability: LitAbility.PKPSigning,
-    },
-  ];
+    const resourceAbilities = [
+      {
+        resource: new LitActionResource('*'),
+        ability: LitAbility.PKPSigning,
+      },
+    ];
 
-  let sessionSigs: SessionSigs;
+    let sessionSigs: SessionSigs;
 
-try {
-  sessionSigs = await litNodeClient.getSessionSigs({
-    chain: 'ethereum',
-    expiration: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
-    resourceAbilityRequests: resourceAbilities,
-    sessionKey: sessionKeyPair,
-    authNeededCallback,
-  });
-  // If the operation is successful, you can use sessionSigs as needed
-  return sessionSigs
-} catch (e) {
-  // Handle the error
-  console.error("An error occurred while getting session signatures:", e);
-  throw e
-  // Depending on your application's needs, you might choose to rethrow the error,
-  // return a default value, or perform some other error handling logic here.
-}
+    try {
+      sessionSigs = await litNodeClient.getSessionSigs({
+        chain: 'ethereum',
+        expiration: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+        resourceAbilityRequests: resourceAbilities,
+        sessionKey: sessionKeyPair,
+        authNeededCallback,
+      });
+      // If the operation is successful, you can use sessionSigs as needed
+      return sessionSigs
+    } catch (e) {
+      // Handle the error
+      console.error("An error occurred while getting session signatures:", e);
+      throw e
+      // Depending on your application's needs, you might choose to rethrow the error,
+      // return a default value, or perform some other error handling logic here.
+    }
 
-// Continue with your logic, potentially using sessionSigs if it was successfully assigned
+    // Continue with your logic, potentially using sessionSigs if it was successfully assigned
 
-} catch(e) {
-  const error = e as Error;
-  console.error("litNodeClient.getSessionSigs(): stack", error.stack);
-  console.error("litNodeClient.getSessionSigs(): error", error)
-  throw error
-}
-// return sessionSigs
+  } catch(e) {
+    const error = e as Error;
+    console.error("litNodeClient.getSessionSigs(): stack", error.stack);
+    console.error("litNodeClient.getSessionSigs(): error", error)
+    throw error
+  }
+  // return sessionSigs
 
 
   // const provider = getProviderByAuthMethod(authMethod);

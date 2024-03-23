@@ -1,7 +1,7 @@
 import { useNotificationContext } from "apps/frontend/src/contexts/NotificationContext";
 import { useNotificationRouter } from "apps/frontend/src/hooks/Lounge/useNotificationRouter";
-import RoomlinkTeacherToLearner from "./RoomlinkTeacherToLearner";
-import RoomlinkLearnerToTeacher from "./RoomlinkLearnerToTeacher";
+import RoomlinkLearnerToTeacher from "../Teacher/RoomlinkLearnerToTeacher";
+import RoomlinkTeacherToLearner from "../Learner/RoomlinkTeacherToLearner";
 
 interface ScheduleViewProps {
   modeView: "Learn" | "Teach" | "Schedule";
@@ -12,7 +12,6 @@ const ScheduleView = ({modeView}: ScheduleViewProps ) => {
   const {teacherToLearnerNotifications, learnerToTeacherNotifications} = useNotificationRouter(notifications);
   console.log('ScheduleView component: notifications from Context', notifications)
 //TODO: all notifications types
-// ScheduleView badly named?? I think you may need the userId somewhere
   return (
     <>
       <ul className="flex items-center space-x-2">

@@ -1,9 +1,10 @@
-export const payTeacherFromController = `(async () => {
+export const transferControllerToTeacherAction = `(async () => {
   const teacherAddress = "0x"
   const controllerAddress = "0x"
   const controllerPubKey = "0x";
+  const paymentAmount=0;
+  const usdcContractAddress="0x"
 /* above are passed in params, should delete before deploy */
-  let paymentAmount;
   const abi = [
     "function transfer(address to, uint256 amount) returns (boolean)"
   ];
