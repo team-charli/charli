@@ -1,9 +1,9 @@
-import { BaseNotification } from 'apps/frontend/src/types/types';
+import { NotificationIface } from 'apps/frontend/src/types/types';
 import { formatUtcTimestampToLocalStrings } from 'apps/frontend/src/utils/app';
 import { Link } from 'react-router-dom';
 
 interface ConfirmedTeachingSessionProps {
-  notification: BaseNotification;
+  notification: NotificationIface;
 }
 
 const ConfirmedTeachingSession = ({notification}: ConfirmedTeachingSessionProps) => {

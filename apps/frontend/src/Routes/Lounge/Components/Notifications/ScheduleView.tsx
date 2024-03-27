@@ -27,8 +27,5 @@ const ScheduleView = ({modeView}: ScheduleViewProps ) => {
     </>
   );
 }
-// {learnerOriginReqs?.length ? learnerOriginReqs.map((item, index) => (
-//   <ScheduleItem utcReqTimeDate={item.request_time_date} learnerName={item.learner_id[0].name} />
-// )): null}
 
 export default ScheduleView;

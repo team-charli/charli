@@ -6,7 +6,6 @@ import { transferFromLearnerToControllerAction  } from "../../Lit/Actions/transf
 export const useExecuteTransferFromLearnerToController = () => {
   const [sessionSigs] = useLocalStorage('sessionSigs');
   const executeTransferFromLearnerToController = async (learnerAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: BigInt) => {
-    //TODO: get values
     const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
     const chainId = import.meta.env.VITE_CHAIN_ID;
 
@@ -31,11 +30,12 @@ export const useExecuteTransferFromLearnerToController = () => {
       v: sig.recid,
     }).serialized;
 
-    const { txParams } = response;
+    const { txParams } = response as any;
 
     const txn = ethers.Transaction.from({ ...txParams, signature: encodedSig }).serialized;
 
+    return txn;
   }
-  return {executeTransferFromLearnerToController };
+  return { executeTransferFromLearnerToController };
 }
 

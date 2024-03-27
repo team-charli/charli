@@ -1,31 +1,31 @@
 import { toLower } from 'lodash';
 import useLocalStorage from '@rehooks/local-storage';
 import NotificationComponent from './NotificationComponent';
-import { BaseNotification } from 'apps/frontend/src/types/types';
-
+import { NotificationIface } from 'apps/frontend/src/types/types';
 
 interface NotificationsProps {
-  notifications: BaseNotification[];
+  notifications: NotificationIface[];
   modeView: "learn" | "teach";
 }
 
 const Notifications = ({notifications: all_notifications , modeView}: NotificationsProps) => {
+
   const [userId] = useLocalStorage<number>("userID")
   const matchModeView = all_notifications.filter(notification =>
     notification.type === toLower(modeView))
 
   const involveUser = matchModeView.filter(notification => notification &&  (notification.learner_id  === userId)  || notification.teacher_id);
 
-  function hasConfirmedTimeDate(notif: BaseNotification): notif is BaseNotification {
+  function hasConfirmedTimeDate(notif: NotificationIface): notif is NotificationIface {
     return 'confirmed_time_date' in notif && notif.confirmed_time_date !== undefined;
   }
 
-  function hasCounterTimeDate(notif: BaseNotification): notif is BaseNotification {
+  function hasCounterTimeDate(notif: NotificationIface): notif is NotificationIface {
     return 'counter_time_date' in notif && notif.counter_time_date !== undefined;
   }
 
   const sortedNotifications = involveUser.sort((a, b) => {
-    const getSignificantDate = (notif: BaseNotification): Date => {
+    const getSignificantDate = (notif: NotificationIface): Date => {
       if (hasConfirmedTimeDate(notif) && notif.confirmed_time_date !== undefined) {
         return new Date(notif.confirmed_time_date);
       } else if (hasCounterTimeDate(notif) && notif.counter_time_date !== undefined) {
@@ -47,7 +47,7 @@ const Notifications = ({notifications: all_notifications , modeView}: Notificati
 
   return (
     <div>
-      {sortedNotifications.map((notification: BaseNotification, index: number) => {
+      {sortedNotifications.map((notification: NotificationIface, index: number) => {
         return <NotificationComponent key={index} notification={notification} />;
       })}
     </div>

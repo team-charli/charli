@@ -1,7 +1,7 @@
-import { BaseNotification } from "apps/frontend/src/types/types";
+import { NotificationIface } from "apps/frontend/src/types/types";
 
 interface NotificationComponentProps {
-  notification: BaseNotification;
+  notification: NotificationIface;
 }
 
 const SentLearningRequest = ({notification}: NotificationComponentProps) => {

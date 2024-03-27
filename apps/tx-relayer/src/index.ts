@@ -34,9 +34,9 @@ export default {
     if (tx.data) {
       const txDataDecoded = contract.interface.parseTransaction({ data: tx.data });
       if (txDataDecoded?.name !== "transferFrom" ||
-          txDataDecoded.args[0] !== learnerAddress ||
-          txDataDecoded.args[1] !== controllerAddress ||
-          !txDataDecoded.args[2].eq(amountBigNumber)) {
+        txDataDecoded.args[0] !== learnerAddress ||
+        txDataDecoded.args[1] !== controllerAddress ||
+        !txDataDecoded.args[2].eq(amountBigNumber)) {
         return new Response("Transaction data does not match expected 'transferFrom' call", { status: 400 });
       }
     } else {
@@ -47,7 +47,7 @@ export default {
     const txResponse = await wallet.sendTransaction(tx);
     await txResponse.wait();
 
-    return new Response(JSON.stringify({ transactionHash: txResponse.hash }), {
+    return new Response(JSON.stringify(JSON.stringify({ transactionHash: txResponse.hash })), {
       status: 200,
       headers: {
         "Content-Type": "application/json"

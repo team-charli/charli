@@ -350,7 +350,7 @@ export type NotificationContextType = {
   setShowIndicator: Dispatch<SetStateAction<boolean>>;
 };
 
-export interface BaseNotification {
+export interface NotificationIface {
   type: 'learn' | 'teach';
   subType: string;
   session_id: number;
@@ -364,5 +364,25 @@ export interface BaseNotification {
   session_rejected_reason?: string;
   roomId?: string;
   teaching_lang: string;
+}
+
+export interface SessionIface {
+  sessionId: number;
+}
+
+export const defaultSessionParams: SessionParamsResult = {
+  controllerPublicKey: null,
+  controllerAddress: null,
+  learnerAddress: null,
+  requestedSessionDuration: null,
+  keyId: null
+};
+
+export interface SessionParamsResult {
+  controllerPublicKey: string | null;
+  controllerAddress: string | null;
+  learnerAddress: string | null;
+  requestedSessionDuration: number | null;
+  keyId: string | null;
 }
 

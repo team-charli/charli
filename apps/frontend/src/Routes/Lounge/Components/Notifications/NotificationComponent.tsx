@@ -1,4 +1,4 @@
-import { BaseNotification } from 'apps/frontend/src/types/types';
+import { NotificationIface } from 'apps/frontend/src/types/types';
 import ConfirmedLearningRequest from './NotificationComponents/ConfirmedLearningRequest';
 import ConfirmedTeachingSession from './NotificationComponents/ConfirmedTeachingSession';
 import ReceivedTeachingRequest from './NotificationComponents/ReceivedTeachingRequest';
@@ -7,7 +7,7 @@ import TeacherProposedAlternate from './NotificationComponents/TeacherProposedAl
 import TeacherRejectedRequest from './NotificationComponents/TeacherRejectedRequest';
 
 interface NotificationComponentProps {
-  notification: BaseNotification;
+  notification: NotificationIface;
 }
 
 const NotificationComponent = ({notification}: NotificationComponentProps) => {

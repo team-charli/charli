@@ -5,7 +5,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@lit-protocol/lit-node-client-nodejs": "^3.1.2",
     "ethers": "^6.11.1",
+    "siwe": "^2.1.4",
     "wrangler": "^3.36.0"
   }
 }

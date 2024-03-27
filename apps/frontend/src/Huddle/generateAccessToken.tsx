@@ -1,7 +1,8 @@
 import { LocalStorageSetStateValue } from "@rehooks/local-storage/lib/use-localstorage";
 import { SupabaseClient } from "@supabase/supabase-js";
 
-export const generateAccessToken = async (event: React.MouseEvent<HTMLAnchorElement>, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, huddle_room_id: string, setHuddleAccessToken: LocalStorageSetStateValue<string> | null) => {
+export const generateAccessToken = async (event: React.MouseEvent<HTMLAnchorElement>, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, huddle_room_id: string, setHuddleAccessToken: (newValue: LocalStorageSetStateValue<string> | null) => void) =>
+ {
     event.preventDefault();
     if (supabaseClient && !supabaseLoading && huddle_room_id?.length) {
       const { data, error } = await supabaseClient

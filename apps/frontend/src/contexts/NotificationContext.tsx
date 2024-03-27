@@ -24,6 +24,7 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
       let learnerName = '';
 
       if (teacherId !== null) {
+        try {
         const { data: teacherData, error: teacherError } = await supabaseClient
           .from('user_data')
           .select('name')
@@ -33,9 +34,13 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
         if (!teacherError && teacherData) {
           teacherName = teacherData.name;
         }
+        } catch(teacherError) {
+          console.error(teacherError);
+        }
       }
 
       if (learnerId !== null) {
+        try {
         const { data: learnerData, error: learnerError } = await supabaseClient
           .from('user_data')
           .select('name')
@@ -44,6 +49,9 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (!learnerError && learnerData) {
           learnerName = learnerData.name;
+        }
+        } catch (learnerError) {
+          console.error(learnerError)
         }
       }
 
@@ -73,7 +81,6 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    //FIX: not returning data on update
     if (supabaseClient && !supabaseLoading && userId) {
       const mySubscription = supabaseClient
       .channel('realtime:public.sessions')

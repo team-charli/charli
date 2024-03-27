@@ -1,56 +1,126 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `wrangler dev src/index.ts` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `wrangler deploy src/index.ts --name my-worker` to deploy your worker
- *
- */
-import bs58 from 'bs58'
-import ethers, { Wallet, Contract, JsonRpcProvider} from 'ethers'
+import ethers from 'ethers'
+import siwe from 'siwe'
 import { LitContracts } from '@lit-protocol/contracts-sdk';
-import { AuthMethodScope, AuthMethodType } from '@lit-protocol/constants';
-
-interface Test_Env {
-  litNetwork: "cayenne" | "custom" | "localhost" | "manzano" | "habanero" | undefined;
-  debug: boolean;
-  minNodeCount: number;
-
-}
+import { LitNodeClientNodeJs as LitNodeClient } from "@lit-protocol/lit-node-client-nodejs";
+import { AuthSig } from '@lit-protocol/types';
 
 export interface Env {
-  PRIVATE_KEY: string;
-  CHRONICLE_RPC: string;
-  TEST_ENV: Test_Env;
-  IPFS_CID_PayTeacherFromController: string;
+  MINT_PKP_PRIVATE_KEY: string;
+  IPFS_CID_PAY_TEACHER_FROM_CONTROLLER: string;
   LIT_NETWORK: "cayenne" | "custom" | "localhost" | "manzano" | "habanero" | undefined;
+  CHRONICLE_RPC: string;
+  DOMAIN: string;
+  ORIGIN: string;
 }
 
 export default {
   async fetch(
     request: Request,
     env: Env,
-    ctx: ExecutionContext
   ): Promise<Response> {
-    function getBytesFromMultihash(multihash: string): string {
-      const decoded = bs58.decode(multihash);
-      return `0x${Buffer.from(decoded).toString("hex")}`;
+    const {keyId} = await request.json() as {
+      keyId: string
     }
+
     const provider = new ethers.JsonRpcProvider("https://chain-rpc.litprotocol.com/http");
-    const wallet = new ethers.Wallet(env.PRIVATE_KEY, provider);
-    const contractClient = new LitContracts({ signer: wallet, network: env.LIT_NETWORK});
-    await contractClient.connect();
-    const mintCost = await contractClient.pkpNftContract.read.mintCost();
+    const privKey = env.MINT_PKP_PRIVATE_KEY;
+    const wallet = new ethers.Wallet(privKey, provider);
+    const NETWORK = env.LIT_NETWORK;
+    const litNodeClient = new LitNodeClient({ network: NETWORK });
+    await litNodeClient.connect();
 
-    const pkpInfo = await contractClient.pkpNftContract.write.mintGrantAndBurnNext(AuthMethodType.LitAction, getBytesFromMultihash(env.IPFS_CID_PayTeacherFromController), { value: mintCost});
-    console.log("pkpInfo", pkpInfo)
-    const pkpInfoJson = JSON.stringify(pkpInfo, null, 2);
+    const authSig = await generateSig()
+    const mintAndBurnResult = await mintAndBurnPKP();
+    return mintAndBurnResult || new Response("Mint and Burn Failed", { status: 500 });
 
-    return new Response(pkpInfoJson, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    async function mintAndBurnPKP () {
+      const contractClient = new LitContracts({ signer: wallet, network: env.LIT_NETWORK});
+      await contractClient.connect();
+
+      // const mintCost = await contractClient.pkpNftContract.read.mintCost();
+
+      let claimActionRes;
+      try {
+      claimActionRes = await litNodeClient.executeJs({
+        authSig,
+        code: `(async () => {
+Lit.Actions.claimKey({keyId});
+})();`,
+        authMethods: [],
+        jsParams: {
+          keyId
+        },
+      })
+      } catch(error) {
+        console.error(error);
+        throw new Error(`Lit Action failed`)
+      }
+      if (claimActionRes && claimActionRes.claims) {
+
+        let claimAndMintResult, tokenId, mintTx;
+        try {
+        claimAndMintResult = await contractClient.pkpNftContractUtils.write.claimAndMint(claimActionRes.claims[0].derivedKeyId, claimActionRes.claims[0].signatures)
+        tokenId = claimAndMintResult.tokenId;
+        mintTx = claimAndMintResult.tx;
+        } catch(error) {
+          console.error(error)
+          throw new Error(`Claim and Mint tx failed`)
+        }
+        let burnTx;
+        try {
+        burnTx = await contractClient.pkpNftContract.write.burn(tokenId);
+        console.log("burnTx", burnTx);
+        } catch(error) {
+          console.error(error);
+          throw new Error(`Burn tx failed`)
+        }
+        return new Response(JSON.stringify({ mintTx, burnTx }), {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+    }
+    async function generateSig (): Promise<AuthSig> {
+      const domain = env.DOMAIN;
+      const origin = env.ORIGIN;
+      const statement = "This is a test statement.  You can put anything you want here.";
+      const expirationTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+      let nonce = litNodeClient.getLatestBlockhash();
+      if (typeof nonce !== "string") {
+        throw new Error(`retrieved nonce from blockhash not a string`)
+      }
+      const siweMessage = new siwe.SiweMessage({
+        domain,
+        address: wallet.address,
+        statement,
+        uri: origin,
+        version: "1",
+        chainId: 1,
+        nonce,
+        expirationTime,
+      });
+
+      const messageToSign = siweMessage.prepareMessage();
+
+      const signature = await wallet.signMessage(messageToSign);
+
+      const recoveredAddress = ethers.verifyMessage(messageToSign, signature);
+
+      if (recoveredAddress !== wallet.address) {
+        throw new Error("Recovered address does not match wallet address");
+      }
+
+      const authSig = {
+        sig: signature,
+        derivedVia: "web3.eth.personal.sign",
+        signedMessage: messageToSign,
+        address: recoveredAddress,
+      };
+
+      console.log("authSig", authSig);
+      return authSig;
+    }
   }
-};
+}

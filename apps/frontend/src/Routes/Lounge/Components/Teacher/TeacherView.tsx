@@ -1,7 +1,7 @@
 import { useNotificationContext } from "apps/frontend/src/contexts/NotificationContext";
 import Notifications from "../Notifications/Notifications";
 import Learners from "./Learners";
-import { BaseNotification } from "apps/frontend/src/types/types";
+import { NotificationIface } from "apps/frontend/src/types/types";
 
 interface TeacherViewProps {
   modeView: "learn" | "teach";
@@ -11,7 +11,7 @@ interface TeacherViewProps {
 
 const TeacherView = ({modeView, selectedLang}: TeacherViewProps) => {
   const { notificationsContextValue } = useNotificationContext();
-  const teacherNotifications: BaseNotification[] = notificationsContextValue.reduce((acc: BaseNotification[], sessionRow) => {
+  const teacherNotifications: NotificationIface[] = notificationsContextValue.reduce((acc: NotificationIface[], sessionRow) => {
     if (sessionRow.isProposed) {
       //ReceivedTeachingRequest
       acc.push({

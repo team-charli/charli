@@ -1,4 +1,5 @@
-import bs58 from 'bs58'
+import bs58 from 'bs58';
+import {ethers} from 'ethers';
 
 export function isDefined<T>(value: T | undefined): value is T {
   return typeof value !== 'undefined';
@@ -18,26 +19,26 @@ export function deduplicateLanguages(languages: string[]) {
 
 
 export function isJwtExpired(token: string) {
-    // Decode the payload
-    const payload = JSON.parse(atob(token.split('.')[1]));
+  // Decode the payload
+  const payload = JSON.parse(atob(token.split('.')[1]));
 
-    // Get the current time in seconds
-    const currentTime = Date.now() / 1000;
+  // Get the current time in seconds
+  const currentTime = Date.now() / 1000;
 
-    // Check if the token is expired
-    return payload.exp < currentTime;
+  // Check if the token is expired
+  return payload.exp < currentTime;
 }
 
 export const formatDateTimeLocal = (date: Date): string => {
-    const ten = (i: number): string => (i < 10 ? '0' : '') + i;
-    const YYYY: string = date.getFullYear().toString();
-    const MM: string = ten(date.getMonth() + 1); // Months are 0-indexed in JavaScript Date objects
-    const DD: string = ten(date.getDate());
-    const HH: string = ten(date.getHours());
-    const mm: string = ten(date.getMinutes());
+  const ten = (i: number): string => (i < 10 ? '0' : '') + i;
+  const YYYY: string = date.getFullYear().toString();
+  const MM: string = ten(date.getMonth() + 1); // Months are 0-indexed in JavaScript Date objects
+  const DD: string = ten(date.getDate());
+  const HH: string = ten(date.getHours());
+  const mm: string = ten(date.getMinutes());
 
-    return `${YYYY}-${MM}-${DD}T${HH}:${mm}`;
-  };
+  return `${YYYY}-${MM}-${DD}T${HH}:${mm}`;
+};
 
 
 export const checkIfNotificationExpired = (dateStr: string): boolean => {
@@ -52,8 +53,8 @@ export const convertUtcToLocalTime = (utcTime: string) => {
 }
 
 export const convertLocalTimetoUtc = (localTime: string) => {
-      const localDateTime = new Date(localTime);
-      const utcDateTime = localDateTime.toISOString();
+  const localDateTime = new Date(localTime);
+  const utcDateTime = localDateTime.toISOString();
 }
 
 export const formatUtcTimestampToLocalStrings = (utcTimestamp: string | undefined): { formattedDate: string, formattedTime: string } => {
@@ -85,3 +86,22 @@ export function getBytesFromMultihash(multihash: string): string {
   return `0x${Buffer.from(decoded).toString("hex")}`;
 }
 
+export function generateUserId() {
+  const uniqueData = `ControllerPKP_${Date.now()}`;
+  const bytes = ethers.toUtf8Bytes(uniqueData);
+  const uniqueId = ethers.keccak256(bytes);
+  return `ControllerPKP_${uniqueId}`;
+}
+
+type Defaultable<T> = T | null;
+
+export function safeDestructure<T extends object>(result: Defaultable<T>, defaults: T): T {
+  if (result === null) {
+    return defaults;
+  }
+  return result;
+}
+
+export function calculateSessionCost(sessionDuration: number) {
+  return .30 * sessionDuration;
+}

@@ -1,6 +1,6 @@
-import { BaseNotification } from "apps/frontend/src/types/types";
+import { NotificationIface } from "apps/frontend/src/types/types";
 interface TeacherRejectedRequestProps {
-  notification: BaseNotification;
+  notification: NotificationIface;
 }
 
 const TeacherRejectedRequest = ({notification}: TeacherRejectedRequestProps ) => {

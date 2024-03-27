@@ -2,10 +2,9 @@ name = "mint-controller-pkp"
 compatibility_date = "2023-07-31"
 main = "src/index.ts"
 [vars]
+MINT_PKP_PRIVATE_KEY=""
+IPFS_CID_PAY_TEACHER_FROM_CONTROLLER=""
+LIT_NETWORK="cayenne"
 CHRONICLE_RPC="https://chain-rpc.litprotocol.com/http"
-TEST_ENV= {
-    litNetwork: "cayenne",
-    debug: false,
-    minNodeCount: 2
-  }
-
+DOMAIN="localhost"
+ORIGIN="https://localhost/notifications"

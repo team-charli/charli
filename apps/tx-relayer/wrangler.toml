@@ -6,4 +6,6 @@ kv_namespaces = [
 ]
 [vars]
 RPC_URl="https://rpc.ankr.com/base_sepolia"
-
+LIT_NETWORK="cayenne"
+DOMAIN="localhost"
+ORIGIN="https://localhost/login"
