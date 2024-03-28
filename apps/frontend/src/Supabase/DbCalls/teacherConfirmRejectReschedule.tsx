@@ -1,14 +1,19 @@
+import ethers from 'ethers';
+import { IRelayPKP } from "@lit-protocol/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Dispatch, SetStateAction } from "react";
 
-export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, dateTime: string ) {
-  if (supabaseClient) {
+export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, dateTime: string, session_id: string, currentAccount: IRelayPKP | null) {
+  if (supabaseClient && currentAccount) {
     try {
       const dateObj = new Date(dateTime)
       const utcDateTime = dateObj.toISOString();
+      const hashed_teacher_address = ethers.keccak256(currentAccount.ethAddress);
+
       const { data, error } = await supabaseClient
         .from('sessions')
-        .update({'confirmed_time_date': utcDateTime })
+        .update({'confirmed_time_date': utcDateTime, hashed_teacher_address})
+        .match({session_id})
         .select();
       if (!error) {
         setUiMode('confirmed');

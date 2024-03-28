@@ -8,7 +8,6 @@ interface LearnerViewProps {
   selectedLang: string;
 }
 
-
 const LearnerView = ({modeView, selectedLang}: LearnerViewProps) => {
   const { notificationsContextValue } = useNotificationContext();
   const learnerNotifications: NotificationIface[] = notificationsContextValue.reduce((acc: NotificationIface[], sessionRow) => {

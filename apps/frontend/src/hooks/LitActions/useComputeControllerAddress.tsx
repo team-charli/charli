@@ -12,7 +12,7 @@ export const useComputeControllerAddress = () => {
 
   const claimKeyAddress = ethers.computeAddress(publicKey);
 
-  return { controller_claim_userId: userId, controller_address: claimKeyAddress, controller_public_key: publicKey, claim_key_id: keyId  };
+  return { controller_claim_user_id: userId, controller_address: claimKeyAddress, controller_public_key: publicKey, claim_key_id: keyId  };
 };
 
 

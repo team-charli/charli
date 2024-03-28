@@ -322,6 +322,10 @@ export interface UseGetLanguagesResult {
   huddle_room_id: string;
   session_id: number;
   teaching_lang: string;
+  controller_claim_user_id: string;
+  controller_public_key: string;
+  controller_claim_keyid: string;
+  requested_session_duration: number;
 };
 
 type PreSessionStateFlags = {
@@ -337,11 +341,6 @@ type PostSessionStateFlags = {
   isExpired: boolean;
 }
 
-// type SessionCategoryFlags = {
-//   isTeacherToLearner: boolean;
-//   isLearnerToTeacher: boolean;
-// };
-
 export type ExtendedSession = Session /*&& SessionCategoryFlags */& PreSessionStateFlags & PostSessionStateFlags ;
 
 export type NotificationContextType = {
@@ -354,16 +353,23 @@ export interface NotificationIface {
   type: 'learn' | 'teach';
   subType: string;
   session_id: number;
+  request_origin_type: 'learner' | 'teacher';
   teacherName: string;
   learnerName: string;
   teacher_id: number;
   learner_id: number;
   request_time_date: string;
-  confirmed_time_date?: string;
+  confirmed_time_date?: string | null;
   counter_time_date?: string;
   session_rejected_reason?: string;
   roomId?: string;
   teaching_lang: string;
+  controller_claim_user_id?: string;
+  controller_public_key?: string;
+  controller_claim_keyid?: string;
+  requested_session_duration?: number;
+  hashed_learner_address: string;
+  hashed_teacher_address: string;
 }
 
 export interface SessionIface {

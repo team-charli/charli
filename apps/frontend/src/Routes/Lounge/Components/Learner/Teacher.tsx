@@ -26,7 +26,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   const [ toggleDateTimePicker, setToggleDateTimePicker ] = useState(false);
   const [ renderSubmitConfirmation, setRenderSubmitConfirmation ] = useState(false);
   const contractAddress = import.meta.env.USDC_CONTRACT_ADDRESS;
-  const {controller_address, controller_claim_userId, claim_key_id}  =  useComputeControllerAddress();
+  const {controller_address, controller_claim_user_id, claim_key_id, controller_public_key}  =  useComputeControllerAddress();
 
   useEffect(() => {
     if (sessionLengthInputValue?.length) {
@@ -42,7 +42,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
 
   const handleSubmitLearningRequest = async () => {
     if (supabaseClient && !supabaseLoading && userID && sessionLength) {
-      const learningRequestSuccess = await learnerSubmitLearningRequest(supabaseClient, dateTime, teacherID, userID, teachingLang, setRenderSubmitConfirmation, sessionLength, controller_address, claim_key_id )
+      const learningRequestSuccess = await learnerSubmitLearningRequest(supabaseClient, dateTime, teacherID, userID, teachingLang, setRenderSubmitConfirmation, sessionLength, controller_address, claim_key_id, controller_claim_userId, controller_public_key)
 
       if (learningRequestSuccess && amount) {
         await signApproveFundController(sessionSigs, currentAccount, contractAddress, controller_address, amount )

@@ -1,3 +1,4 @@
+//TODO: Result of Action should replace this
 import ky from 'ky'
 import { useState } from "react";
 import DateTimeLocalInput from "apps/frontend/src/Components/Elements/DateTimeLocalInput";
@@ -12,6 +13,8 @@ import { useExecuteTransferFromLearnerToController } from "apps/frontend/src/hoo
 import { NotificationIface, defaultSessionParams } from "apps/frontend/src/types/types";
 import { fetchLearnerToControllerParams } from "apps/frontend/src/Supabase/DbCalls/fetchLearnerToControllerParams";
 import { calculateSessionCost } from "apps/frontend/src/utils/app";
+import useLocalStorage from '@rehooks/local-storage';
+import { IRelayPKP } from '@lit-protocol/types';
 
 type ReceivedTeachingRequestProps = {
   notification: NotificationIface;
@@ -19,6 +22,7 @@ type ReceivedTeachingRequestProps = {
 const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps) => {
   const { client: supabaseClient, supabaseLoading } = useSupabase();
   const [uiCondition, setUiCondition] = useState<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>('initial');
+  const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const { dateTime, setDateTime, localTimeAndDate: { displayLocalDate, displayLocalTime } } = useLocalizeAndFormatDateTime(notification.request_time_date);
   const { executeTransferFromLearnerToController } = useExecuteTransferFromLearnerToController();
 
@@ -41,7 +45,7 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
           }
           try {
             await ky.post('https://mint-controller-pkp.zach-greco.workers.dev', {
-              json: { keyId},
+              json: { keyId },
             })
           } catch (error) {
             console.error(error);
@@ -58,7 +62,7 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
             }
           }
           try {
-            await teacherConfirmRequestDb(supabaseClient, setUiCondition, dateTime);
+            await teacherConfirmRequestDb(supabaseClient, setUiCondition, dateTime, session_id, controllerPublicKey, controllerAddress, requestedSessionDuration, currentAccount);
           } catch (error) {
             console.error(error);
             throw new Error(`${ error }`)

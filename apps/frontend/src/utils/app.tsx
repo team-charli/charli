@@ -1,3 +1,4 @@
+import { IRelayPKP } from '@lit-protocol/types';
 import bs58 from 'bs58';
 import {ethers} from 'ethers';
 
@@ -57,9 +58,9 @@ export const convertLocalTimetoUtc = (localTime: string) => {
   const utcDateTime = localDateTime.toISOString();
 }
 
-export const formatUtcTimestampToLocalStrings = (utcTimestamp: string | undefined): { formattedDate: string, formattedTime: string } => {
+export const formatUtcTimestampToLocalStrings = (utcTimestamp: string | undefined | null): { formattedDate: string, formattedTime: string } => {
   if (!utcTimestamp) {
-    throw new Error('undefined timestamp ')
+    throw new Error('undefined timestamp')
   }
   const date = new Date(utcTimestamp);
 
@@ -104,4 +105,13 @@ export function safeDestructure<T extends object>(result: Defaultable<T>, defaul
 
 export function calculateSessionCost(sessionDuration: number) {
   return .30 * sessionDuration;
+}
+
+export function checkHashedAddress(currentAccount: IRelayPKP, roomRole: string, hashed_learner_address: string | undefined, hashed_teacher_address:string | undefined)
+ {
+ if (roomRole === 'teacher' && hashed_teacher_address === ethers.keccak256(currentAccount.ethAddress) ) {
+   return true;
+  } else if (roomRole === 'learner' && hashed_learner_address === ethers.keccak256(currentAccount.ethAddress)) {
+    return true
+} else {throw new Error("you're busted")}
 }

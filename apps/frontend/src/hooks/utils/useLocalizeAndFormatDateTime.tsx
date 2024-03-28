@@ -6,7 +6,7 @@ interface LocalTimeAndDate {
   displayLocalDate: string;
 }
 
-export const useLocalizeAndFormatDateTime = (reqTimeDate: string | null) => {
+export const useLocalizeAndFormatDateTime = (reqTimeDate: string | null | undefined) => {
   const [localTimeAndDate, setLocalTimeAndDate] = useState<LocalTimeAndDate>({
     localDateTime: new Date(),
     displayLocalTime: '',
@@ -30,6 +30,8 @@ export const useLocalizeAndFormatDateTime = (reqTimeDate: string | null) => {
 
       // Set dateTime for input
       setDateTime(date.toISOString().slice(0, 16));
+    } else {
+      throw new Error(`No confirmed time/date`)
     }
   }, [reqTimeDate]);
 

@@ -1,3 +1,4 @@
+import ethers from 'ethers'
 import { RouteComponentProps } from 'react-router-dom';
 import { useRoom } from '@huddle01/react/hooks';
 import { useEffect } from 'react';
@@ -7,19 +8,42 @@ import LocalPeer from './Components/LocalPeer';
 import useBellListener from '../../hooks/Room/useBellListener';
 import { IRelayPKP } from '@lit-protocol/types';
 import { useExecuteTransferControllerToTeacher } from '../../hooks/LitActions/useExecuteTransferControllerToTeacher';
+import { NotificationIface } from '../../types/types';
+import { checkHashedAddress } from '../../utils/app';
+
 interface MatchParams {
   id: string;
 }
 
-const Room: React.FC<RouteComponentProps<MatchParams>> = ( {match, roomRole} ) => {
+
+interface RoomProps extends RouteComponentProps<MatchParams> {
+  location: RouteComponentProps<MatchParams>['location'] & {
+    state: {
+      notification: NotificationIface;
+      roomRole: string;
+    };
+  };
+}
+const Room  = ( {match, location}: RoomProps) => {
   const roomId = match.params.id
   const [ huddleAccessToken ] = useLocalStorage<string>('huddle-access-token')
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const { executeTransferControllerToTeacher } = useExecuteTransferControllerToTeacher();
+  const {notification: {
+    learner_id,
+    learnerName,
+    teacher_id,
+    teacherName,
+    request_origin_type,
+    requested_session_duration,
+    request_time_date,
+    hashed_learner_address,
+    hashed_teacher_address
+  }} = location.state;
+  const {roomRole} = location.state;
   const { joinRoom, leaveRoom, state: roomJoinState} = useRoom({
     onJoin: () => {
       // has access to if the user is a teacher or learner --> roomRole
-      // has access to user's ethereum address  --> currentAccount.ethAddress
       // hasPrepaid(currentAccount)  check in Lit Action
       // need to do some polling here maybe
       console.log('Joined the room');
@@ -38,12 +62,16 @@ const Room: React.FC<RouteComponentProps<MatchParams>> = ( {match, roomRole} ) =
     },
   });
 
-
-
   useEffect(() => {
     // Join Room
-    if (roomId && huddleAccessToken && roomJoinState === 'idle') {
-      joinRoom({roomId, token: huddleAccessToken})
+    if (roomId &&
+      huddleAccessToken &&
+      roomJoinState === 'idle' &&
+      currentAccount &&
+      checkHashedAddress(currentAccount, roomRole, hashed_learner_address, hashed_teacher_address )  && hasPrepaid
+
+       ) {
+        joinRoom({roomId, token: huddleAccessToken})
     }
   }, [huddleAccessToken, roomJoinState]);
 
