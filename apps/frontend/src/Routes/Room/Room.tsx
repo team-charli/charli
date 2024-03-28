@@ -43,9 +43,13 @@ const Room  = ( {match, location}: RoomProps) => {
   const {roomRole} = location.state;
   const { joinRoom, leaveRoom, state: roomJoinState} = useRoom({
     onJoin: () => {
-      // has access to if the user is a teacher or learner --> roomRole
-      // hasPrepaid(currentAccount)  check in Lit Action
-      // need to do some polling here maybe
+      // if teacher stamp that;
+      // if session time starts with teacher
+      // run stopwatch;
+      // exceeds graceperiod; learner gets their money back
+      // must complete their time
+      // joined the room (means)
+      //and  this sets up future checks
       console.log('Joined the room');
     },
     onLeave: () => {
@@ -69,6 +73,9 @@ const Room  = ( {match, location}: RoomProps) => {
       roomJoinState === 'idle' &&
       currentAccount &&
       checkHashedAddress(currentAccount, roomRole, hashed_learner_address, hashed_teacher_address )  && hasPrepaid
+      // hasPrepaid(currentAccount)
+      // need to do some polling here maybe
+      // look at gpt histories for more
 
        ) {
         joinRoom({roomId, token: huddleAccessToken})

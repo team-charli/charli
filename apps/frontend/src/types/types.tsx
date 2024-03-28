@@ -326,6 +326,9 @@ export interface UseGetLanguagesResult {
   controller_public_key: string;
   controller_claim_keyid: string;
   requested_session_duration: number;
+  hashed_learner_address: string;
+  hashed_teacher_address: string;
+
 };
 
 type PreSessionStateFlags = {
@@ -368,8 +371,8 @@ export interface NotificationIface {
   controller_public_key?: string;
   controller_claim_keyid?: string;
   requested_session_duration?: number;
-  hashed_learner_address: string;
-  hashed_teacher_address: string;
+  hashed_learner_address?: string;
+  hashed_teacher_address?: string;
 }
 
 export interface SessionIface {

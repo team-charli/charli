@@ -42,7 +42,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
 
   const handleSubmitLearningRequest = async () => {
     if (supabaseClient && !supabaseLoading && userID && sessionLength) {
-      const learningRequestSuccess = await learnerSubmitLearningRequest(supabaseClient, dateTime, teacherID, userID, teachingLang, setRenderSubmitConfirmation, sessionLength, controller_address, claim_key_id, controller_claim_userId, controller_public_key)
+      const learningRequestSuccess = await learnerSubmitLearningRequest(supabaseClient, dateTime, teacherID, userID, teachingLang, setRenderSubmitConfirmation, sessionLength, controller_address, claim_key_id, controller_claim_user_id, controller_public_key, currentAccount)
 
       if (learningRequestSuccess && amount) {
         await signApproveFundController(sessionSigs, currentAccount, contractAddress, controller_address, amount )
