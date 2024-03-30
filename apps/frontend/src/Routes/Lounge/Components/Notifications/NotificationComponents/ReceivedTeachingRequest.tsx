@@ -62,7 +62,7 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
             }
           }
           try {
-            await teacherConfirmRequestDb(supabaseClient, setUiCondition, dateTime, session_id, controllerPublicKey, controllerAddress, requestedSessionDuration, currentAccount);
+            await teacherConfirmRequestDb(supabaseClient, setUiCondition, dateTime, notification.session_id, currentAccount);
           } catch (error) {
             console.error(error);
             throw new Error(`${ error }`)

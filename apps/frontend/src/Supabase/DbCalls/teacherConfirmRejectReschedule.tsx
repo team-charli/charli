@@ -3,7 +3,7 @@ import { IRelayPKP } from "@lit-protocol/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Dispatch, SetStateAction } from "react";
 
-export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, dateTime: string, session_id: string, currentAccount: IRelayPKP | null) {
+export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, dateTime: string, session_id: number, currentAccount: IRelayPKP | null) {
   if (supabaseClient && currentAccount) {
     try {
       const dateObj = new Date(dateTime)

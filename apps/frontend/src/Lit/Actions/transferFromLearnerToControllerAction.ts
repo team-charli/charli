@@ -36,7 +36,7 @@ async () => {
 
   Lit.Actions.setResponse({ response: JSON.stringify({ txObject }) });
   const tx = ethers.Transaction.from(txObject);
-  const serializedTx = tx.serialized;
+  const serializedTx = tx.unsignedSerialized;
   // Use ethers v6 getBytes for rlpEncodedTxn
   const rlpEncodedTxn = ethers.getBytes(serializedTx);
   const unsignedTxn = ethers.keccak256(rlpEncodedTxn);

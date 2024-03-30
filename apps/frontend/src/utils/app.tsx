@@ -1,4 +1,5 @@
-import { IRelayPKP } from '@lit-protocol/types';
+import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import bs58 from 'bs58';
 import {ethers} from 'ethers';
 
@@ -104,7 +105,7 @@ export function safeDestructure<T extends object>(result: Defaultable<T>, defaul
 }
 
 export function calculateSessionCost(sessionDuration: number) {
-  return .30 * sessionDuration;
+  return import.meta.env.SESSION_RATE * sessionDuration;
 }
 
 export function checkHashedAddress(currentAccount: IRelayPKP, roomRole: string, hashed_learner_address: string | undefined, hashed_teacher_address:string | undefined)
@@ -114,4 +115,21 @@ export function checkHashedAddress(currentAccount: IRelayPKP, roomRole: string, 
   } else if (roomRole === 'learner' && hashed_learner_address === ethers.keccak256(currentAccount.ethAddress)) {
     return true
 } else {throw new Error("you're busted")}
+}
+
+export async function hasPrepaid(controllerPKPAddress: string, duration: number | undefined): Promise<boolean> {
+  if (!duration) {
+    throw new Error(`no duration set`)
+  }
+  const abi = ["function balanceOf(address owner) view returns (uint256)"];
+  const provider = new ethers.JsonRpcProvider(import.meta.env.VITE_RPC_URL);
+  const usdcContractInstance = new ethers.Contract(import.meta.env.VITE_USDC_CONTRACT_ADDRESS, abi, provider )
+  const balance = await usdcContractInstance.balanceOf(controllerPKPAddress);
+  const expectedBalance = ethers.parseUnits(String(calculateSessionCost(duration)), 16);
+  if (balance >= expectedBalance){
+    return true;
+  } else {
+    console.log("ControllerPKP balance (simple units)", ethers.formatEther(balance))
+    return false;
+  }
 }

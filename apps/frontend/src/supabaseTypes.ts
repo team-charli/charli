@@ -12,48 +12,102 @@ export type Database = {
       sessions: {
         Row: {
           confirmed_time_date: string | null
+          controller_address: string | null
+          controller_claim_keyid: string | null
+          controller_claim_user_id: string | null
+          controller_public_key: string | null
           counter_time_date: string | null
           created_at: string
+          hashed_learner_address: string | null
+          hashed_teacher_address: string | null
+          huddle_room_id: string | null
+          learner_address: string | null
           learner_id: number | null
+          learner_joined_signature: string | null
+          learner_joined_timestamp: string | null
+          learner_left_signature: string | null
+          learner_left_timestamp: string | null
           request_origin: number | null
           request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date: string | null
-          room_link: string | null
+          requested_session_duration: number | null
           session_id: number
           session_rejected_reason:
             | Database["public"]["Enums"]["session_req_reject_reason"]
             | null
+          teacher_address: string | null
           teacher_id: number | null
+          teacher_joined_signature: string | null
+          teacher_joined_timestamp: string | null
+          teacher_left_signature: string | null
+          teacher_left_timestamp: string | null
+          teaching_lang: string | null
         }
         Insert: {
           confirmed_time_date?: string | null
+          controller_address?: string | null
+          controller_claim_keyid?: string | null
+          controller_claim_user_id?: string | null
+          controller_public_key?: string | null
           counter_time_date?: string | null
           created_at?: string
+          hashed_learner_address?: string | null
+          hashed_teacher_address?: string | null
+          huddle_room_id?: string | null
+          learner_address?: string | null
           learner_id?: number | null
+          learner_joined_signature?: string | null
+          learner_joined_timestamp?: string | null
+          learner_left_signature?: string | null
+          learner_left_timestamp?: string | null
           request_origin?: number | null
           request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
-          room_link?: string | null
+          requested_session_duration?: number | null
           session_id?: number
           session_rejected_reason?:
             | Database["public"]["Enums"]["session_req_reject_reason"]
             | null
+          teacher_address?: string | null
           teacher_id?: number | null
+          teacher_joined_signature?: string | null
+          teacher_joined_timestamp?: string | null
+          teacher_left_signature?: string | null
+          teacher_left_timestamp?: string | null
+          teaching_lang?: string | null
         }
         Update: {
           confirmed_time_date?: string | null
+          controller_address?: string | null
+          controller_claim_keyid?: string | null
+          controller_claim_user_id?: string | null
+          controller_public_key?: string | null
           counter_time_date?: string | null
           created_at?: string
+          hashed_learner_address?: string | null
+          hashed_teacher_address?: string | null
+          huddle_room_id?: string | null
+          learner_address?: string | null
           learner_id?: number | null
+          learner_joined_signature?: string | null
+          learner_joined_timestamp?: string | null
+          learner_left_signature?: string | null
+          learner_left_timestamp?: string | null
           request_origin?: number | null
           request_origin_type?: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
-          room_link?: string | null
+          requested_session_duration?: number | null
           session_id?: number
           session_rejected_reason?:
             | Database["public"]["Enums"]["session_req_reject_reason"]
             | null
+          teacher_address?: string | null
           teacher_id?: number | null
+          teacher_joined_signature?: string | null
+          teacher_joined_timestamp?: string | null
+          teacher_left_signature?: string | null
+          teacher_left_timestamp?: string | null
+          teaching_lang?: string | null
         }
         Relationships: [
           {
@@ -71,12 +125,26 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "public_sessions_learner_address_fkey"
+            columns: ["learner_address"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["user_address"]
+          },
+          {
             foreignKeyName: "public_sessions_request_origin_fkey"
             columns: ["request_origin"]
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
-          }
+          },
+          {
+            foreignKeyName: "public_sessions_teacher_address_fkey"
+            columns: ["teacher_address"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["user_address"]
+          },
         ]
       }
       user_data: {
@@ -114,7 +182,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_eth_address_from_jwt: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       request_origin_enum: "learner" | "teacher"
@@ -126,14 +197,16 @@ export type Database = {
   }
 }
 
+type PublicSchema = Database[Extract<keyof Database, "public">]
+
 export type Tables<
   PublicTableNameOrOptions extends
-    | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
+    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
     | { schema: keyof Database },
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
         Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never
+    : never = never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
       Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
@@ -141,67 +214,67 @@ export type Tables<
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] &
-      Database["public"]["Views"])
-  ? (Database["public"]["Tables"] &
-      Database["public"]["Views"])[PublicTableNameOrOptions] extends {
-      Row: infer R
-    }
-    ? R
+  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
+        PublicSchema["Views"])
+    ? (PublicSchema["Tables"] &
+        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
     : never
-  : never
 
 export type TablesInsert<
   PublicTableNameOrOptions extends
-    | keyof Database["public"]["Tables"]
+    | keyof PublicSchema["Tables"]
     | { schema: keyof Database },
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never
+    : never = never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
-  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
-      Insert: infer I
-    }
-    ? I
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
     : never
-  : never
 
 export type TablesUpdate<
   PublicTableNameOrOptions extends
-    | keyof Database["public"]["Tables"]
+    | keyof PublicSchema["Tables"]
     | { schema: keyof Database },
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never
+    : never = never,
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
-  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
-      Update: infer U
-    }
-    ? U
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
     : never
-  : never
 
 export type Enums<
   PublicEnumNameOrOptions extends
-    | keyof Database["public"]["Enums"]
+    | keyof PublicSchema["Enums"]
     | { schema: keyof Database },
   EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
-    : never = never
+    : never = never,
 > = PublicEnumNameOrOptions extends { schema: keyof Database }
   ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
-  ? Database["public"]["Enums"][PublicEnumNameOrOptions]
-  : never
+  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+    : never

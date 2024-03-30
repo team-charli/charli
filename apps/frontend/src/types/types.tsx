@@ -308,7 +308,7 @@ export interface UseGetLanguagesResult {
 }
 
 // Base session data
- export type Session = {
+export type Session = {
   request_origin: number;
   request_origin_type: 'learner' | 'teacher';
   learner_id: number ;
@@ -322,13 +322,21 @@ export interface UseGetLanguagesResult {
   huddle_room_id: string;
   session_id: number;
   teaching_lang: string;
+  controller_address: string;
   controller_claim_user_id: string;
   controller_public_key: string;
   controller_claim_keyid: string;
   requested_session_duration: number;
   hashed_learner_address: string;
   hashed_teacher_address: string;
-
+  learner_joined_timestamp: string;
+  learner_joined_signature: string;
+  teacher_joined_timestamp: string;
+  teacher_joined_signature: string;
+  learner_left_timestamp: string;
+  learner_left_signature: string;
+  teacher_left_timestamp: string;
+  teacher_left_signature: string;
 };
 
 type PreSessionStateFlags = {
@@ -367,6 +375,7 @@ export interface NotificationIface {
   session_rejected_reason?: string;
   roomId?: string;
   teaching_lang: string;
+  controller_address: string;
   controller_claim_user_id?: string;
   controller_public_key?: string;
   controller_claim_keyid?: string;
