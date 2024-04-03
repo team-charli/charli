@@ -1,0 +1,10 @@
+{
+  "name": "encrypt-decrypt-stored-addresses",
+  "private": true,
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "base64-arraybuffer": "^1.0.2"
+  }
+}

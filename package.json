@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.38.1",
     "@swc/helpers": "~0.5.2",
     "buffer": "^6.0.3",
+    "crypto-js": "^4.2.0",
     "ethers": "^6.11.1",
     "geojson-places": "^1.0.8",
     "is-online": "^10.0.0",

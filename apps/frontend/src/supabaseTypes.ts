@@ -153,7 +153,8 @@ export type Database = {
           default_native_language: string
           id: number
           name: string
-          user_address: string
+          user_address: string | null
+          user_address_encrypted: string | null
           wants_to_learn_langs: string[] | null
           wants_to_teach_langs: string[] | null
         }
@@ -162,7 +163,8 @@ export type Database = {
           default_native_language: string
           id?: number
           name: string
-          user_address: string
+          user_address?: string | null
+          user_address_encrypted?: string | null
           wants_to_learn_langs?: string[] | null
           wants_to_teach_langs?: string[] | null
         }
@@ -171,7 +173,8 @@ export type Database = {
           default_native_language?: string
           id?: number
           name?: string
-          user_address?: string
+          user_address?: string | null
+          user_address_encrypted?: string | null
           wants_to_learn_langs?: string[] | null
           wants_to_teach_langs?: string[] | null
         }

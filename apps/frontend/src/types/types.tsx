@@ -1,8 +1,8 @@
+import { RouteComponentProps } from 'react-router-dom';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { AuthMethod, AuthSig, IRelayPKP, SessionSigs  } from '@lit-protocol/types';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { RouteProps } from 'react-router-dom';
-import { createContext } from 'vm';
 
 export interface PrivateRouteProps extends RouteProps {
   component: React.ComponentType<any>;
@@ -337,6 +337,9 @@ export type Session = {
   learner_left_signature: string;
   teacher_left_timestamp: string;
   teacher_left_signature: string;
+  learner_address_encrypted: string;
+  teacher_address_encrypted: string;
+
 };
 
 type PreSessionStateFlags = {
@@ -382,6 +385,8 @@ export interface NotificationIface {
   requested_session_duration?: number;
   hashed_learner_address?: string;
   hashed_teacher_address?: string;
+  learner_address_encrypted?: string;
+  teacher_address_encrypted?: string;
 }
 
 export interface SessionIface {
@@ -392,15 +397,22 @@ export const defaultSessionParams: SessionParamsResult = {
   controllerPublicKey: null,
   controllerAddress: null,
   learnerAddress: null,
-  requestedSessionDuration: null,
-  keyId: null
+  keyId: null,
+  controller_auth_sig: null,
+  chain: null,
+  teacher_address: null,
+  learner_address: null
 };
 
-export interface SessionParamsResult {
-  controllerPublicKey: string | null;
-  controllerAddress: string | null;
-  learnerAddress: string | null;
-  requestedSessionDuration: number | null;
-  keyId: string | null;
+export interface MatchParams {
+  id: string;
+}
+export interface RoomProps extends RouteComponentProps<MatchParams> {
+  location: RouteComponentProps<MatchParams>['location'] & {
+    state: {
+      notification: NotificationIface;
+      roomRole: string;
+    };
+  };
 }
 

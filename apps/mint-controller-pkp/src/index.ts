@@ -41,16 +41,16 @@ export default {
 
       let claimActionRes;
       try {
-      claimActionRes = await litNodeClient.executeJs({
-        authSig,
-        code: `(async () => {
+        claimActionRes = await litNodeClient.executeJs({
+          authSig,
+          code: `(async () => {
 Lit.Actions.claimKey({keyId});
 })();`,
-        authMethods: [],
-        jsParams: {
-          keyId
-        },
-      })
+          authMethods: [],
+          jsParams: {
+            keyId
+          },
+        })
       } catch(error) {
         console.error(error);
         throw new Error(`Lit Action failed`)
@@ -59,17 +59,17 @@ Lit.Actions.claimKey({keyId});
 
         let claimAndMintResult, tokenId, mintTx;
         try {
-        claimAndMintResult = await contractClient.pkpNftContractUtils.write.claimAndMint(claimActionRes.claims[0].derivedKeyId, claimActionRes.claims[0].signatures)
-        tokenId = claimAndMintResult.tokenId;
-        mintTx = claimAndMintResult.tx;
+          claimAndMintResult = await contractClient.pkpNftContractUtils.write.claimAndMint(claimActionRes.claims[0].derivedKeyId, claimActionRes.claims[0].signatures)
+          tokenId = claimAndMintResult.tokenId;
+          mintTx = claimAndMintResult.tx;
         } catch(error) {
           console.error(error)
           throw new Error(`Claim and Mint tx failed`)
         }
         let burnTx;
         try {
-        burnTx = await contractClient.pkpNftContract.write.burn(tokenId);
-        console.log("burnTx", burnTx);
+          burnTx = await contractClient.pkpNftContract.write.burn(tokenId);
+          console.log("burnTx", burnTx);
         } catch(error) {
           console.error(error);
           throw new Error(`Burn tx failed`)

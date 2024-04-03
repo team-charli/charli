@@ -1,6 +1,6 @@
 import { useSupabase } from "apps/frontend/src/contexts/SupabaseContext";
 
-export const useSignJoinData = () => {
+export const useStoreJoinData = () => {
   const { client: supabaseClient, supabaseLoading } = useSupabase();
   async function storeJoinData (joinedTimestamp: string, signedJoinSignature: string | null, roomRole: string, session_id: number) {
     if (!signedJoinSignature) throw new Error(`no join signature`)
