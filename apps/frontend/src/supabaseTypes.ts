@@ -21,12 +21,13 @@ export type Database = {
           hashed_learner_address: string | null
           hashed_teacher_address: string | null
           huddle_room_id: string | null
-          learner_address: string | null
           learner_id: number | null
           learner_joined_signature: string | null
           learner_joined_timestamp: string | null
+          learner_joined_timestamp_worker_sig: string | null
           learner_left_signature: string | null
           learner_left_timestamp: string | null
+          learner_left_timestamp_worker_sig: string | null
           request_origin: number | null
           request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date: string | null
@@ -35,12 +36,13 @@ export type Database = {
           session_rejected_reason:
             | Database["public"]["Enums"]["session_req_reject_reason"]
             | null
-          teacher_address: string | null
           teacher_id: number | null
           teacher_joined_signature: string | null
           teacher_joined_timestamp: string | null
+          teacher_joined_timestamp_worker_sig: string | null
           teacher_left_signature: string | null
           teacher_left_timestamp: string | null
+          teacher_left_timestamp_worker_sig: string | null
           teaching_lang: string | null
         }
         Insert: {
@@ -54,12 +56,13 @@ export type Database = {
           hashed_learner_address?: string | null
           hashed_teacher_address?: string | null
           huddle_room_id?: string | null
-          learner_address?: string | null
           learner_id?: number | null
           learner_joined_signature?: string | null
           learner_joined_timestamp?: string | null
+          learner_joined_timestamp_worker_sig?: string | null
           learner_left_signature?: string | null
           learner_left_timestamp?: string | null
+          learner_left_timestamp_worker_sig?: string | null
           request_origin?: number | null
           request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
@@ -68,12 +71,13 @@ export type Database = {
           session_rejected_reason?:
             | Database["public"]["Enums"]["session_req_reject_reason"]
             | null
-          teacher_address?: string | null
           teacher_id?: number | null
           teacher_joined_signature?: string | null
           teacher_joined_timestamp?: string | null
+          teacher_joined_timestamp_worker_sig?: string | null
           teacher_left_signature?: string | null
           teacher_left_timestamp?: string | null
+          teacher_left_timestamp_worker_sig?: string | null
           teaching_lang?: string | null
         }
         Update: {
@@ -87,12 +91,13 @@ export type Database = {
           hashed_learner_address?: string | null
           hashed_teacher_address?: string | null
           huddle_room_id?: string | null
-          learner_address?: string | null
           learner_id?: number | null
           learner_joined_signature?: string | null
           learner_joined_timestamp?: string | null
+          learner_joined_timestamp_worker_sig?: string | null
           learner_left_signature?: string | null
           learner_left_timestamp?: string | null
+          learner_left_timestamp_worker_sig?: string | null
           request_origin?: number | null
           request_origin_type?: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
@@ -101,12 +106,13 @@ export type Database = {
           session_rejected_reason?:
             | Database["public"]["Enums"]["session_req_reject_reason"]
             | null
-          teacher_address?: string | null
           teacher_id?: number | null
           teacher_joined_signature?: string | null
           teacher_joined_timestamp?: string | null
+          teacher_joined_timestamp_worker_sig?: string | null
           teacher_left_signature?: string | null
           teacher_left_timestamp?: string | null
+          teacher_left_timestamp_worker_sig?: string | null
           teaching_lang?: string | null
         }
         Relationships: [
@@ -125,25 +131,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "public_sessions_learner_address_fkey"
-            columns: ["learner_address"]
-            isOneToOne: false
-            referencedRelation: "user_data"
-            referencedColumns: ["user_address"]
-          },
-          {
             foreignKeyName: "public_sessions_request_origin_fkey"
             columns: ["request_origin"]
             isOneToOne: false
             referencedRelation: "user_data"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "public_sessions_teacher_address_fkey"
-            columns: ["teacher_address"]
-            isOneToOne: false
-            referencedRelation: "user_data"
-            referencedColumns: ["user_address"]
           },
         ]
       }
@@ -154,7 +146,6 @@ export type Database = {
           id: number
           name: string
           user_address: string | null
-          user_address_encrypted: string | null
           wants_to_learn_langs: string[] | null
           wants_to_teach_langs: string[] | null
         }
@@ -164,7 +155,6 @@ export type Database = {
           id?: number
           name: string
           user_address?: string | null
-          user_address_encrypted?: string | null
           wants_to_learn_langs?: string[] | null
           wants_to_teach_langs?: string[] | null
         }
@@ -174,7 +164,6 @@ export type Database = {
           id?: number
           name?: string
           user_address?: string | null
-          user_address_encrypted?: string | null
           wants_to_learn_langs?: string[] | null
           wants_to_teach_langs?: string[] | null
         }

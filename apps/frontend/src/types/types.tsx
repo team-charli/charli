@@ -337,9 +337,10 @@ export type Session = {
   learner_left_signature: string;
   teacher_left_timestamp: string;
   teacher_left_signature: string;
-  learner_address_encrypted: string;
-  teacher_address_encrypted: string;
-
+  learner_joined_timestamp_worker_sig: string;
+  learner_left_timestamp_worker_sig: string;
+  teacher_joined_timestamp_worker_sig: string;
+  teacher_left_timestamp_worker_sig: string;
 };
 
 type PreSessionStateFlags = {
@@ -385,8 +386,6 @@ export interface NotificationIface {
   requested_session_duration?: number;
   hashed_learner_address?: string;
   hashed_teacher_address?: string;
-  learner_address_encrypted?: string;
-  teacher_address_encrypted?: string;
 }
 
 export interface SessionIface {
@@ -416,3 +415,16 @@ export interface RoomProps extends RouteComponentProps<MatchParams> {
   };
 }
 
+export interface SessionParamsResult {
+    controllerPublicKey: string | null;
+    controllerAddress: string | null;
+    learnerAddress: string | null;
+    requestedSessionDuration: string | null;
+    keyId: string | null;
+
+}
+
+export interface TimestampResponse {
+  timestamp: string;
+  signature: string;
+}

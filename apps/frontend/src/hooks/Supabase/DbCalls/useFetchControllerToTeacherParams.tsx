@@ -1,19 +1,14 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+//TODO: mark for deletion
 import { useSupabase } from "apps/frontend/src/contexts/SupabaseContext";
-// import { SessionParamsResult } from "../../types/types";
 
 interface SessionParamsResult {
-  teacher_address_encrypted: string | null;
-  learner_address_encrypted: string | null;
 }
 
-export const useFetchLearnerToControllerParams = () => {
+export const useFetchControllerToTeacherParams = () => {
   const {client: supabaseClient, supabaseLoading} = useSupabase();
-  const fetchLearnerToControllerParams = async (sessionId: number): Promise<SessionParamsResult> => {
+  const fetchControllerToTeacherParams = async (sessionId: number): Promise<SessionParamsResult> => {
 
     const defaultReturn: SessionParamsResult = {
-      learner_address_encrypted: null,
-      teacher_address_encrypted: null,
     };
 
     if (!supabaseClient || supabaseLoading) {
@@ -59,5 +54,5 @@ export const useFetchLearnerToControllerParams = () => {
       throw new Error(`${error}`)
     }
   }
-  return {fetchLearnerToControllerParams}
+  return {fetchControllerToTeacherParams}
 }

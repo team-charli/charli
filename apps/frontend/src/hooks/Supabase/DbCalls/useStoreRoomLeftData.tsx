@@ -1,15 +1,15 @@
 import { useSupabase } from "apps/frontend/src/contexts/SupabaseContext";
 
-export const useStoreJoinData = () => {
+export const useStoreRoomLeftData = () => {
   const { client: supabaseClient, supabaseLoading } = useSupabase();
-  async function storeJoinData (joinedTimestamp: string, signedJoinSignature: string | null, roomRole: string, session_id: number) {
-    if (!signedJoinSignature) throw new Error(`no join signature`)
+  async function storeRoomLeftData (leftTimestamp: string, signedLeftSignature: string | null, roomRole: string, leftTimestampWorkerSig: string, session_id: number) {
+    if (!signedLeftSignature) throw new Error(`no left signature`)
     if (supabaseClient && ! supabaseLoading) {
       if (roomRole === 'learner') {
         try {
           const {data, error} = await supabaseClient
           .from('sessions')
-          .update({learner_joined_timestamp: joinedTimestamp, learner_joined_signature: signedJoinSignature})
+          .update({learner_left_timestamp: leftTimestamp, learner_left_signature: signedLeftSignature, learner_left_timestamp_worker_sig: leftTimestampWorkerSig})
           .eq('session_id', session_id)
 
         } catch (error) {
@@ -20,7 +20,7 @@ export const useStoreJoinData = () => {
         try {
           const {data, error} = await supabaseClient
           .from('sessions')
-          .update({teacher_joined_timestamp: joinedTimestamp, teacher_joined_signature: signedJoinSignature})
+          .update({teacher_left_timestamp: leftTimestamp, teacher_left_signature: signedLeftSignature, teacher_left_timestamp_worker_sig: leftTimestampWorkerSig})
           .eq('session_id', session_id)
         } catch (error) {
           console.error(error);
@@ -29,6 +29,6 @@ export const useStoreJoinData = () => {
       }
     }
   }
-  return {storeJoinData};
-
+  return {storeRoomLeftData};
 }
+

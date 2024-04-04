@@ -3,16 +3,14 @@ import { Dispatch, SetStateAction } from 'react'
 import { Database } from '../supabaseTypes';
 import { LocalStorageSetter } from '../types/types';
 import { IRelayPKP, SessionSig, SessionSigs } from '@lit-protocol/types';
-import { encryptAddress } from '../utils/app';
 
 export const submitOnboardTeachAPI = async (isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, teachingLangs: string[], name: string, supabaseClient: SupabaseClient, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isOnline: boolean, isLitLoggedIn: boolean | null) => {
 
   if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  teachingLangs.length && name.length&& supabaseClient /*&& isOnline*/ ) {
-    const user_address_encrypted = await encryptAddress(currentAccount.ethAddress);
     const insertData: Database["public"]["Tables"]["user_data"]["Insert"] = {
       name: name,
       wants_to_teach_langs: teachingLangs,
-      user_address_encrypted,
+      user_address: currentAccount.ethAddress,
       default_native_language: 'ENG',
     };
 

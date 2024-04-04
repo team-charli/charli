@@ -1,4 +1,13 @@
 import ethers from 'ethers' //remove in deploy
+interface CheckSigsParams {
+  role: "teacher" | "learner";
+  hashedAddress: string;
+  timestamp: string;
+  signature: string;
+  workerSignature: string;
+  workerPublicAddress: string;
+}
+
 // export const transferControllerToTeacherAction = `
 (async () => {
   const teacherAddress = "0x"
@@ -22,7 +31,11 @@ import ethers from 'ethers' //remove in deploy
   let teacher_left_timestamp = "2024-03-30T20:25:49.773Z"
   let teacher_left_signature = '0x6d91615c65c0e8f861b0fbfce2d9897fb942293e341eda10c91a6912c4f32668'
 
-  /* above are passed in params, should delete before deploy */
+  let learner_joined_timestamp_worker_sig, learner_left_timestamp_worker_sig,
+  teacher_joined_timestamp_worker_sig, teacher_left_timestamp_worker_sig;
+
+  let workerPublicAddress = "0xf96d015c2f44c6a608A78857Fa9063790D2908BA"
+  /* above are passed in params, must delete before deploy */
   const abi = [
     "function transfer(address to, uint256 amount) returns (boolean)"
   ];
@@ -43,6 +56,7 @@ import ethers from 'ethers' //remove in deploy
     "data": txData,
     "type": 2
   }
+
   Lit.Actions.setResponse({ response: JSON.stringify({ txObject }) });
   const tx = ethers.Transaction.from(txObject);
   const serializedTx = tx.unsignedSerialized;
@@ -62,29 +76,67 @@ import ethers from 'ethers' //remove in deploy
       }
     }
   ]
-  const checkBothSigned = () => {
-    const checkSigs = (role: "teacher" | "learner", hashedAddress: string, timestamp: string, signature: string) => {
+
+  const checkBothSigned = (
+  ) => {
+    const checkSigs = ({ role, hashedAddress, timestamp, signature, workerSignature, workerPublicAddress }: CheckSigsParams) => {
+      // Verify user signature
       const signerAddress = ethers.verifyMessage(`${timestamp}${role}`, signature);
-      if (ethers.keccak256(signerAddress) === hashedAddress) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-    const teacherJoinSigs: boolean = checkSigs("teacher", hashTeacherAddress, teacher_joined_timestamp, teacher_joined_signature)
-    const learnerJoinSigs: boolean = checkSigs("learner", hashLearnerAddress, learner_joined_timestamp, learner_joined_signature)
-    const teacherLeaveSigs: boolean = checkSigs("teacher", hashTeacherAddress, teacher_left_timestamp, teacher_left_signature)
-    const learnerLeaveSigs: boolean = checkSigs("learner", hashLearnerAddress, learner_left_timestamp, learner_left_signature)
+      const isUserVerified = ethers.keccak256(signerAddress) === hashedAddress;
 
+      // Verify worker signature
+      const workerSignerAddress = ethers.verifyMessage(`${timestamp}${role}`, workerSignature);
+      const isWorkerVerified = workerSignerAddress.toLowerCase() === workerPublicAddress.toLowerCase();
 
-    console.log({teacherJoinSigs, learnerJoinSigs, teacherLeaveSigs, learnerLeaveSigs})
+      return isUserVerified && isWorkerVerified;
+    };
 
-    return teacherJoinSigs && learnerJoinSigs && teacherLeaveSigs && learnerLeaveSigs
-  }
+    const teacherJoinSigs: boolean = checkSigs({
+      role: "teacher",
+      hashedAddress: hashTeacherAddress,
+      timestamp: teacher_joined_timestamp,
+      signature: teacher_joined_signature,
+      workerSignature: teacher_joined_timestamp_worker_sig,
+      workerPublicAddress
+    });
+
+    const learnerJoinSigs: boolean = checkSigs({
+      role: "learner",
+      hashedAddress: hashLearnerAddress,
+      timestamp: learner_joined_timestamp,
+      signature: learner_joined_signature,
+      workerSignature: learner_joined_timestamp_worker_sig,
+      workerPublicAddress
+    });
+
+    const teacherLeaveSigs: boolean = checkSigs({
+      role: "teacher",
+      hashedAddress: hashTeacherAddress,
+      timestamp: teacher_left_timestamp,
+      signature: teacher_left_signature,
+      workerSignature: teacher_left_timestamp_worker_sig,
+      workerPublicAddress
+    });
+
+    const learnerLeaveSigs: boolean = checkSigs({
+      role: "learner",
+      hashedAddress: hashLearnerAddress,
+      timestamp: learner_left_timestamp,
+      signature: learner_left_signature,
+      workerSignature: learner_left_timestamp_worker_sig,
+      workerPublicAddress
+    });
+
+    console.log({ teacherJoinSigs, learnerJoinSigs, teacherLeaveSigs, learnerLeaveSigs });
+
+    return teacherJoinSigs && learnerJoinSigs && teacherLeaveSigs && learnerLeaveSigs;
+  };
+
   const isFunded = await Lit.Actions.checkConditions({conditions, authSig, chain})
   console.log("isFunded: ", isFunded )
 
-  const bothSigned: boolean= checkBothSigned();
+  const bothSigned: boolean = checkBothSigned();
+  console.log("bothSigned",bothSigned )
 
   if (isFunded && bothSigned) {
     const sigShare = await Lit.Actions.signEcdsa({

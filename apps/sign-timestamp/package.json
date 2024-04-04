@@ -1,10 +1,11 @@
 {
-  "name": "encrypt-decrypt-stored-addresses",
+  "name": "sign-timestamp",
   "private": true,
   "scripts": {
     "test": "vitest run"
   },
   "dependencies": {
-    "base64-arraybuffer": "^1.0.2"
+    "ethers": "^6.11.1",
+    "wrangler": "^3.45.0"
   }
 }

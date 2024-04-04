@@ -3,13 +3,11 @@ import { transferControllerToTeacherAction  } from "../../Lit/Actions/transferCo
 import {ethers} from 'ethers'
 import { litNodeClient } from "../../utils/lit";
 
-export const useExecuteTransferControllerToTeacher = (
-
-) => {
+export const useExecuteTransferControllerToTeacher = () => {
   const [ sessionSigs ] = useLocalStorage("sessionSigs");
   const [ authSig ] = useLocalStorage("authSig");
   const executeTransferControllerToTeacher = async (
-        teacherAddressEncrypted: string,
+        teacherAddress: string,
         hashLearnerAddress: string,
         hashTeacherAddress: string,
         controllerAddress: string,
@@ -29,17 +27,27 @@ export const useExecuteTransferControllerToTeacher = (
         teacher_left_timestamp: string,
         teacher_left_signature: string,
 
+        learner_joined_timestamp_worker_sig: string,
+          learner_left_timestamp_worker_sig: string,
+        teacher_joined_timestamp_worker_sig: string,
+          teacher_left_timestamp_worker_sig: string,
+
+
+
   ) => {
     const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
     const chainId = import.meta.env.VITE_CHAIN_ID;
     const chain = import.meta.env.VITE_LIT_CHAIN_NAME;
+    const addressTimestampWorkerWallet = import.meta.env.VITE_PUBLIC_ADDRESS_TIMESTAMP_WORKER_WALLET;
     //use teacher authSig for now
+
+
 
     const results = await litNodeClient.executeJs({
       code: transferControllerToTeacherAction,
       sessionSigs,
       jsParams: {
-        teacherAddressEncrypted,
+        teacherAddress,
         hashLearnerAddress,
         hashTeacherAddress,
         controllerAddress,
@@ -56,6 +64,11 @@ export const useExecuteTransferControllerToTeacher = (
         learner_left_signature,
         teacher_left_timestamp,
         teacher_left_signature,
+        learner_joined_timestamp_worker_sig,
+        learner_left_timestamp_worker_sig,
+        teacher_joined_timestamp_worker_sig,
+        teacher_left_timestamp_worker_sig,
+        addressTimestampWorkerWallet
       },
     });
 

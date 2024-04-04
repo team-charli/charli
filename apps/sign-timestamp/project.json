@@ -1,7 +1,7 @@
 {
-  "name": "encrypt-decrypt-stored-addresses",
+  "name": "sign-timestamp",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "apps/encrypt-decrypt-stored-addresses/src",
+  "sourceRoot": "apps/sign-timestamp/src",
   "projectType": "application",
   "targets": {
     "serve": {

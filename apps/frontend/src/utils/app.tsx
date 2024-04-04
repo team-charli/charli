@@ -119,12 +119,3 @@ export function checkHashedAddress(currentAccount: IRelayPKP, roomRole: string, 
 } else {throw new Error("you're busted")}
 }
 
-export async function encryptAddress (address: string) {
-  const response = await fetch('https://encrypt-decrypt-stored-addresses.zach-greco.workers.dev', {
-    method: 'POST',
-    body: JSON.stringify({ address }),
-    headers: { 'Content-Type': 'application/json' }
-  });
-  const { encryptedAddress } = await response.json();
-  return encryptedAddress ;
-}
