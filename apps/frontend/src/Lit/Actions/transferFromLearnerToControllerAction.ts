@@ -1,18 +1,21 @@
-export const transferFromLearnerToControllerAction = `
-async () => {
-  let learnerAddress
-  let controllerAddress
-  let controllerPubKey
-  let paymentAmount=0
-  let usdcContractAddress="0x"
-  let chainId
-  // Above  values should be dynamically passed to the Lit Action through executeJs
+// import ethers from 'ethers'
+// let learnerAddress='0x'
+// let controllerAddress='0x'
+// let controllerPubKey='0x'
+// let paymentAmount=0
+// let usdcContractAddress="0x"
+// let chainId=84532;
+// let chain = "baseSepolia";
+// let authSig="string";
+// Above  values should be dynamically passed to the Lit Action through executeJs
 
+export const transferFromLearnerToControllerAction = `
+(async () => {
 
   const abi = [
     "function transferFrom(address sender, address recipient, uint256 amount) returns (boolean)"
   ];
-  const latestNonce = await Lit.Actions.getLatestNonce({
+  const latestNonce = await LitActions.getLatestNonce({
     address: controllerAddress,
     chain: "chronicle",
   });
@@ -26,29 +29,45 @@ async () => {
   const txObject = {
     "to": usdcContractAddress,
     "nonce": latestNonce,
-    "chainId": 84532,
+    "chainId": chainId,
     "gasLimit": "50000",
     "from": controllerAddress,
     "data": txData,
     "type": 2
-    chainId
   };
 
-  Lit.Actions.setResponse({ response: JSON.stringify({ txObject }) });
+  LitActions.setResponse({ response: JSON.stringify({ txObject }) });
   const tx = ethers.Transaction.from(txObject);
   const serializedTx = tx.unsignedSerialized;
   // Use ethers v6 getBytes for rlpEncodedTxn
   const rlpEncodedTxn = ethers.getBytes(serializedTx);
   const unsignedTxn = ethers.keccak256(rlpEncodedTxn);
   const toSign = unsignedTxn;
+  const conditions = [
+    {
+      contractAddress: usdcContractAddress,
+      standardContractType: "ERC20",
+      chain,
+      method: "allowance",
+      parameters: [learnerAddress, ':userAddress' ],
+      returnValueTest: {
+        comparator: '>=',
+        value: ethers.formatUnits(paymentAmount, 6)
+      }
+    }
+  ];
 
-  const sigShare = await LitActions.signEcdsa({
-    toSign,
-    publicKey: controllerPubKey,
-    sigName: "sign_transfer_from",
-  });
+  const learnerAllowedAmount: boolean = await LitActions.checkConditions({conditions, authSig, chain})
 
-  console.log('Signature for transferFrom:', sigShare);
-}
+  if (learnerAllowedAmount) {
+    const sigShare = await LitActions.signEcdsa({
+      toSign,
+      publicKey: controllerPubKey,
+      sigName: "sign_transfer_from",
+    });
+
+    console.log('Signature for transferFrom:', sigShare);
+  }
+})();
 `
 

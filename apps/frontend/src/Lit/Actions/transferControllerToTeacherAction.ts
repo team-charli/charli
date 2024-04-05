@@ -1,4 +1,33 @@
 import ethers from 'ethers' //remove in deploy
+  //const teacherAddress = "0x"
+  //const hashLearnerAddress = "0x"
+  //let hashTeacherAddress = "0x"
+  //const controllerAddress = "0x"
+  //const controllerPubKey = "0x";
+  //const paymentAmount=0;
+  //const usdcContractAddress= "0x"
+  //const authSig="0x"
+  //const chain="baseSepolia"
+  ////sigs
+
+
+  //let learner_joined_timestamp = "2024-03-30T19:53:24.510Z";
+  //let learner_joined_signature =  '0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac0'
+  //let teacher_joined_timestamp = "2024-03-30T19:53:24.510Z";
+  //let teacher_joined_signature = '0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8';
+  //let learner_left_timestamp = "2024-03-30T20:25:49.773Z"
+  //let learner_left_signature = '0x57c65f1718e8297f4048beff2419e134656b7a856872b27ad77846e395f13ffe'
+  //let teacher_left_timestamp = "2024-03-30T20:25:49.773Z"
+  //let teacher_left_signature = '0x6d91615c65c0e8f861b0fbfce2d9897fb942293e341eda10c91a6912c4f32668'
+
+  //let learner_joined_timestamp_worker_sig, learner_left_timestamp_worker_sig,
+  //teacher_joined_timestamp_worker_sig, teacher_left_timestamp_worker_sig;
+
+  //let workerPublicAddress = "0xf96d015c2f44c6a608A78857Fa9063790D2908BA"
+  /* above are passed in params, must delete before deploy */
+
+
+export const transferControllerToTeacherAction = `
 interface CheckSigsParams {
   role: "teacher" | "learner";
   hashedAddress: string;
@@ -6,36 +35,9 @@ interface CheckSigsParams {
   signature: string;
   workerSignature: string;
   workerPublicAddress: string;
-}
+};
 
-// export const transferControllerToTeacherAction = `
 (async () => {
-  const teacherAddress = "0x"
-  const hashLearnerAddress = "0x"
-  let hashTeacherAddress = "0x"
-  const controllerAddress = "0x"
-  const controllerPubKey = "0x";
-  const paymentAmount=0;
-  const usdcContractAddress= "0x"
-  const authSig="0x"
-  const chain="baseSepolia"
-  //sigs
-
-
-  let learner_joined_timestamp = "2024-03-30T19:53:24.510Z";
-  let learner_joined_signature =  '0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac0'
-  let teacher_joined_timestamp = "2024-03-30T19:53:24.510Z";
-  let teacher_joined_signature = '0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8';
-  let learner_left_timestamp = "2024-03-30T20:25:49.773Z"
-  let learner_left_signature = '0x57c65f1718e8297f4048beff2419e134656b7a856872b27ad77846e395f13ffe'
-  let teacher_left_timestamp = "2024-03-30T20:25:49.773Z"
-  let teacher_left_signature = '0x6d91615c65c0e8f861b0fbfce2d9897fb942293e341eda10c91a6912c4f32668'
-
-  let learner_joined_timestamp_worker_sig, learner_left_timestamp_worker_sig,
-  teacher_joined_timestamp_worker_sig, teacher_left_timestamp_worker_sig;
-
-  let workerPublicAddress = "0xf96d015c2f44c6a608A78857Fa9063790D2908BA"
-  /* above are passed in params, must delete before deploy */
   const abi = [
     "function transfer(address to, uint256 amount) returns (boolean)"
   ];
@@ -57,7 +59,7 @@ interface CheckSigsParams {
     "type": 2
   }
 
-  Lit.Actions.setResponse({ response: JSON.stringify({ txObject }) });
+  LitActions.setResponse({ response: JSON.stringify({ txObject }) });
   const tx = ethers.Transaction.from(txObject);
   const serializedTx = tx.unsignedSerialized;
   const rlpEncodedTxn = ethers.getBytes(serializedTx);
@@ -75,7 +77,7 @@ interface CheckSigsParams {
         value: ethers.formatUnits(paymentAmount, 6)
       }
     }
-  ]
+  ];
 
   const checkBothSigned = (
   ) => {
@@ -132,20 +134,20 @@ interface CheckSigsParams {
     return teacherJoinSigs && learnerJoinSigs && teacherLeaveSigs && learnerLeaveSigs;
   };
 
-  const isFunded = await Lit.Actions.checkConditions({conditions, authSig, chain})
+  const isFunded = await LitActions.checkConditions({conditions, authSig, chain})
   console.log("isFunded: ", isFunded )
 
   const bothSigned: boolean = checkBothSigned();
   console.log("bothSigned",bothSigned )
 
   if (isFunded && bothSigned) {
-    const sigShare = await Lit.Actions.signEcdsa({
+    const sigShare = await LitActions.signEcdsa({
       toSign,
       publicKey: controllerPubKey,
       sigName: "Pay_Teacher_from_Controller",
     });
     console.log('sigShare', sigShare);
   }
-})();
-// `
+})();`
+
 
