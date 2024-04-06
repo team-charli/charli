@@ -1,0 +1,13 @@
+name = "session-time-tracker"
+workers_dev = true
+main = "src/index.ts"
+compatibility_date = "2024-04-04"
+[durable_objects]
+bindings = [
+  { name = "TIMER", class_name = "TimerObject" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["TimerObject"]
+

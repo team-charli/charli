@@ -1,0 +1,7 @@
+{
+  "name": "session-time-tracker",
+  "private": true,
+  "scripts": {
+    "test": "vitest run"
+  }
+}
