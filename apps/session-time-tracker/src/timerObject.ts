@@ -1,22 +1,67 @@
+import ethers from 'ethers';
+
 export class TimerObject {
+  private connectedClients: Set<string> = new Set();
+
   constructor(public state: DurableObjectState, public env: Env) {}
 
   async fetch(request: Request): Promise<Response> {
-    // WebSocket connection handling preserved for potential direct communication (e.g., timing alerts)
+    if (request.method === 'POST') {
+      const { duration, hashedTeacherAddress, hashedLearnerAddress } = await request.json() as RequestPayload;
+      await this.state.storage.put('duration', duration);
+      await this.state.storage.put('hashedTeacherAddress', hashedTeacherAddress);
+      await this.state.storage.put('hashedLearnerAddress', hashedLearnerAddress);
+      await this.state.storage.setAlarm(Date.now() + duration);
+
+      return new Response(JSON.stringify({ id: this.state.id.toString() }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     if (request.headers.get('Upgrade') === 'websocket') {
       const { 0: client, 1: server } = new WebSocketPair();
-      this.state.acceptWebSocket(server);  // Inform the runtime this WebSocket is hibernatable
+      this.state.acceptWebSocket(server);
+      server.addEventListener('message', event => this.handleMessage(server, event));
+      server.addEventListener('close', () => this.handleDisconnect(server));
       return new Response(null, { status: 101, webSocket: client });
     }
 
-    const { duration } = await request.json() as RequestPayload;
-    await this.state.storage.put('duration', duration);
-    await this.state.storage.setAlarm(Date.now() + duration);
+    return new Response('Not found', { status: 404 });
+  }
 
-    return new Response(JSON.stringify({ id: this.state.id.toString() }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  private async handleMessage(webSocket: WebSocket, event: MessageEvent): Promise<void> {
+    const message = JSON.parse(event.data as string);
+    if (message.type === 'connect') {
+      const ethereumAddress = message.ethereumAddress;
+      const hashedAddress = ethers.keccak256(ethereumAddress);
+
+      const hashedTeacherAddress = await this.state.storage.get('hashedTeacherAddress');
+      const hashedLearnerAddress = await this.state.storage.get('hashedLearnerAddress');
+
+      let participantRole: string | undefined;
+      if (hashedAddress === hashedTeacherAddress) {
+        participantRole = 'teacher';
+      } else if (hashedAddress === hashedLearnerAddress) {
+        participantRole = 'learner';
+      }
+
+      if (participantRole) {
+        this.connectedClients.add(participantRole);
+        if (this.connectedClients.size === 2) {
+          this.broadcastMessage({ type: 'bothConnected' });
+        }
+      } else {
+        webSocket.send(JSON.stringify({ type: 'unauthorizedConnection' }));
+        webSocket.close();
+      }
+    }
+  }
+
+  private handleDisconnect(webSocket: WebSocket): void {
+    // Remove the disconnected client from the set based on the associated participantRole
+    // You may need to associate the participantRole with the webSocket to remove it correctly
+    // this.connectedClients.delete(participantRole);
   }
 
   async alarm(): Promise<void> {
@@ -30,8 +75,8 @@ export class TimerObject {
     const warningTime = now + duration - 3 * 60 * 1000; // 3 minutes warning
     const expirationTime = now + duration;
 
+    this.broadcastMessage({type: 'initiated', message: 'timer initiated'})
     if (now >= warningTime && now < expirationTime) {
-      // Adjusted to use the method for broadcasting to all hibernatable WebSocket connections
       this.broadcastMessage({ type: 'warning', message: '3 minute warning' });
     } else if (now >= expirationTime) {
       this.broadcastMessage({ type: 'expired', message: 'Time expired' });
@@ -40,19 +85,18 @@ export class TimerObject {
   }
 
   // This method is updated to directly broadcast messages to all hibernatable WebSocket connections
-  // Adjusted to check WebSocket state before sending messages
-private async broadcastMessage(message: Object): Promise<void> {
-    const webSockets = await this.state.getWebSockets();
-    for (const ws of webSockets) {
+  private async broadcastMessage(message: Object): Promise<void> {
+    if (this.connectedClients.size === 2) {
+      const webSockets = await this.state.getWebSockets();
+      for (const ws of webSockets) {
         if (ws.readyState === WebSocket.READY_STATE_OPEN) {
-            ws.send(JSON.stringify(message));
+          ws.send(JSON.stringify(message));
         }
+      }
     }
-}
+  }
 }
 
-
-// DurableObjectState, Env, and RequestPayload interfaces remain unchanged
 interface DurableObjectState {
   storage: DurableObjectStorage;
   id: DurableObjectId;
@@ -61,4 +105,4 @@ interface DurableObjectState {
   getWebSockets: () => Promise<Iterable<WebSocket>>;
 }
 interface Env {}
-interface RequestPayload { duration: number; }
+interface RequestPayload { duration: number; hashedTeacherAddress: string; hashedLearnerAddress: string; }

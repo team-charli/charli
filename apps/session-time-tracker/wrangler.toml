@@ -4,10 +4,11 @@ main = "src/index.ts"
 compatibility_date = "2024-04-04"
 [durable_objects]
 bindings = [
-  { name = "TIMER", class_name = "TimerObject" }
+{ name = "TIMER", class_name = "TimerObject" },
+{name = "SESSION_STATE", class_name = "SessionState"}
 ]
 
 [[migrations]]
-tag = "v1"
-new_classes = ["TimerObject"]
+tag = "v2"
+new_classes = ["SessionState"]
 

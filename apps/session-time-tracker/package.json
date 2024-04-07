@@ -3,5 +3,8 @@
   "private": true,
   "scripts": {
     "test": "vitest run"
+  },
+  "dependencies": {
+    "hono": "^4.2.2"
   }
 }

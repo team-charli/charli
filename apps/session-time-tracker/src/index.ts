@@ -1,36 +1,36 @@
-import { TimerObject } from './timerObject';
+import { Hono, Env } from 'hono';
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    // Check if the request is a WebSocket upgrade.
-    if (request.headers.get('Upgrade') === 'websocket') {
-      const id = env.TIMER.newUniqueId();
-      const stub = env.TIMER.get(id);
-      // Forward WebSocket upgrade requests to the TimerObject.
-      return stub.fetch(request);
-    }
-
-    // Handle other requests, such as setting a timer.
-    if (request.method === 'POST') {
-      const { duration } = await request.json<any>();
-      const id = env.TIMER.newUniqueId();
-      const stub = env.TIMER.get(id);
-      // Here, you might want to save the id or pass it to the client in some way.
-      // This example just calls the TimerObject directly to set the duration.
-      return stub.fetch(new Request(request.url, {
-        method: 'POST',
-        headers: request.headers,
-        body: JSON.stringify({ duration })
-      }));
-    }
-
-    return new Response('Method not allowed', { status: 405 });
-  },
-};
-
-
-interface Env {
-  TIMER: DurableObjectNamespace;
+// Extend the Env type to include your environment variables
+interface CustomContext extends Env {
+  TIMER_OBJECT: DurableObjectNamespace;
+  SESSION_STATE: DurableObjectNamespace;
 }
 
+const app = new Hono<CustomContext>();
 
+// Define route for submitting signature via POST
+app.post('/submitSignature', async (c) => {
+  if (c.env && c.env.SESSION_STATE) {
+    const sessionStateId = (c.env.SESSION_STATE as DurableObjectNamespace).idFromName("uniqueSessionName");
+    const sessionStateStub = (c.env.SESSION_STATE as DurableObjectNamespace).get(sessionStateId);
+    return await sessionStateStub.fetch(c.req.raw);
+  }
+  return c.text("SESSION_STATE not found in environment", 500);
+});
+
+// Define route for WebSocket upgrade requests to the TimerObject
+app.get('/timer', async (c) => {
+  if (c.req.header('Upgrade') === 'websocket') {
+    if (c.env && c.env.TIMER_OBJECT) {
+      const id = (c.env.TIMER_OBJECT as DurableObjectNamespace).idFromName("uniqueTimerName");
+      const timerStub = (c.env.TIMER_OBJECT as DurableObjectNamespace).get(id);
+      return await timerStub.fetch(c.req.raw);
+    }
+    return c.text("TIMER_OBJECT not found in environment", 500);
+  }
+  return c.text("Invalid request", 400);
+});
+
+export default {
+  fetch: app.fetch,
+};
