@@ -1,4 +1,4 @@
-import ethers from 'ethers';
+import { ethers } from 'ethers';
 
 export class TimerObject {
   private connectedClients: Set<string> = new Set();

@@ -9,6 +9,6 @@ bindings = [
 ]
 
 [[migrations]]
-tag = "v2"
-new_classes = ["SessionState"]
-
+tag = "v3"
+deleted_classes = ["WebSocketWorker"]
+new_classes= ["SessionState"]

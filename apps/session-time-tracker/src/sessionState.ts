@@ -1,7 +1,6 @@
-import ethers from 'ethers';
+import {ethers} from 'ethers';
 export class SessionState {
   participants: Record<string, Participant> = {};
-  // private sessionDetails?: SessionDetails;
 
   constructor(public state: DurableObjectState, public env: Env) {}
 
@@ -9,8 +8,6 @@ export class SessionState {
     const url = new URL(request.url);
     if (url.pathname === "/submitSignature") {
       return this.submitSignature(request);
-    } else if (request.headers.get('Upgrade') === 'websocket') {
-      return this.handleWebSocket(request);
     }
     return new Response("Not found", { status: 404 });
   }
@@ -59,32 +56,7 @@ export class SessionState {
     return teacherJoinSigs && learnerJoinSigs;
   }
 
-  private async handleWebSocket(request: Request): Promise<Response> {
-    const { 0: client, 1: server } = new WebSocketPair();
-    const participantId = new URL(request.url).searchParams.get('participantId');
-    if (!participantId) return new Response("Participant ID required", { status: 400 });
-    this.participants[participantId] = { ...(this.participants[participantId] || {}), websocket: server };
-    server.accept();
-    server.addEventListener('message', event => {
-      const messageData = typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data);
-      this.handleMessage(participantId, messageData);
-    });
-    return new Response(null, { status: 101, webSocket: client });
-  }
 
-
-  private async handleMessage(participantId: string, message: string): Promise<void> {
-    console.log(`Message from ${participantId}: ${message}`);
-  }
-
-  private async broadcastMessageToParticipants(message: Object): Promise<void> {
-    for (const participantId in this.participants) {
-      const participant = this.participants[participantId];
-      if (participant.websocket?.readyState === WebSocket.READY_STATE_OPEN) {
-        participant.websocket.send(JSON.stringify(message));
-      }
-    }
-  }
   async startTimer(duration: number, hashedTeacherAddress: string, hashedLearnerAddress: string) {
     const timerId = this.env.TIMER_OBJECT.idFromName(`${hashedTeacherAddress}-${hashedLearnerAddress}`);
     const timerStub = this.env.TIMER_OBJECT.get(timerId);
@@ -122,23 +94,3 @@ interface SubmitSignatureParams {
   workerPublicAddress: string;
   sessionDuration: string;
 }
-
-// interface SessionDetails {
-//   hashedTeacherAddress: string;
-//   hashedLearnerAddress: string;
-//   teacherEthereumAddress: string;
-//   learnerEthereumAddress: string;
-//   signatures: {
-//     teacher: {
-//       joinedTimestamp: string;
-//       joinedSignature: string;
-//       joinedTimestampWorkerSig: string;
-//     };
-//     learner: {
-//       joinedTimestamp: string;
-//       joinedSignature: string;
-//       joinedTimestampWorkerSig: string;
-//     };
-//   };
-//   workerPublicAddress: string;
-// }

@@ -1,14 +1,15 @@
 import { Hono, Env } from 'hono';
+export { TimerObject } from './timerObject';
+export { SessionState } from './sessionState';
 
-// Extend the Env type to include your environment variables
 interface CustomContext extends Env {
   TIMER_OBJECT: DurableObjectNamespace;
   SESSION_STATE: DurableObjectNamespace;
 }
 
-const app = new Hono<CustomContext>();
 
-// Define route for submitting signature via POST
+export const app = new Hono<CustomContext>();
+
 app.post('/submitSignature', async (c) => {
   if (c.env && c.env.SESSION_STATE) {
     const sessionStateId = (c.env.SESSION_STATE as DurableObjectNamespace).idFromName("uniqueSessionName");
@@ -18,7 +19,6 @@ app.post('/submitSignature', async (c) => {
   return c.text("SESSION_STATE not found in environment", 500);
 });
 
-// Define route for WebSocket upgrade requests to the TimerObject
 app.get('/timer', async (c) => {
   if (c.req.header('Upgrade') === 'websocket') {
     if (c.env && c.env.TIMER_OBJECT) {
@@ -30,7 +30,7 @@ app.get('/timer', async (c) => {
   }
   return c.text("Invalid request", 400);
 });
-
+;
 export default {
   fetch: app.fetch,
 };
