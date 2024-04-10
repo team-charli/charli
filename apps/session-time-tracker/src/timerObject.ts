@@ -7,11 +7,19 @@ export class TimerObject {
 
   async fetch(request: Request): Promise<Response> {
     if (request.method === 'POST') {
-      const { duration, hashedTeacherAddress, hashedLearnerAddress } = await request.json() as RequestPayload;
+      const { duration, hashedTeacherAddress, hashedLearnerAddress, sessionId } = await request.json() as RequestPayload;
       await this.state.storage.put('duration', duration);
       await this.state.storage.put('hashedTeacherAddress', hashedTeacherAddress);
       await this.state.storage.put('hashedLearnerAddress', hashedLearnerAddress);
+      await this.state.storage.put('sessionId', sessionId)
       await this.state.storage.setAlarm(Date.now() + duration);
+
+
+      if (request.method === 'POST' && request.url === 'http://timer-object/broadcast') {
+        const { type, message, data } = await request.json() as any;
+        await this.broadcastMessage({ type, message }, data);
+        return new Response('OK');
+      }
 
       return new Response(JSON.stringify({ id: this.state.id.toString() }), {
         status: 200,
@@ -31,8 +39,22 @@ export class TimerObject {
       });
       return new Response(null, { status: 101, webSocket: client });
     }
-
     return new Response('Not found', { status: 404 });
+  }
+
+  private async handleDisconnect(participantRole: string): Promise<void> {
+    this.connectedClients.delete(participantRole);
+    this.broadcastMessage({ type: 'droppedConnection', message: `User ${participantRole} dropped connection. Waiting two minutes for reconnect.` }, { participantRole });
+
+    const disconnectTime = Date.now();
+    const sessionId = await this.state.storage.get('sessionId');
+    const disconnectionManagerId = this.env.DISCONNECTION_MANAGER.idFromName(`disconnection_manager_${sessionId}`);
+    const disconnectionManagerStub = this.env.DISCONNECTION_MANAGER.get(disconnectionManagerId);
+    await disconnectionManagerStub.fetch('', {
+      method: 'POST',
+      body: JSON.stringify({ participantRole, disconnectTime }),
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   private async handleMessage(webSocket: WebSocket, event: MessageEvent): Promise<void> {
@@ -69,22 +91,6 @@ export class TimerObject {
       }
     }
     return undefined;
-  }
-  private async handleDisconnect(participantRole: string): Promise<void> {
-    this.connectedClients.delete(participantRole);
-    this.broadcastMessage({ type: 'droppedConnection', message: `User ${participantRole} dropped connection. Waiting two minutes for reconnect.` }, { participantRole });
-
-    const disconnectTime = Date.now();
-    await this.state.storage.put(`${participantRole}DisconnectTime`, disconnectTime);
-
-    const disconnectCount = await this.state.storage.get(`${participantRole}DisconnectCount`) as number || 0;
-    await this.state.storage.put(`${participantRole}DisconnectCount`, disconnectCount + 1);
-
-    if (disconnectCount >= 3) {
-      this.broadcastMessage({ type: 'thirdConnectionDrop', message: `User ${participantRole} dropped connection for the third time.` }, { participantRole });
-    }
-
-    await this.state.storage.setAlarm(disconnectTime + 2 * 60 * 1000); // Set alarm for 2 minutes
   }
 
   async alarm(): Promise<void> {
@@ -160,5 +166,9 @@ interface DurableObjectState {
   acceptWebSocket: (websocket: WebSocket) => void;
   getWebSockets: () => Promise<Iterable<WebSocket>>;
 }
-interface Env {PRIVATE_KEY: string}
-interface RequestPayload { duration: number; hashedTeacherAddress: string; hashedLearnerAddress: string; }
+interface Env {
+  PRIVATE_KEY: string;
+  DISCONNECTION_MANAGER: DurableObjectNamespace;
+
+}
+interface RequestPayload { duration: number; hashedTeacherAddress: string; hashedLearnerAddress: string; sessionId: string; }

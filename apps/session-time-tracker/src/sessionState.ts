@@ -24,7 +24,7 @@ export class SessionState {
     if (sigVerificationResult && Object.keys(this.participants).length === 2) {
       console.log('Signatures and session duration verified. Session can start.');
       const [participantId1, participantId2] = Object.keys(this.participants);
-      await this.startTimer(parseInt(data.sessionDuration), participantId1, participantId2);
+      await this.startTimer(parseInt(data.sessionDuration), participantId1, participantId2, data.sessionId);
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     } else {
       console.error('Signature verification failed.');
@@ -57,12 +57,10 @@ export class SessionState {
   }
 
 
-  async startTimer(duration: number, hashedTeacherAddress: string, hashedLearnerAddress: string) {
-    const timerId = this.env.TIMER_OBJECT.idFromName(`${hashedTeacherAddress}-${hashedLearnerAddress}`);
+  async startTimer(duration: number, hashedTeacherAddress: string, hashedLearnerAddress: string, sessionId: string) {
+    const timerId = this.env.TIMER_OBJECT.idFromName(`timer_object_${sessionId}`);
     const timerStub = this.env.TIMER_OBJECT.get(timerId);
-
-    const body = JSON.stringify({ duration, hashedTeacherAddress, hashedLearnerAddress });
-
+    const body = JSON.stringify({ duration, hashedTeacherAddress, hashedLearnerAddress, sessionId });
     const response = await timerStub.fetch('http://timer/', {
       method: "POST",
       body,
@@ -93,4 +91,5 @@ interface SubmitSignatureParams {
   learner_joined_timestamp_worker_sig: string;
   workerPublicAddress: string;
   sessionDuration: string;
+  sessionId: string;
 }
