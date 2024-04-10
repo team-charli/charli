@@ -410,7 +410,7 @@ export interface RoomProps extends RouteComponentProps<MatchParams> {
   location: RouteComponentProps<MatchParams>['location'] & {
     state: {
       notification: NotificationIface;
-      roomRole: string;
+      roomRole: "teacher" | "learner";
     };
   };
 }

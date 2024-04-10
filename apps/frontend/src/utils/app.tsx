@@ -119,3 +119,20 @@ export function checkHashedAddress(currentAccount: IRelayPKP, roomRole: string, 
 } else {throw new Error("you're busted")}
 }
 
+export function checkSessionCompleted(timerInitiated: boolean, initTimestamp: string, initTimestampSig: string, timerExpired: boolean, expiredTimestamp: string, expiredTimestampSig: string, requested_session_duration: number) {
+  const workerTimeStampAddress = import.meta.env.VITE_PUBLIC_ADDRESS_TIMESTAMP_WORKER_WALLET;
+  const timerDuration = parseInt(expiredTimestamp)-parseInt(initTimestamp);
+  const recoveredAddressInitTimestampt = ethers.verifyMessage(initTimestamp,initTimestampSig);
+  const recoveredAddressExpiredTimestamp = ethers.verifyMessage(expiredTimestamp, expiredTimestampSig);
+  if (recoveredAddressInitTimestampt !== workerTimeStampAddress) {
+    throw new Error(`Invalid Timestamp`)
+  } else if (recoveredAddressExpiredTimestamp !== workerTimeStampAddress) {
+    throw new Error(`Invalid Timestamp`)
+  }  else if (recoveredAddressInitTimestampt === workerTimeStampAddress &&   recoveredAddressExpiredTimestamp === workerTimeStampAddress && timerDuration >= requested_session_duration){
+    return true;
+  } else {
+    console.error({timerInitiated, initTimestamp, initTimestampSig, timerExpired, expiredTimestamp, expiredTimestampSig})
+    throw new Error(`Condition Not Met: recoveredAddressInitTimestampt === workerTimeStampAddress &&   recoveredAddressExpiredTimestamp === workerTimeStampAddress && timerDuration >= sessionData.requested_session_duration`)
+  }
+
+}

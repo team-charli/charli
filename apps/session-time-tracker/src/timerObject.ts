@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 
 export class TimerObject {
-  private connectedClients: Set<string> = new Set();
+  private connectedClients: Map<string, WebSocket> = new Map();
 
   constructor(public state: DurableObjectState, public env: Env) {}
 
@@ -23,7 +23,12 @@ export class TimerObject {
       const { 0: client, 1: server } = new WebSocketPair();
       this.state.acceptWebSocket(server);
       server.addEventListener('message', event => this.handleMessage(server, event));
-      server.addEventListener('close', () => this.handleDisconnect(server));
+      server.addEventListener('close', () => {
+        const participantRole = this.getParticipantRole(server);
+        if (participantRole) {
+          this.handleDisconnect(participantRole);
+        }
+      });
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -47,7 +52,7 @@ export class TimerObject {
       }
 
       if (participantRole) {
-        this.connectedClients.add(participantRole);
+        this.connectedClients.set(participantRole, webSocket);
         if (this.connectedClients.size === 2) {
           this.broadcastMessage({ type: 'bothConnected' });
         }
@@ -57,11 +62,29 @@ export class TimerObject {
       }
     }
   }
+  private getParticipantRole(webSocket: WebSocket): string | undefined {
+    for (const [participantRole, ws] of this.connectedClients.entries()) {
+      if (ws === webSocket) {
+        return participantRole;
+      }
+    }
+    return undefined;
+  }
+  private async handleDisconnect(participantRole: string): Promise<void> {
+    this.connectedClients.delete(participantRole);
+    this.broadcastMessage({ type: 'droppedConnection', message: `User ${participantRole} dropped connection. Waiting two minutes for reconnect.` }, { participantRole });
 
-  private handleDisconnect(webSocket: WebSocket): void {
-    // Remove the disconnected client from the set based on the associated participantRole
-    // You may need to associate the participantRole with the webSocket to remove it correctly
-    // this.connectedClients.delete(participantRole);
+    const disconnectTime = Date.now();
+    await this.state.storage.put(`${participantRole}DisconnectTime`, disconnectTime);
+
+    const disconnectCount = await this.state.storage.get(`${participantRole}DisconnectCount`) as number || 0;
+    await this.state.storage.put(`${participantRole}DisconnectCount`, disconnectCount + 1);
+
+    if (disconnectCount >= 3) {
+      this.broadcastMessage({ type: 'thirdConnectionDrop', message: `User ${participantRole} dropped connection for the third time.` }, { participantRole });
+    }
+
+    await this.state.storage.setAlarm(disconnectTime + 2 * 60 * 1000); // Set alarm for 2 minutes
   }
 
   async alarm(): Promise<void> {
@@ -75,22 +98,55 @@ export class TimerObject {
     const warningTime = now + duration - 3 * 60 * 1000; // 3 minutes warning
     const expirationTime = now + duration;
 
-    this.broadcastMessage({type: 'initiated', message: 'timer initiated'})
+    try {
+      const wallet = new ethers.Wallet(this.env.PRIVATE_KEY);
+      const currentTime = new Date();
+      const timestampMs = String(currentTime.getTime());
+      const signature = await wallet.signMessage(timestampMs);
+      this.broadcastMessage({ type: 'initiated', message: 'Timer initiated' }, { timestampMs, signature });
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error signing');
+    }
+
     if (now >= warningTime && now < expirationTime) {
       this.broadcastMessage({ type: 'warning', message: '3 minute warning' });
     } else if (now >= expirationTime) {
-      this.broadcastMessage({ type: 'expired', message: 'Time expired' });
-      await this.state.storage.delete('duration');
+      try {
+        const wallet = new ethers.Wallet(this.env.PRIVATE_KEY);
+        const currentTime = new Date();
+        const timestampMs = String(currentTime.getTime());
+        const signature = await wallet.signMessage(timestampMs);
+        this.broadcastMessage({ type: 'expired', message: 'Time expired' }, { timestampMs, signature });
+        await this.state.storage.delete('duration');
+      } catch (error) {
+        console.error(error);
+        throw new Error('Error signing');
+      }
+    }
+
+    for (const participantRole of ['teacher', 'learner']) {
+      const disconnectTime = await this.state.storage.get(`${participantRole}DisconnectTime`);
+
+      if (disconnectTime && Date.now() - (disconnectTime as number) >= 2 * 60 * 1000) {
+        this.broadcastMessage({ type: 'connectionTimeout', message: `User ${participantRole} dropped connection exceeds 2-minute timeout.` }, { participantRole });
+        await this.state.storage.delete(`${participantRole}DisconnectTime`);
+        await this.state.storage.delete(`${participantRole}DisconnectCount`);
+      }
     }
   }
 
   // This method is updated to directly broadcast messages to all hibernatable WebSocket connections
-  private async broadcastMessage(message: Object): Promise<void> {
+  private async broadcastMessage(message: Object, data?: Object): Promise<void> {
     if (this.connectedClients.size === 2) {
       const webSockets = await this.state.getWebSockets();
       for (const ws of webSockets) {
         if (ws.readyState === WebSocket.READY_STATE_OPEN) {
-          ws.send(JSON.stringify(message));
+          const payload = {
+            message,
+            data,
+          };
+          ws.send(JSON.stringify(payload));
         }
       }
     }
@@ -104,5 +160,5 @@ interface DurableObjectState {
   acceptWebSocket: (websocket: WebSocket) => void;
   getWebSockets: () => Promise<Iterable<WebSocket>>;
 }
-interface Env {}
+interface Env {PRIVATE_KEY: string}
 interface RequestPayload { duration: number; hashedTeacherAddress: string; hashedLearnerAddress: string; }

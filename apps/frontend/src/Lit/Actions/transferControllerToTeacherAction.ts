@@ -26,7 +26,6 @@ import ethers from 'ethers' //remove in deploy
   //let workerPublicAddress = "0xf96d015c2f44c6a608A78857Fa9063790D2908BA"
   /* above are passed in params, must delete before deploy */
 
-
 export const transferControllerToTeacherAction = `
 interface CheckSigsParams {
   role: "teacher" | "learner";
@@ -41,7 +40,6 @@ interface CheckSigsParams {
   const abi = [
     "function transfer(address to, uint256 amount) returns (boolean)"
   ];
-
 
   const contract = new ethers.Contract(usdcContractAddress , abi);
   const recipient = teacherAddress;

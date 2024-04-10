@@ -34,14 +34,12 @@ export const useExecuteTransferControllerToTeacher = () => {
 
 
 
-  ) => {
+  ): Promise<string> => {
     const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
     const chainId = import.meta.env.VITE_CHAIN_ID;
     const chain = import.meta.env.VITE_LIT_CHAIN_NAME;
     const addressTimestampWorkerWallet = import.meta.env.VITE_PUBLIC_ADDRESS_TIMESTAMP_WORKER_WALLET;
     //use teacher authSig for now
-
-
 
     const results = await litNodeClient.executeJs({
       code: transferControllerToTeacherAction,
@@ -83,6 +81,7 @@ export const useExecuteTransferControllerToTeacher = () => {
     const { txParams } = response;
 
     const txn = ethers.Transaction.from({ ...txParams, signature: encodedSig }).serialized;
+   return txn
   }
   return {executeTransferControllerToTeacher};
 }
