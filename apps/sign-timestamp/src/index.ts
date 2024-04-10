@@ -14,12 +14,12 @@ export default {
       const wallet = new ethers.Wallet(env.PRIVATE_KEY);
 
       const currentTime = new Date();
-      const joinedTimestamp = currentTime.toISOString();
+      const timestamp = currentTime.toISOString();
 
-      const signature = await wallet.signMessage(joinedTimestamp);
+      const signature = await wallet.signMessage(timestamp);
 
       const responseData = {
-        timestamp: joinedTimestamp,
+        timestamp: timestamp,
         signature: signature,
       };
 

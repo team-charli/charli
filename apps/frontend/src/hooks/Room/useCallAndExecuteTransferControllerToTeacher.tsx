@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { useSessionContext } from "../../contexts/SessionsContext";
 import { calculateSessionCost, checkSessionCompleted } from "../../utils/app";
 import { useExecuteTransferControllerToTeacher } from "../LitActions/useExecuteTransferControllerToTeacher";
@@ -10,10 +10,11 @@ interface ActionResult {
   txn: string | null;
   actionSuccess: boolean | null;
 }
-export const useCallAndExecuteTransferControllerToTeacher = ( roomRole: "learner" | "teacher", timerInitiated: boolean, initTimestamp: string, initTimestampSig: string, timerExpired: boolean, expiredTimestamp: string, expiredTimestampSig: string ) => {
+export const useCallAndExecuteTransferControllerToTeacher = ( roomRole: "learner" | "teacher", timerInitiated: boolean, initTimestamp: string, initTimestampSig: string, timerExpired: boolean, expiredTimestamp: string, expiredTimestampSig: string, setOnLeaveGracfully: Dispatch<SetStateAction<boolean>>) => {
   const [actionResult, setActionResult] = useState<ActionResult>({roomRole, actionSuccess: null, txn: null});
   if (roomRole !== "teacher") {
-    setActionResult({roomRole, actionSuccess: null, txn: null})
+    setActionResult({roomRole, actionSuccess: null, txn: null});
+    setOnLeaveGracfully(true);
   };
 
   const [ currentAccount ] = useLocalStorage<IRelayPKP>("currentAccount")
@@ -34,6 +35,7 @@ export const useCallAndExecuteTransferControllerToTeacher = ( roomRole: "learner
           const actionCallResult = await executeTransferControllerToTeacher(currentAccount.ethAddress, hashed_learner_address, hashed_teacher_address, controller_address, controller_public_key, paymentAmount, learner_joined_timestamp, learner_joined_signature, teacher_joined_timestamp, teacher_joined_signature, learner_left_timestamp, learner_left_signature, teacher_left_timestamp, teacher_left_signature, learner_joined_timestamp_worker_sig, teacher_joined_timestamp_worker_sig, learner_left_timestamp_worker_sig,  teacher_left_timestamp_worker_sig)
           if (actionCallResult.length) {
             setActionResult({roomRole, txn: actionCallResult, actionSuccess: true})
+            setOnLeaveGracfully(true);
           }
         })();
       }

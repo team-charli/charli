@@ -1,20 +1,25 @@
+import ky from 'ky';
 import ethers from 'ethers';
 import { useState, useEffect } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { checkSessionCompleted } from '../../utils/app';
+import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
+import { TimestampResponse } from '../../types/types';
+import { useStoreRoomLeftData } from '../Supabase/DbCalls/useStoreRoomLeftData';
 
 export const useSessionTimer = (roomRole: string, sessionData: any) => {
   const [timerWebsocket, setTimerWebsocket] = useState<WebSocket | null>(null);
   const [bothWsConnected, setBothWsConnected] = useState(false);
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
+  const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs')
   const [timerInitiated, setTimerInitiated] = useState(false);
   const [ initTimestamp, setInitTimestamp ] = useState('');
   const [ initTimestampSig, setInitTimestampSig] = useState('');
   const [ timerExpired, setTimerExpired] = useState(false);
   const [ expiredTimestamp, setExpiredTimestamp] = useState('');
   const [ expiredTimestampSig, setExpiredTimestampSig ] = useState('');
-
+  const { storeRoomLeftData } = useStoreRoomLeftData()
 
   useEffect(() => {
     if (currentAccount) {
@@ -28,6 +33,7 @@ export const useSessionTimer = (roomRole: string, sessionData: any) => {
           })
         );
       };
+      //NOTE: put Faultcases from Server below
       setTimerWebsocket(ws);
       ws.onmessage = (event) => {
         const { message } = JSON.parse(event.data);
@@ -47,6 +53,7 @@ export const useSessionTimer = (roomRole: string, sessionData: any) => {
           setExpiredTimestamp(timestampMs);
           setExpiredTimestampSig(timestampSig);
           setTimerExpired(true);
+
           // leave room gracefully
           // Call useCallExecuteTransferControllerToTeacher
         }
@@ -56,6 +63,23 @@ export const useSessionTimer = (roomRole: string, sessionData: any) => {
       };
     }
   }, [currentAccount, sessionData]);
+
+// storeRoomLeftData on timerExpired
+  useEffect(() => {
+    (async () => {
+      if (timerExpired && sessionSigs && currentAccount && sessionData.session_id){
+        const session_id = sessionData.session_id;
+        const pkpWallet = new PKPEthersWallet({controllerSessionSigs: sessionSigs, pkpPubKey: currentAccount.publicKey});
+        await pkpWallet.init();
+        const timestampRes = await ky.get('https://sign-timestamp.zach-greco.workers.dev').json<TimestampResponse>();
+        const {timestamp: leftTimestamp, signature: leftTimestampWorkerSig} = timestampRes
+        const sigRes = await pkpWallet.signMessage(leftTimestamp + roomRole);
+        await storeRoomLeftData(leftTimestamp, sigRes, roomRole, leftTimestampWorkerSig, session_id)
+      }
+    })();
+
+  }, [ timerExpired, sessionData.session_id, currentAccount, sessionSigs ])
+
 
   const submitSignature = async () => {
     if (currentAccount && sessionData) {
