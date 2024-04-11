@@ -135,7 +135,16 @@ export class TimerObject {
       const disconnectTime = await this.state.storage.get(`${participantRole}DisconnectTime`);
 
       if (disconnectTime && Date.now() - (disconnectTime as number) >= 2 * 60 * 1000) {
-        this.broadcastMessage({ type: 'connectionTimeout', message: `User ${participantRole} dropped connection exceeds 2-minute timeout.` }, { participantRole });
+        let signature;
+        const message = `User ${participantRole} dropped connection exceeds 2-minute timeout.`
+        try {
+        const wallet = new ethers.Wallet(this.env.PRIVATE_KEY);
+        signature = await wallet.signMessage(message)
+        }  catch (error) {
+          console.error(error)
+          throw new Error(`Failed to sign connectionTimeout message`)
+        }
+        this.broadcastMessage({ type: 'connectionTimeout', message }, { participantRole, signature });
         await this.state.storage.delete(`${participantRole}DisconnectTime`);
         await this.state.storage.delete(`${participantRole}DisconnectCount`);
       }

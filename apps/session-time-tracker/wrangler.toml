@@ -13,3 +13,7 @@ bindings = [
 tag = "v3"
 deleted_classes = ["WebSocketWorker"]
 new_classes= ["SessionState"]
+
+[[migrations]]
+tag = "v4"
+new_classes = ["DisconnectionManager"]

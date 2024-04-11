@@ -1,7 +1,7 @@
 import { Hono, Env } from 'hono';
 export { TimerObject } from './timerObject';
 export { SessionState } from './sessionState';
-
+export { DisconnectionManager } from './disconnectionManager';
 interface CustomContext extends Env {
   TIMER_OBJECT: DurableObjectNamespace;
   SESSION_STATE: DurableObjectNamespace;
