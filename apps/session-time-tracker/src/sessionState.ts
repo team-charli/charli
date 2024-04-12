@@ -56,12 +56,11 @@ export class SessionState {
     return teacherJoinSigs && learnerJoinSigs;
   }
 
-
-  async startTimer(duration: number, hashedTeacherAddress: string, hashedLearnerAddress: string, sessionId: string) {
-    const timerId = this.env.TIMER_OBJECT.idFromName(`timer_object_${sessionId}`);
-    const timerStub = this.env.TIMER_OBJECT.get(timerId);
+ async startTimer(duration: number, hashedTeacherAddress: string, hashedLearnerAddress: string, sessionId: string) {
+    const timerId = this.env.SESSION_TIMER.newUniqueId();
+    const timerStub = this.env.SESSION_TIMER.get(timerId);
     const body = JSON.stringify({ duration, hashedTeacherAddress, hashedLearnerAddress, sessionId });
-    const response = await timerStub.fetch('http://timer/', {
+    const response = await timerStub.fetch(`http://session-timer/`, {
       method: "POST",
       body,
       headers: { "Content-Type": "application/json" },
@@ -71,7 +70,8 @@ export class SessionState {
   }
 }
 interface Env {
-  TIMER_OBJECT: DurableObjectNamespace;
+  SESSION_TIMER: DurableObjectNamespace;
+
 }
 
 interface Participant {

@@ -4,9 +4,9 @@ main = "src/index.ts"
 compatibility_date = "2024-04-04"
 [durable_objects]
 bindings = [
-{ name = "TIMER", class_name = "TimerObject" },
+{ name = "SESSION_TIMER", class_name = "SessionTimer" },
 {name = "SESSION_STATE", class_name = "SessionState"},
-{name = "DISCONNECTION_MANAGER", class_name = "DisconnectionManager"}
+{name = "CONNECTION_MANAGER", class_name = "ConnectionManager"}
 ]
 
 [[migrations]]
@@ -17,3 +17,8 @@ new_classes= ["SessionState"]
 [[migrations]]
 tag = "v4"
 new_classes = ["DisconnectionManager"]
+
+[[migrations]]
+tag = "v5"
+deleted_classes= ["TimerObject, DisconnectionManager"]
+new_classes = ["ConnectionManager, SessionTimer"]
