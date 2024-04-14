@@ -5,7 +5,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@huddle01/server-sdk": "^2.2.2",
     "ethers": "^6.11.1",
     "hono": "^4.2.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240405.0"
   }
 }

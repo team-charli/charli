@@ -7,6 +7,7 @@ bindings = [
 { name = "SESSION_TIMER", class_name = "SessionTimer" },
 {name = "SESSION_STATE", class_name = "SessionState"},
 {name = "CONNECTION_MANAGER", class_name = "ConnectionManager"}
+{name = "WEBSOCKET_MANAGER", class_name = "WebSocketManager"}
 ]
 
 [[migrations]]
