@@ -27,7 +27,7 @@ import ethers from 'ethers' //remove in deploy
   let workerPublicAddress = "0xf96d015c2f44c6a608A78857Fa9063790D2908BA"
   /* above are passed in params, must delete before deploy */
 
-// export const transferControllerToTeacherAction = `
+export const transferControllerToTeacherAction = `
 interface CheckSigsParams {
   role: "teacher" | "learner";
   hashedAddress: string;
@@ -153,6 +153,6 @@ interface CheckSigsParams {
     console.log('sigShare', sigShare);
   }
 })();
-// `
+`
 
 

@@ -12,6 +12,7 @@ import { useVerifyRoleAndAddress } from '../../hooks/Room/useVerifyRoleAndAddres
 import useSessionManager from '../../hooks/Room/useSessionManager';
 import useSessionCases from '../../hooks/Room/useSessionCases';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { useExecuteTransferControllerToTeacher } from '../../hooks/LitActions/useExecuteTransferControllerToTeacher';
 
 const Room  = ( {match, location}: RoomProps) => {
   const roomId = match.params.id
@@ -28,15 +29,9 @@ const Room  = ( {match, location}: RoomProps) => {
   const [ onLeaveCalled, setOnLeaveCalled ] = useState(false);
   const [onLeaveGracefully, setOnLeaveGracefully ]  = useState(false);
   const sessionManager = useSessionManager({clientSideRoomId: roomId, hashedLearnerAddress: hashed_learner_address, hashedTeacherAddress: hashed_teacher_address, userAddress: currentAccount?.ethAddress, sessionSigs, currentAccount});
-  const userIPFSData = useSessionCases(sessionManager.messages);
-/*
-  clientSideRoomId,
-  hashedTeacherAddress,
-  hashedLearnerAddress,
-  userAddress,
-*/
+  const userIPFSData = useSessionCases(sessionManager);
 
-  const actionResult = useCallAndExecuteTransferControllerToTeacher(roomRole, timerInitiated, initTimestamp, initTimestampSig, timerExpired, expiredTimestamp,expiredTimestampSig,setOnLeaveGracefully );
+  const actionResult = useExecuteTransferControllerToTeacher(userIPFSData, sessionSigs, authSig);
   // TODO: generalize relayer
   // TODO: send actionResult with relayer
 

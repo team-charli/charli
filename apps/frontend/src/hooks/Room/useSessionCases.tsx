@@ -232,7 +232,6 @@ interface UserIPFSData {
   roomId: string | null;
   joinedAt: number | null;
   leftAt: number | null;
-  // include other fields as necessary from the User interface
   joinedAtSig?: string | null;
   leftAtSig?: string | null;
   faultTime?: number;
