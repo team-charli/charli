@@ -5,11 +5,10 @@ import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useSupabase } from '../../contexts/SupabaseContext';
 
 const useSessionCases = (messages: Message[]) => {
-  const [sessionCases, setSessionCases] = useState<SessionCase[]>([]);
+  const [userIPFSData, setUserIPFSData] = useState<UserIPFSData | undefined>();
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs')
   const { client: supabaseClient, supabaseLoading } = useSupabase();
-
   useEffect(() => {
     const handleMessage = async (message: Message) => {
       if (message.type === 'message') {
@@ -52,21 +51,18 @@ const useSessionCases = (messages: Message[]) => {
     const signedData = await signTimestampData(sessionCase);
     const ipfsHash = await postDataToIPFS(signedData);
     await postDataToSupabase(ipfsHash, sessionCase);
-    setSessionCases((prevCases) => [...prevCases, sessionCase]);
   };
 
   const handleUserJoinedCase = async (sessionCase: SessionCase) => {
     const signedData = await signTimestampData(sessionCase);
     const ipfsHash = await postDataToIPFS(signedData);
     await postDataToSupabase(ipfsHash, sessionCase);
-    setSessionCases((prevCases) => [...prevCases, sessionCase]);
   };
 
   const handleUserLeftCase = async (sessionCase: SessionCase) => {
     const signedData = await signTimestampData(sessionCase);
     const ipfsHash = await postDataToIPFS(signedData);
     await postDataToSupabase(ipfsHash, sessionCase);
-    setSessionCases((prevCases) => [...prevCases, sessionCase]);
   };
 
   const signTimestampData = async (sessionCase: SessionCase): Promise<SignedData> => {
@@ -146,6 +142,7 @@ const useSessionCases = (messages: Message[]) => {
       if (response.ok) {
         const result = await response.json();
         const ipfsHash = result.IpfsHash;
+        setUserIPFSData(mergedData);
         return ipfsHash;
       } else {
         throw new Error('Failed to post data to IPFS');
@@ -192,7 +189,7 @@ const useSessionCases = (messages: Message[]) => {
     }
   };
 
-  return sessionCases;
+  return userIPFSData
 };
 
 interface SessionCase {
@@ -226,6 +223,23 @@ interface User {
 interface Message {
   type: 'init' | 'websocket' | 'message';
   data: any;
+}
+interface UserIPFSData {
+  clientTimestamp: number;
+  signedClientTimestamp: string;
+  role: "teacher" | "learner" | null;
+  peerId: string | null;
+  roomId: string | null;
+  joinedAt: number | null;
+  leftAt: number | null;
+  // include other fields as necessary from the User interface
+  joinedAtSig?: string | null;
+  leftAtSig?: string | null;
+  faultTime?: number;
+  faultTimeSig?: string;
+  duration?: number | null;
+  hashedTeacherAddress?: string;
+  hashedLearnerAddress: string;
 }
 
 export default useSessionCases;
