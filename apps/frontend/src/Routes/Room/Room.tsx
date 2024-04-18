@@ -9,12 +9,16 @@ import { useSessionContext } from '../../contexts/SessionsContext';
 import { useCallAndExecuteTransferControllerToTeacher } from '../../hooks/Room/useCallAndExecuteTransferControllerToTeacher';
 import { Redirect } from 'react-router-dom';
 import { useVerifyRoleAndAddress } from '../../hooks/Room/useVerifyRoleAndAddress';
+import useSessionManager from '../../hooks/Room/useSessionManager';
+import useSessionCases from '../../hooks/Room/useSessionCases';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 const Room  = ( {match, location}: RoomProps) => {
   const roomId = match.params.id
   const {roomRole} = location.state;
   const {notification : {session_id, hashed_learner_address, hashed_teacher_address }} = location.state;
-
+  const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount')
+  const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs')
   // const { storeRoomJoinData } = useStoreRoomJoinData();
   // const {sessionData} = useSessionContext();
   const { notification } = location.state;
@@ -23,7 +27,14 @@ const Room  = ( {match, location}: RoomProps) => {
   const [onJoinCalled, setOnJoinCalled ] = useState(false);
   const [ onLeaveCalled, setOnLeaveCalled ] = useState(false);
   const [onLeaveGracefully, setOnLeaveGracefully ]  = useState(false);
-
+  const sessionManager = useSessionManager({clientSideRoomId: roomId, hashedLearnerAddress: hashed_learner_address, hashedTeacherAddress: hashed_teacher_address, userAddress: currentAccount?.ethAddress, sessionSigs, currentAccount});
+  const userIPFSData = useSessionCases(sessionManager.messages);
+/*
+  clientSideRoomId,
+  hashedTeacherAddress,
+  hashedLearnerAddress,
+  userAddress,
+*/
 
   const actionResult = useCallAndExecuteTransferControllerToTeacher(roomRole, timerInitiated, initTimestamp, initTimestampSig, timerExpired, expiredTimestamp,expiredTimestampSig,setOnLeaveGracefully );
   // TODO: generalize relayer

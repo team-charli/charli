@@ -1,110 +1,117 @@
 import { useState, useEffect, useRef } from 'react';
-import { ethers } from 'ethers';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 
 const useSessionManager = ({
   clientSideRoomId,
   hashedTeacherAddress,
   hashedLearnerAddress,
   userAddress,
+  currentAccount,
+  sessionSigs
 }: UseSessionManagerOptions) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
   const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const signerRef = useRef<ethers.Signer | null>(null);
 
   useEffect(() => {
-    const privateKey = "0x";
-    const signer = new ethers.Wallet(privateKey);
-    signerRef.current = signer;
+    if (clientSideRoomId && hashedTeacherAddress && hashedLearnerAddress && userAddress && currentAccount && sessionSigs) {
 
-    const initializeWebhookServer = async () => {
-      try {
-        const workerUrl = import.meta.env.VITE_SESSION_TIMER_WORKER_URL;
-        const response = await fetch(`${workerUrl}/init`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            clientSideRoomId,
-            hashedTeacherAddress,
-            hashedLearnerAddress,
-            userAddress,
-          }),
-        });
+      const initializeWebhookServer = async () => {
+        try {
+          const workerUrl = import.meta.env.VITE_SESSION_TIMER_WORKER_URL;
+          const response = await fetch(`${workerUrl}/init`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              clientSideRoomId,
+              hashedTeacherAddress,
+              hashedLearnerAddress,
+              userAddress,
+            }),
+          });
 
-        if (response.ok) {
+          if (response.ok) {
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              { type: 'init', data: 'Initialization successful' },
+            ]);
+
+            const connectWebSocket = () => {
+              const websocketUrl = `wss://${workerUrl}/websocket/${clientSideRoomId}`;
+              const socket = new WebSocket(websocketUrl);
+              socketRef.current = socket;
+
+              socket.addEventListener('open', () => {
+                console.log('WebSocket connection established');
+                startHeartbeat();
+              });
+
+              socket.addEventListener('close', () => {
+                console.log('WebSocket connection closed');
+                stopHeartbeat();
+              });
+
+              socket.addEventListener('message', (event) => {
+                const message = event.data;
+                setMessages((prevMessages) => [
+                  ...prevMessages,
+                  { type: 'message', data: message },
+                ]);
+              });
+
+              socket.addEventListener('error', (error) => {
+                console.error('WebSocket error:', error);
+                setMessages((prevMessages) => [
+                  ...prevMessages,
+                  { type: 'websocket', data: `WebSocket error: ${error}` },
+                ]);
+              });
+            };
+
+            connectWebSocket();
+          } else {
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              { type: 'init', data: 'Initialization failed' },
+            ]);
+          }
+        } catch (error) {
           setMessages((prevMessages) => [
             ...prevMessages,
-            { type: 'init', data: 'Initialization successful' },
-          ]);
-
-          const connectWebSocket = () => {
-            const websocketUrl = `wss://${workerUrl}/websocket/${clientSideRoomId}`;
-            const socket = new WebSocket(websocketUrl);
-            socketRef.current = socket;
-
-            socket.addEventListener('open', () => {
-              console.log('WebSocket connection established');
-              startHeartbeat();
-            });
-
-            socket.addEventListener('close', () => {
-              console.log('WebSocket connection closed');
-              stopHeartbeat();
-            });
-
-            socket.addEventListener('message', (event) => {
-              const message = event.data;
-              setMessages((prevMessages) => [
-                ...prevMessages,
-                { type: 'message', data: message },
-              ]);
-            });
-
-            socket.addEventListener('error', (error) => {
-              console.error('WebSocket error:', error);
-              setMessages((prevMessages) => [
-                ...prevMessages,
-                { type: 'websocket', data: `WebSocket error: ${error}` },
-              ]);
-            });
-          };
-
-          connectWebSocket();
-        } else {
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            { type: 'init', data: 'Initialization failed' },
+            { type: 'init', data: `Initialization error: ${error}` },
           ]);
         }
-      } catch (error) {
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          { type: 'init', data: `Initialization error: ${error}` },
-        ]);
-      }
-    };
+      };
 
-    initializeWebhookServer();
+      initializeWebhookServer();
 
-    return () => {
-      stopHeartbeat();
-      if (socketRef.current) {
-        socketRef.current.close();
-      }
-    };
-  }, [clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress]);
+      return () => {
+        stopHeartbeat();
+        if (socketRef.current) {
+          socketRef.current.close();
+        }
+      };
+    }
+  }, [clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress, currentAccount, sessionSigs]);
 
   const startHeartbeat = () => {
     if (heartbeatTimerRef.current) return;
 
+
     heartbeatTimerRef.current = setInterval(async () => {
-      if (!socketRef.current || !signerRef.current) return;
+      if (!socketRef.current || !sessionSigs || !currentAccount) return;
+      const pkpWallet = new PKPEthersWallet({
+        controllerSessionSigs: sessionSigs,
+        pkpPubKey: currentAccount?.publicKey,
+      });
+      await pkpWallet.init();
 
       const timestamp = Date.now();
       const message = `Heartbeat at ${timestamp}`;
-      const signature = await signerRef.current.signMessage(message);
+      const signature = await pkpWallet.signMessage(message);
       const heartbeatMessage = {
         type: 'heartbeat',
         timestamp,
@@ -130,10 +137,12 @@ interface Message {
 }
 
 interface UseSessionManagerOptions {
-  clientSideRoomId: string;
-  hashedTeacherAddress: string;
-  hashedLearnerAddress: string;
-  userAddress: string;
+  clientSideRoomId: string | undefined;
+  hashedTeacherAddress: string | undefined;
+  hashedLearnerAddress: string | undefined;
+  userAddress: string | undefined;
+  currentAccount: IRelayPKP | null;
+  sessionSigs: SessionSigs | null;
 }
 
 export default useSessionManager;
