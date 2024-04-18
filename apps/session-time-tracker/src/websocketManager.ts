@@ -36,6 +36,8 @@ export class WebSocketManager {
       }
       const user: User = {
         role,
+        hashedTeacherAddress: clientData.hashedTeacherAddress,
+        hashedLearnerAddress: clientData.hashedLearnerAddress,
         peerId: null,
         roomId: null,
         joinedAt: null,
@@ -82,9 +84,14 @@ export class WebSocketManager {
           joinedAt,
           joinedAtSig: signature,
         };
-        const message = { message: `Peer ${peerId} joined room ${webhookRoomId} at ${new Date(joinedAt).toISOString()}` };
-        const data = { user: clientEntry.user };
-        this.broadcast(message, data);
+        const message: Message = {
+          type: 'userJoined',
+          data: {
+            user: clientEntry.user,
+            timestamp: joinedAt,
+          },
+        };
+        this.broadcast(message);
       }
     } else if (event.event === "peer:left") {
       const { id: peerId, leftAt, duration } = event.payload as WebhookEvents['peer:left'][0];
@@ -97,9 +104,15 @@ export class WebSocketManager {
           leftAtSig: signature,
           duration,
         };
-        const message = { message: `Peer ${peerId} left room ${clientEntry.user.roomId} at ${new Date(leftAt).toISOString()}` };
+        const message: Message = {
+          type: 'userLeft',
+          data: {
+            user: clientEntry.user,
+            timestamp: leftAt,
+          },
+        };
         const data = { user: clientEntry.user };
-        this.broadcast(message, data);
+        this.broadcast(message);
       }
     }
   }
@@ -129,76 +142,150 @@ export class WebSocketManager {
     }
   }
 
-  async handleFault(user: User, ws: WebSocket | null) {
-    // Check if the user is the teacher or learner
-    const isTeacher = user.role === 'teacher';
-    const isLearner = user.role === 'learner';
+async handleFault(user: User, ws: WebSocket | null) {
+  // Check if the user is the teacher or learner
+  const isTeacher = user.role === 'teacher';
+  const isLearner = user.role === 'learner';
 
-    // Check if the user is the first to join
-    const isFirstUser = user.joinedAt === Math.min(...Array.from(this.clients.values()).map(entry => entry.user.joinedAt!));
+  // Check if the user is the first to join
+  const isFirstUser = user.joinedAt === Math.min(...Array.from(this.clients.values()).map(entry => entry.user.joinedAt!));
 
-    if (isFirstUser) {
-      // First user fault, check if the second user joined within 3 minutes
-      const secondUserJoinedAt = Math.max(...Array.from(this.clients.values()).map(entry => entry.user.joinedAt!));
-      if (secondUserJoinedAt - user.joinedAt! > 180000) {
-        // Second user did not join within 3 minutes
-        if (isTeacher) {
-          // Learner fault
-          const faultType = 'learnerFault';
-          const proof = { faultType, user };
-          if (!ws) throw new Error(`Websocket should not be null`);
-          await this.sendFaultMessage(ws, faultType, proof);
-        } else if (isLearner) {
-          // Teacher fault
-          const faultType = 'teacherFault';
-          const proof = { faultType, user };
-          if (!ws) throw new Error(`Websocket should not be null`);
-          await this.sendFaultMessage(ws, faultType, proof);
+  if (isFirstUser) {
+    // First user fault, check if the second user joined within 3 minutes
+    const secondUserJoinedAt = Math.max(...Array.from(this.clients.values()).map(entry => entry.user.joinedAt!));
+    if (secondUserJoinedAt - user.joinedAt! > 180000) {
+      if (isTeacher) {
+        // Learner fault
+        const faultType = 'learnerFault_didnt_join';
+        const faultTime = Date.now();
+        const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
+        const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role === 'learner');
+        if (clientEntry) {
+          clientEntry.user = {
+            ...clientEntry.user,
+            faultTime,
+            faultTimeSig,
+          };
         }
-      }
-    } else {
-      // User dropped connection for more than 3 minutes
-      const currentTimestamp = Date.now();
-      const disconnectionDuration = currentTimestamp - user.leftAt!;
-      if (disconnectionDuration > 180000) {
-        if (isTeacher) {
-          // Teacher fault
-          const faultType = 'teacherFault';
-          const proof = { faultType, user };
-          if (!ws) throw new Error(`Websocket should not be null`);
-          await this.sendFaultMessage(ws, faultType, proof);
-        } else if (isLearner) {
-          // Learner fault
-          const faultType = 'learnerFault';
-          const proof = { faultType, user };
-          if (!ws) throw new Error(`Websocket should not be null`);
-          await this.sendFaultMessage(ws, faultType, proof);
+        const message: Message = {
+          type: 'fault',
+          data: {
+            faultType,
+            user: clientEntry?.user,
+            timestamp: faultTime,
+            signature: faultTimeSig,
+          },
+        };
+        if (!ws) throw new Error(`Websocket should not be null`);
+        await this.sendMessage(ws, message);
+      } else if (isLearner) {
+        // Teacher fault
+        const faultType = 'teacherFault_didnt_join';
+        const faultTime = Date.now();
+        const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
+        const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role === 'teacher');
+        if (clientEntry) {
+          clientEntry.user = {
+            ...clientEntry.user,
+            faultTime,
+            faultTimeSig,
+          };
         }
+        const message: Message = {
+          type: 'fault',
+          data: {
+            faultType,
+            user: clientEntry?.user,
+            timestamp: faultTime,
+            signature: faultTimeSig,
+          },
+        };
+        if (!ws) throw new Error(`Websocket should not be null`);
+        await this.sendMessage(ws, message);
       }
     }
-  }
-
-  async sendFaultMessage(ws: WebSocket, faultType: string, proof: any) {
-    const message = {
-      type: 'fault',
-      faultType,
-      proof: {
-        ...proof,
-        userRole: proof.user.role,
-      },
-    };
-    ws.send(JSON.stringify(message));
-  }
-
-  async broadcast(message: Message, data: any) {
-    for (const { ws } of this.clients.values()) {
-      if (ws) {
-        const payload = { message, data };
-        ws.send(JSON.stringify(payload));
+  } else {
+    // User dropped connection for more than 3 minutes
+    const currentTimestamp = Date.now();
+    const disconnectionDuration = currentTimestamp - user.leftAt!;
+    if (disconnectionDuration > 180000) {
+      if (isTeacher) {
+        // Teacher fault
+        const faultType = 'teacherFault_connection_timeout';
+        const faultTime = Date.now();
+        const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
+        const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role === 'teacher');
+        if (clientEntry) {
+          clientEntry.user = {
+            ...clientEntry.user,
+            faultTime,
+            faultTimeSig,
+          };
+        }
+        const message: Message = {
+          type: 'fault',
+          data: {
+            faultType,
+            user: clientEntry?.user,
+            timestamp: faultTime,
+            signature: faultTimeSig,
+          },
+        };
+        if (!ws) throw new Error(`Websocket should not be null`);
+        await this.sendMessage(ws, message);
+      } else if (isLearner) {
+        // Learner fault
+        const faultType = 'learnerFault_connection_timeout';
+        const faultTime = Date.now();
+        const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
+        const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role === 'learner');
+        if (clientEntry) {
+          clientEntry.user = {
+            ...clientEntry.user,
+            faultTime,
+            faultTimeSig,
+          };
+        }
+        const message: Message = {
+          type: 'fault',
+          data: {
+            faultType,
+            user: clientEntry?.user,
+            timestamp: faultTime,
+            signature: faultTimeSig,
+          },
+        };
+        if (!ws) throw new Error(`Websocket should not be null`);
+        await this.sendMessage(ws, message);
       }
     }
   }
 }
+
+  // async sendFaultMessage(ws: WebSocket, faultType: string, proof: any) {
+  //   const message = {
+  //     type: 'fault',
+  //     faultType,
+  //     proof: {
+  //       ...proof,
+  //       userRole: proof.user.role,
+  //     },
+  //   };
+  //   ws.send(JSON.stringify(message));
+  // }
+
+  async sendMessage(ws: WebSocket, message: Message) {
+    ws.send(JSON.stringify(message));
+  }
+  async broadcast(message: Message) {
+    for (const { ws } of this.clients.values()) {
+      if (ws) {
+        await this.sendMessage(ws, message);
+      }
+    }
+  }
+}
+
 
 interface ClientData {
   clientSideRoomId: string;
@@ -206,6 +293,18 @@ interface ClientData {
   hashedLearnerAddress: string;
   userAddress: string;
 }
+
+interface Message {
+  type: 'fault' | 'userJoined' | 'userLeft';
+  data: {
+    faultType?: 'learnerFault_didnt_join' | 'teacherFault_didnt_join' | 'learnerFault_connection_timeout' | 'teacherFault_connection_timeout';
+    user?: User;
+    timestamp: number;
+    signature?: string;
+    // Add more properties as needed for different message types
+  };
+}
+
 interface User {
   role: "teacher" | "learner" | null;
   peerId: string | null;
@@ -214,6 +313,10 @@ interface User {
   leftAt: number | null;
   joinedAtSig: string | null;
   leftAtSig: string | null;
+  faultTime?: number;
+  faultTimeSig?: string;
   duration: number | null;
+          hashedTeacherAddress: string;
+        hashedLearnerAddress: string;
+
 }
-interface Message { message: string; }
