@@ -159,17 +159,31 @@ const useSessionCases = (messages: Message[]) => {
   const postDataToSupabase = async (ipfsHash: string, sessionCase: SessionCase): Promise<void> => {
     try {
       if (supabaseClient && !supabaseLoading && sessionCase.user) {
-        const { data, error } = await supabaseClient
-          .from('sessions')
-          .update({ ipfs_cid: ipfsHash })
-          .eq('huddle_room_id', sessionCase.user.roomId);
+        if (sessionCase.user.role === 'teacher') {
+          const { data, error } = await supabaseClient
+            .from('sessions')
+            .update({ ipfs_cid_teacher: ipfsHash })
+            .eq('huddle_room_id', sessionCase.user.roomId);
 
-        if (error) {
-          throw new Error('Failed to update session data in Supabase');
-        } else {
-          console.log('Session data updated in Supabase:', data);
+          if (error) {
+            throw new Error('Failed to update session data in Supabase');
+          } else {
+            console.log('Session data updated in Supabase:', data);
+          }
+        } else if (sessionCase.user.role === 'learner'){
+          const { data, error } = await supabaseClient
+            .from('sessions')
+            .update({ ipfs_cid_learner: ipfsHash })
+            .eq('huddle_room_id', sessionCase.user.roomId);
+          if (error) {
+            throw new Error('Failed to update session data in Supabase');
+          } else {
+            console.log('Session data updated in Supabase:', data);
+          }
+
         }
-      } else {
+      }
+      else {
         throw new Error('Supabase client not initialized or user data missing');
       }
     } catch (error) {
