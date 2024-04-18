@@ -8,14 +8,14 @@ export class WebSocketManager {
   private clientData: ClientData | null;
   private app: Hono;
   private userHeartbeats: Map<string, number> = new Map();
-  private readonly heartbeatThreshold = 90000; // 90 seconds
+  private readonly heartbeatThreshold = 35000; // 90 seconds
 
   constructor(private state: DurableObjectState, private env: any) {
     this.wallet = new ethers.Wallet(env.PRIVATE_KEY);
     this.clientData = null;
     this.app = new Hono();
 
-    this.app.get('/websocket', async (c) => {
+    this.app.get('/websocket/:roomId', async (c) => {
       if (c.req.header('Upgrade') !== 'websocket') return new Response('Expected Upgrade: websocket', { status: 426 });
       const [client, server] = Object.values(new WebSocketPair());
       await this.handleWebSocketConnect(server);
@@ -54,21 +54,20 @@ export class WebSocketManager {
       return c.text('OK');
     });
   }
-
   async fetch(request: Request) { return this.app.fetch(request); }
 
-async handleWebSocketConnect(ws: WebSocket) {
-  const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role && !entry.ws);
-  if (clientEntry) {
-    clientEntry.ws = ws;
-    console.log('WebSocket connection established');
-    this.state.acceptWebSocket(ws);
-    ws.addEventListener('close', () => {
-      clientEntry.ws = null;
-      console.log('WebSocket connection closed');
-    });
+  async handleWebSocketConnect(ws: WebSocket) {
+    const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role && !entry.ws);
+    if (clientEntry) {
+      clientEntry.ws = ws;
+      console.log('WebSocket connection established');
+      this.state.acceptWebSocket(ws);
+      ws.addEventListener('close', () => {
+        clientEntry.ws = null;
+        console.log('WebSocket connection closed');
+      });
+    }
   }
-}
 
   async processEvent(event: WebhookData) {
     if (event.event === "peer:joined") {
@@ -131,6 +130,10 @@ async handleWebSocketConnect(ws: WebSocket) {
   }
 
   async handleFault(user: User, ws: WebSocket | null) {
+    // Check if the user is the teacher or learner
+    const isTeacher = user.role === 'teacher';
+    const isLearner = user.role === 'learner';
+
     // Check if the user is the first to join
     const isFirstUser = user.joinedAt === Math.min(...Array.from(this.clients.values()).map(entry => entry.user.joinedAt!));
 
@@ -139,22 +142,51 @@ async handleWebSocketConnect(ws: WebSocket) {
       const secondUserJoinedAt = Math.max(...Array.from(this.clients.values()).map(entry => entry.user.joinedAt!));
       if (secondUserJoinedAt - user.joinedAt! > 180000) {
         // Second user did not join within 3 minutes
-        const faultType = 'firstUserFault';
-        const proof = { faultType, user };
-        if (!ws) throw new Error(`Websocket shoud not be null`)
-        await this.sendFaultMessage(ws, faultType, proof);
+        if (isTeacher) {
+          // Learner fault
+          const faultType = 'learnerFault';
+          const proof = { faultType, user };
+          if (!ws) throw new Error(`Websocket should not be null`);
+          await this.sendFaultMessage(ws, faultType, proof);
+        } else if (isLearner) {
+          // Teacher fault
+          const faultType = 'teacherFault';
+          const proof = { faultType, user };
+          if (!ws) throw new Error(`Websocket should not be null`);
+          await this.sendFaultMessage(ws, faultType, proof);
+        }
       }
     } else {
-      // Second user fault
-      const faultType = 'secondUserFault';
-      const proof = { faultType, user };
-      if (!ws) throw new Error(`Websocket shoud not be null`)
-      await this.sendFaultMessage(ws, faultType, proof);
+      // User dropped connection for more than 3 minutes
+      const currentTimestamp = Date.now();
+      const disconnectionDuration = currentTimestamp - user.leftAt!;
+      if (disconnectionDuration > 180000) {
+        if (isTeacher) {
+          // Teacher fault
+          const faultType = 'teacherFault';
+          const proof = { faultType, user };
+          if (!ws) throw new Error(`Websocket should not be null`);
+          await this.sendFaultMessage(ws, faultType, proof);
+        } else if (isLearner) {
+          // Learner fault
+          const faultType = 'learnerFault';
+          const proof = { faultType, user };
+          if (!ws) throw new Error(`Websocket should not be null`);
+          await this.sendFaultMessage(ws, faultType, proof);
+        }
+      }
     }
   }
 
   async sendFaultMessage(ws: WebSocket, faultType: string, proof: any) {
-    const message = { type: 'fault', faultType, proof };
+    const message = {
+      type: 'fault',
+      faultType,
+      proof: {
+        ...proof,
+        userRole: proof.user.role,
+      },
+    };
     ws.send(JSON.stringify(message));
   }
 

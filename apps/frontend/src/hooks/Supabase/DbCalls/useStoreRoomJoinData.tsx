@@ -2,7 +2,7 @@ import { useSupabase } from "apps/frontend/src/contexts/SupabaseContext";
 
 export const useStoreRoomJoinData = () => {
   const { client: supabaseClient, supabaseLoading } = useSupabase();
-  async function storeRoomJoinData (joinedTimestamp: string, signedJoinSignature: string | null, roomRole: string, joinedTimestampWorkerSig: string, session_id: number) {
+  async function storeRoomJoinData ( roomRole: string, joinedTimestampWorkerSig: string, session_id: number) {
     if (!signedJoinSignature) throw new Error(`no join signature`)
     if (supabaseClient && ! supabaseLoading) {
       if (roomRole === 'learner') {

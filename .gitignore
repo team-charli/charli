@@ -42,3 +42,7 @@ Charli
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Serverless
+.serverless
+.webpack

@@ -4,6 +4,12 @@ import { sign } from 'hono/jwt';
 import { WebhookReceiver } from "@huddle01/server-sdk/webhooks";
 const app = new Hono<{ Bindings: Bindings }>();
 
+app.get('/websocket/:roomId', async (c) => {
+  const roomId = c.req.param('roomId');
+  const durableObject = await getDurableObject(c.env.WEBSOCKET_MANAGER, roomId);
+  const resp = await durableObject.fetch(c.req.url);
+  return resp;
+});
 app.post('/authenticate', async (c) => {
   const { walletAddress, signature, sessionId } = await c.req.json();
   const isSignatureValid = verifySignature(walletAddress, signature, sessionId);

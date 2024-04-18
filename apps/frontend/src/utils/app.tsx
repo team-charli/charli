@@ -110,16 +110,7 @@ export function calculateSessionCost(sessionDuration: number | undefined) {
   return import.meta.env.SESSION_RATE * sessionDuration;
 }
 
-export function checkHashedAddress(currentAccount: IRelayPKP, roomRole: string, hashed_learner_address: string | undefined, hashed_teacher_address:string | undefined)
- {
- if (roomRole === 'teacher' && hashed_teacher_address === ethers.keccak256(currentAccount.ethAddress) ) {
-   return true;
-  } else if (roomRole === 'learner' && hashed_learner_address === ethers.keccak256(currentAccount.ethAddress)) {
-    return true
-} else {throw new Error("you're busted")}
-}
-
-export function checkSessionCompleted(timerInitiated: boolean, initTimestamp: string, initTimestampSig: string, timerExpired: boolean, expiredTimestamp: string, expiredTimestampSig: string, requested_session_duration: number) {
+export function checkSessionCompleted(timerInitiated: boolean, initTimestamp: string, initTimestampSig: string, timerExpired: boolean, expiredTimestamp: string, expiredTimestampSig: string, requested_session_duration: number | undefined) {
   const workerTimeStampAddress = import.meta.env.VITE_PUBLIC_ADDRESS_TIMESTAMP_WORKER_WALLET;
   const timerDuration = parseInt(expiredTimestamp)-parseInt(initTimestamp);
   const recoveredAddressInitTimestampt = ethers.verifyMessage(initTimestamp,initTimestampSig);

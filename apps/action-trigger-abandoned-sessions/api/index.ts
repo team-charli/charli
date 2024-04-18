@@ -1,11 +1,24 @@
-/*jsParams delete befor*/
+import ethers from 'ethers'
+import siwe from 'siwe'
 import { LitNodeClientNodeJs as LitNodeClient } from "@lit-protocol/lit-node-client-nodejs";
 import { AuthSig } from '@lit-protocol/types';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
+/*vercel: refund Lit Action*/
+/*params: */
 export default async (req: VercelRequest, res: VercelResponse) => {
-  const privateKey = process.env.DEV_PRIVATE_KEY
+  const {controller_public_key: controllerPublicKey, controller_address: controllerAddress, user_address: learnerAddress} = await req.body.json() as {
+    controller_public_key: string;
+    controller_address: string;
+    user_address: string;
+  }
+
+  const providerUrl = process.env.PROVIDER_URL;
+  const provider = new ethers.JsonRpcProvider(providerUrl);
+  const privateKey = process.env.DEV_PRIVATE_KEY as string
   const network = process.env.LIT_NETWORK;
+  const wallet = new ethers.Wallet(privateKey, provider);
+
   const litNodeClient = new LitNodeClient({ network });
   await litNodeClient.connect();
   const authSig = await generateSig()
@@ -17,14 +30,16 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       ipfsId,
       authMethods: [],
       jsParams: {
-        keyId
+        learnerAddress,
+        controllerAddress,
+        controllerPublicKey
       },
     })
   } catch(error) {
     console.error(error);
     throw new Error(`Lit Action failed`)
   }
-  //res.status(200).json({ message: 'Hello from Vercel with TypeScript!' });
+  res.status(200).json({ message: JSON.stringify(claimActionRes) });
 
   async function generateSig (): Promise<AuthSig> {
     const domain = process.env.DOMAIN;
@@ -48,14 +63,9 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     });
 
     const messageToSign = siweMessage.prepareMessage();
-
     const signature = await wallet.signMessage(messageToSign);
-
     const recoveredAddress = ethers.verifyMessage(messageToSign, signature);
-
-    if (recoveredAddress !== wallet.address) {
-      throw new Error("Recovered address does not match wallet address");
-    }
+    if (recoveredAddress !== wallet.address) { throw new Error("Recovered address does not match wallet address"); }
 
     const authSig = {
       sig: signature,
@@ -63,9 +73,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       signedMessage: messageToSign,
       address: recoveredAddress,
     };
-
     console.log("authSig", authSig);
     return authSig;
   }
-
 };
