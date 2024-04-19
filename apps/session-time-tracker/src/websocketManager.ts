@@ -71,63 +71,108 @@ export class WebSocketManager {
     }
   }
 
-  async processEvent(event: WebhookData) {
-    if (event.event === "peer:joined") {
-      const { id: peerId, roomId: webhookRoomId, joinedAt } = event.payload as WebhookEvents['peer:joined'][0];
-      const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role && !entry.user.peerId);
-      if (clientEntry) {
-        const signature = await this.wallet.signMessage(String(joinedAt));
-        clientEntry.user = {
-          ...clientEntry.user,
-          peerId,
-          roomId: webhookRoomId,
-          joinedAt,
-          joinedAtSig: signature,
-        };
-        const message: Message = {
-          type: 'userJoined',
-          data: {
-            user: clientEntry.user,
-            timestamp: joinedAt,
-          },
-        };
-        this.broadcast(message);
-      }
-    } else if (event.event === "peer:left") {
-      const { id: peerId, leftAt, duration } = event.payload as WebhookEvents['peer:left'][0];
-      const clientEntry = this.clients.get(peerId);
-      if (clientEntry) {
-        const signature = await this.wallet.signMessage(String(leftAt));
-        clientEntry.user = {
-          ...clientEntry.user,
-          leftAt,
-          leftAtSig: signature,
-          duration,
-        };
-        const message: Message = {
-          type: 'userLeft',
-          data: {
-            user: clientEntry.user,
-            timestamp: leftAt,
-          },
-        };
-        const data = { user: clientEntry.user };
-        this.broadcast(message);
-      }
-    }
-  }
+async processEvent(event: WebhookData) {
+  if (event.event === "peer:joined") {
+    const { id: peerId, roomId: webhookRoomId, joinedAt } = event.payload as WebhookEvents['peer:joined'][0];
+    const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role && !entry.user.peerId);
+    if (clientEntry) {
+      const signature = await this.wallet.signMessage(String(joinedAt));
+      clientEntry.user = {
+        ...clientEntry.user,
+        peerId,
+        roomId: webhookRoomId,
+        joinedAt,
+        joinedAtSig: signature,
+      };
 
-  async handleWebSocketMessage(ws: WebSocket, message: string) {
-    const data = JSON.parse(message);
-    if (data.type === 'heartbeat') {
-      const { timestamp, signature } = data;
-      const clientEntry = Array.from(this.clients.values()).find(entry => entry.ws === ws);
-      if (clientEntry && clientEntry.user.peerId) {
-        const address = ethers.verifyMessage(timestamp.toString(), signature);
-        if (address === this.clientData?.userAddress) this.userHeartbeats.set(clientEntry.user.peerId, timestamp);
+      // Store the user data in the Durable Object's storage
+      await this.state.storage.put(`user:${clientEntry.user.role}`, clientEntry.user);
+
+      const message: Message = {
+        type: 'userJoined',
+        data: {
+          user: clientEntry.user,
+          timestamp: joinedAt,
+        },
+      };
+      this.broadcast(message);
+
+      // Check if both users have joined
+      const teacherJoinedData = await this.state.storage.get('user:teacher') as User | null;
+      const learnerJoinedData = await this.state.storage.get('user:learner') as User | null;
+      if (teacherJoinedData && learnerJoinedData) {
+        // Both users have joined, broadcast a message
+        const bothJoinedMessage: Message = {
+          type: 'bothJoined',
+          data: {
+            teacher: teacherJoinedData,
+            learner: learnerJoinedData,
+          },
+        };
+        this.broadcast(bothJoinedMessage);
+      }
+    }
+  } else if (event.event === "peer:left") {
+    const { id: peerId, leftAt, duration } = event.payload as WebhookEvents['peer:left'][0];
+    const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.peerId === peerId);
+    if (clientEntry) {
+      const signature = await this.wallet.signMessage(String(leftAt));
+      clientEntry.user = {
+        ...clientEntry.user,
+        leftAt,
+        leftAtSig: signature,
+        duration,
+      };
+
+      // Store the updated user data in the Durable Object's storage
+      await this.state.storage.put(`user:${clientEntry.user.role}`, clientEntry.user);
+
+      const message: Message = {
+        type: 'userLeft',
+        data: {
+          user: clientEntry.user,
+          timestamp: leftAt,
+        },
+      };
+      this.broadcast(message);
+
+      // Check if both users have left
+      const teacherLeftData = await this.state.storage.get('user:teacher') as User | null;
+      const learnerLeftData = await this.state.storage.get('user:learner') as User | null;
+      if (teacherLeftData && learnerLeftData && teacherLeftData.leftAt && learnerLeftData.leftAt) {
+        // Both users have left, broadcast a message
+        const bothLeftMessage: Message = {
+          type: 'bothLeft',
+          data: {
+            teacher: teacherLeftData,
+            learner: learnerLeftData,
+          },
+        };
+        this.broadcast(bothLeftMessage);
       }
     }
   }
+}
+
+async handleWebSocketMessage(ws: WebSocket, message: string) {
+  const data = JSON.parse(message);
+  if (data.type === 'heartbeat') {
+    const { timestamp, signature } = data;
+    const clientEntry = Array.from(this.clients.values()).find(entry => entry.ws === ws);
+    if (clientEntry && clientEntry.user.peerId) {
+      const address = ethers.verifyMessage(timestamp.toString(), signature);
+      if (address === this.clientData?.userAddress) this.userHeartbeats.set(clientEntry.user.peerId, timestamp);
+    }
+  } else if (data.type === 'getUserData') {
+    const teacherData = await this.state.storage.get('user:teacher') as User | null;
+    const learnerData = await this.state.storage.get('user:learner') as User | null;
+    const userData: UserData = {
+      teacher: teacherData,
+      learner: learnerData,
+    };
+    await this.sendMessage(ws, { type: 'userData', data: userData });
+  }
+}
 
   async checkHeartbeats() {
     const currentTimestamp = Date.now();
@@ -262,18 +307,6 @@ async handleFault(user: User, ws: WebSocket | null) {
   }
 }
 
-  // async sendFaultMessage(ws: WebSocket, faultType: string, proof: any) {
-  //   const message = {
-  //     type: 'fault',
-  //     faultType,
-  //     proof: {
-  //       ...proof,
-  //       userRole: proof.user.role,
-  //     },
-  //   };
-  //   ws.send(JSON.stringify(message));
-  // }
-
   async sendMessage(ws: WebSocket, message: Message) {
     ws.send(JSON.stringify(message));
   }
@@ -295,16 +328,21 @@ interface ClientData {
 }
 
 interface Message {
-  type: 'fault' | 'userJoined' | 'userLeft';
+  type: 'fault' | 'userJoined' | 'userLeft' | 'bothJoined' | 'bothLeft' | 'userData';
   data: {
     faultType?: 'learnerFault_didnt_join' | 'teacherFault_didnt_join' | 'learnerFault_connection_timeout' | 'teacherFault_connection_timeout';
     user?: User;
-    timestamp: number;
+    timestamp?: number;
     signature?: string;
-    // Add more properties as needed for different message types
+    teacher?: User | null;
+    learner?: User | null;
   };
 }
 
+interface UserData {
+  teacher: User | null;
+  learner: User | null;
+}
 interface User {
   role: "teacher" | "learner" | null;
   peerId: string | null;
@@ -316,7 +354,6 @@ interface User {
   faultTime?: number;
   faultTimeSig?: string;
   duration: number | null;
-          hashedTeacherAddress: string;
-        hashedLearnerAddress: string;
-
+  hashedTeacherAddress: string;
+  hashedLearnerAddress: string;
 }

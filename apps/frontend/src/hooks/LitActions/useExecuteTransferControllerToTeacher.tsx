@@ -4,9 +4,8 @@ import { litNodeClient } from "../../utils/lit";
 import { AuthSig, SessionSigs } from "@lit-protocol/types";
 
 export const useExecuteTransferControllerToTeacher = (userIPFSData: UserIPFSData| undefined, sessionSigs: SessionSigs, authSig: AuthSig ) => {
-
-  const executeTransferControllerToTeacher = async (
-    {
+if (userIPFSData) {
+ const {
       clientTimestamp,
       signedClientTimestamp,
       role,
@@ -21,7 +20,8 @@ export const useExecuteTransferControllerToTeacher = (userIPFSData: UserIPFSData
       duration,
       hashedTeacherAddress,
       hashedLearnerAddress,
-    }: UserIPFSData
+    } = userIPFSData;
+  const executeTransferControllerToTeacher = async (
   ): Promise<string> => {
     const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
     const chainId = import.meta.env.VITE_CHAIN_ID;
@@ -65,11 +65,13 @@ export const useExecuteTransferControllerToTeacher = (userIPFSData: UserIPFSData
     }).serialized;
 
     const { txParams } = response;
-
     const txn = ethers.Transaction.from({ ...txParams, signature: encodedSig }).serialized;
     return txn
   }
   return {executeTransferControllerToTeacher};
+  } else {
+    return null;
+  }
 }
 interface UserIPFSData {
   clientTimestamp: number;
