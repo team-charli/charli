@@ -1,51 +1,112 @@
-import { transferControllerToTeacherAction  } from "../../Lit/Actions/transferControllerToTeacherAction";
-import {ethers} from 'ethers'
+import { transferControllerToTeacherAction } from "../../Lit/Actions/transferControllerToTeacherAction";
+import { ethers } from 'ethers';
 import { litNodeClient } from "../../utils/lit";
 import { AuthSig, SessionSigs } from "@lit-protocol/types";
 
-export const useExecuteTransferControllerToTeacher = (userIPFSData: UserIPFSData| undefined, sessionSigs: SessionSigs, authSig: AuthSig ) => {
-if (userIPFSData) {
- const {
-      clientTimestamp,
-      signedClientTimestamp,
-      role,
-      peerId,
-      roomId,
-      joinedAt,
-      leftAt,
-      joinedAtSig,
-      leftAtSig,
-      faultTime,
-      faultTimeSig,
-      duration,
-      hashedTeacherAddress,
-      hashedLearnerAddress,
-    } = userIPFSData;
-  const executeTransferControllerToTeacher = async (
-  ): Promise<string> => {
+interface User {
+  role: "teacher" | "learner" | null;
+  peerId: string | null;
+  roomId: string | null;
+  joinedAt: number | null;
+  leftAt: number | null;
+  joinedAtSig: string | null;
+  leftAtSig: string | null;
+  faultTime?: number;
+  faultTimeSig?: string;
+  duration: number | null;
+  hashedTeacherAddress: string;
+  hashedLearnerAddress: string;
+}
+
+interface SessionData {
+  teacher: User | null;
+  learner: User | null;
+}
+
+interface SessionIPFSData extends SessionData {
+  signedClientTimestamp: string;
+  clientTimestamp: number;
+}
+
+export const useExecuteTransferControllerToTeacher = (
+  userIPFSData: SessionIPFSData | undefined,
+  sessionSigs: SessionSigs,
+  authSig: AuthSig
+) => {
+  if (!userIPFSData) return null; // Early exit if no data provided
+
+  const { signedClientTimestamp, clientTimestamp, teacher, learner } = userIPFSData;
+
+  if (!teacher || !learner) {
+    console.error("Teacher or Learner data is missing.");
+    return null; // Early exit if required users are missing
+  }
+
+  // Destructure teacher and learner data
+  const {
+    role: teacherRole,
+    peerId: teacherPeerId,
+    roomId: teacherRoomId,
+    joinedAt: teacherJoinedAt,
+    leftAt: teacherLeftAt,
+    joinedAtSig: teacherJoinedAtSig,
+    leftAtSig: teacherLeftAtSig,
+    faultTime: teacherFaultTime,
+    faultTimeSig: teacherFaultTimeSig,
+    duration: teacherDuration,
+    hashedTeacherAddress,
+    hashedLearnerAddress: teacherHashedLearnerAddress,
+  } = teacher;
+
+  const {
+    role: learnerRole,
+    peerId: learnerPeerId,
+    roomId: learnerRoomId,
+    joinedAt: learnerJoinedAt,
+    leftAt: learnerLeftAt,
+    joinedAtSig: learnerJoinedAtSig,
+    leftAtSig: learnerLeftAtSig,
+    faultTime: learnerFaultTime,
+    faultTimeSig: learnerFaultTimeSig,
+    duration: learnerDuration,
+    hashedTeacherAddress: learnerHashedTeacherAddress,
+    hashedLearnerAddress,
+  } = learner;
+
+  const executeTransferControllerToTeacher = async (): Promise<string> => {
     const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
     const chainId = import.meta.env.VITE_CHAIN_ID;
     const chain = import.meta.env.VITE_LIT_CHAIN_NAME;
     const addressTimestampWorkerWallet = import.meta.env.VITE_PUBLIC_ADDRESS_TIMESTAMP_WORKER_WALLET;
-    //use teacher authSig for now
 
     const results = await litNodeClient.executeJs({
       code: transferControllerToTeacherAction,
       sessionSigs,
       jsParams: {
-        clientTimestamp,
-        signedClientTimestamp,
-        role,
-        peerId,
-        roomId,
-        joinedAt,
-        leftAt,
-        joinedAtSig,
-        leftAtSig,
-        faultTime,
-        faultTimeSig,
-        duration,
+        teacherRole,
+        teacherPeerId,
+        teacherRoomId,
+        teacherJoinedAt,
+        teacherLeftAt,
+        teacherJoinedAtSig,
+        teacherLeftAtSig,
+        teacherFaultTime,
+        teacherFaultTimeSig,
+        teacherDuration,
         hashedTeacherAddress,
+        teacherHashedLearnerAddress,
+
+        learnerRole,
+        learnerPeerId,
+        learnerRoomId,
+        learnerJoinedAt,
+        learnerLeftAt,
+        learnerJoinedAtSig,
+        learnerLeftAtSig,
+        learnerFaultTime,
+        learnerFaultTimeSig,
+        learnerDuration,
+        learnerHashedTeacherAddress,
         hashedLearnerAddress,
 
         usdcContractAddress,
@@ -53,6 +114,11 @@ if (userIPFSData) {
         chain,
         addressTimestampWorkerWallet,
         authSig,
+
+        clientTimestamp,
+        signedClientTimestamp,
+
+
       },
     });
 
@@ -66,27 +132,8 @@ if (userIPFSData) {
 
     const { txParams } = response;
     const txn = ethers.Transaction.from({ ...txParams, signature: encodedSig }).serialized;
-    return txn
-  }
-  return {executeTransferControllerToTeacher};
-  } else {
-    return null;
-  }
-}
-interface UserIPFSData {
-  clientTimestamp: number;
-  signedClientTimestamp: string;
-  role: "teacher" | "learner" | null;
-  peerId: string | null;
-  roomId: string | null;
-  joinedAt: number | null;
-  leftAt: number | null;
-  joinedAtSig?: string | null;
-  leftAtSig?: string | null;
-  faultTime?: number;
-  faultTimeSig?: string;
-  duration?: number | null;
-  hashedTeacherAddress?: string;
-  hashedLearnerAddress: string;
-}
+    return txn;
+  };
 
+  return { executeTransferControllerToTeacher };
+};

@@ -42,6 +42,7 @@ const useSessionCases = (messages: Message[]) => {
         const signedData: SessionIPFSData = {
           ...sessionData,
           signedClientTimestamp: signature,
+          clientTimestamp: Date.now()
         };
 
         return signedData;
@@ -111,15 +112,15 @@ const useSessionCases = (messages: Message[]) => {
   return sessionIPFSData;
 };
 
+
+interface SessionIPFSData extends SessionData {
+  signedClientTimestamp: string;
+  clientTimestamp: number;
+}
 interface SessionData {
   teacher: User | null;
   learner: User | null;
 }
-
-interface SessionIPFSData extends SessionData {
-  signedClientTimestamp: string;
-}
-
 interface User {
   role: "teacher" | "learner" | null;
   peerId: string | null;
