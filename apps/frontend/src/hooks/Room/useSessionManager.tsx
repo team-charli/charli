@@ -16,7 +16,6 @@ const useSessionManager = ({
 
   useEffect(() => {
     if (clientSideRoomId && hashedTeacherAddress && hashedLearnerAddress && userAddress && currentAccount && sessionSigs) {
-
       const initializeWebhookServer = async () => {
         try {
           const workerUrl = import.meta.env.VITE_SESSION_TIMER_WORKER_URL;
@@ -40,7 +39,7 @@ const useSessionManager = ({
             ]);
 
             const connectWebSocket = () => {
-              const websocketUrl = `wss://${workerUrl}/websocket/${clientSideRoomId}`;
+              const websocketUrl = `wss://${workerUrl.replace('https://', '')}/websocket/${clientSideRoomId}`;
               const socket = new WebSocket(websocketUrl);
               socketRef.current = socket;
 
@@ -55,7 +54,7 @@ const useSessionManager = ({
               });
 
               socket.addEventListener('message', (event) => {
-                const message = event.data;
+                const message = JSON.parse(event.data);
                 setMessages((prevMessages) => [
                   ...prevMessages,
                   { type: 'message', data: message },
@@ -100,23 +99,25 @@ const useSessionManager = ({
   const startHeartbeat = () => {
     if (heartbeatTimerRef.current) return;
 
-
     heartbeatTimerRef.current = setInterval(async () => {
       if (!socketRef.current || !sessionSigs || !currentAccount) return;
+
       const pkpWallet = new PKPEthersWallet({
         controllerSessionSigs: sessionSigs,
-        pkpPubKey: currentAccount?.publicKey,
+        pkpPubKey: currentAccount.publicKey,
       });
       await pkpWallet.init();
 
       const timestamp = Date.now();
       const message = `Heartbeat at ${timestamp}`;
       const signature = await pkpWallet.signMessage(message);
+
       const heartbeatMessage = {
         type: 'heartbeat',
         timestamp,
         signature,
       };
+
       socketRef.current.send(JSON.stringify(heartbeatMessage));
     }, 30000);
   };

@@ -5,67 +5,30 @@ import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useSupabase } from '../../contexts/SupabaseContext';
 
 const useSessionCases = (messages: Message[]) => {
-  const [userIPFSData, setUserIPFSData] = useState<UserIPFSData | undefined>();
+  const [sessionIPFSData, setSessionIPFSData] = useState<SessionIPFSData | null>(null);
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
-  const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs')
+  const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
   const { client: supabaseClient, supabaseLoading } = useSupabase();
+
   useEffect(() => {
     const handleMessage = async (message: Message) => {
       if (message.type === 'message') {
         const parsedData = JSON.parse(message.data);
-        if (parsedData.type === 'fault') {
-          const { faultType, user, timestamp, signature } = parsedData.data;
-          const sessionCase: SessionCase = {
-            type: 'fault',
-            faultType,
-            user,
-            timestamp,
-            signature,
-          };
-          await handleFaultCase(sessionCase);
-        } else if (parsedData.type === 'userJoined') {
-          const { user, timestamp } = parsedData.data;
-          const sessionCase: SessionCase = {
-            type: 'userJoined',
-            user,
-            timestamp,
-          };
-          await handleUserJoinedCase(sessionCase);
-        } else if (parsedData.type === 'userLeft') {
-          const { user, timestamp } = parsedData.data;
-          const sessionCase: SessionCase = {
-            type: 'userLeft',
-            user,
-            timestamp,
-          };
-          await handleUserLeftCase(sessionCase);
+        if (parsedData.type === 'userData') {
+          const signedData = await signTimestampData(parsedData.data);
+          const ipfsHash = await postDataToIPFS(signedData);
+          await postDataToSupabase(ipfsHash, parsedData.data);
+          setSessionIPFSData(signedData);
         }
       }
     };
+
     messages.forEach((message) => {
       handleMessage(message);
     });
   }, [messages]);
 
-  const handleFaultCase = async (sessionCase: SessionCase) => {
-    const signedData = await signTimestampData(sessionCase);
-    const ipfsHash = await postDataToIPFS(signedData);
-    await postDataToSupabase(ipfsHash, sessionCase);
-  };
-
-  const handleUserJoinedCase = async (sessionCase: SessionCase) => {
-    const signedData = await signTimestampData(sessionCase);
-    const ipfsHash = await postDataToIPFS(signedData);
-    await postDataToSupabase(ipfsHash, sessionCase);
-  };
-
-  const handleUserLeftCase = async (sessionCase: SessionCase) => {
-    const signedData = await signTimestampData(sessionCase);
-    const ipfsHash = await postDataToIPFS(signedData);
-    await postDataToSupabase(ipfsHash, sessionCase);
-  };
-
-  const signTimestampData = async (sessionCase: SessionCase): Promise<SignedData> => {
+  const signTimestampData = async (sessionData: SessionData): Promise<SessionIPFSData> => {
     if (currentAccount && sessionSigs) {
       try {
         const pkpWallet = new PKPEthersWallet({
@@ -74,32 +37,10 @@ const useSessionCases = (messages: Message[]) => {
         });
         await pkpWallet.init();
 
-        let message;
-        if (sessionCase.type === 'userJoined') {
-          message = {
-            user: sessionCase.user,
-            timestamp: sessionCase.timestamp,
-          };
-        } else if (sessionCase.type === 'userLeft') {
-          message = {
-            user: sessionCase.user,
-            timestamp: sessionCase.timestamp,
-          };
-        } else if (sessionCase.type === 'fault') {
-          message = {
-            user: sessionCase.user,
-            faultType: sessionCase.faultType,
-            timestamp: sessionCase.timestamp,
-          };
-        } else {
-          throw new Error('Invalid session case type');
-        }
+        const signature = await pkpWallet.signMessage(JSON.stringify(sessionData));
 
-        const signature = await pkpWallet.signMessage(JSON.stringify(message));
-
-        const signedData: SignedData = {
-          user: sessionCase.user!,
-          clientTimestamp: sessionCase.timestamp,
+        const signedData: SessionIPFSData = {
+          ...sessionData,
           signedClientTimestamp: signature,
         };
 
@@ -110,10 +51,10 @@ const useSessionCases = (messages: Message[]) => {
       }
     }
 
-    return {} as SignedData;
+    throw new Error('currentAccount or sessionSigs missing');
   };
 
-  const postDataToIPFS = async (signedData: SignedData): Promise<string> => {
+  const postDataToIPFS = async (signedData: SessionIPFSData): Promise<string> => {
     try {
       const apiKey = import.meta.env.VITE_PINATA_API_KEY;
       const apiSecret = import.meta.env.VITE_PINATA_API_SECRET;
@@ -125,25 +66,17 @@ const useSessionCases = (messages: Message[]) => {
         pinata_secret_api_key: apiSecret,
       };
 
-      const mergedData = {
-        ...signedData.user,
-        clientTimestamp: signedData.clientTimestamp,
-        signedClientTimestamp: signedData.signedClientTimestamp,
-      };
-
       const response = await fetch(url, {
         method: 'POST',
         headers: headers,
         body: JSON.stringify({
-          pinataContent: mergedData,
+          pinataContent: signedData,
         }),
       });
 
       if (response.ok) {
         const result = await response.json();
-        const ipfsHash = result.IpfsHash;
-        setUserIPFSData(mergedData);
-        return ipfsHash;
+        return result.IpfsHash;
       } else {
         throw new Error('Failed to post data to IPFS');
       }
@@ -153,35 +86,21 @@ const useSessionCases = (messages: Message[]) => {
     }
   };
 
-  const postDataToSupabase = async (ipfsHash: string, sessionCase: SessionCase): Promise<void> => {
+  const postDataToSupabase = async (ipfsHash: string, sessionData: SessionData): Promise<void> => {
     try {
-      if (supabaseClient && !supabaseLoading && sessionCase.user) {
-        if (sessionCase.user.role === 'teacher') {
-          const { data, error } = await supabaseClient
-            .from('sessions')
-            .update({ ipfs_cid_teacher: ipfsHash })
-            .eq('huddle_room_id', sessionCase.user.roomId);
+      if (supabaseClient && !supabaseLoading) {
+        const { data, error } = await supabaseClient
+          .from('sessions')
+          .update({ ipfs_cid: ipfsHash })
+          .eq('huddle_room_id', sessionData.teacher?.roomId || sessionData.learner?.roomId);
 
-          if (error) {
-            throw new Error('Failed to update session data in Supabase');
-          } else {
-            console.log('Session data updated in Supabase:', data);
-          }
-        } else if (sessionCase.user.role === 'learner'){
-          const { data, error } = await supabaseClient
-            .from('sessions')
-            .update({ ipfs_cid_learner: ipfsHash })
-            .eq('huddle_room_id', sessionCase.user.roomId);
-          if (error) {
-            throw new Error('Failed to update session data in Supabase');
-          } else {
-            console.log('Session data updated in Supabase:', data);
-          }
-
+        if (error) {
+          throw new Error('Failed to update session data in Supabase');
+        } else {
+          console.log('Session data updated in Supabase:', data);
         }
-      }
-      else {
-        throw new Error('Supabase client not initialized or user data missing');
+      } else {
+        throw new Error('Supabase client not initialized');
       }
     } catch (error) {
       console.error(error);
@@ -189,20 +108,15 @@ const useSessionCases = (messages: Message[]) => {
     }
   };
 
-  return userIPFSData
+  return sessionIPFSData;
 };
 
-interface SessionCase {
-  type: 'fault' | 'userJoined' | 'userLeft';
-  faultType?: 'learnerFault_didnt_join' | 'teacherFault_didnt_join' | 'learnerFault_connection_timeout' | 'teacherFault_connection_timeout';
-  user?: User;
-  timestamp: number;
-  signature?: string;
+interface SessionData {
+  teacher: User | null;
+  learner: User | null;
 }
 
-interface SignedData {
-  user: User;
-  clientTimestamp: number;
+interface SessionIPFSData extends SessionData {
   signedClientTimestamp: string;
 }
 
@@ -220,25 +134,10 @@ interface User {
   hashedTeacherAddress: string;
   hashedLearnerAddress: string;
 }
+
 interface Message {
   type: 'init' | 'websocket' | 'message';
   data: any;
-}
-interface UserIPFSData {
-  clientTimestamp: number;
-  signedClientTimestamp: string;
-  role: "teacher" | "learner" | null;
-  peerId: string | null;
-  roomId: string | null;
-  joinedAt: number | null;
-  leftAt: number | null;
-  joinedAtSig?: string | null;
-  leftAtSig?: string | null;
-  faultTime?: number;
-  faultTimeSig?: string;
-  duration?: number | null;
-  hashedTeacherAddress?: string;
-  hashedLearnerAddress: string;
 }
 
 export default useSessionCases;
