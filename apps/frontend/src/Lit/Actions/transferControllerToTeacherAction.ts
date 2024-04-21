@@ -1,43 +1,16 @@
 import ethers from 'ethers' //remove in deploy
-  const teacherAddress = "0x"
-  const hashLearnerAddress = "0x"
-  let hashTeacherAddress = "0x"
-  const controllerAddress = "0x"
-  const controllerPubKey = "0x";
-  const paymentAmount=0;
-  const usdcContractAddress= "0x"
-  const authSig="0x"
-  const chain="baseSepolia"
-  const chainId="84532"
-  //sigs
 
+let teacherRole, teacherPeerId, teacherRoomId, teacherJoinedAt, teacherLeftAt, teacherJoinedAtSig, teacherLeftAtSig, teacherFaultTime, teacherFaultTimeSig, teacherDuration, hashedTeacherAddress, teacherHashedLearnerAddress, learnerRole, learnerPeerId, learnerRoomId, learnerJoinedAt, learnerLeftAt, learnerJoinedAtSig, learnerLeftAtSig, learnerFaultTime, learnerFaultTimeSig, learnerDuration, learnerHashedTeacherAddress, hashedLearnerAddress, usdcContractAddress, chainId, chain, addressTimestampWorkerWallet, authSig, clientTimestamp, signedClientTimestamp, confirmedDuration, confirmedDuration_teacherSignature, confirmedDuration_learnerSignature
 
-  let learner_joined_timestamp = "2024-03-30T19:53:24.510Z";
-  let learner_joined_signature =  '0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac0'
-  let teacher_joined_timestamp = "2024-03-30T19:53:24.510Z";
-  let teacher_joined_signature = '0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8';
-  let learner_left_timestamp = "2024-03-30T20:25:49.773Z"
-  let learner_left_signature = '0x57c65f1718e8297f4048beff2419e134656b7a856872b27ad77846e395f13ffe'
-  let teacher_left_timestamp = "2024-03-30T20:25:49.773Z"
-  let teacher_left_signature = '0x6d91615c65c0e8f861b0fbfce2d9897fb942293e341eda10c91a6912c4f32668'
+/* above are passed in params, must delete before deploy */
 
-  let learner_joined_timestamp_worker_sig, learner_left_timestamp_worker_sig,
-  teacher_joined_timestamp_worker_sig, teacher_left_timestamp_worker_sig;
-
-  let workerPublicAddress = "0xf96d015c2f44c6a608A78857Fa9063790D2908BA"
-  /* above are passed in params, must delete before deploy */
-
-export const transferControllerToTeacherAction = `
-interface CheckSigsParams {
-  role: "teacher" | "learner";
-  hashedAddress: string;
-  timestamp: string;
-  signature: string;
-  workerSignature: string;
-  workerPublicAddress: string;
-};
+// export const transferControllerToTeacherAction = `
 
 (async () => {
+
+  const usdcContractAddress = "0x"
+  const rate = .30;
+  const paymentAmount = signedDuration * rate;
   const abi = [
     "function transfer(address to, uint256 amount) returns (boolean)"
   ];
@@ -82,6 +55,22 @@ interface CheckSigsParams {
       }
     }
   ];
+  const verifyAndReturnDuration = () => {
+    const teacherAddress = ethers.verifyMessage(confirmedDuration, confirmedDuration_teacherSignature);
+    const learnerAddress = ethers.verifyMessage(confirmedDuration, confirmedDuration_learnerSignature);
+
+    const teacherSignedDuration: boolean =  hashedTeacherAddress === ethers.keccak256(teacherAddress);
+    const learnerSignedDuration: boolean = hashedLearnerAddress === ethers.keccak256(hashedLearnerAddress);
+
+    //redundant checks for visibility; check made before join session
+    if (!teacherSignedDuration) {
+      throw new Error(`teacher never signed session duration`)
+    } else if (!learnerSignedDuration) {
+      throw new Error(`learner never signed session duration`)
+    }
+
+  }
+
 
   const checkBothSigned = (
   ) => {
@@ -153,6 +142,14 @@ interface CheckSigsParams {
     console.log('sigShare', sigShare);
   }
 })();
-`
+// `
 
+interface CheckSigsParams {
+  role: "teacher" | "learner";
+  hashedAddress: string;
+  timestamp: string;
+  signature: string;
+  workerSignature: string;
+  workerPublicAddress: string;
+};
 

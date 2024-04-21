@@ -26,23 +26,28 @@ interface SessionData {
 interface SessionIPFSData extends SessionData {
   signedClientTimestamp: string;
   clientTimestamp: number;
+  confirmedDuration: number;
+  confirmedDuration_teacherSignature: string;
+  confirmedDuration_learnerSignature: string;
 }
 
 export const useExecuteTransferControllerToTeacher = (
   userIPFSData: SessionIPFSData | undefined,
   sessionSigs: SessionSigs,
-  authSig: AuthSig
+  authSig: AuthSig,
+  sessionDuration: string,
+  teacherDurationSig: string,
+  learnerDurationSig: string
 ) => {
-  if (!userIPFSData) return null; // Early exit if no data provided
+  if (!userIPFSData) return null;
 
   const { signedClientTimestamp, clientTimestamp, teacher, learner } = userIPFSData;
 
   if (!teacher || !learner) {
     console.error("Teacher or Learner data is missing.");
-    return null; // Early exit if required users are missing
+    return null;
   }
 
-  // Destructure teacher and learner data
   const {
     role: teacherRole,
     peerId: teacherPeerId,
@@ -118,7 +123,9 @@ export const useExecuteTransferControllerToTeacher = (
         clientTimestamp,
         signedClientTimestamp,
 
-
+        sessionDuration,
+        teacherDurationSig,
+        learnerDurationSig
       },
     });
 

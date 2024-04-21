@@ -110,20 +110,11 @@ export function calculateSessionCost(sessionDuration: number | undefined) {
   return import.meta.env.SESSION_RATE * sessionDuration;
 }
 
-export function checkSessionCompleted(timerInitiated: boolean, initTimestamp: string, initTimestampSig: string, timerExpired: boolean, expiredTimestamp: string, expiredTimestampSig: string, requested_session_duration: number | undefined) {
-  const workerTimeStampAddress = import.meta.env.VITE_PUBLIC_ADDRESS_TIMESTAMP_WORKER_WALLET;
-  const timerDuration = parseInt(expiredTimestamp)-parseInt(initTimestamp);
-  const recoveredAddressInitTimestampt = ethers.verifyMessage(initTimestamp,initTimestampSig);
-  const recoveredAddressExpiredTimestamp = ethers.verifyMessage(expiredTimestamp, expiredTimestampSig);
-  if (recoveredAddressInitTimestampt !== workerTimeStampAddress) {
-    throw new Error(`Invalid Timestamp`)
-  } else if (recoveredAddressExpiredTimestamp !== workerTimeStampAddress) {
-    throw new Error(`Invalid Timestamp`)
-  }  else if (recoveredAddressInitTimestampt === workerTimeStampAddress &&   recoveredAddressExpiredTimestamp === workerTimeStampAddress && timerDuration >= requested_session_duration){
-    return true;
-  } else {
-    console.error({timerInitiated, initTimestamp, initTimestampSig, timerExpired, expiredTimestamp, expiredTimestampSig})
-    throw new Error(`Condition Not Met: recoveredAddressInitTimestampt === workerTimeStampAddress &&   recoveredAddressExpiredTimestamp === workerTimeStampAddress && timerDuration >= sessionData.requested_session_duration`)
-  }
-
+export function verifyRoleAndAddress(hashed_teacher_address:string | undefined, hashed_learner_address: string | undefined, roomRole: "learner" | "teacher", currentAccount: IRelayPKP) {
+  if (roomRole === 'teacher' && currentAccount?.ethAddress && hashed_teacher_address === ethers.keccak256(currentAccount?.ethAddress) ) {
+    return {verifiedRole: 'teacher'};
+  } else if (roomRole === 'learner' && currentAccount?.ethAddress && hashed_learner_address === ethers.keccak256(currentAccount.ethAddress)) {
+    return { verifiedRole: 'learner' }
+  } else {throw new Error("you're busted")}
 }
+

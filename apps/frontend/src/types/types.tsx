@@ -428,3 +428,15 @@ export interface TimestampResponse {
   timestamp: string;
   signature: string;
 }
+
+export interface SessionDurationData {
+  sessionId: string;
+  sessionDuration: number;
+  learnerSignature?: string;
+  teacherSignature?: string;
+}
+
+export interface IPFSResponse {
+  cid: string;
+  data: SessionDurationData;
+}
