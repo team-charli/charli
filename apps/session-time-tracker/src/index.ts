@@ -1,7 +1,9 @@
-import ethers from 'ethers';
+import { verifyMessage } from 'ethers';
 import { Hono } from 'hono';
 import { sign } from 'hono/jwt';
 import { WebhookReceiver } from "@huddle01/server-sdk/webhooks";
+export {WebSocketManager} from './websocketManager'
+
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.get('/websocket/:roomId', async (c) => {
@@ -80,7 +82,7 @@ app.post('/webhook', async (c) => {
 });
 
 function verifySignature(walletAddress: string, signature: string, sessionId: string): boolean {
-  return walletAddress ===  ethers.verifyMessage(sessionId, signature);
+  return walletAddress ===  verifyMessage(sessionId, signature);
 }
 
 async function getDurableObject(namespace: DurableObjectNamespace, roomId: string) {

@@ -2,11 +2,9 @@ name = "session-time-tracker"
 workers_dev = true
 main = "src/index.ts"
 compatibility_date = "2024-04-04"
+node_compat = true
 [durable_objects]
 bindings = [
-{ name = "SESSION_TIMER", class_name = "SessionTimer" },
-{name = "SESSION_STATE", class_name = "SessionState"},
-{name = "CONNECTION_MANAGER", class_name = "ConnectionManager"},
 {name = "WEBSOCKET_MANAGER", class_name = "WebSocketManager"},
 ]
 
@@ -21,5 +19,11 @@ new_classes = ["DisconnectionManager"]
 
 [[migrations]]
 tag = "v5"
-deleted_classes= ["TimerObject, DisconnectionManager"]
-new_classes = ["ConnectionManager, SessionTimer"]
+deleted_classes= ["TimerObject", "DisconnectionManager"]
+new_classes = ["ConnectionManager", "SessionTimer"]
+
+[[migrations ]]
+tag= "v6"
+deleted_classes= ["SessionTimer", "SessionState", "ConnectionManager", "TimerObject", "DisconnectionManager"]
+new_classes= ["WebSocketManager"]
+

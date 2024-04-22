@@ -1,10 +1,10 @@
 import { WebhookEvents, WebhookData } from './types';
 import { Hono } from 'hono';
-import ethers from 'ethers';
+import {Wallet, keccak256, getAddress, verifyMessage} from 'ethers';
 
 export class WebSocketManager {
   private clients: Map<string, { ws: WebSocket | null; user: User }> = new Map();
-  private wallet: ethers.Wallet;
+  private wallet: Wallet;
   private clientData: ClientData | null;
   private app: Hono;
   private userHeartbeats: Map<string, number> = new Map();
@@ -12,7 +12,7 @@ export class WebSocketManager {
 
   constructor(private state: DurableObjectState, private env: any) {
     const privateKey = env.CHARLI_SESSION_SESSION_TIME_TRACKER;
-    this.wallet = new ethers.Wallet(privateKey);
+    this.wallet = new Wallet(privateKey);
     this.clientData = null;
     this.app = new Hono();
 
@@ -26,7 +26,7 @@ export class WebSocketManager {
     this.app.post('/init', async (c) => {
       const clientData: ClientData = await c.req.json();
       this.clientData = clientData;
-      const userAddressHash = ethers.keccak256(ethers.getAddress(clientData.userAddress));
+      const userAddressHash = keccak256(getAddress(clientData.userAddress));
       let role: "teacher" | "learner";
       if (userAddressHash === clientData.hashedTeacherAddress) {
         role = "teacher";
@@ -161,7 +161,7 @@ export class WebSocketManager {
       const { timestamp, signature } = data;
       const clientEntry = Array.from(this.clients.values()).find(entry => entry.ws === ws);
       if (clientEntry && clientEntry.user.peerId) {
-        const address = ethers.verifyMessage(timestamp.toString(), signature);
+        const address = verifyMessage(timestamp.toString(), signature);
         if (address === this.clientData?.userAddress) this.userHeartbeats.set(clientEntry.user.peerId, timestamp);
       }
     } else if (data.type === 'getUserData') {
