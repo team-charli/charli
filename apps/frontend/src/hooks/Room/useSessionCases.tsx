@@ -19,6 +19,18 @@ const useSessionCases = (messages: Message[]) => {
           const ipfsHash = await postDataToIPFS(signedData);
           await postDataToSupabase(ipfsHash, parsedData.data);
           setSessionIPFSData(signedData);
+        } else if (parsedData.type === 'fault') {
+          const { faultType, user, timestamp, signature } = parsedData.data;
+          const faultData: FaultData = {
+            faultType,
+            user,
+            faultTime: timestamp,
+            faultTimeSig: signature,
+          };
+          const signedData = await signTimestampData({ ...parsedData.data, fault: faultData });
+          const ipfsHash = await postDataToIPFS(signedData);
+          await postDataToSupabase(ipfsHash, parsedData.data);
+          setSessionIPFSData(signedData);
         }
       }
     };
@@ -112,15 +124,24 @@ const useSessionCases = (messages: Message[]) => {
   return sessionIPFSData;
 };
 
-
 interface SessionIPFSData extends SessionData {
   signedClientTimestamp: string;
   clientTimestamp: number;
+  fault?: FaultData;
 }
+
 interface SessionData {
   teacher: User | null;
   learner: User | null;
 }
+
+interface FaultData {
+  faultType: 'learnerFault_didnt_join' | 'teacherFault_didnt_join' | 'learnerFault_connection_timeout' | 'teacherFault_connection_timeout' | undefined;
+  user: User | undefined;
+  faultTime: number;
+  faultTimeSig: string;
+}
+
 interface User {
   role: "teacher" | "learner" | null;
   peerId: string | null;

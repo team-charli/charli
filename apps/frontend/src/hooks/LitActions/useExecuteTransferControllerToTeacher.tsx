@@ -23,27 +23,36 @@ interface SessionData {
   learner: User | null;
 }
 
+interface FaultData {
+  faultType: 'learnerFault_didnt_join' | 'teacherFault_didnt_join' | 'learnerFault_connection_timeout' | 'teacherFault_connection_timeout' | undefined;
+  user: User | undefined;
+  faultTime: number;
+  faultTimeSig: string;
+}
+
 interface SessionIPFSData extends SessionData {
   signedClientTimestamp: string;
   clientTimestamp: number;
   confirmedDuration: number;
   confirmedDuration_teacherSignature: string;
   confirmedDuration_learnerSignature: string;
+  fault?: FaultData;
 }
 
 export const useExecuteTransferControllerToTeacher = (
-  userIPFSData: SessionIPFSData | undefined,
+  userIPFSData: SessionIPFSData | null,
   sessionSigs: SessionSigs,
   authSig: AuthSig,
-  sessionDuration: string,
+  sessionDuration: number | undefined,
   teacherDurationSig: string,
-  learnerDurationSig: string
+  learnerDurationSig: string,
+  userAddress: string
 ) => {
   if (!userIPFSData) return null;
 
-  const { signedClientTimestamp, clientTimestamp, teacher, learner } = userIPFSData;
+  const { signedClientTimestamp, clientTimestamp, teacher, learner, fault } = userIPFSData;
 
-  if (!teacher || !learner) {
+  if (!teacher || !learner || !sessionDuration) {
     console.error("Teacher or Learner data is missing.");
     return null;
   }
@@ -56,8 +65,6 @@ export const useExecuteTransferControllerToTeacher = (
     leftAt: teacherLeftAt,
     joinedAtSig: teacherJoinedAtSig,
     leftAtSig: teacherLeftAtSig,
-    faultTime: teacherFaultTime,
-    faultTimeSig: teacherFaultTimeSig,
     duration: teacherDuration,
     hashedTeacherAddress,
     hashedLearnerAddress: teacherHashedLearnerAddress,
@@ -71,12 +78,17 @@ export const useExecuteTransferControllerToTeacher = (
     leftAt: learnerLeftAt,
     joinedAtSig: learnerJoinedAtSig,
     leftAtSig: learnerLeftAtSig,
-    faultTime: learnerFaultTime,
-    faultTimeSig: learnerFaultTimeSig,
     duration: learnerDuration,
     hashedTeacherAddress: learnerHashedTeacherAddress,
     hashedLearnerAddress,
   } = learner;
+
+  const faultData = fault ? {
+    faultType: fault.faultType,
+    faultUser: fault.user?.role === 'teacher' ? 'teacher' : 'learner',
+    faultTime: fault.faultTime,
+    faultTimeSig: fault.faultTimeSig,
+  } : undefined;
 
   const executeTransferControllerToTeacher = async (): Promise<string> => {
     const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
@@ -95,11 +107,8 @@ export const useExecuteTransferControllerToTeacher = (
         teacherLeftAt,
         teacherJoinedAtSig,
         teacherLeftAtSig,
-        teacherFaultTime,
-        teacherFaultTimeSig,
         teacherDuration,
         hashedTeacherAddress,
-        teacherHashedLearnerAddress,
 
         learnerRole,
         learnerPeerId,
@@ -108,10 +117,7 @@ export const useExecuteTransferControllerToTeacher = (
         learnerLeftAt,
         learnerJoinedAtSig,
         learnerLeftAtSig,
-        learnerFaultTime,
-        learnerFaultTimeSig,
         learnerDuration,
-        learnerHashedTeacherAddress,
         hashedLearnerAddress,
 
         usdcContractAddress,
@@ -125,7 +131,10 @@ export const useExecuteTransferControllerToTeacher = (
 
         sessionDuration,
         teacherDurationSig,
-        learnerDurationSig
+        learnerDurationSig,
+
+        faultData,
+        userAddress
       },
     });
 

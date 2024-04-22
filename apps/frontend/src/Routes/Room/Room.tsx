@@ -22,7 +22,6 @@ const Room  = ( {match, location}: RoomProps) => {
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount')
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs')
   const [ huddleAccessToken ] = useLocalStorage<string>('huddle-access-token');
-
   const { getIPFSDuration } = useSessionDurationIPFS();
 
   const {verifiedRole, verifiedRoleAndAddress} = useVerifiyRoleAndAddress(hashed_teacher_address, hashed_learner_address, roomRole, currentAccount  )
@@ -38,8 +37,7 @@ const Room  = ( {match, location}: RoomProps) => {
   }
 
   const userIPFSData = useSessionCases(sessionManager);
-  const
-  const actionResult = useExecuteTransferControllerToTeacher(userIPFSData, sessionSigs, authSig, sessionDuration, teacherDurationSig, learnerDurationSig );
+  const actionResult = useExecuteTransferControllerToTeacher(userIPFSData, sessionSigs, authSig, sessionDuration, teacherDurationSig, learnerDurationSig, currentAccount?.ethAddress );
 
   // TODO: generalize relayer
   // TODO: send actionResult with relayer
