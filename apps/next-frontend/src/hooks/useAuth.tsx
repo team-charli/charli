@@ -1,0 +1,41 @@
+import { useEffect, useState } from 'react'
+import useAuthenticate from '../hooks/Lit/useLitAuthenticate';
+import useLitAccounts from '../hooks/Lit/useLitAccount';
+import useLitSession from '../hooks/Lit/useLitSession';
+import { AuthMethod, AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { LocalStorageSetter } from '../types/types';
+import useLitLoggedIn from './Lit/useLitLoggedIn';
+
+export const useAuth = (currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, authSig: AuthSig | null, setCurrentAccount: LocalStorageSetter<IRelayPKP>, setSessionSigs: LocalStorageSetter<SessionSigs>, setAuthSig:LocalStorageSetter<AuthSig>, authMethod: AuthMethod | null, setAuthMethod: LocalStorageSetter<AuthMethod>) => {
+
+  const {
+    error: authError,
+    loading: authLoading,
+  } = useAuthenticate(process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI, setAuthMethod);
+
+  const {
+    fetchAccounts,
+    error: accountsError,
+    loading: accountsLoading,
+  } = useLitAccounts(currentAccount, setCurrentAccount);
+
+  const {
+    initSession,
+    loading: sessionLoading,
+    error: sessionError,
+  } = useLitSession();
+
+  useEffect(() => {
+    if (authMethod) {
+      fetchAccounts(authMethod);
+    }
+  }, [authMethod, fetchAccounts]);
+
+  useEffect(() => {
+    if (authMethod && currentAccount && !sessionSigs) {
+      initSession(authMethod, currentAccount);
+    }
+  }, [authMethod, currentAccount, initSession]);
+
+  return {authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError };
+}

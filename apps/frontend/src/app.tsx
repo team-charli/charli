@@ -2,7 +2,6 @@ import Routes from './Routes/Routes';
 import OnboardStateProvider from './contexts/OnboardContext'
 import AuthProvider from './contexts/AuthContext'
 import SupabaseProvider from './contexts/SupabaseContext';
-import { HuddleProvider } from '@huddle01/react';
 import { huddleClient } from './Huddle/huddleClient';
 import NotificationProvider from './contexts/NotificationContext';
 import SessionProvider from './contexts/SessionsContext';
