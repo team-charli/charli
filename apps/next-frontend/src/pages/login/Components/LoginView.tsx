@@ -3,12 +3,17 @@ import { useAuthContext, useOnboardContext } from "@/contexts";
 import { useSetLoginViewCSS } from "@/hooks/css/useSetLoginViewCSS";
 import { LoginViewProps } from "@/types/types";
 import { signInWithDiscord, signInWithGoogle } from "@/utils/lit";
+import { useEffect } from "react";
 
 const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const { marginTop, flex } = useSetLoginViewCSS(parentIsRoute);
 
   const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuthContext();
-  const { onboardMode } = useOnboardContext();
+  const {onboardMode} = useOnboardContext();
+  useEffect(()=> {
+    console.log("onboardMode", onboardMode)
+  }, [onboardMode])
+
   const error = authError || accountsError || sessionError;
   const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
 
@@ -41,7 +46,8 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     return null;
   }
 
-  if (!onboardMode) {
+  if (onboardMode !== 'Teach' || onboardMode !== "Learn") {
+    console.log({onboardMode})
     return 'loading'
   }
 

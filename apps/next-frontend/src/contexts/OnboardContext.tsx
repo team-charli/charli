@@ -1,23 +1,20 @@
-import { useState, createContext, useContext } from 'react'
-import { OnboardContextObj, OnboardStateProviderProps } from '../types/types'
-import { useHasBalance } from '../hooks/Onboard/useHasBalance';
-import { useIsOnboarded } from '../hooks/Onboard/useIsOnboarded'
-import { useOnboardMode } from '../hooks/Onboard/useOnboardMode';
+import { useState, createContext, useContext } from 'react';
+import { OnboardContextObj, OnboardStateProviderProps } from '../types/types';
+import {useHasBalance, useIsOnboarded, useOnboardMode, useRouteRedirect } from '../hooks/Onboard/';
 import useLocalStorage from '@rehooks/local-storage';
 import { useSupabase } from './SupabaseContext';
-import { useRouteRedirect } from '../hooks/Onboard/useRouteRedirect';
 
 const defaultOnboardContext: OnboardContextObj = {
   hasBalance: null, // boolean | null
   isOnboarded: null, // boolean | null
-  setIsOnboarded: () => {}, // LocalStorageSetter<boolean>
   nativeLang: '', // string
-  setNativeLang: () => {}, // Function
   teachingLangs: [], // string[]
-  setTeachingLangs: () => {}, // Dispatch<SetStateAction<string[]>>
   learningLangs: [], // string[]
-  setLearningLangs: () => {}, // Dispatch<SetStateAction<string[]>>
   onboardMode: null, // "Learn" | "Teach" | null
+  setIsOnboarded: () => {}, // LocalStorageSetter<boolean>
+  setNativeLang: () => {}, // Function
+  setTeachingLangs: () => {}, // Dispatch<SetStateAction<string[]>>
+  setLearningLangs: () => {}, // Dispatch<SetStateAction<string[]>>
   setOnboardMode: () => {}, // Dispatch<SetStateAction<"Learn" | "Teach" | null>>
   name: '', // string
   setName: () => {}, // Dispatch<SetStateAction<string>>

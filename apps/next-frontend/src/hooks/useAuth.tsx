@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import {useLitAuthenticate, useLitAccounts, useLitSession } from '../hooks/Lit';
+import { useAuthenticate as useLitAuthenticate, useLitAccounts, useLitSession } from '../hooks/Lit';
 import { AuthMethod, AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../types/types';
 

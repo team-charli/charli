@@ -8,7 +8,7 @@ export const useRouteRedirect = () => {
   const [ isOnboarded ] = useLocalStorage("isOnboarded");
 
   useEffect(() => {
-    // console.log("useRouteRedirect: isOnboarded", isOnboarded)
+    console.log("useRouteRedirect: isOnboarded", isOnboarded)
     if (authMethod && currentAccount && sessionSigs) {
       if (!isOnboarded) {
         <ClientSideRedirect to='/onboard' />;

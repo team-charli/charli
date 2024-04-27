@@ -35,7 +35,12 @@ export const litAuthClient: LitAuthClient = new LitAuthClient({
   },
   litNodeClient,
 });
-
+try {
+  await litNodeClient.connect()
+} catch (e) {
+  console.log(e)
+  throw new Error(`Failed to connect to Lit`)
+}
 /**
  * Validate provider
  */
