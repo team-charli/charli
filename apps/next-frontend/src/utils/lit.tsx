@@ -1,4 +1,3 @@
-import * as LitJsSdk from "@lit-protocol/lit-node-client";
 import {
   AuthCallbackParams,
   AuthMethod,
@@ -8,7 +7,6 @@ import {
   SessionSig,
   SessionSigs,
 } from '@lit-protocol/types';
-// import { LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
 import {
   GoogleProvider,
   DiscordProvider,
@@ -19,13 +17,11 @@ import {
 import { LitNodeClient } from '@lit-protocol/lit-node-client';
 import { AuthMethodType, ProviderType } from '@lit-protocol/constants';
 import {isDefined} from './app'
-const stytch_id = process.env.NEXT_PUBLIC_STYTCH_PROJECT_ID
-// export const DOMAIN = process.env.NEXT_PUBLIC_PUBLIC_PROD_URL || 'localhost';
-// export const PORT = `${window.location.port}`;
-// export const ORIGIN =
-//   process.env.NEXT_PUBLIC_PUBLIC_ENV === 'production'
-//     ? `https://${DOMAIN}`
-//     : `http://${DOMAIN}:${PORT}`;
+export const DOMAIN = process.env.NEXT_PUBLIC_PUBLIC_PROD_URL || 'localhost';
+export const PORT = 3000;
+export const ORIGIN = process.env.NEXT_PUBLIC_PUBLIC_ENV === 'production'
+    ? `https://${DOMAIN}`
+    : `http://${DOMAIN}:${PORT}`;
 
 export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
@@ -67,7 +63,6 @@ export async function authenticateWithGoogle(
   return authMethod;
 }
 
-//TODO: Implement redirectUri with Google Oauth project
 export async function signInWithDiscord(redirectUri: string): Promise<void> {
   const discordProvider = litAuthClient.initProvider<DiscordProvider>(
     ProviderType.Discord,
@@ -76,7 +71,6 @@ export async function signInWithDiscord(redirectUri: string): Promise<void> {
   await discordProvider.signIn();
 }
 
-//TODO: Implement redirectUri with Discord Oauth project
 export async function authenticateWithDiscord(
   redirectUri: string
 ): Promise<AuthMethod | undefined> {
@@ -134,19 +128,13 @@ export async function getSessionSigs({
       // Handle the error
       console.error("An error occurred while getting session signatures:", e);
       throw e
-      // Depending on your application's needs, you might choose to rethrow the error,
-      // return a default value, or perform some other error handling logic here.
     }
-
-    // Continue with your logic, potentially using sessionSigs if it was successfully assigned
-
   } catch(e) {
     const error = e as Error;
     console.error("litNodeClient.getSessionSigs(): stack", error.stack);
     console.error("litNodeClient.getSessionSigs(): error", error)
     throw error
   }
-  // return sessionSigs
 
 
   // const provider = getProviderByAuthMethod(authMethod);

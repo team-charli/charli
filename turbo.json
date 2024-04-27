@@ -1,0 +1,34 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/"],
+      "inputs": [
+        "src//",
+        "tsconfig.json",
+        "package.json",
+        "!**/.spec.ts",
+        "!/*.test.ts"
+      ]
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "lint": {
+      "outputs": []
+    },
+    "dev": {
+      "dependsOn": ["build"],
+      "outputs": ["apps/frontend/dist/", "apps/frontend/.vite/"],
+      "inputs": [
+        "apps/frontend/src//*",
+        "apps/frontend/index.html",
+        "apps/frontend/vite.config.ts",
+        "apps/frontend/tsconfig.json"
+      ],
+      "persistent": true
+    }
+  }
+}

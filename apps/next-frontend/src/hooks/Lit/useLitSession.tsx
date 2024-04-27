@@ -1,12 +1,10 @@
 import { useRouter } from 'next/router';
 import { useCallback, useState } from 'react';
-import { AuthMethod, SessionSig, SessionSigs } from '@lit-protocol/types';
-import { getProviderByAuthMethod, getSessionKeyPair, getSessionSigs } from '../../utils/lit';
+import { AuthMethod, SessionSigs } from '@lit-protocol/types';
+import { getProviderByAuthMethod } from '../../utils/lit';
 import { AuthSig, LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
 import { IRelayPKP } from '@lit-protocol/types';
-import { useAuthContext } from '../../contexts/AuthContext';
 import useLocalStorage from '@rehooks/local-storage';
-import { useNetwork } from '../../contexts/NetworkContext';
 
 export default function useLitSession() {
   const router = useRouter();
@@ -14,7 +12,7 @@ export default function useLitSession() {
   const [ sessionSigs, setSessionSigs ] = useLocalStorage<SessionSigs>("sessionSigs");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
-  // const { isOnline } = useNetwork();
+
   /**
    * Generate session sigs and store new session data
    */

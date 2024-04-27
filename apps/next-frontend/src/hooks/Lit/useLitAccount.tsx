@@ -2,12 +2,10 @@ import { useCallback, useState, useEffect } from 'react';
 import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '../../utils/lit';
 import { LocalStorageSetter } from '../../types/types';
-import { useNetwork } from '../../contexts/NetworkContext';
 
 export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurrentAccount: LocalStorageSetter<IRelayPKP> ) {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
-  // const { isOnline } = useNetwork();
 
   /**
    * Fetch PKPs tied to given auth method
@@ -15,7 +13,6 @@ export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurr
 
   const fetchAccounts = useCallback(
     async (authMethod: AuthMethod): Promise<void> => {
-      // if (isOnline) {
         setLoading(true);
         setError(undefined);
         try {
@@ -30,7 +27,6 @@ export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurr
         } finally {
           setLoading(false);
         }
-      // }
     },
     []
   );

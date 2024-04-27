@@ -4,7 +4,7 @@ import { Database } from '../supabaseTypes';
 import { LocalStorageSetter } from '../types/types';
 import { IRelayPKP, SessionSig, SessionSigs } from '@lit-protocol/types';
 
-export const submitOnboardTeachAPI = async (isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, teachingLangs: string[], name: string, supabaseClient: SupabaseClient, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isOnline: boolean, isLitLoggedIn: boolean | null) => {
+export const submitOnboardTeachAPI = async (isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, teachingLangs: string[], name: string, supabaseClient: SupabaseClient, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null) => {
 
   if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  teachingLangs.length && name.length&& supabaseClient /*&& isOnline*/ ) {
     const insertData: Database["public"]["Tables"]["user_data"]["Insert"] = {
