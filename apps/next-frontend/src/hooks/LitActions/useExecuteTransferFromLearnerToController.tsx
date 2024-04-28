@@ -1,7 +1,7 @@
 import {SignatureLike, ethers} from 'ethers';
 import useLocalStorage from "@rehooks/local-storage";
-import { litNodeClient } from "../../utils/lit";
 import { transferFromLearnerToControllerAction  } from "../../Lit/Actions/transferFromLearnerToControllerAction";
+import { litNodeClient } from '@/utils/litClients';
 
 export const useExecuteTransferFromLearnerToController = () => {
   const [sessionSigs] = useLocalStorage('sessionSigs');

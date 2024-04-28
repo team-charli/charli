@@ -1,4 +1,4 @@
-import {CombinedForm} from './CombinedForm'
+import OnboardForm from "./OnboardForm"
 
 export const RegisterTeach = () => {
   return (
@@ -9,7 +9,7 @@ export const RegisterTeach = () => {
       </div>
 
       <div>
-        <CombinedForm mode={"Teach"}/>
+        <OnboardForm onboardMode={"Teach"}/>
       </div>
     </>
   )

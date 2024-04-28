@@ -1,4 +1,5 @@
-import {OnboardForm} from './OnboardForm'
+import OnboardForm from "./OnboardForm"
+
 export const RegisterLearn = (props: {}) => {
   return (
     <>

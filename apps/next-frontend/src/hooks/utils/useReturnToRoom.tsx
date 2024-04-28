@@ -1,30 +1,32 @@
+import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 
 export const useReturnToRoom = () => {
-  const history = useHistory();
-  const location = useLocation();
+  const router = useRouter();
 
   useEffect(() => {
-    if (location.pathname.startsWith('/room')) {
-      localStorage.setItem('lastVisited', location.pathname);
+    if (router.pathname.startsWith('/room')) {
+      localStorage.setItem('lastVisited', router.pathname);
       localStorage.setItem('timestamp', Date.now().toString());
     }
-  }, [location]);
+  }, [router.pathname]);
 
   useEffect(() => {
-    if (location.pathname === '/') {
+    if (router.pathname === '/') {
       const lastVisited = localStorage.getItem('lastVisited');
       const timestamp = localStorage.getItem('timestamp');
       const duration = 5 * 60 * 1000; // 5 minutes
 
       if (lastVisited && timestamp && (Date.now() - Number(timestamp)) <= duration) {
-        history.replace(lastVisited);
+        router.replace(lastVisited);
       } else {
         localStorage.removeItem('lastVisited');
         localStorage.removeItem('timestamp');
       }
     }
-  }, [history, location.pathname]);
+  }, [router]);
+
+  return null;
 };
 
 export default useReturnToRoom;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
+import { Message, UseSessionManagerOptions } from '@/types/types';
 
 const useSessionManager = ({
   clientSideRoomId,
@@ -133,18 +133,5 @@ const useSessionManager = ({
   return messages;
 };
 
-interface Message {
-  type: 'init' | 'websocket' | 'message';
-  data: any;
-}
-
-interface UseSessionManagerOptions {
-  clientSideRoomId: string | undefined;
-  hashedTeacherAddress: string | undefined;
-  hashedLearnerAddress: string | undefined;
-  userAddress: string | undefined;
-  currentAccount: IRelayPKP | null;
-  sessionSigs: SessionSigs | null;
-}
 
 export default useSessionManager;

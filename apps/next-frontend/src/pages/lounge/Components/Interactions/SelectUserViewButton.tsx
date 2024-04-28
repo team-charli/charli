@@ -1,7 +1,5 @@
 import { useForm, Controller } from 'react-hook-form';
 
-import UserList from "./UserListLearnTeachAll";
-
 export type SelectionType = "Learn" | "Teach" | "All" | "";
 
 interface ToggleButtonProps {
@@ -43,7 +41,7 @@ const DropDownButton = () => {
         <Button name="option" label="Teach" control={control} setValue={setValue} />
         <Button name="option" label="All" control={control} setValue={setValue} />
       </form>
-      <UserList selection={option} />
+      {/*<UserList selection={option} />*/}
     </>
   );
 };

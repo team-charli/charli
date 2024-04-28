@@ -132,6 +132,10 @@ export interface LoginViewProps {
   parentIsRoute: boolean;
 }
 
+export interface ConfirmedLearningRequestProps {
+  notification: NotificationIface;
+}
+
 export interface UIProviderProps  {
   children: ReactNode;
 }
@@ -413,14 +417,6 @@ export interface SessionIface {
 export interface MatchParams {
   id: string;
 }
-export interface RoomProps extends RouteComponentProps<MatchParams> {
-  location: RouteComponentProps<MatchParams>['location'] & {
-    state: {
-      notification: NotificationIface;
-      roomRole: "teacher" | "learner";
-    };
-  };
-}
 
 export interface SessionParamsResult {
     controllerPublicKey: string | null;
@@ -448,3 +444,55 @@ export interface IPFSResponse {
   cid: string;
   data: SessionDurationData;
 }
+
+export interface User {
+  role: "teacher" | "learner" | null;
+  peerId: string | null;
+  roomId: string | null;
+  joinedAt: number | null;
+  leftAt: number | null;
+  joinedAtSig: string | null;
+  leftAtSig: string | null;
+  faultTime?: number;
+  faultTimeSig?: string;
+  duration: number | null;
+  hashedTeacherAddress: string;
+  hashedLearnerAddress: string;
+}
+
+export interface SessionData {
+  teacher: User | null;
+  learner: User | null;
+}
+
+export interface FaultData {
+  faultType: 'learnerFault_didnt_join' | 'teacherFault_didnt_join' | 'learnerFault_connection_timeout' | 'teacherFault_connection_timeout' | undefined;
+  user: User | undefined;
+  faultTime: number;
+  faultTimeSig: string;
+}
+
+
+export interface SessionIPFSData extends SessionData {
+  signedClientTimestamp: string;
+  clientTimestamp: number;
+  confirmedDuration?: number;
+  confirmedDuration_teacherSignature?: string;
+  confirmedDuration_learnerSignature?: string;
+  fault?: FaultData;
+}
+
+export interface Message {
+  type: 'init' | 'websocket' | 'message';
+  data: any;
+}
+
+export interface UseSessionManagerOptions {
+  clientSideRoomId: string | undefined;
+  hashedTeacherAddress: string | undefined;
+  hashedLearnerAddress: string | undefined;
+  userAddress: string | undefined;
+  currentAccount: IRelayPKP | null;
+  sessionSigs: SessionSigs | null;
+}
+

@@ -5,6 +5,7 @@ export const generateAccessToken = async (event: React.MouseEvent<HTMLAnchorElem
  {
     event.preventDefault();
     if (supabaseClient && !supabaseLoading && huddle_room_id?.length) {
+
       const { data, error } = await supabaseClient
         .functions
         .invoke('create-huddle-access-tokens', {

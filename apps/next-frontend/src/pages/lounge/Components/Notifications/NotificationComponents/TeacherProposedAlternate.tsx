@@ -1,8 +1,7 @@
-import { NotificationIface } from "apps/frontend/src/types/types";
+import { NotificationIface } from "@/types/types";
 
 interface TeacherProposedAlternateProps {
   notification: NotificationIface;
-
 }
 
 const TeacherProposedAlternate = ({notification}: TeacherProposedAlternateProps ) => {

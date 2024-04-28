@@ -1,53 +1,18 @@
-
 import { transferControllerToTeacherAction } from "../../Lit/Actions/transferControllerToTeacherAction";
 import { ethers } from 'ethers';
-import { litNodeClient } from "../../utils/lit";
 import { AuthSig, SessionSigs } from "@lit-protocol/types";
+import { SessionIPFSData } from "@/types/types";
+import { litNodeClient } from "@/utils/litClients";
 
-interface User {
-  role: "teacher" | "learner" | null;
-  peerId: string | null;
-  roomId: string | null;
-  joinedAt: number | null;
-  leftAt: number | null;
-  joinedAtSig: string | null;
-  leftAtSig: string | null;
-  faultTime?: number;
-  faultTimeSig?: string;
-  duration: number | null;
-  hashedTeacherAddress: string;
-  hashedLearnerAddress: string;
-}
-
-interface SessionData {
-  teacher: User | null;
-  learner: User | null;
-}
-
-interface FaultData {
-  faultType: 'learnerFault_didnt_join' | 'teacherFault_didnt_join' | 'learnerFault_connection_timeout' | 'teacherFault_connection_timeout' | undefined;
-  user: User | undefined;
-  faultTime: number;
-  faultTimeSig: string;
-}
-
-interface SessionIPFSData extends SessionData {
-  signedClientTimestamp: string;
-  clientTimestamp: number;
-  confirmedDuration: number;
-  confirmedDuration_teacherSignature: string;
-  confirmedDuration_learnerSignature: string;
-  fault?: FaultData;
-}
 
 export const useExecuteTransferControllerToTeacher = (
   userIPFSData: SessionIPFSData | null,
-  sessionSigs: SessionSigs,
-  authSig: AuthSig,
+  sessionSigs: SessionSigs | null,
+  authSig: AuthSig | null,
   sessionDuration: number | undefined,
-  teacherDurationSig: string,
-  learnerDurationSig: string,
-  userAddress: string
+  teacherDurationSig: string | undefined,
+  learnerDurationSig: string | undefined,
+  userAddress: string | undefined,
 ) => {
   if (!userIPFSData) return null;
 

@@ -3,6 +3,7 @@ import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useSupabase } from '../../contexts/SupabaseContext';
+import { FaultData, Message, SessionData, SessionIPFSData } from '@/types/types';
 
 const useSessionCases = (messages: Message[]) => {
   const [sessionIPFSData, setSessionIPFSData] = useState<SessionIPFSData | null>(null);
@@ -124,42 +125,5 @@ const useSessionCases = (messages: Message[]) => {
   return sessionIPFSData;
 };
 
-interface SessionIPFSData extends SessionData {
-  signedClientTimestamp: string;
-  clientTimestamp: number;
-  fault?: FaultData;
-}
-
-interface SessionData {
-  teacher: User | null;
-  learner: User | null;
-}
-
-interface FaultData {
-  faultType: 'learnerFault_didnt_join' | 'teacherFault_didnt_join' | 'learnerFault_connection_timeout' | 'teacherFault_connection_timeout' | undefined;
-  user: User | undefined;
-  faultTime: number;
-  faultTimeSig: string;
-}
-
-interface User {
-  role: "teacher" | "learner" | null;
-  peerId: string | null;
-  roomId: string | null;
-  joinedAt: number | null;
-  leftAt: number | null;
-  joinedAtSig: string | null;
-  leftAtSig: string | null;
-  faultTime?: number;
-  faultTimeSig?: string;
-  duration: number | null;
-  hashedTeacherAddress: string;
-  hashedLearnerAddress: string;
-}
-
-interface Message {
-  type: 'init' | 'websocket' | 'message';
-  data: any;
-}
 
 export default useSessionCases;

@@ -1,23 +1,41 @@
-import { NotificationIface } from '@/types/types';
+import { useGenerateHuddleAccessToken } from '@/hooks/Lounge/useGenerateHuddleAccessToken';
+import { useLocalizeAndFormatDateTime } from '@/hooks/utils/useLocalizeAndFormatDateTime';
+import { ConfirmedLearningRequestProps, NotificationIface } from '@/types/types';
 import { formatUtcTimestampToLocalStrings } from '@/utils/app';
 import Link from 'next/link';
 
-interface ConfirmedLearningRequestProps {
-  notification: NotificationIface;
-}
 
-const ConfirmedLearningRequest = ({notification}: ConfirmedLearningRequestProps ) => {
- const { formattedDate, formattedTime } = formatUtcTimestampToLocalStrings(notification?.confirmed_time_date)
+const ConfirmedLearningRequest = ({ notification }: ConfirmedLearningRequestProps) => {
+  const { formattedDate, formattedTime } = formatUtcTimestampToLocalStrings(notification?.confirmed_time_date);
+  const {localTimeAndDate: {displayLocalTime, displayLocalDate} } = useLocalizeAndFormatDateTime(notification.confirmed_time_date)
+
+  const { generateAccessToken, huddleAccessToken } = useGenerateHuddleAccessToken();
+
+  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    generateAccessToken(notification.roomId, event);
+  };
+
   return (
     <ul>
       <li>
-        {`Confirmed: Charli with ${notification.teacherName} on ${formattedDate} at ${formattedTime} in ${notification.teaching_lang} `}
+        {`Confirmed: Charli with ${notification.teacherName} on ${formattedDate} at ${formattedTime} in ${notification.teaching_lang}`}
       </li>
-      <li>
-        <Link href={{pathname: `/room/${notification.roomId}`, state: {notification, roomRole: 'learner'}  }}>click here</Link> to join room
-      </li>
-      </ul>
-  )
-}
+      <Link
+        href={{
+          pathname: '/room/[id]',
+          query: {
+            id: notification.roomId,
+            roomRole: "Learner",
+            notification: JSON.stringify(notification),
+          },
+        }}
+        as={`/room/${notification.roomId}`}
+        onClick={handleClick}
+      >
+        {`Charli with ${notification.learnerName} on ${displayLocalDate} ${displayLocalTime}`}
+      </Link>
+    </ul>
+  );
+};
 
 export default ConfirmedLearningRequest;

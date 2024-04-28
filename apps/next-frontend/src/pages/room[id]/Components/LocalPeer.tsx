@@ -1,7 +1,6 @@
 import {Audio}  from '@huddle01/react/components';
 import {Video} from'@huddle01/react/components';
 import { useLocalAudio, useLocalVideo } from "@huddle01/react/hooks";
-import useLocalStorage from "@rehooks/local-storage";
 import { useEffect } from "react";
 interface LocalPeerProps {
   roomJoinState: 'idle' | 'connecting' | 'connected' | 'failed' | 'left' | 'closed';

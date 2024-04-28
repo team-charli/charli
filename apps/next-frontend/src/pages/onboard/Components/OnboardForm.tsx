@@ -51,10 +51,10 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
     .map((lang) => lang.language);
 
     if (onboardMode === 'Learn') {
-      submitOnboardLearnAPI(selectedLanguageCodes, isOnboarded, name, hasBalance, setIsOnboarded, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
+      submitOnboardLearnAPI(selectedLanguageCodes, isOnboarded,  setIsOnboarded,name, hasBalance, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
 
     } else {
-      submitOnboardTeachAPI(selectedLanguageCodes, isOnboarded, name, setIsOnboarded, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
+      submitOnboardTeachAPI(selectedLanguageCodes, isOnboarded, setIsOnboarded, name, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
     }
   };
 

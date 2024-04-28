@@ -37,9 +37,9 @@ export const submitOnboardForm = (onboardMode: "Learn" | "Teach" | null, setName
 
     if (onboardMode === "Learn" && currentAccount && sessionSigs && supabaseClient) {
       console.log({name, learningLangs})
-      await submitOnboardLearnAPI(learningLangs, isOnboarded, name, hasBalance, setIsOnboarded, supabaseClient, currentAccount, sessionSigs, isLitLoggedIn);
+      await submitOnboardLearnAPI(learningLangs, isOnboarded, setIsOnboarded, name, hasBalance, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedIn);
     } else if (onboardMode === "Teach" && currentAccount && sessionSigs && supabaseClient)  {
-      submitOnboardTeachAPI(isOnboarded, setIsOnboarded, teachingLangs, name, supabaseClient, currentAccount, sessionSigs, isLitLoggedIn);
+      submitOnboardTeachAPI(teachingLangs, isOnboarded, setIsOnboarded, name, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedIn);
     } else {
       throw new Error('no onboard mode set')
     }

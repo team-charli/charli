@@ -1,19 +1,16 @@
 import {
-  AuthCallbackParams,
   AuthMethod,
-  AuthSig,
   GetSessionSigsProps,
   IRelayPKP,
-  SessionSig,
   SessionSigs,
 } from '@lit-protocol/types';
 import {
   GoogleProvider,
   DiscordProvider,
-  EthWalletProvider,
   WebAuthnProvider,
-  LitAuthClient,
 } from '@lit-protocol/lit-auth-client';
+import { litNodeClient, litAuthClient } from './litClients';
+
 import { LitNodeClient } from '@lit-protocol/lit-node-client';
 import { AuthMethodType, ProviderType } from '@lit-protocol/constants';
 import {isDefined} from './app'
@@ -23,26 +20,6 @@ export const ORIGIN = process.env.NEXT_PUBLIC_PUBLIC_ENV === 'production'
     ? `https://${DOMAIN}`
     : `http://${DOMAIN}:${PORT}`;
 
-export const litNodeClient: LitNodeClient = new LitNodeClient({
-  alertWhenUnauthorized: false,
-  litNetwork: 'cayenne',
-});
-
-export const litAuthClient: LitAuthClient = new LitAuthClient({
-  litRelayConfig: {
-    relayApiKey: "E02B0102-DFF4-67E9-3385-5C71096D7CA0_charli",
-  },
-  litNodeClient,
-});
-try {
-  await litNodeClient.connect()
-} catch (e) {
-  console.log(e)
-  throw new Error(`Failed to connect to Lit`)
-}
-/**
- * Validate provider
- */
 export function isSocialLoginSupported(provider: string): boolean {
   return ['google', 'discord'].includes(provider);
 }
@@ -75,8 +52,7 @@ export async function signInWithDiscord(redirectUri: string): Promise<void> {
   await discordProvider.signIn();
 }
 
-export async function authenticateWithDiscord(
-  redirectUri: string
+export async function authenticateWithDiscord(redirectUri: string
 ): Promise<AuthMethod | undefined> {
 
   const discordProvider = litAuthClient.initProvider<DiscordProvider>(
@@ -89,10 +65,11 @@ export async function authenticateWithDiscord(
 
 export async function getSessionSigs({
   pkpPublicKey,
-  authMethod,
+  authMethod
 }: {
     pkpPublicKey: string;
     authMethod: AuthMethod;
+    litNodeClient: LitNodeClient;
   }): Promise<SessionSigs> {
   try {
     const sessionKeyPair = litNodeClient.getSessionKey();
@@ -139,22 +116,6 @@ export async function getSessionSigs({
     console.error("litNodeClient.getSessionSigs(): error", error)
     throw error
   }
-
-
-  // const provider = getProviderByAuthMethod(authMethod);
-  // console.log({provider});
-  // if (provider) {
-  //   const sessionSigs = await provider.getSessionSigs({
-  //     pkpPublicKey,
-  //     authMethod,
-  //     sessionSigsParams,
-  //   });
-  //   return sessionSigs;
-  // } else {
-  //   throw new Error(
-  //     `Provider not found for auth method type ${authMethod.authMethodType}`
-  //   );
-  // }
 }
 
 export async function updateSessionSigs(

@@ -4,9 +4,9 @@ import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../types/types';
 import { ErrorModal } from '@/components/ErrorModal';
 
-export const submitOnboardLearnAPI = async (learningLangs: string[], isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null)=> {
+export const submitOnboardLearnAPI = async (learningLangs: string[], isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, name: string, hasBalance: boolean | null,  supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null)=> {
 try {
-  if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient) {
+  if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient && !supabaseLoading) {
     if (hasBalance === false) {
       return <ErrorModal errorText="To learn you either need money in your account or you need to be a teacher" />
       //OPTIM: Modal choose /Bolsa/addBalnce || /Teach

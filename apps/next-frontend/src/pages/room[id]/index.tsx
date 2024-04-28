@@ -1,26 +1,38 @@
+import { useRouter } from 'next/router';
 import ky from 'ky';
 import { useEffect, useState } from 'react';
-import { RoomProps  } from '../../types/types';
 import { useRoom } from '@huddle01/react/hooks';
 import useLocalStorage from '@rehooks/local-storage';
 import useBellListener from '../../hooks/Room/useBellListener';
 import useSessionManager from '../../hooks/Room/useSessionManager';
 import useSessionCases from '../../hooks/Room/useSessionCases';
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useVerifiyRoleAndAddress } from '../../hooks/Room/useVerifiyRoleAndAddress';
 import { useExecuteTransferControllerToTeacher } from '../../hooks/LitActions/useExecuteTransferControllerToTeacher';
 import { useSessionDurationIPFS } from '../../hooks/IPFS/useSessionDurationIPFS';
 import ClientSideRedirect from '@/components/ClientSideRedirect';
+import { NotificationIface } from '@/types/types';
+import LocalPeer from './Components/LocalPeer';
+import RemotePeer from './Components/RemotePeer';
 
-const Room  = ( {match, location}: RoomProps) => {
-  const roomId = match.params.id
-  const {roomRole} = location.state;
-  const { notification } = location.state;
-  const {notification : {session_id: sessionId, hashed_learner_address, hashed_teacher_address }} = location.state;
+interface RoomQueryParams {
+  id: string;
+  roomRole: 'teacher' | 'learner';
+  notification: string;
+}
+const Room  = () => {
+  const router = useRouter();
+  const { id: roomId, roomRole, notification } = router.query as unknown as RoomQueryParams;
+
+  const parsedNotification: NotificationIface = JSON.parse(notification as string) as NotificationIface ;
+  const { session_id: sessionId, hashed_learner_address, hashed_teacher_address } = parsedNotification;
+
   const [onJoinCalled, setOnJoinCalled ] = useState(false);
   const [ onLeaveCalled, setOnLeaveCalled ] = useState(false);
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount')
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs')
+  const [authSig, setAuthSig] = useLocalStorage<AuthSig>("lit-wallet-sig");
+
   const [ huddleAccessToken ] = useLocalStorage<string>('huddle-access-token');
   const { getIPFSDuration } = useSessionDurationIPFS();
 
@@ -37,6 +49,7 @@ const Room  = ( {match, location}: RoomProps) => {
   }
 
   const userIPFSData = useSessionCases(sessionManager);
+  if (!userIPFSData) throw new Error('userIPFSData not defined')
   const actionResult = useExecuteTransferControllerToTeacher(userIPFSData, sessionSigs, authSig, sessionDuration, teacherDurationSig, learnerDurationSig, currentAccount?.ethAddress );
 
   // TODO: generalize relayer
@@ -47,12 +60,11 @@ const Room  = ( {match, location}: RoomProps) => {
     if (roomId &&
       huddleAccessToken &&
       roomJoinState === 'idle' &&
-      verifiedRoleAndAddress &&
-      bothWsConnected
+      verifiedRoleAndAddress
     ) {
       joinRoom({roomId, token: huddleAccessToken})
     }
-  }, [ huddleAccessToken, roomJoinState, notification.hashed_learner_address, notification.hashed_teacher_address, bothWsConnected ]);
+  }, [ huddleAccessToken ]);
 
   const { joinRoom, leaveRoom, state: roomJoinState} = useRoom({
     onJoin: () => { setOnJoinCalled(true); },
@@ -60,40 +72,8 @@ const Room  = ( {match, location}: RoomProps) => {
   });
 
   useEffect(() => {
-    if (onJoinCalled) {
-      (async () => {
-        // if (session_id ) {
-        // storeRoomJoinData(roomRole, session_id);
-        // startTimer();
-        //TODO:  websocket connection to get joinedAt, signature, duration,
-         const {joinedAt, signature, duration, roomRole} = await ky.get('')
-        if (roomRole === 'teacher' && threeMinElapsed && joinedAt && duration && signature){
-          //NOTE: threeMinElapsed relates to second user joining room
-          //TODO: Try to do threeMinElapsed again on client-side
-
-          //learner fault: didn't join
-        } else if (roomRole === 'learner' && threeMinElapsed && joinedAt && duration && signature) {
-          // teacher fault: didn't join
-        }
-        // }
-      })();
-    }
-  }, [onJoinCalled])
-
-
-
-  useEffect(() => {
-    if (onLeaveCalled && !onLeaveGracefully) {
-      // rejoin time set for 90 seconds
-    }
-    //intentional leaveRoom
-    if ( onLeaveCalled && onLeaveGracefully ) {
-//TODO: re-use onJoinCalled effects websocket to get the sigs
-//TODO implement timers client side if possible to reduce DO dependencies
-      leaveRoom();
-      <ClientSideRedirect to={`room/${roomId}/summary`} />
-    }
-  }, [onLeaveCalled, onLeaveGracefully])
+    if ( onLeaveCalled ) router.push(`/room[roodId]-summary`);
+  }, [onLeaveCalled])
 
 
   const swapWindowViews = () => {

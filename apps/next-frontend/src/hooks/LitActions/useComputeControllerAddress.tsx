@@ -1,7 +1,7 @@
 import ky from 'ky'
 import { ethers } from 'ethers';
-import { litNodeClient } from '../../utils/lit';
 import { generateUserId } from '../../utils/app';
+import { litNodeClient } from '@/utils/litClients';
 
 export const useComputeControllerAddress = () => {
   const ipfs_cid = process.env.NEXT_PUBLIC_LIT_ACTION_IPFS_CID_TRANSFER_FROM_LEARNER;

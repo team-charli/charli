@@ -46,7 +46,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     return null;
   }
 
-  if (onboardMode !== 'Teach' || onboardMode !== "Learn") {
+  if (onboardMode !== 'Teach' && onboardMode !== "Learn") {
     console.log({onboardMode})
     return 'loading'
   }
