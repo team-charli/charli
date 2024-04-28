@@ -16,15 +16,6 @@ export const useGetUsersFlags = (): LanguageInfo[] | null => {
   const geoLoCountry = useGetUserCountry();
   const geoLoCountryRef = useRef(geoLoCountry);
 
-  // useEffect(() => {
-  //     // Log the previous and current value of the dependency
-  //     console.log('Previous dependency:', geoLoCountryRef.current);
-  //     console.log('Current dependency:', geoLoCountry);
-
-  //     // Update the ref with the current value for the next render
-  //     geoLoCountryRef.current = geoLoCountry;
-  //   }, [geoLoCountry]); // Dependency array
-
   const getFlagEmojis = (language: string, geLoCountryA3Code: string): [string, string] => {
     const countryInfo = countryDataset[geLoCountryA3Code];
     if (!countryInfo) throw new Error(`Country information not found for code: ${geLoCountryA3Code}`);
@@ -68,8 +59,6 @@ export const useGetUsersFlags = (): LanguageInfo[] | null => {
     }
     return null;
   }, [geoLoCountry]);
-
-  // console.log(langArr);
 
   return langArr;
 };

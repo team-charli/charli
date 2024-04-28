@@ -1,6 +1,6 @@
 import {  Dispatch } from 'react';
 import { Listbox } from '@headlessui/react';
-import { useNotificationContext } from 'apps/frontend/src/contexts/NotificationContext';
+import { useNotificationContext } from '@/contexts';
 import {ChevronUpDownIcon} from '@heroicons/react/24/solid'
 const userGroups: { name: "Learn" | "Teach" }[] = [
   { name: 'Learn' },

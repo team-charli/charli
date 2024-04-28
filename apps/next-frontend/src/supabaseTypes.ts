@@ -21,7 +21,10 @@ export type Database = {
           hashed_learner_address: string | null
           hashed_teacher_address: string | null
           huddle_room_id: string | null
+          ipfs_cid_learner: string | null
+          ipfs_cid_teacher: string | null
           learner_id: number | null
+          learner_signed_duration_ipfs_cid: string | null
           request_origin: number | null
           request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date: string | null
@@ -32,6 +35,7 @@ export type Database = {
             | null
           session_resolved: boolean | null
           teacher_id: number | null
+          teacher_signed_duration_ipfs_cid: string | null
           teaching_lang: string | null
         }
         Insert: {
@@ -45,7 +49,10 @@ export type Database = {
           hashed_learner_address?: string | null
           hashed_teacher_address?: string | null
           huddle_room_id?: string | null
+          ipfs_cid_learner?: string | null
+          ipfs_cid_teacher?: string | null
           learner_id?: number | null
+          learner_signed_duration_ipfs_cid?: string | null
           request_origin?: number | null
           request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
@@ -56,6 +63,7 @@ export type Database = {
             | null
           session_resolved?: boolean | null
           teacher_id?: number | null
+          teacher_signed_duration_ipfs_cid?: string | null
           teaching_lang?: string | null
         }
         Update: {
@@ -69,7 +77,10 @@ export type Database = {
           hashed_learner_address?: string | null
           hashed_teacher_address?: string | null
           huddle_room_id?: string | null
+          ipfs_cid_learner?: string | null
+          ipfs_cid_teacher?: string | null
           learner_id?: number | null
+          learner_signed_duration_ipfs_cid?: string | null
           request_origin?: number | null
           request_origin_type?: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
@@ -80,6 +91,7 @@ export type Database = {
             | null
           session_resolved?: boolean | null
           teacher_id?: number | null
+          teacher_signed_duration_ipfs_cid?: string | null
           teaching_lang?: string | null
         }
         Relationships: [

@@ -1,9 +1,9 @@
+import useGetLearners from '@/hooks/Lounge/useGetLearners';
 import Learner from './Learner';
-import useGetLearners from 'apps/frontend/src/hooks/Lounge/useGetLearners';
 
 interface LearnersProps {
   selectedLang: string;
-  modeView: "learn" | "teach";
+  modeView: "Learn" | "Teach";
 }
 const Learners = ({ selectedLang, modeView }: LearnersProps) => {
   const learners = useGetLearners(selectedLang, modeView)

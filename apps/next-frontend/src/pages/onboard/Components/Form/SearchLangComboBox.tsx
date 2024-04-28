@@ -1,74 +1,44 @@
-import { useState, useEffect  } from 'react';
-import { Combobox } from '@headlessui/react';
-import languageDataset from '../../../../data/languageDataset.json';
-import _popFlags from '../../../../data/highestPopulationPerLanguageWithFlags.json';
-import { PopFlags, SearchLangComboBoxProps } from '../../../../types/types';
-
-const popFlags: PopFlags = _popFlags;
+// SearchLangComboBox.tsx
+import { LanguageButton, SearchLangComboBoxProps } from '@/types/types';
+import React, { useState } from 'react';
 
 const SearchLangComboBox = ({
-  combinedLanguages,
-  setCombinedLanguages,
-  control,
-  setValue,
-  getValues
-}: SearchLangComboBoxProps) => {
-  //debug useEffect
-  // useEffect(() => {
-  //   console.log(`getValues, ${JSON.stringify(getValues())}`);
-  // }, [getValues()])
-
-
-  const [selectedLanguage, setSelectedLanguage] = useState('');
+  languageButtons,
+  setLanguageButtons,
+  onSelectLanguage,
+}: SearchLangComboBoxProps ) => {
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageButton>();
   const [query, setQuery] = useState('');
 
-  const filteredLanguageOptions = query === ''
-    ? Object.keys(languageDataset)
-    : Object.keys(languageDataset).filter((language) =>
-        language.toLowerCase().includes(query.toLowerCase())
-      );
+  const filteredLanguageOptions = query ? languageButtons.filter((language) =>
+    language.language.toLowerCase().includes(query.toLowerCase())
+  )
+    : languageButtons;
 
-  const handleSelectLanguage = (selectedLanguage: string) => {
-    const flagData = popFlags[selectedLanguage];
-    const primaryFlag = flagData ? flagData.flag : '';
-    const buttonName = `${selectedLanguage}-${primaryFlag}`;
-
-    // Check if language is already rendered as a button
-    const isLanguageExists = combinedLanguages.some(lang => lang.language === selectedLanguage);
-
-    if (isLanguageExists) {
-      // Toggle selection state if button already exists
-      const currentValue = getValues(buttonName);
-      setValue(buttonName, !currentValue);
-    } else {
-      // Add new language button and select it
-
-      const newLanguageButton = { language: selectedLanguage, primaryFlag };
-      setCombinedLanguages(prev => [...prev, newLanguageButton]);
-      setValue(buttonName, true);
-    }
-
-    setSelectedLanguage(''); // Reset combobox selection
+  const handleSelectLanguage = (language: LanguageButton) => {
+    setSelectedLanguage(language);
+    onSelectLanguage(language);
   };
 
-return (
-  <Combobox as="div" value={selectedLanguage} onChange={handleSelectLanguage} className="flex justify-center">
-    <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
-      <Combobox.Input
-        as="input"
-        onChange={(event) => setQuery(event.target.value)}
-        className="w-full p-2 border-2 border-2 border-black rounded-lg focus:border-blue-500 focus:outline-none"
+  return (
+    <div>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search languages"
       />
-      <Combobox.Options className="absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 max-h-60 overflow-auto">
-        {filteredLanguageOptions.map((option, idx) => (
-          <Combobox.Option key={idx} value={option} as="button" className="text-left px-4 py-2 hover:bg-gray-100">
-            {option}
-          </Combobox.Option>
+      <ul>
+        {filteredLanguageOptions.map((language) => (
+          <li key={language.language}>
+            <button onClick={() => handleSelectLanguage(language)}>
+              {language.language} {language.flag}
+            </button>
+          </li>
         ))}
-      </Combobox.Options>
+      </ul>
     </div>
-  </Combobox>
-);
+  );
 };
 
 export default SearchLangComboBox;

@@ -1,63 +1,78 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
-import { IRelayPKP, SessionSig, SessionSigs } from '@lit-protocol/types';
-import useLocalStorage from '@rehooks/local-storage';
-import { CombinedFormProps, LanguageButton, OnboardFormData } from '@/types/types';
-import { useSupabase } from '@/contexts/SupabaseContext';
-import { useOnboardContext } from '@/contexts/OnboardContext';
-import { submitOnboardForm } from './Form/SubmitOnboardForm';
-import { useGetUsersFlags } from '@/hooks/geo/useGetUsersFlags';
+// OnboardForm.tsx
+import { useLanguageData } from '@/hooks/Onboard/OnboardForm/useLanguageData';
+import { useUserData } from '@/hooks/Onboard/OnboardForm/useUserData';
+import { OnboardFormProps, LanguageButton } from '@/types/types';
+import React, { useState } from 'react';
 import SearchLangComboBox from './Form/SearchLangComboBox';
 import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
+import { submitOnboardLearnAPI } from '@/api/submitOnboardLearnAPI';
+import { submitOnboardTeachAPI } from '@/api/submitOnboardTeachAPI';
 
-export const OnboardForm = ({ onboardMode }: CombinedFormProps) => {
-  const { client: supabaseClient, supabaseLoading } = useSupabase();
-  const {isOnboarded, setIsOnboarded, learningLangs, teachingLangs, name, hasBalance, setTeachingLangs, setLearningLangs, setName } = useOnboardContext();
-  const [currentAccount] = useLocalStorage<IRelayPKP>("currentAccount");
-  const [sessionSigs] = useLocalStorage<SessionSigs>("sessionSigs")
-  const callback = submitOnboardForm(onboardMode, setName, name, setLearningLangs, setTeachingLangs, teachingLangs, learningLangs, currentAccount, sessionSigs, supabaseClient, supabaseLoading, setIsOnboarded, isOnboarded, hasBalance);
+const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
+  const { languageButtons, setLanguageButtons } = useLanguageData();
+  const {
+    currentAccount,
+    sessionSigs,
+    learningLangs, // already selected lanaguages? no. maybe for edit langs
+    teachingLangs,
+    isOnboarded,
+    hasBalance,
+    supabaseClient,
+    supabaseLoading,
+    setIsOnboarded,
+    name,
+    setName,
+    isLitLoggedin,
+  } = useUserData();
 
-  const initialLanguages = useGetUsersFlags() || [];
-  const [combinedLanguages, setCombinedLanguages] = useState<LanguageButton[]>([]);
-  const { handleSubmit, register, control, setValue, getValues, formState: { errors }, watch } = useForm<OnboardFormData>();
+  const [selectedLanguages, setSelectedLanguages] = useState<LanguageButton[]>([]);
 
-  useEffect(() => {
-    if (initialLanguages.length) {
-      setCombinedLanguages(current => [...current, ...initialLanguages])
+  const handleSelectLanguage = (language: LanguageButton) => {
+    const isSelected = selectedLanguages.some( lang=> lang.language === language.language);
+    if (isSelected) {
+      setSelectedLanguages(prevSelected => prevSelected.filter((lang) => lang.language !== language.language));
+    } else {
+      setSelectedLanguages(prevSelected => [...prevSelected, language]);
     }
-  }, [initialLanguages])
+  };
 
-  // Watch all form fields
-  // const watchedFields = watch(); // Watch everything
-  // useEffect(() => {
-  //   console.log("formData", watchedFields); // Log the entire form data as it updates
-  // }, [watchedFields]);
+  const handleToggleLanguage = (languageButton: LanguageButton) => {
+    const updatedLanguages = selectedLanguages.map(lang => lang.language === languageButton.language ? { ...lang, isSelected: !lang.isSelected } : lang);
+    setSelectedLanguages(updatedLanguages);
+  };
+
+  const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => { setName(event.target.value); };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const selectedLanguageCodes = selectedLanguages
+    .filter(lang => lang.isSelected)
+    .map((lang) => lang.language);
+
+    if (onboardMode === 'Learn') {
+      submitOnboardLearnAPI(selectedLanguageCodes, isOnboarded, name, hasBalance, setIsOnboarded, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
+
+    } else {
+      submitOnboardTeachAPI(selectedLanguageCodes, isOnboarded, name, setIsOnboarded, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
+    }
+  };
 
   return (
-    <div>
+    <form onSubmit={handleSubmit}>
       <SearchLangComboBox
-        control={control}
-        setValue ={setValue}
-        getValues={getValues}
-        combinedLanguages={combinedLanguages}
-        setCombinedLanguages={setCombinedLanguages}
+        languageButtons={languageButtons}
+        setLanguageButtons={setLanguageButtons}
+        onSelectLanguage={handleSelectLanguage}
       />
-      <form onSubmit={handleSubmit(callback)}>
-        <LanguageToggleButtons
-          control={control}
-          setValue={setValue}
-          combinedLanguages={combinedLanguages}
-        />
-        <NameInputField register={register} errors={errors} />
-        <div className="__submit-button-container__ flex justify-center mt-7">
-          <button className="bg-zinc-300 rounded border p-1 border-black" type="submit">Submit</button>
-        </div>
-      </form>
-    </div>
+      <LanguageToggleButtons
+        selectedLanguages={selectedLanguages}
+        onToggleLanguage={handleToggleLanguage}
+      />
+      <NameInputField name={name} onNameChange={handleNameChange} />
+      <button type="submit">Submit</button>
+    </form>
   );
 };
 
 export default OnboardForm;
-//TODO: The language must associate the teaching langs with countries in db, in order to provide students teachers from the countries they're shown
-//OPTIM: Eventually flags should be drawn from where we have the most teachers

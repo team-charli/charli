@@ -12,7 +12,7 @@ const useLitLoggedIn = () => {
     if (currentAccount && sessionSigs) {
       setIsLitLoggedIn(true)
     }
-  }, [currentAccount, sessionSigs, setIsLitLoggedIn])
+  }, [currentAccount, sessionSigs])
   return isLitLoggedIn
 }
 export default useLitLoggedIn;

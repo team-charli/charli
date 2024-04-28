@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
-import DateTimeLocalInput from "apps/frontend/src/Components/Elements/DateTimeLocalInput";
-import { usePreCalculateTimeDate } from "apps/frontend/src/hooks/Lounge/usePreCalculateTimeDate";
-import { useSupabase } from "apps/frontend/src/contexts/SupabaseContext";
-import useLocalStorage from "@rehooks/local-storage";
-import { convertLocalTimetoUtc } from "apps/frontend/src/utils/app";
-import { learnerSubmitLearningRequest } from "apps/frontend/src/Supabase/DbCalls/learnerSubmitLearningRequest";
-import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
-import signApproveFundController from "apps/frontend/src/Lit/SignPKPEthers/signApproveFundController";
-import SessionLengthInput from "apps/frontend/src/Components/Elements/SessionLengthInput";
-import { useComputeControllerAddress } from "apps/frontend/src/hooks/LitActions/useComputeControllerAddress";
 import { parseInt } from "lodash";
+import useLocalStorage from "@rehooks/local-storage";
+import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
+import signApproveFundController from "@/Lit/SignPKPEthers/signApproveFundController";
+import { learnerSubmitLearningRequest } from "@/Supabase/DbCalls/learnerSubmitLearningRequest";
+import { useSupabase } from "@/contexts";
+import { usePreCalculateTimeDate } from "@/hooks/Lounge/usePreCalculateTimeDate";
+import { useComputeControllerAddress } from "@/hooks/LitActions/useComputeControllerAddress";
+import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
+import SessionLengthInput from "@/components/elements/SessionLengthInput";
 
 interface TeacherProps {
   teacherName: string;
@@ -25,8 +24,8 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
   const [ toggleDateTimePicker, setToggleDateTimePicker ] = useState(false);
   const [ renderSubmitConfirmation, setRenderSubmitConfirmation ] = useState(false);
-  const contractAddress = import.meta.env.USDC_CONTRACT_ADDRESS;
-  const {controller_address, controller_claim_user_id, claim_key_id, controller_public_key}  =  useComputeControllerAddress();
+  const contractAddress = process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS;
+  const {controller_address, controller_claim_user_id, claim_key_id, controller_public_key} = useComputeControllerAddress();
 
   useEffect(() => {
     if (sessionLengthInputValue?.length) {
@@ -44,8 +43,10 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
     if (supabaseClient && !supabaseLoading && userID && sessionLength) {
       const learningRequestSuccess = await learnerSubmitLearningRequest(supabaseClient, dateTime, teacherID, userID, teachingLang, setRenderSubmitConfirmation, sessionLength, controller_address, claim_key_id, controller_claim_user_id, controller_public_key, currentAccount)
 
-      if (learningRequestSuccess && amount) {
+      if (learningRequestSuccess && amount && contractAddress) {
         await signApproveFundController(sessionSigs, currentAccount, contractAddress, controller_address, amount )
+      } else {
+        console.log("one of these is undefined", {learningRequestSuccess, amount, contractAddress})
       }
     }
   };

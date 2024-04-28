@@ -9,15 +9,6 @@ import useLocalStorage from '@rehooks/local-storage';
 export const submitOnboardForm = (onboardMode: "Learn" | "Teach" | null, setName:Dispatch<SetStateAction<string>>, name: string, setLearningLangs:Dispatch<SetStateAction<string[]>>, setTeachingLangs:Dispatch<SetStateAction<string[]>>, teachingLangs: string[], learningLangs: string[], currentAccount: IRelayPKP | null, sessionSigs:SessionSigs | null, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, setIsOnboarded: LocalStorageSetter<boolean>, isOnboarded: boolean | null, hasBalance: boolean | null) => {
 
   const [ isLitLoggedIn ] = useLocalStorage<boolean>("isLitLoggedIn");
-  // useEffect(() => {
-  //   if (supabaseLoading && !supabaseClient) {
-  //     console.log("supabaseClient loading");
-  //   } else if (!supabaseLoading && !supabaseClient) {
-  //     console.log("not loading but no client, investigate");
-  //   } else if (!supabaseLoading && supabaseClient) {
-  //     console.log("has supabaseClient");
-  //   }
-  // }, [supabaseLoading, supabaseClient])
 
   return async (formData: OnboardFormData) => {
     if (supabaseLoading) {
@@ -32,8 +23,7 @@ export const submitOnboardForm = (onboardMode: "Learn" | "Teach" | null, setName
 
     console.log("formData", formData)
     setName(formData.name);
-    //FIX: selectedLanguages not updating. Neither are learningLangs nor name
-    //NOTE: refactor language selection into actual component between this and onboardForm
+
     const selectedLanguages = Object.keys(formData).filter(key =>
       formData[key] === true && key !== 'name'
     );

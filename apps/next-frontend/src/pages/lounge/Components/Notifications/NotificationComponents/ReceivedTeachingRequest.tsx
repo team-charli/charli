@@ -1,19 +1,15 @@
 import ky from 'ky'
 import { useState } from "react";
-import DateTimeLocalInput from "apps/frontend/src/Components/Elements/DateTimeLocalInput";
-import { useSupabase } from "apps/frontend/src/contexts/SupabaseContext";
-import { useLocalizeAndFormatDateTime } from "apps/frontend/src/hooks/utils/useLocalizeAndFormatDateTime";
-import {
-  teacherChangeDateTime,
-  teacherConfirmRequestDb,
-  teacherRejectRequest
-} from "apps/frontend/src/Supabase/DbCalls/teacherConfirmRejectReschedule";
-import { useExecuteTransferFromLearnerToController } from "apps/frontend/src/hooks/LitActions/useExecuteTransferFromLearnerToController";
-import { NotificationIface, defaultSessionParams } from "apps/frontend/src/types/types";
-import { fetchLearnerToControllerParams } from "apps/frontend/src/Supabase/DbCalls/fetchLearnerToControllerParams";
-import { calculateSessionCost } from "apps/frontend/src/utils/app";
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP } from '@lit-protocol/types';
+import { NotificationIface } from '@/types/types';
+import { useSupabase } from '@/contexts';
+import { useLocalizeAndFormatDateTime } from '@/hooks/utils/useLocalizeAndFormatDateTime';
+import { useExecuteTransferFromLearnerToController } from '@/hooks/LitActions/useExecuteTransferFromLearnerToController';
+import { fetchLearnerToControllerParams } from '@/Supabase/DbCalls/fetchLearnerToControllerParams';
+import { calculateSessionCost } from '@/utils/app';
+import { teacherChangeDateTime, teacherConfirmRequestDb, teacherRejectRequest } from '@/Supabase/DbCalls/teacherConfirmRejectReschedule';
+import DateTimeLocalInput from '@/components/elements/DateTimeLocalInput';
 
 type ReceivedTeachingRequestProps = {
   notification: NotificationIface;
@@ -51,7 +47,7 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
             throw new Error(`error: mint controller pkp`)
           }
           if ( controllerPublicKey && controllerAddress && learnerAddress && requestedSessionDuration){
-            const paymentAmount = BigInt(calculateSessionCost(requestedSessionDuration));
+            const paymentAmount = BigInt(calculateSessionCost(parseInt(requestedSessionDuration)));
             try {
               await executeTransferFromLearnerToController(learnerAddress, controllerAddress, controllerPublicKey, paymentAmount);
 

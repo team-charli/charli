@@ -33,6 +33,13 @@ export type CombinedFormProps = {
   onboardMode: "Learn" | "Teach" | null;
 }
 
+export type NameInputFieldProps = {
+  name: string;
+  onNameChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}
+export interface OnboardFormProps {
+  onboardMode: "Teach"  | "Learn"
+}
 export type FormValues = {
   name: string;
   [key: string]: string | boolean;  // Allow additional keys for languages
@@ -246,20 +253,26 @@ export interface LangIso2NameMap {
   [key: string]: string;
 }
 
-export type LanguageButton = {
+export interface LanguageButton {
   language: string;
-  primaryFlag: string;
-  secondaryFlag?: string; // Add this line if secondaryFlag is optional
-  omitSecondaryFlag?: boolean;
-};
+  flag: string;
+  isSelected?: boolean;
+  languageCode: string;
+}
+
+type OnToggleLanguage = (languageButton: LanguageButton) => void;
+
+export type LanguageToggleButtons = {
+  selectedLanguages: LanguageButton[];
+  onToggleLanguage:  OnToggleLanguage;
+}
+
+type OnSelectLanguage = (language: LanguageButton) => void;
 
 export type SearchLangComboBoxProps = {
-
-  setCombinedLanguages: React.Dispatch<React.SetStateAction<LanguageButton[]>>;
-  combinedLanguages: LanguageButton[];
-  control: any; // Assuming control is from react-hook-form
-  setValue: any;
-  getValues: any;
+  setLanguageButtons: React.Dispatch<React.SetStateAction<LanguageButton[]>>;
+  languageButtons: LanguageButton[];
+  onSelectLanguage: OnSelectLanguage
 };
 
 export type LanguageToggleButtonsProps = {
@@ -363,7 +376,7 @@ export interface NotificationIface {
   type: 'learn' | 'teach';
   subType: string;
   session_id: number;
-  request_origin_type: 'learner' | 'teacher';
+  request_origin_type?: 'learner' | 'teacher';
   teacherName: string;
   learnerName: string;
   teacher_id: number;
@@ -374,7 +387,7 @@ export interface NotificationIface {
   session_rejected_reason?: string;
   roomId?: string;
   teaching_lang: string;
-  controller_address: string;
+  controller_address?: string;  // Made optional
   controller_claim_user_id?: string;
   controller_public_key?: string;
   controller_claim_keyid?: string;

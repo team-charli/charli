@@ -1,10 +1,10 @@
 import useLocalStorage from "@rehooks/local-storage";
 import Teacher from "./Teacher";
-import useGetTeachers from "apps/frontend/src/hooks/Lounge/useGetTeachers";
+import useGetTeachers from "@/hooks/Lounge/useGetTeachers";
 
 interface TeachersProps {
   selectedLang: string;
-  modeView: "learn" | "teach";
+  modeView: "Learn" | "Teach";
 }
 
 const Teachers = ({modeView, selectedLang }: TeachersProps) => {

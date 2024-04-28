@@ -1,11 +1,11 @@
 import { toLower } from 'lodash';
 import useLocalStorage from '@rehooks/local-storage';
 import NotificationComponent from './NotificationComponent';
-import { NotificationIface } from 'apps/frontend/src/types/types';
+import { NotificationIface } from '@/types/types';
 
 interface NotificationsProps {
   notifications: NotificationIface[];
-  modeView: "learn" | "teach";
+  modeView: "Learn" | "Teach";
 }
 
 const Notifications = ({notifications: all_notifications , modeView}: NotificationsProps) => {
@@ -26,7 +26,7 @@ const Notifications = ({notifications: all_notifications , modeView}: Notificati
 
   const sortedNotifications = involveUser.sort((a, b) => {
     const getSignificantDate = (notif: NotificationIface): Date => {
-      if (hasConfirmedTimeDate(notif) && notif.confirmed_time_date !== undefined) {
+      if (hasConfirmedTimeDate(notif) && notif.confirmed_time_date) {
         return new Date(notif.confirmed_time_date);
       } else if (hasCounterTimeDate(notif) && notif.counter_time_date !== undefined) {
         return new Date(notif.counter_time_date);

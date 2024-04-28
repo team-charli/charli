@@ -1,11 +1,10 @@
-import IconHeader from '../../Components/Headers/IconHeader'
-import DropDownButton from './Components/Interactions/DropDownButton'
 import { useState } from 'react'
+import DropDownButton from './Components/Interactions/DropDownButton'
 import useLangNavData from '../../hooks/Lounge/useLangNavData'
 import LangNav from './Components/Interactions/LangNav'
 import LearnerView from './Components/Learner/LearnerView'
-import ScheduleView from './Components/Notifications/ScheduleView'
 import TeacherView from './Components/Teacher/TeacherView'
+import IconHeader from '@/components/IconHeader'
 
 export const Lounge = () => {
   const [modeView, setModeView] = useState<"Learn" | "Teach">("Learn")

@@ -1,13 +1,18 @@
+import { NameInputFieldProps } from '@/types/types';
+import React from 'react';
 
-const NameInputField = ({ register, errors }: {register: any, errors: any}) => {
+const NameInputField = ({ name, onNameChange }: NameInputFieldProps ) => {
   return (
-    <div className="__name-input-container__ flex justify-center mt-10 mr-10">
-      <label htmlFor="name" className="mr-2">Name:</label>
-      <input className="border-2 border-black rounded-lg" {...register("name")} type="text" />
-      {errors.name && <p>{errors.name.message}</p>}
+    <div>
+      <label htmlFor="name">Name:</label>
+      <input
+        type="text"
+        id="name"
+        value={name}
+        onChange={onNameChange}
+      />
     </div>
   );
 };
 
 export default NameInputField;
-

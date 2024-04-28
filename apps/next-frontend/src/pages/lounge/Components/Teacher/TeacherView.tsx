@@ -1,10 +1,10 @@
-import { useNotificationContext } from "apps/frontend/src/contexts/NotificationContext";
+import { useNotificationContext } from "@/contexts/";
 import Notifications from "../Notifications/Notifications";
 import Learners from "./Learners";
-import { NotificationIface } from "apps/frontend/src/types/types";
+import { NotificationIface } from "@/types/types";
 
 interface TeacherViewProps {
-  modeView: "learn" | "teach";
+  modeView: "Learn" | "Teach";
   selectedLang: string;
 }
 
