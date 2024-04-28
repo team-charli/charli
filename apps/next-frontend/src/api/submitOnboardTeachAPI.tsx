@@ -1,15 +1,14 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Dispatch, SetStateAction } from 'react'
 import { Database } from '../supabaseTypes';
 import { LocalStorageSetter } from '../types/types';
-import { IRelayPKP, SessionSig, SessionSigs } from '@lit-protocol/types';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
-export const submitOnboardTeachAPI = async (teachingLangs: string[], isOnboarded: boolean | null, name: string, setIsOnboarded:LocalStorageSetter<boolean>,   supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null) => {
+export const submitOnboardTeachAPI = async (selectedLanguageCodes: string[], isOnboarded: boolean | null, name: string, setIsOnboarded:LocalStorageSetter<boolean>,   supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null) => {
 
-  if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  teachingLangs.length && name.length&& supabaseClient /*&& isOnline*/ ) {
+  if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  selectedLanguageCodes.length && name.length && supabaseClient && !supabaseLoading /*&& isOnline*/ ) {
     const insertData: Database["public"]["Tables"]["user_data"]["Insert"] = {
       name: name,
-      wants_to_teach_langs: teachingLangs,
+      wants_to_teach_langs: selectedLanguageCodes, // modified structure 2 tables
       user_address: currentAccount.ethAddress,
       default_native_language: 'ENG',
     };

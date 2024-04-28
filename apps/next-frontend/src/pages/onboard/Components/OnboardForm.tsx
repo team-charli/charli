@@ -38,7 +38,7 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
   };
 
   const handleToggleLanguage = (languageButton: LanguageButton) => {
-    const updatedLanguages = selectedLanguages.map(lang => lang.language === languageButton.language ? { ...lang, isSelected: !lang.isSelected } : lang);
+    const updatedLanguages = selectedLanguages.map(selectedLang => selectedLang.language === languageButton.language ? { ...selectedLang, isSelected: !selectedLang.isSelected } : selectedLang);
     setSelectedLanguages(updatedLanguages);
   };
 

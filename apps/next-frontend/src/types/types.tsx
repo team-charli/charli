@@ -276,10 +276,8 @@ export type SearchLangComboBoxProps = {
 };
 
 export type LanguageToggleButtonsProps = {
-  control: any;
-  setValue: any;
-  combinedLanguages: LanguageButton[];
-  additionalLanguages?: LanguageButton[];
+  selectedLanguages: LanguageButton[];
+  onToggleLanguage: OnToggleLanguage;
 };
 
 export interface OnboardFormData {

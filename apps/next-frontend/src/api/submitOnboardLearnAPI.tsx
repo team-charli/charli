@@ -4,7 +4,7 @@ import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../types/types';
 import { ErrorModal } from '@/components/ErrorModal';
 
-export const submitOnboardLearnAPI = async (learningLangs: string[], isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP, sessionSigs: SessionSigs, isLitLoggedIn: boolean | null)=> {
+export const submitOnboardLearnAPI = async (learningLangs: string[], isOnboarded: boolean | null, name: string, hasBalance: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null)=> {
 try {
   if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  learningLangs.length && name.length && supabaseClient) {
     if (hasBalance === false) {
@@ -32,7 +32,6 @@ try {
       console.error('Supabase error:', error);
       throw new Error('Failed to insert user data');
     }
-    //TODO: on success, implement cacheing
   } else {
     // console.warn({isOnboarded, currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), learningLangsLength: learningLangs.length, nameLength: name.length, supabaseClient: Boolean(supabaseClient) })
     throw new Error('User is already onboarded or missing required data');
