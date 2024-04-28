@@ -1,4 +1,4 @@
-import {utils} from 'ethers'
+import ethers from 'ethers'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useAsyncEffect } from '../utils/useAsyncEffect';
 import { LocalStorageSetter } from '../../types/types';
@@ -29,7 +29,7 @@ export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalSto
         console.error(e)
         throw new Error;
       }
-      const minBalanceWei = utils.parseEther('0.003259948275487362')
+      const minBalanceWei = ethers.parseEther('0.003259948275487362')
 
       let balance
       try {

@@ -1,36 +1,35 @@
-import ethers from 'ethers' //remove in deploy
+// import ethers from 'ethers' //remove in deploy
 
-let teacherRole, teacherPeerId, teacherRoomId, teacherDuration, learnerRole, learnerPeerId, learnerRoomId, learnerDuration, usdcContractAddress, chainId, addressTimestampWorkerWallet,  clientTimestamp, signedClientTimestamp,
-chain = "0x",
-hashedTeacherAddress = "0x",
-hashedLearnerAddress = "0x",
-authSig = "0x",
-sessionDuration = 0,
-teacherDurationSig = "0x",
-learnerDurationSig = "0x",
-teacherJoinedAt = 0,
-learnerJoinedAt = 0,
-teacherLeftAt = 0,
-learnerLeftAt = 0,
-teacherJoinedAtSig = "",
-learnerJoinedAtSig = "",
-teacherLeftAtSig = "",
-learnerLeftAtSig = "",
-faultType = 'learnerfault_didnt_join' || 'teacherFault_didnt_join' || 'learnerFault_connection_timeout' || 'teacherFault_connection_timeout' || undefined,
-faultUser = 'teacher' || 'learner' || undefined,
-faultTime = 0,
-faultTimeSig = "",
-faultData = {
-  faultType: faultType,
-  faultUser: faultUser,
-  faultTime: faultTime,
-  faultTimeSig: faultTimeSig,
-},
-userAddress = "0x"
-;
+// let teacherRole, teacherPeerId, teacherRoomId, teacherDuration, learnerRole, learnerPeerId, learnerRoomId, learnerDuration, usdcContractAddress, chainId, addressTimestampWorkerWallet,  clientTimestamp, signedClientTimestamp,
+// chain = "0x",
+// hashedTeacherAddress = "0x",
+// hashedLearnerAddress = "0x",
+// authSig = "0x",
+// sessionDuration = 0,
+// teacherDurationSig = "0x",
+// learnerDurationSig = "0x",
+// teacherJoinedAt = 0,
+// learnerJoinedAt = 0,
+// teacherLeftAt = 0,
+// learnerLeftAt = 0,
+// teacherJoinedAtSig = "",
+// learnerJoinedAtSig = "",
+// teacherLeftAtSig = "",
+// learnerLeftAtSig = "",
+// faultType = 'learnerfault_didnt_join' || 'teacherFault_didnt_join' || 'learnerFault_connection_timeout' || 'teacherFault_connection_timeout' || undefined,
+// faultUser = 'teacher' || 'learner' || undefined,
+// faultTime = 0,
+// faultTimeSig = "",
+// faultData = {
+//   faultType: faultType,
+//   faultUser: faultUser,
+//   faultTime: faultTime,
+//   faultTimeSig: faultTimeSig,
+// },
+// userAddress = "0x"
+// ;
 /* above are passed in params, must delete before deploy */
-// export const transferControllerToTeacherAction = `
-
+export const transferControllerToTeacherAction = `
 (async () => {
   const CHARLI_SESSION_SESSION_TIME_TRACKER_ADDRESS = '0x3A7a366A278559BC57F3750D458aE2bB044252d0'
   const USDC_CONTRACT_ADDRESS = "0x"
@@ -84,9 +83,9 @@ userAddress = "0x"
 
     //redundant checks for visibility; check made before join session
     if (!teacherSignedDuration) {
-      throw new Error(`teacher never signed session duration`)
+      throw new Error("teacher never signed session duration")
     } else if (!learnerSignedDuration) {
-      throw new Error(`learner never signed session duration`)
+      throw new Error("learner never signed session duration")
     }
 
   }
@@ -189,5 +188,5 @@ userAddress = "0x"
     })
   }
 })();
-// `
+`
 

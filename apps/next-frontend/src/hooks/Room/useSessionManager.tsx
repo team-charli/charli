@@ -19,6 +19,7 @@ const useSessionManager = ({
       const initializeWebhookServer = async () => {
         try {
           const workerUrl = process.env.NEXT_PUBLIC_SESSION_TIMER_WORKER_URL;
+          if (!workerUrl) throw new Error('undfined env')
           const response = await fetch(`${workerUrl}/init`, {
             method: 'POST',
             headers: {

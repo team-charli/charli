@@ -5,6 +5,7 @@ import { generateUserId } from '../../utils/app';
 
 export const useComputeControllerAddress = () => {
   const ipfs_cid = process.env.NEXT_PUBLIC_LIT_ACTION_IPFS_CID_TRANSFER_FROM_LEARNER;
+  if (!ipfs_cid) throw new Error('missing ipfs_cid env')
   const userId = generateUserId();
 
   const keyId = litNodeClient.computeHDKeyId(userId, ipfs_cid, true);

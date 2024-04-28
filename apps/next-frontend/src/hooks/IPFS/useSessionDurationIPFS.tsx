@@ -16,10 +16,13 @@ export const useSessionDurationIPFS = () => {
 
   const pinJSONToIPFS = async (data: any) => {
     const url = 'https://api.pinata.cloud/pinning/pinJSONToIPFS';
+    const pinata_api_key = process.env.NEXT_PUBLIC_PINATA_API_KEY;
+    const pinata_secret_api_key = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
+    if (!pinata_api_key || !pinata_secret_api_key) throw new Error(`Missing one or both pinaata envs `)
     const headers = {
       'Content-Type': 'application/json',
-      pinata_api_key: PINATA_API_KEY,
-      pinata_secret_api_key: PINATA_API_SECRET,
+      pinata_api_key,
+      pinata_secret_api_key
     };
 
     const response = await fetch(url, {

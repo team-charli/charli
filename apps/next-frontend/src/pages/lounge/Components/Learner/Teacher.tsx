@@ -9,6 +9,7 @@ import { usePreCalculateTimeDate } from "@/hooks/Lounge/usePreCalculateTimeDate"
 import { useComputeControllerAddress } from "@/hooks/LitActions/useComputeControllerAddress";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
+import signSessionDuration from "@/Lit/SignPKPEthers/signSessionDuration";
 
 interface TeacherProps {
   teacherName: string;
@@ -18,7 +19,7 @@ interface TeacherProps {
 
 const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string | undefined>(undefined);
-  const [sessionLength, setSessionLength] = useState<number | null>(null);
+  const [sessionDuration, setSessionDuration] = useState<number | null>(null);
   const [amount, setAmount] = useState<number|null>(null);
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
@@ -30,7 +31,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   useEffect(() => {
     if (sessionLengthInputValue?.length) {
       const minutes = parseInt(sessionLengthInputValue)
-      setSessionLength(minutes);
+      setSessionDuration(minutes);
       const rate = .3
       setAmount(minutes * rate);
     }
@@ -40,14 +41,17 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   const [userID] = useLocalStorage("userID")
 
   const handleSubmitLearningRequest = async () => {
-    if (supabaseClient && !supabaseLoading && userID && sessionLength) {
-      const learningRequestSuccess = await learnerSubmitLearningRequest(supabaseClient, dateTime, teacherID, userID, teachingLang, setRenderSubmitConfirmation, sessionLength, controller_address, claim_key_id, controller_claim_user_id, controller_public_key, currentAccount)
+    if (sessionDuration && currentAccount && sessionSigs) {
+     const requestedSessionDurationLearnerSig = await signSessionDuration({sessionDuration, currentAccount, sessionSigs});
+    if (supabaseClient && !supabaseLoading && userID && sessionDuration) {
+      const learningRequestSuccess = await learnerSubmitLearningRequest(supabaseClient, dateTime, teacherID, userID, teachingLang, setRenderSubmitConfirmation, sessionDuration, controller_address, claim_key_id, controller_claim_user_id, controller_public_key, currentAccount, requestedSessionDurationLearnerSig)
 
       if (learningRequestSuccess && amount && contractAddress) {
         await signApproveFundController(sessionSigs, currentAccount, contractAddress, controller_address, amount )
       } else {
         console.log("one of these is undefined", {learningRequestSuccess, amount, contractAddress})
       }
+    }
     }
   };
 

@@ -1,10 +1,10 @@
-import ethers from 'ethers';
+import ethers, { SignatureLike } from 'ethers';
 import { SupabaseClient } from "@supabase/supabase-js";
 import { convertLocalTimetoUtc } from "../../utils/app";
 import { Dispatch, SetStateAction } from "react";
 import { IRelayPKP } from '@lit-protocol/types';
 
-export async function learnerSubmitLearningRequest (supabaseClient: SupabaseClient, dateTime: string, teacherID: number, userID: string | null, teachingLang: string, setRenderSubmitConfirmation: Dispatch<SetStateAction<boolean>>, requested_session_duration: number, controller_address: string, controller_claim_userId: string, controller_public_key: string, claim_key_id: string, currentAccount: IRelayPKP | null) {
+export async function learnerSubmitLearningRequest (supabaseClient: SupabaseClient, dateTime: string, teacherID: number, userID: string | null, teachingLang: string, setRenderSubmitConfirmation: Dispatch<SetStateAction<boolean>>, requested_session_duration: number, controller_address: string, controller_claim_userId: string, controller_public_key: string, claim_key_id: string, currentAccount: IRelayPKP | null, requestedSessionDurationLearnerSig: SignatureLike | undefined) {
   const utcDateTime = convertLocalTimetoUtc(dateTime)
   try {
     let hashed_learner_address;
@@ -14,7 +14,7 @@ export async function learnerSubmitLearningRequest (supabaseClient: SupabaseClie
     const { data, error } = await supabaseClient
       .from('sessions')
       .insert([
-        { teacher_id: teacherID, learner_id: userID, request_time_date:utcDateTime, request_origin_type: "learner", request_origin: userID, teaching_lang: teachingLang, requested_session_duration, controller_address, controller_claim_userId, controller_public_key, controller_claim_keyid: claim_key_id, hashed_learner_address},
+        { teacher_id: teacherID, learner_id: userID, request_time_date:utcDateTime, request_origin_type: "learner", request_origin: userID, teaching_lang: teachingLang, requested_session_duration, controller_address, controller_claim_userId, controller_public_key, controller_claim_keyid: claim_key_id, hashed_learner_address, requested_session_duration_learner_sig: requestedSessionDurationLearnerSig},
       ])
       .select()
     if (!error) {

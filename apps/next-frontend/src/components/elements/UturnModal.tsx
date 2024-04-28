@@ -1,7 +1,6 @@
-import LoginView from '../../Components/Views/LoginView'
-
 import { useState } from 'react'
 import { Dialog } from '@headlessui/react'
+import LoginView from '@/pages/login/Components/LoginView'
 type Props = {}
 
 const UturnModal = (props: Props) => {

@@ -4,14 +4,12 @@ import { useAsyncEffect } from './utils/useAsyncEffect';
 import { LocalStorageSetter } from '../types/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { useNetwork } from '../contexts/NetworkContext';
 
 export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalStorageSetter<boolean> ) {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
-  // const { isOnline } = useNetwork();
   useAsyncEffect( async () => {
-    if (currentAccount && sessionSigs /*&& isOnline*/ && hasBalance === null) {
+    if (currentAccount && sessionSigs && hasBalance === null) {
 
       const pkpWallet = new PKPEthersWallet({
         pkpPubKey: currentAccount.publicKey,

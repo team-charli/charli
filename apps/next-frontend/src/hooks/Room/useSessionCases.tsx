@@ -69,14 +69,14 @@ const useSessionCases = (messages: Message[]) => {
 
   const postDataToIPFS = async (signedData: SessionIPFSData): Promise<string> => {
     try {
-      const apiKey = process.env.NEXT_PUBLIC_PINATA_API_KEY;
-      const apiSecret = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
-
+      const pinata_api_key = process.env.NEXT_PUBLIC_PINATA_API_KEY;
+      const pinata_secret_api_key = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
+      if (typeof pinata_api_key !== 'string' || typeof pinata_secret_api_key !== 'string') throw new Error('missing an env import')
       const url = 'https://api.pinata.cloud/pinning/pinJSONToIPFS';
       const headers = {
         'Content-Type': 'application/json',
-        pinata_api_key: apiKey,
-        pinata_secret_api_key: apiSecret,
+        pinata_api_key,
+        pinata_secret_api_key,
       };
 
       const response = await fetch(url, {

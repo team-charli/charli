@@ -100,7 +100,11 @@ export interface OnboardStateProviderProps  {
 export interface AuthProviderProps {
   children: ReactNode;
 }
-
+export interface SignSessionDurationParams {
+  sessionDuration: number;
+  sessionSigs: SessionSigs | null,
+  currentAccount: IRelayPKP | null
+}
 export interface SupabaseProviderProps {
   children: ReactNode;
 }
@@ -398,16 +402,13 @@ export interface SessionIface {
   sessionId: number;
 }
 
-export const defaultSessionParams: SessionParamsResult = {
-  controllerPublicKey: null,
-  controllerAddress: null,
-  learnerAddress: null,
-  keyId: null,
-  controller_auth_sig: null,
-  chain: null,
-  teacher_address: null,
-  learner_address: null
-};
+// export const defaultSessionParams: SessionParamsResult = {
+//   controllerPublicKey: null,
+//   controllerAddress: null,
+//   learnerAddress: null,
+//   keyId: null,
+//   controllerAuthSig: null ,
+// };
 
 export interface MatchParams {
   id: string;
@@ -426,8 +427,9 @@ export interface SessionParamsResult {
     controllerAddress: string | null;
     learnerAddress: string | null;
     requestedSessionDuration: string | null;
+    requestedSessionDurationLearnerSig: string | null;
     keyId: string | null;
-
+    hashedLearnerAddress: string | null;
 }
 
 export interface TimestampResponse {

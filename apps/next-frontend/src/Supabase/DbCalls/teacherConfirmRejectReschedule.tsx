@@ -3,16 +3,15 @@ import { IRelayPKP } from "@lit-protocol/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Dispatch, SetStateAction } from "react";
 
-export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, dateTime: string, session_id: number, currentAccount: IRelayPKP | null) {
-  if (supabaseClient && currentAccount) {
+export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, dateTime: string, session_id: number, currentAccount: IRelayPKP | null, hashedTeacherAddress: string | undefined) {
+  if (supabaseClient && currentAccount && hashedTeacherAddress) {
     try {
       const dateObj = new Date(dateTime)
       const utcDateTime = dateObj.toISOString();
-      const hashed_teacher_address = ethers.keccak256(currentAccount.ethAddress);
 
       const { data, error } = await supabaseClient
         .from('sessions')
-        .update({'confirmed_time_date': utcDateTime, hashed_teacher_address})
+        .update({'confirmed_time_date': utcDateTime, hashed_teacher_address: hashedTeacherAddress})
         .match({session_id})
         .select();
       if (!error) {

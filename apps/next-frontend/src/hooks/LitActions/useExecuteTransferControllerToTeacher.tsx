@@ -1,3 +1,4 @@
+
 import { transferControllerToTeacherAction } from "../../Lit/Actions/transferControllerToTeacherAction";
 import { ethers } from 'ethers';
 import { litNodeClient } from "../../utils/lit";
@@ -146,7 +147,9 @@ export const useExecuteTransferControllerToTeacher = (
       v: sig.recid,
     }).serialized;
 
-    const { txParams } = response;
+
+    // @ts-ignore:next-line
+    const { txParams } = response; // eslint-disable-line
     const txn = ethers.Transaction.from({ ...txParams, signature: encodedSig }).serialized;
     return txn;
   };

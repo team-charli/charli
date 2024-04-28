@@ -8,7 +8,12 @@
 // let chain = "baseSepolia";
 // let authSig="string";
 // Above  values should be dynamically passed to the Lit Action through executeJs
+// requestedSessionDurationLearnerSig = '0x'
+// requestedSessionDurationTeacherSig = '0x'
+// hashedLearnerAddress = '0x'
+// hashedTeacherAddress = '0x'
 
+//TODO: verify session duration sigs
 export const transferFromLearnerToControllerAction = `
 (async () => {
 
@@ -21,9 +26,7 @@ export const transferFromLearnerToControllerAction = `
   });
 
   const contract = new ethers.Contract(usdcContractAddress, abi);
-
   const amount = ethers.parseUnits(paymentAmount.toString(), 6);
-
   const txData = contract.interface.encodeFunctionData("transferFrom", [learnerAddress, controllerAddress, amount]);
 
   const txObject = {

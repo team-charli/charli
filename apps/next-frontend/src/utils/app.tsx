@@ -107,7 +107,9 @@ export function safeDestructure<T extends object>(result: Defaultable<T>, defaul
 
 export function calculateSessionCost(sessionDuration: number | undefined) {
   if (!sessionDuration) throw new Error(`sessionDuration undefined`)
-  return import.meta.env.SESSION_RATE * sessionDuration;
+  const sessionRate = process.env.NEXT_PUBLIC_SESSION_RATE;
+  if (!sessionRate) throw new Error("import NEXT_PUBLIC_SESSION_RATE undefined")
+  return  parseInt(sessionRate) * sessionDuration;
 }
 
 export function verifyRoleAndAddress(hashed_teacher_address:string | undefined, hashed_learner_address: string | undefined, roomRole: "learner" | "teacher", currentAccount: IRelayPKP) {

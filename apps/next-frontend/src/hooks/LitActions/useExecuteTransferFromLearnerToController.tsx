@@ -1,11 +1,11 @@
-import {ethers} from 'ethers';
+import {SignatureLike, ethers} from 'ethers';
 import useLocalStorage from "@rehooks/local-storage";
 import { litNodeClient } from "../../utils/lit";
 import { transferFromLearnerToControllerAction  } from "../../Lit/Actions/transferFromLearnerToControllerAction";
 
 export const useExecuteTransferFromLearnerToController = () => {
   const [sessionSigs] = useLocalStorage('sessionSigs');
-  const executeTransferFromLearnerToController = async (learnerAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: BigInt) => {
+  const executeTransferFromLearnerToController = async (learnerAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: BigInt, requestedSessionDurationLearnerSig: SignatureLike | undefined, requestedSessionDurationTeacherSig: SignatureLike | undefined, hashedLearnerAddress: string | undefined, hashedTeacherAddress: string | undefined) => {
     const usdcContractAddress = process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS;
     const chainId = process.env.NEXT_PUBLIC_CHAIN_ID;
 
@@ -19,6 +19,10 @@ export const useExecuteTransferFromLearnerToController = () => {
         paymentAmount,
         usdcContractAddress,
         chainId,
+        requestedSessionDurationLearnerSig,
+        requestedSessionDurationTeacherSig,
+        hashedLearnerAddress,
+        hashedTeacherAddress
       },
     });
 

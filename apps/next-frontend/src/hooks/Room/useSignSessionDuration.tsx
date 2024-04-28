@@ -10,14 +10,12 @@ export const useSignSessionDuration = (sessionDuration: number, currentAccount: 
         pkpPubKey: currentAccount.publicKey
       })
       try {
-       await pkpWallet.init();
-       const signature pkpWallet.signMessage()
+        await pkpWallet.init();
+        const signature = pkpWallet.signMessage(String(sessionDuration))
       } catch (error) {
 
       }
     }
-
   })
-
 }
 

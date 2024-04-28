@@ -26,7 +26,6 @@ export const ORIGIN = process.env.NEXT_PUBLIC_PUBLIC_ENV === 'production'
 export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
   litNetwork: 'cayenne',
-  debug: true,
 });
 
 export const litAuthClient: LitAuthClient = new LitAuthClient({

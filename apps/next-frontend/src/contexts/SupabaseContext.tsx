@@ -11,7 +11,7 @@ const supabaseClientSingleton = (() => {
   let instance: SupabaseClient;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLIC_API_KEY;
-
+  if (!supabaseUrl || ! supabaseAnonKey) throw new Error("can't find supabaseUrland / or supabaseAnonKey")
   const createInstance = (jwt: string) => {
     const client = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: `Bearer ${jwt}` } },

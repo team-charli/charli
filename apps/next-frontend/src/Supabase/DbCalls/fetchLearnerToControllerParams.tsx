@@ -8,7 +8,9 @@ export const fetchLearnerToControllerParams = async (supabaseClient: SupabaseCli
     controllerAddress: null,
     learnerAddress: null,
     requestedSessionDuration: null,
-    keyId: null
+    requestedSessionDurationLearnerSig: null,
+    keyId: null,
+    hashedLearnerAddress: null
   };
   if (!supabaseClient || supabaseLoading) {
     console.error("Supabase client is not available or is loading.");
@@ -18,7 +20,7 @@ export const fetchLearnerToControllerParams = async (supabaseClient: SupabaseCli
   try {
     const { data: session, error } = await supabaseClient
       .from("sessions")
-      .select("controller_public_key, controller_address, learner_id, requested_session_duration, controller_claim_keyid")
+      .select("controller_public_key, controller_address, learner_id, requested_session_duration, requested_session_duration_learner_sig, controller_claim_keyid, hashed_learner_address")
       .eq('id', sessionId)
       .single();
 
@@ -28,7 +30,7 @@ export const fetchLearnerToControllerParams = async (supabaseClient: SupabaseCli
     }
 
     if (session) {
-      const { controller_public_key, controller_address, learner_id, requested_session_duration, controller_claim_keyid } = session;
+      const { controller_public_key, controller_address, learner_id, requested_session_duration, controller_claim_keyid, requested_session_duration_learner_sig, hashed_learner_address } = session;
       let learner_address;
       try {
         const {data: userData, error: learnerAddressError} = await supabaseClient
@@ -43,7 +45,8 @@ export const fetchLearnerToControllerParams = async (supabaseClient: SupabaseCli
         console.error(error);
         throw new Error(`Error fetching learner_address`)
       }
-      return { controllerPublicKey: controller_public_key, controllerAddress: controller_address, learnerAddress: learner_address, requestedSessionDuration: requested_session_duration, keyId: controller_claim_keyid };
+      return { controllerPublicKey: controller_public_key, controllerAddress: controller_address, learnerAddress: learner_address, requestedSessionDuration: requested_session_duration, requestedSessionDurationLearnerSig: requested_session_duration_learner_sig, keyId: controller_claim_keyid, hashedLearnerAddress: hashed_learner_address};
+
     }
   } catch (error) {
     console.error(error)
