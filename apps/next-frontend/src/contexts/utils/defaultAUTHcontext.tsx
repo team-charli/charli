@@ -10,5 +10,6 @@ export const defaultAuthContext: AuthContextObj = {
     currentAccount: null, // IRelayPKP | null
     sessionSigs: null, // SessionSigs | null
     authSig: null, // AuthSig | null
+    isLitLoggedIn: false
 };
 

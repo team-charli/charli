@@ -1,3 +1,4 @@
+import { LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
 import {
   AuthMethod,
   GetSessionSigsProps,
@@ -17,8 +18,8 @@ import {isDefined} from './app'
 export const DOMAIN = process.env.NEXT_PUBLIC_PUBLIC_PROD_URL || 'localhost';
 export const PORT = 3000;
 export const ORIGIN = process.env.NEXT_PUBLIC_PUBLIC_ENV === 'production'
-    ? `https://${DOMAIN}`
-    : `http://${DOMAIN}:${PORT}`;
+  ? `https://${DOMAIN}`
+  : `http://${DOMAIN}:${PORT}`;
 
 export function isSocialLoginSupported(provider: string): boolean {
   return ['google', 'discord'].includes(provider);
@@ -86,15 +87,8 @@ export async function getSessionSigs({
       return response.authSig;
     };
 
-    const resourceAbilities = [
-      {
-        resource: new LitActionResource('*'),
-        ability: LitAbility.PKPSigning,
-      },
-    ];
-
+    const resourceAbilities = [ { resource: new LitActionResource('*'), ability: LitAbility.PKPSigning } ];
     let sessionSigs: SessionSigs;
-
     try {
       sessionSigs = await litNodeClient.getSessionSigs({
         chain: 'ethereum',
@@ -103,10 +97,8 @@ export async function getSessionSigs({
         sessionKey: sessionKeyPair,
         authNeededCallback,
       });
-      // If the operation is successful, you can use sessionSigs as needed
       return sessionSigs
     } catch (e) {
-      // Handle the error
       console.error("An error occurred while getting session signatures:", e);
       throw e
     }
@@ -125,7 +117,7 @@ export async function updateSessionSigs(
   return sessionSigs;
 }
 
-export async function getSessionKeyPair() {
+export function getSessionKeyPair() {
   return litNodeClient.getSessionKey()
 }
 

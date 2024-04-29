@@ -1,47 +1,36 @@
-import { useForm, Controller } from 'react-hook-form';
+import React, { useState } from 'react';
 
 export type SelectionType = "Learn" | "Teach" | "All" | "";
 
 interface ToggleButtonProps {
   label: SelectionType;
-  name: string;
-  control: any;
-  setValue: any;
+  onClick: (selection: SelectionType) => void;
 }
 
-type FormValues = {
-  option: SelectionType;
-};
-
-const Button = ({ label, name, control, setValue }: ToggleButtonProps) => {
+const Button = ({ label, onClick }: ToggleButtonProps) => {
   return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field }) => (
-        <button
-          type="button"
-          onClick={() => setValue(name, label)}
-        >
-          {label}
-        </button>
-      )}
-    />
+    <button type="button" onClick={() => onClick(label)}>
+      {label}
+    </button>
   );
 };
 
 const DropDownButton = () => {
-  const { control, setValue, watch } = useForm<FormValues>({ defaultValues: { option: "" } });
-  const option = watch("option");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedOption, setSelectedOption] = useState<SelectionType>("");
+
+  const handleButtonClick = (selection: SelectionType) => {
+    setSelectedOption(selection);
+  };
 
   return (
     <>
-      <form>
-        <Button name="option" label="Learn" control={control} setValue={setValue} />
-        <Button name="option" label="Teach" control={control} setValue={setValue} />
-        <Button name="option" label="All" control={control} setValue={setValue} />
-      </form>
-      {/*<UserList selection={option} />*/}
+      <div>
+        <Button label="Learn" onClick={handleButtonClick} />
+        <Button label="Teach" onClick={handleButtonClick} />
+        <Button label="All" onClick={handleButtonClick} />
+      </div>
+      {/*<UserList selection={selectedOption} />*/}
     </>
   );
 };

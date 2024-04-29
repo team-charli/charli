@@ -6,18 +6,22 @@ interface ConfirmedTeachingSessionProps {
   notification: NotificationIface;
 }
 
-const ConfirmedTeachingSession = ({notification}: ConfirmedTeachingSessionProps) => {
-  const {formattedDate, formattedTime} = formatUtcTimestampToLocalStrings(notification.confirmed_time_date)
-  const link = "/room/" + notification.roomId
+const ConfirmedTeachingSession = ({ notification }: ConfirmedTeachingSessionProps) => {
+  const { formattedDate, formattedTime } = formatUtcTimestampToLocalStrings(notification.confirmed_time_date);
+  const link = "/room/" + notification.roomId;
+
   return (
     <ul>
       <li>
-        {`Confirmed: Charli in ${notification.teaching_lang}with ${notification.learnerName} on ${formattedDate} at ${formattedTime} as Teacher}`}
+        {`Confirmed: Charli in ${notification.teaching_lang} with ${notification.learnerName} on ${formattedDate} at ${formattedTime} as Teacher`}
       </li>
       <li>
-        {`${<Link href={link}>click here</Link>} when this light 🟡 turns green`}
+        <span>
+          <Link href={link}>click here</Link> when this light 🟡 turns green
+        </span>
       </li>
     </ul>
-  )
-}
-export default ConfirmedTeachingSession
+  );
+};
+
+export default ConfirmedTeachingSession;

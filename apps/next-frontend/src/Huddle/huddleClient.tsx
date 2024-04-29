@@ -1,4 +1,4 @@
-import { HuddleClient, HuddleProvider } from "@huddle01/react"
+import { HuddleClient } from "@huddle01/react"
 
 const projectId =  process.env.NEXT_PUBLIC_HUDDLE_PROJECT_ID as string;;
 

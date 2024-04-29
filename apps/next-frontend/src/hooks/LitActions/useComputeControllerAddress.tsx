@@ -1,4 +1,3 @@
-import ky from 'ky'
 import { ethers } from 'ethers';
 import { generateUserId } from '../../utils/app';
 import { litNodeClient } from '@/utils/litClients';

@@ -4,10 +4,11 @@ import React, { useState } from 'react';
 
 const SearchLangComboBox = ({
   languageButtons,
-  setLanguageButtons,
+  // setLanguageButtons,
   onSelectLanguage,
 }: SearchLangComboBoxProps ) => {
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageButton>();
+  console.log("selectedLanguage", selectedLanguage)
   const [query, setQuery] = useState('');
 
   const filteredLanguageOptions = query ? languageButtons.filter((language) =>

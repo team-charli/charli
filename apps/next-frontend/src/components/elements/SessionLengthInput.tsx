@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction } from "react";
 
 type Props = {setSessionLength: Dispatch<SetStateAction<string | undefined>>; sessionLength: string | undefined}
 

@@ -1,10 +1,4 @@
-import { ReactNode } from 'react';
-
-interface GeneralButtonPropTypes {
-  path: string;
-  children: ReactNode;
-}
-const GeneralButton = ({path, children}: GeneralButtonPropTypes) =>{
+const GeneralButton = () =>{
   return (
     <div className="">
     <div className="w-44 p-3 rounded-lg bg-gray-300  text-center">

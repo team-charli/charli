@@ -27,7 +27,7 @@ export default function useAuthenticate(redirectUri: string, setAuthMethod: Loca
         setLoading(false);
       }
     // }
-  }, [redirectUri]);
+  }, [redirectUri, setAuthMethod]);
   /**
    * Handle redirect from Discord OAuth
    */
@@ -48,7 +48,7 @@ export default function useAuthenticate(redirectUri: string, setAuthMethod: Loca
         setLoading(false);
       }
     // }
-  }, [redirectUri]);
+  }, [redirectUri, setAuthMethod]);
 
 
   useEffect(() => {

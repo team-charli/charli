@@ -1,19 +1,17 @@
 import { useEffect } from 'react';
 import { useStopwatch } from 'react-timer-hook';
 
-type StopWatchProps = {}
-
-const StopWatch = (props: StopWatchProps) => {
+const StopWatch = () => {
 const {
-    totalSeconds,
     seconds,
     minutes,
     hours,
-    days,
-    isRunning,
-    start,
-    pause,
-    reset,
+    // totalSeconds,
+    // days,
+    // isRunning,
+    // start,
+    // pause,
+    // reset,
   } = useStopwatch({ autoStart: false });
 
   useEffect(() => {

@@ -1,19 +1,16 @@
 import { useDataMessage } from '@huddle01/react/hooks';
-type BellRibbonProps = {}
 
-export default function BellRibbon({}: BellRibbonProps) {
+export default function BellRibbon() {
   const { sendData } = useDataMessage();
-  const playBellSound = () => {
-    // Logic to play bell sound locally
-    // For example, using an audio file and the Audio API
+  const playBellSound = async () => {
     const audio = new Audio('/path/to/bell-sound.mp3');
-    audio.play();
+    await audio.play();
   };
 
- const ringBell = () => {
-    playBellSound(); // Play bell sound locally
+ const ringBell = async () => {
+    await playBellSound(); // Play bell sound locally
 
-    sendData({
+    await sendData({
       to: '*',
       payload: JSON.stringify({ action: 'ringBell' }),
       label: 'bell',
@@ -22,7 +19,7 @@ export default function BellRibbon({}: BellRibbonProps) {
   return (
     <>
     {/* css draw border around div; make 3em x screenwidth*/}
-    <div onClick={ringBell} className="__Bell-Ribbon__">🔔</div>
+    <div onClick={() => void ringBell()} className="__Bell-Ribbon__">🔔</div>
     </>
   )
 }

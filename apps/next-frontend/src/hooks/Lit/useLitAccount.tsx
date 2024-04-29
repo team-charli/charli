@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '../../utils/lit';
 import { LocalStorageSetter } from '../../types/types';
@@ -28,7 +28,7 @@ export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurr
           setLoading(false);
         }
     },
-    []
+    [setCurrentAccount]
   );
 
   /**

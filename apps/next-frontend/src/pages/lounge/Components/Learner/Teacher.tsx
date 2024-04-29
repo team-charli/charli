@@ -65,7 +65,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
           <span>When?</span>
           <DateTimeLocalInput  dateTime={dateTime} setDateTime={setDateTime}  />
           <SessionLengthInput sessionLength={sessionLengthInputValue} setSessionLength={setSessionLengthInputValue} />
-          <button onClick={handleSubmitLearningRequest} className="p-1 rounded">
+          <button onClick={() => void handleSubmitLearningRequest()} className="p-1 rounded">
             Submit
           </button>
         </div>

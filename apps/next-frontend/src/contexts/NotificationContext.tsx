@@ -119,7 +119,7 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
         mySubscription.unsubscribe();
       };
     }
-  }, [supabaseClient, supabaseLoading, userId]);
+  }, [supabaseClient, supabaseLoading, userId, fetchLearnersAndTeachers]);
 
   return (
     <NotificationContext.Provider value={{ notificationsContextValue: notifications, showIndicator, setShowIndicator }}>

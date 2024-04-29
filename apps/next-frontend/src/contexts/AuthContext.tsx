@@ -26,7 +26,7 @@ const AuthProvider = ({children}: AuthProviderProps) => {
     authError,
     accountsError,
     sessionError,
-    // isLitLoggedIn // broken reads undefined
+    isLitLoggedIn  //broken reads undefined
   };
 
   return (

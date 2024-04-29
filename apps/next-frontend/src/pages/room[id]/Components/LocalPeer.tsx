@@ -7,15 +7,17 @@ interface LocalPeerProps {
 }
 
 const LocalPeer = ({roomJoinState}: LocalPeerProps) => {
-  const { stream: localVideoStream, enableVideo, disableVideo, isVideoOn } = useLocalVideo();
-  const { stream: localAudioStream, enableAudio, disableAudio, isAudioOn } = useLocalAudio();
+  const { stream: localVideoStream, enableVideo, /*disableVideo, isVideoOn*/ } = useLocalVideo();
+  const { stream: localAudioStream, enableAudio, /*disableAudio, isAudioOn */} = useLocalAudio();
 
   useEffect(() => {
-    if (roomJoinState === 'connected') {
-      enableAudio();
-      enableVideo();
-    }
-  }, [roomJoinState])
+    void (async () => {
+      if (roomJoinState === 'connected') {
+      await  enableAudio();
+      await enableVideo();
+      }
+    })();
+  }, [roomJoinState, enableAudio, enableVideo])
 
   const hasPeerData = localVideoStream && localAudioStream;
 

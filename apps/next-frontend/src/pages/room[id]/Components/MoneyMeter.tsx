@@ -1,8 +1,7 @@
 import { useEffect } from "react"
 
-type MoneyMeterProps = {}
 
-export default function MoneyMeter({}: MoneyMeterProps) {
+export default function MoneyMeter() {
 
   useEffect(()=> {
     //TODO: implement

@@ -1,8 +1,6 @@
-import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { IRelayPKP } from '@lit-protocol/types';
 import bs58 from 'bs58';
 import {ethers} from 'ethers';
-import ky from 'ky';
 
 export function isDefined<T>(value: T | undefined): value is T {
   return typeof value !== 'undefined';
@@ -53,11 +51,13 @@ export const checkIfNotificationExpired = (dateStr: string): boolean => {
 export const convertUtcToLocalTime = (utcTime: string) => {
   const localDateTime = new Date(utcTime);
   const utcDateTime = localDateTime.toISOString();
+  return utcDateTime
 }
 
 export const convertLocalTimetoUtc = (localTime: string) => {
   const localDateTime = new Date(localTime);
   const utcDateTime = localDateTime.toISOString();
+  return utcDateTime
 }
 
 export const formatUtcTimestampToLocalStrings = (utcTimestamp: string | undefined | null): { formattedDate: string, formattedTime: string } => {

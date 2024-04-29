@@ -1,5 +1,4 @@
 import { useRouter } from 'next/router';
-import ky from 'ky';
 import { useEffect, useState } from 'react';
 import { useRoom } from '@huddle01/react/hooks';
 import useLocalStorage from '@rehooks/local-storage';
@@ -10,7 +9,6 @@ import { AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useVerifiyRoleAndAddress } from '../../hooks/Room/useVerifiyRoleAndAddress';
 import { useExecuteTransferControllerToTeacher } from '../../hooks/LitActions/useExecuteTransferControllerToTeacher';
 import { useSessionDurationIPFS } from '../../hooks/IPFS/useSessionDurationIPFS';
-import ClientSideRedirect from '@/components/ClientSideRedirect';
 import { NotificationIface } from '@/types/types';
 import LocalPeer from './Components/LocalPeer';
 import RemotePeer from './Components/RemotePeer';
@@ -24,19 +22,20 @@ const Room  = () => {
   const router = useRouter();
   const { id: roomId, roomRole, notification } = router.query as unknown as RoomQueryParams;
 
-  const parsedNotification: NotificationIface = JSON.parse(notification as string) as NotificationIface ;
+  const parsedNotification: NotificationIface = JSON.parse(notification);
   const { session_id: sessionId, hashed_learner_address, hashed_teacher_address } = parsedNotification;
 
-  const [onJoinCalled, setOnJoinCalled ] = useState(false);
+  // const [onJoinCalled, setOnJoinCalled ] = useState(false);
   const [ onLeaveCalled, setOnLeaveCalled ] = useState(false);
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount')
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs')
-  const [authSig, setAuthSig] = useLocalStorage<AuthSig>("lit-wallet-sig");
+  const [ authSig ] = useLocalStorage<AuthSig>("lit-wallet-sig");
 
   const [ huddleAccessToken ] = useLocalStorage<string>('huddle-access-token');
   const { getIPFSDuration } = useSessionDurationIPFS();
 
   const {verifiedRole, verifiedRoleAndAddress} = useVerifiyRoleAndAddress(hashed_teacher_address, hashed_learner_address, roomRole, currentAccount  )
+  console.log(verifiedRole);
 
   const sessionManager = useSessionManager({clientSideRoomId: roomId, hashedLearnerAddress: hashed_learner_address, hashedTeacherAddress: hashed_teacher_address, userAddress: currentAccount?.ethAddress, sessionSigs, currentAccount});
 
@@ -50,30 +49,35 @@ const Room  = () => {
 
   const userIPFSData = useSessionCases(sessionManager);
   if (!userIPFSData) throw new Error('userIPFSData not defined')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const actionResult = useExecuteTransferControllerToTeacher(userIPFSData, sessionSigs, authSig, sessionDuration, teacherDurationSig, learnerDurationSig, currentAccount?.ethAddress );
+  const { joinRoom, state: roomJoinState} = useRoom({
+    onLeave: () => { setOnLeaveCalled(true); }
+  });
+
 
   // TODO: generalize relayer
   // TODO: send actionResult with relayer
 
-
   useEffect(() => {
+    void (async () => {
     if (roomId &&
       huddleAccessToken &&
       roomJoinState === 'idle' &&
       verifiedRoleAndAddress
     ) {
-      joinRoom({roomId, token: huddleAccessToken})
+      await joinRoom({roomId, token: huddleAccessToken})
     }
-  }, [ huddleAccessToken ]);
+    })();
+  },
+    [joinRoom, roomId, roomJoinState, verifiedRoleAndAddress, huddleAccessToken]);
 
-  const { joinRoom, leaveRoom, state: roomJoinState} = useRoom({
-    onJoin: () => { setOnJoinCalled(true); },
-    onLeave: () => { setOnLeaveCalled(true); }
-  });
 
   useEffect(() => {
-    if ( onLeaveCalled ) router.push(`/room[roodId]-summary`);
-  }, [onLeaveCalled])
+   void (async () => {
+    if ( onLeaveCalled ) await router.push(`/room[roodId]-summary`);
+    })();
+  }, [onLeaveCalled, router])
 
 
   const swapWindowViews = () => {

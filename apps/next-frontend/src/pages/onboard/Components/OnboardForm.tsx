@@ -14,8 +14,8 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
   const {
     currentAccount,
     sessionSigs,
-    learningLangs, // already selected lanaguages? no. maybe for edit langs
-    teachingLangs,
+    // learningLangs, // already selected lanaguages? no. maybe for edit langs
+    // teachingLangs,
     isOnboarded,
     hasBalance,
     supabaseClient,
@@ -51,15 +51,15 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
     .map((lang) => lang.language);
 
     if (onboardMode === 'Learn') {
-      submitOnboardLearnAPI(selectedLanguageCodes, isOnboarded,  setIsOnboarded,name, hasBalance, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
+      await submitOnboardLearnAPI(selectedLanguageCodes, isOnboarded,  setIsOnboarded,name, hasBalance, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
 
     } else {
-      submitOnboardTeachAPI(selectedLanguageCodes, isOnboarded, setIsOnboarded, name, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
+      await submitOnboardTeachAPI(selectedLanguageCodes, isOnboarded, setIsOnboarded, name, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={(e) => void handleSubmit(e)}>
       <SearchLangComboBox
         languageButtons={languageButtons}
         setLanguageButtons={setLanguageButtons}

@@ -1,6 +1,6 @@
 import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 import useLocalStorage from "@rehooks/local-storage";
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 const useLitLoggedIn = () => {
   //TODO: really need a method to check on expiration of currentAccount and sessionSigs
@@ -12,7 +12,7 @@ const useLitLoggedIn = () => {
     if (currentAccount && sessionSigs) {
       setIsLitLoggedIn(true)
     }
-  }, [currentAccount, sessionSigs])
+  }, [currentAccount, sessionSigs, setIsLitLoggedIn])
   return isLitLoggedIn
 }
 export default useLitLoggedIn;

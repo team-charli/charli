@@ -2,13 +2,15 @@ import useLocalStorage from '@rehooks/local-storage'
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types'
 import UturnModal from '@/components/elements/UturnModal';
 import IconHeader from '@/components/headers/IconHeader';
-import ClientSideRedirect from '@/components/ClientSideRedirect';
+import { useRouter } from 'next/router';
+
 
 const Bolsa = () => {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs');
   const [ isOnboarded ] = useLocalStorage<boolean>('isOnboarded');
   const isAuthenticated = currentAccount && sessionSigs;
+  const router = useRouter();
 
   let modal
   if (isOnboarded && isAuthenticated) {
@@ -16,7 +18,14 @@ const Bolsa = () => {
   } else if (!isAuthenticated && isOnboarded) {
     modal = <UturnModal />
   } else if (isAuthenticated && !isOnboarded) {
-    modal = <ClientSideRedirect to="/onboard" />
+    modal = null;
+    router.push("/onboard")
+      .catch((error) => {
+        console.log(error);
+        throw new Error('pushing to /onboard error?')
+        // Handle any errors that occurred during navigation
+      });
+
   }
 
   return (

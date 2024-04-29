@@ -49,6 +49,7 @@ export default function useLitSession() {
             pkpPublicKey: pkp.publicKey,
             sessionSigsParams: {
               chain: 'ethereum',
+              expiration,
               resourceAbilityRequests: resourceAbilities},
           });
           console.log(`setting sessionSigs: `, sessionSigs)
@@ -58,7 +59,7 @@ export default function useLitSession() {
         const error = e as Error;
         console.error("initSession: stack", error.stack)
         console.error("initSession: error", error)
-        setError(error as Error);
+        setError(error);
 
       } finally {
         setLoading(false);
@@ -66,7 +67,7 @@ export default function useLitSession() {
       }
       // }
     },
-    [authSig]
+    [router, sessionSigs, setSessionSigs]
   );
 
   return {

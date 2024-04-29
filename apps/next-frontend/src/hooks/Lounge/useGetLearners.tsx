@@ -20,10 +20,13 @@ function useGetLearners(selectedLang: string, modeView: "Learn" | "Teach") {
           if (supabaseClient && !supabaseLoading  ) {
             console.log("run useGetLearners");
 
-            let {data: user_data, error} =  await supabaseClient
+            const {data: user_data, error} =  await supabaseClient
               .from('user_data')
               .select('*')
               .contains('wants_to_learn_langs', [selectedLang]);
+            if (error) {
+              console.log(error)
+            }
             // console.log('learners user_data', user_data)
             // console.log('selectedLang', selectedLang)
             setLearners(user_data?.filter(user => user.id !== userId) as FetchLearnersResponse[]);

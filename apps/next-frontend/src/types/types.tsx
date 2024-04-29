@@ -52,7 +52,7 @@ export interface OnboardContextObj {
   setIsOnboarded: LocalStorageSetter<boolean>;
 
   nativeLang: string;
-  setNativeLang: Function;
+  setNativeLang: Dispatch<SetStateAction<string>>;
 
   teachingLangs: string[];
   setTeachingLangs: Dispatch<SetStateAction<string[]>>;
@@ -78,7 +78,7 @@ export interface AuthContextObj {
   currentAccount: IRelayPKP | null;
   sessionSigs: SessionSigs | null;
   authSig: AuthSig | null;
-  // isLitLoggedIn: boolean;
+  isLitLoggedIn: boolean;
 }
 
 

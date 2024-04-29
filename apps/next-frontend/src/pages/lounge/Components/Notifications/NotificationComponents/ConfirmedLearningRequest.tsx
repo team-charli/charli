@@ -1,6 +1,6 @@
 import { useGenerateHuddleAccessToken } from '@/hooks/Lounge/useGenerateHuddleAccessToken';
 import { useLocalizeAndFormatDateTime } from '@/hooks/utils/useLocalizeAndFormatDateTime';
-import { ConfirmedLearningRequestProps, NotificationIface } from '@/types/types';
+import { ConfirmedLearningRequestProps } from '@/types/types';
 import { formatUtcTimestampToLocalStrings } from '@/utils/app';
 import Link from 'next/link';
 
@@ -9,10 +9,10 @@ const ConfirmedLearningRequest = ({ notification }: ConfirmedLearningRequestProp
   const { formattedDate, formattedTime } = formatUtcTimestampToLocalStrings(notification?.confirmed_time_date);
   const {localTimeAndDate: {displayLocalTime, displayLocalDate} } = useLocalizeAndFormatDateTime(notification.confirmed_time_date)
 
-  const { generateAccessToken, huddleAccessToken } = useGenerateHuddleAccessToken();
+  const { generateAccessToken /*, huddleAccessToken */} = useGenerateHuddleAccessToken();
 
-  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    generateAccessToken(notification.roomId, event);
+  const handleClick = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    await generateAccessToken(notification.roomId, event);
   };
 
   return (
@@ -30,7 +30,7 @@ const ConfirmedLearningRequest = ({ notification }: ConfirmedLearningRequestProp
           },
         }}
         as={`/room/${notification.roomId}`}
-        onClick={handleClick}
+        onClick={(e) => void handleClick(e)}
       >
         {`Charli with ${notification.learnerName} on ${displayLocalDate} ${displayLocalTime}`}
       </Link>

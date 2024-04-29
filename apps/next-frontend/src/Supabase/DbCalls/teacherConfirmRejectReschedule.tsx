@@ -1,4 +1,3 @@
-import ethers from 'ethers';
 import { IRelayPKP } from "@lit-protocol/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Dispatch, SetStateAction } from "react";
@@ -9,7 +8,7 @@ export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient |
       const dateObj = new Date(dateTime)
       const utcDateTime = dateObj.toISOString();
 
-      const { data, error } = await supabaseClient
+      const { error } = await supabaseClient
         .from('sessions')
         .update({'confirmed_time_date': utcDateTime, hashed_teacher_address: hashedTeacherAddress})
         .match({session_id})

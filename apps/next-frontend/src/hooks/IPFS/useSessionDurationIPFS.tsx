@@ -4,9 +4,8 @@ import { useSupabase } from "../../contexts/SupabaseContext";
 import { PKPEthersWallet } from "@lit-protocol/pkp-ethers";
 import { IPFSResponse, SessionDurationData } from "../../types/types";
 import { useState } from "react";
-
-const PINATA_API_KEY = process.env.NEXT_PUBLIC_PINATA_API_KEY;;
-const PINATA_API_SECRET = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
+const pinata_api_key = process.env.NEXT_PUBLIC_PINATA_API_KEY;
+const pinata_secret_api_key = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
 
 export const useSessionDurationIPFS = () => {
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
@@ -16,8 +15,6 @@ export const useSessionDurationIPFS = () => {
 
   const pinJSONToIPFS = async (data: any) => {
     const url = 'https://api.pinata.cloud/pinning/pinJSONToIPFS';
-    const pinata_api_key = process.env.NEXT_PUBLIC_PINATA_API_KEY;
-    const pinata_secret_api_key = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
     if (!pinata_api_key || !pinata_secret_api_key) throw new Error(`Missing one or both pinaata envs `)
     const headers = {
       'Content-Type': 'application/json',
