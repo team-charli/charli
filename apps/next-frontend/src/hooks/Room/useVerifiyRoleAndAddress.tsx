@@ -19,7 +19,7 @@ export const useVerifiyRoleAndAddress = (hashed_teacher_address: string | undefi
       throw new Error(`can't verifiy`)
     }
     }
-  }, [])
+  }, [currentAccount, hashed_learner_address, hashed_teacher_address, roomRole])
   return {verifiedRole, verifiedRoleAndAddress}
 }
 

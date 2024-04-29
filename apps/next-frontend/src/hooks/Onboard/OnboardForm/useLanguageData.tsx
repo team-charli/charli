@@ -27,7 +27,7 @@ export const useLanguageData = () => {
     };
 
     fetchLanguageData();
-  }, []);
+  }, [supabaseClient, supabaseLoading]);
 
   return { languageButtons, setLanguageButtons };
 };

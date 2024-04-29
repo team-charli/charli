@@ -24,7 +24,7 @@ export const useAsyncEffect = (
         let ignore = false;
         let mountSucceeded = false;
 
-        (async () => {
+        void (async () => {
             await Promise.resolve(); // wait for the initial cleanup in Strict mode - avoids double mutation
             if (!isMounted.current || ignore) {
                 return;
@@ -39,7 +39,7 @@ export const useAsyncEffect = (
                     setIsLoading(false);
                 } else {
                     // Component was unmounted before the mount callback returned, cancel it
-                    unmountCallback();
+                    await unmountCallback();
                 }
             } catch (error) {
                 if (!isMounted.current) return;

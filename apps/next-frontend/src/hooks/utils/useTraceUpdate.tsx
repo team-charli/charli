@@ -21,7 +21,7 @@ function useTraceRerenders<TProps extends Record<string, unknown>>(props: TProps
     prevProps.current = props;
   // It's safer to use an empty array as the dependency list to avoid unintentional frequent executions.
   // You might consider a more complex approach if you need to react to specific props changes.
-  }, []); // Empty array means this effect runs only on mount and unmount
+  }, [props]); // Empty array means this effect runs only on mount and unmount
 }
 
 export default useTraceRerenders;

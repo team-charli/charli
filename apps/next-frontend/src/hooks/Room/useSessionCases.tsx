@@ -36,9 +36,12 @@ const useSessionCases = (messages: Message[]) => {
       }
     };
 
-    messages.forEach((message) => {
-      handleMessage(message);
-    });
+    void (async (messages) => {
+      for (const message of messages) {
+        await handleMessage(message);
+      }
+    })(messages);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   const signTimestampData = async (sessionData: SessionData): Promise<SessionIPFSData> => {
@@ -68,37 +71,37 @@ const useSessionCases = (messages: Message[]) => {
     throw new Error('currentAccount or sessionSigs missing');
   };
 
-  const postDataToIPFS = async (signedData: SessionIPFSData): Promise<string> => {
-    try {
-      const pinata_api_key = process.env.NEXT_PUBLIC_PINATA_API_KEY;
-      const pinata_secret_api_key = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
-      if (typeof pinata_api_key !== 'string' || typeof pinata_secret_api_key !== 'string') throw new Error('missing an env import')
-      const url = 'https://api.pinata.cloud/pinning/pinJSONToIPFS';
-      const headers = {
-        'Content-Type': 'application/json',
-        pinata_api_key,
-        pinata_secret_api_key,
-      };
+const postDataToIPFS = (signedData: SessionIPFSData): Promise<string> => {
+  const pinata_api_key = process.env.NEXT_PUBLIC_PINATA_API_KEY;
+  const pinata_secret_api_key = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
+  if (typeof pinata_api_key !== 'string' || typeof pinata_secret_api_key !== 'string') {
+    return Promise.reject(new Error('missing an env import'));
+  }
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({
-          pinataContent: signedData,
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        return result.IpfsHash;
-      } else {
-        throw new Error('Failed to post data to IPFS');
-      }
-    } catch (error) {
-      console.error(error);
-      throw new Error('Error posting data to IPFS');
-    }
+  const url = 'https://api.pinata.cloud/pinning/pinJSONToIPFS';
+  const headers = {
+    'Content-Type': 'application/json',
+    pinata_api_key,
+    pinata_secret_api_key,
   };
+
+  return fetch(url, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify({ pinataContent: signedData }),
+  })
+  .then(response => {
+    if (response.ok) {
+      return response.json().then((result: any) => result.IpfsHash as string);
+    } else {
+      throw new Error('Failed to post data to IPFS');
+    }
+  })
+  .catch(error => {
+    console.error(error);
+    throw new Error('Error posting data to IPFS');
+  });
+};
 
   const postDataToSupabase = async (ipfsHash: string, sessionData: SessionData): Promise<void> => {
     try {

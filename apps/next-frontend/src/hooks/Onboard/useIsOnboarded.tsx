@@ -8,6 +8,7 @@ export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoa
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   const [ isLitLoggedIn ] = useLocalStorage("isLitLoggedIn");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [userID, setUserID] = useLocalStorage("userID")
   //FIX:: value from Context is 'undefined'
   useAsyncEffect(

@@ -24,16 +24,20 @@ const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI
   } = useLitSession();
 
   useEffect(() => {
+    void (async () => {
     if (authMethod) {
-      fetchAccounts(authMethod);
+      await fetchAccounts(authMethod);
     }
+    })();
   }, [authMethod, fetchAccounts]);
 
   useEffect(() => {
+    void (async () => {
     if (authMethod && currentAccount && !sessionSigs) {
-      initSession(authMethod, currentAccount);
+      await initSession(authMethod, currentAccount);
     }
-  }, [authMethod, currentAccount, initSession]);
+    })();
+  }, [authMethod, currentAccount, sessionSigs, initSession]);
 
   return {authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError };
 }

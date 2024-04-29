@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import isOnline from 'is-online';
 import useLocalStorage from '@rehooks/local-storage';
 
@@ -15,13 +15,17 @@ function useHasInternet(key = 'internetStatus', pollingInterval = POLLING_INTERV
   }, [setHasInternet]);
 
   useEffect(() => {
-    // Immediate check on mount or key change
-    checkOnlineStatusAndUpdate();
+    let intervalId: NodeJS.Timeout;
 
-    // Set up periodic polling
-    const intervalId = setInterval(() => {
-      checkOnlineStatusAndUpdate();
-    }, pollingInterval);
+    const startPolling = () => {
+      void checkOnlineStatusAndUpdate();
+      // Set up periodic polling
+      intervalId = setInterval(() => {
+        void checkOnlineStatusAndUpdate();
+      }, pollingInterval);
+    };
+
+    startPolling();
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);

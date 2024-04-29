@@ -5,16 +5,13 @@ import { useLocalStorage } from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { isJwtExpired } from '../../utils/app';
 import { NonceData } from '../../types/types';
-import { useNetwork } from '../../contexts/NetworkContext';
-//TODO: SELECT allow_all_reads on "user_data"
-
 
 export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null) {
   const [userJWT, setUserJWT] = useLocalStorage<string | null>("userJWT");
   const [nonce, setNonce] = useState<string | null>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [debugRequestCount, setDebugRequestCount] = useState<number>(0)
+  // const [debugRequestCount, setDebugRequestCount] = useState<number>(0)
   // const {isOnline} = useNetwork();
   // useEffect(() => {
   // console.log('nonce', nonce)
@@ -25,7 +22,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
 
   useEffect(() => {
     if(userJWT && isJwtExpired(userJWT)) setUserJWT(null)
-  }, [])
+  }, [setUserJWT, userJWT ])
 
   useEffect(() => {
     const authenticateAndFetchJWT = async () => {
@@ -37,7 +34,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
           // Fetch new nonce
           let nonceResponse
           try {
-            setDebugRequestCount(prevCount => prevCount + 1)
+            // setDebugRequestCount(prevCount => prevCount + 1)
             nonceResponse= await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
             setNonce(nonceResponse.nonce);
           } catch(e) {
@@ -88,8 +85,10 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
       }
     };
 
-    authenticateAndFetchJWT();
-  }, [currentAccount, sessionSigs]);
+    void (async () => {
+      await authenticateAndFetchJWT();
+    })();
+  }, [currentAccount, sessionSigs, nonce, setUserJWT, userJWT]);
 
   return { cachedJWT: userJWT, nonce, isLoading, error };
 }

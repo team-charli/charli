@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, ReactNode } from 'react'
+import { Dispatch, SetStateAction } from 'react'
 interface LangNavProps {
   setSelectedLang: Dispatch<SetStateAction<string>>,
   selectedLang: string;

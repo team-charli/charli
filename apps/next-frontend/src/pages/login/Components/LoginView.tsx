@@ -17,6 +17,13 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
   const error = authError || accountsError || sessionError;
   const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
 
+  useEffect(()=> {
+    if (error) {
+      console.log(error);
+      throw new Error();
+    }
+  }, [error])
+
   async function handleGoogleLogin() {
     if (redirectUrl) {
       await signInWithGoogle(redirectUrl );

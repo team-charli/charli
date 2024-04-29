@@ -31,7 +31,7 @@ export const useUserData = () => {
     setTeachingLangs(userData.teachingLangs);
     setIsOnboarded(userData.isOnboarded);
     setHasBalance(userData.hasBalance);
-  }, []);
+  }, [setIsOnboarded]);
 
   return {
     currentAccount,

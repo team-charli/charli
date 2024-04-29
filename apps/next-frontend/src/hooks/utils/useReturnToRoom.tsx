@@ -18,7 +18,10 @@ export const useReturnToRoom = () => {
       const duration = 5 * 60 * 1000; // 5 minutes
 
       if (lastVisited && timestamp && (Date.now() - Number(timestamp)) <= duration) {
-        router.replace(lastVisited);
+        void (async () => {
+          await router.replace(lastVisited);
+        }
+        )();
       } else {
         localStorage.removeItem('lastVisited');
         localStorage.removeItem('timestamp');

@@ -4,7 +4,6 @@ import { useAsyncEffect } from '../utils/useAsyncEffect';
 import { LocalStorageSetter } from '../../types/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { useNetwork } from '../../contexts/NetworkContext';
 
 export function useHasBalance(hasBalance: boolean | null, setHasBalance:LocalStorageSetter<boolean> ) {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
