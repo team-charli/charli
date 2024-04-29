@@ -15,10 +15,11 @@ export const useLanguageData = () => {
             .from('languages')
             .select('*');
           if (data) {
-
             const languageData = data.map(langObj => ({language: langObj.name, languageCode: langObj.language_code, flag: langObj.emoji, isSelected: false}))
             setLanguageButtons(languageData);
 
+          } else if (error) {
+            console.log(error)
           }
         } catch (error) {
           console.log(error);
@@ -26,7 +27,9 @@ export const useLanguageData = () => {
       }
     };
 
-    fetchLanguageData();
+    void (async () => {
+      await fetchLanguageData();
+    })();
   }, [supabaseClient, supabaseLoading]);
 
   return { languageButtons, setLanguageButtons };

@@ -8,14 +8,15 @@ const useLitClients = (litNodeClient: LitNodeClient, litAuthClient: LitAuthClien
     const connectClients = async () => {
       await litNodeClient.connect();
     };
-
-    connectClients();
-
+    void (async () => {
+      await connectClients();
+    })();
     return () => {
-      litNodeClient.disconnect();
+      void (async () => {
+        await litNodeClient.disconnect();
+      })();
     };
   }, [litNodeClient]);
-
   return { litNodeClient, litAuthClient };
 };
 

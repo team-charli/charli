@@ -33,6 +33,7 @@ export const useExecuteTransferControllerToTeacher = (
     leftAtSig: teacherLeftAtSig,
     duration: teacherDuration,
     hashedTeacherAddress,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     hashedLearnerAddress: teacherHashedLearnerAddress,
   } = teacher;
 
@@ -45,6 +46,7 @@ export const useExecuteTransferControllerToTeacher = (
     joinedAtSig: learnerJoinedAtSig,
     leftAtSig: learnerLeftAtSig,
     duration: learnerDuration,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
     hashedTeacherAddress: learnerHashedTeacherAddress,
     hashedLearnerAddress,
   } = learner;
@@ -113,7 +115,7 @@ export const useExecuteTransferControllerToTeacher = (
     }).serialized;
 
 
-    // @ts-ignore:next-line
+    // @ts-expect-error:next-line
     const { txParams } = response; // eslint-disable-line
     const txn = ethers.Transaction.from({ ...txParams, signature: encodedSig }).serialized;
     return txn;

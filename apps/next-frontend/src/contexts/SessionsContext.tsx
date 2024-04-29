@@ -24,14 +24,17 @@ const SessionProvider = ({ children }: { children: React.ReactNode}) => {
           schema: 'public',
           table: 'sessions',
           filter: `learner_joined_signature IS NOT NULL OR learner_left_signature IS NOT NULL OR teacher_joined_signature IS NOT NULL OR teacher_left_signature IS NOT NULL`,
-        }, async (payload: any) => {
+        // eslint-disable-next-line @typescript-eslint/require-await
+        }, (async (payload: any) => {
           const updatedSessionData = payload.new as Session;
           setSessionData(updatedSessionData);
-        })
+        }) as unknown as (payload: any) => void)
         .subscribe();
 
       return () => {
-        mySubscription.unsubscribe();
+        void (async () => {
+          await mySubscription.unsubscribe();
+        })();
       };
     }
   }, [supabaseClient, supabaseLoading]);

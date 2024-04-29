@@ -36,9 +36,10 @@ function useGetLearners(selectedLang: string, modeView: "Learn" | "Teach") {
         }
       }
     }
-
-    fetchData();
-  }, [selectedLang, modeView]);
+    void (async () => {
+      await fetchData();
+    })();
+  }, [selectedLang, modeView, supabaseClient, supabaseLoading, userId]);
 
   return learners;
 }

@@ -5,16 +5,17 @@ import { LoginViewProps } from "@/types/types";
 import { signInWithDiscord, signInWithGoogle } from "@/utils/lit";
 import { useEffect } from "react";
 
-const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
+const LoginView = ({parentIsRoute}: LoginViewProps) => {
   const { marginTop, flex } = useSetLoginViewCSS(parentIsRoute);
-
   const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuthContext();
   const {onboardMode} = useOnboardContext();
+
   useEffect(()=> {
     console.log("onboardMode", onboardMode)
   }, [onboardMode])
 
   const error = authError || accountsError || sessionError;
+
   const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
 
   useEffect(()=> {
@@ -26,7 +27,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
 
   async function handleGoogleLogin() {
     if (redirectUrl) {
-      await signInWithGoogle(redirectUrl );
+      await signInWithGoogle(redirectUrl);
     } else {
       throw new Error(`redirectUrl undefined`)
     }
@@ -42,8 +43,8 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
 
   const loadingMessage = authLoading ? 'auth loading'
     : accountsLoading ? 'accounts loading'
-      : sessionLoading ? 'session loading'
-        : null;
+    : sessionLoading ? 'session loading'
+    : null;
 
   if (loadingMessage) {
     return <p className={`${flex} justify-center ${marginTop}`}>{loadingMessage}</p>;
@@ -64,5 +65,5 @@ const LoginView = ({parentIsRoute}: LoginViewProps) =>  {
     </div>
   );
 }
-export default LoginView
 
+export default LoginView

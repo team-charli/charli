@@ -3,7 +3,6 @@ import useLocalStorage from "@rehooks/local-storage";
 import { useSupabase } from "../../contexts/SupabaseContext";
 import { PKPEthersWallet } from "@lit-protocol/pkp-ethers";
 import { IPFSResponse, SessionDurationData } from "../../types/types";
-import { useState } from "react";
 const pinata_api_key = process.env.NEXT_PUBLIC_PINATA_API_KEY;
 const pinata_secret_api_key = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
 
@@ -11,9 +10,8 @@ export const useSessionDurationIPFS = () => {
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
   const { client: supabaseClient, supabaseLoading } = useSupabase();
-  const [ipfsResponse, setIPFSResponse] = useState<IPFSResponse | undefined>(undefined);
 
-  const pinJSONToIPFS = async (data: any) => {
+  const pinJSONToIPFS = async (data: any): Promise<string> => {
     const url = 'https://api.pinata.cloud/pinning/pinJSONToIPFS';
     if (!pinata_api_key || !pinata_secret_api_key) throw new Error(`Missing one or both pinaata envs `)
     const headers = {
@@ -28,14 +26,14 @@ export const useSessionDurationIPFS = () => {
       body: JSON.stringify(data),
     });
 
-    const result = await response.json();
+    const result: { IpfsHash: string } = await response.json();
     return result.IpfsHash;
   };
 
-  const retrieveJSONFromIPFS = async (ipfsHash: string) => {
+  const retrieveJSONFromIPFS = async (ipfsHash: string): Promise<SessionDurationData> => {
     const url = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
     const response = await fetch(url);
-    const data = await response.json();
+    const data: SessionDurationData = await response.json();
     return data;
   };
 
@@ -84,32 +82,43 @@ export const useSessionDurationIPFS = () => {
     }
   };
 
-  const getIPFSDuration = (sessionId: string): IPFSResponse | undefined => {
+  const getIPFSDuration = (sessionId: string): Promise<IPFSResponse | undefined> => {
     if (supabaseClient && !supabaseLoading) {
-      supabaseClient
-        .from('sessions')
-        .select('learner_signed_duration_ipfs_cid, teacher_signed_duration_ipfs_cid')
-        .eq('session_id', sessionId)
-        .single()
-        .then(async ({ data: sessionData, error }) => {
-          if (error) {
-            console.error('Error retrieving session data from Supabase:', error);
-            setIPFSResponse(undefined);
-            return;
-          }
+      return new Promise<IPFSResponse | undefined>((resolve) => {
+        void supabaseClient
+          .from('sessions')
+          .select('learner_signed_duration_ipfs_cid, teacher_signed_duration_ipfs_cid')
+          .eq('session_id', sessionId)
+          .single()
+          .then(({ data: sessionData, error }) => {
+            if (error) {
+              console.error('Error retrieving session data from Supabase:', error);
+              resolve(undefined);
+              return;
+            }
 
-          if (sessionData) {
-            const { teacher_signed_duration_ipfs_cid } = sessionData;
-            const teacherSignedData = await retrieveJSONFromIPFS(teacher_signed_duration_ipfs_cid);
-
-            setIPFSResponse({
-              cid: teacher_signed_duration_ipfs_cid,
-              data: teacherSignedData,
-            });
-          }
-        });
+            if (sessionData) {
+              const { teacher_signed_duration_ipfs_cid } = sessionData;
+              retrieveJSONFromIPFS(teacher_signed_duration_ipfs_cid)
+                .then((teacherSignedData) => {
+                  const response: IPFSResponse = {
+                    cid: teacher_signed_duration_ipfs_cid,
+                    data: teacherSignedData,
+                  };
+                  resolve(response);
+                })
+                .catch((error: unknown) => {
+                  console.error('Error retrieving JSON from IPFS:', error);
+                  resolve(undefined);
+                });
+            } else {
+              resolve(undefined);
+            }
+          });
+      });
     }
-    return ipfsResponse;
+
+    return Promise.resolve(undefined);
   };
 
   return { signAndStoreToIPFS, getIPFSDuration };

@@ -2,13 +2,13 @@ import { useRouter } from 'next/router';
 import { useCallback, useState } from 'react';
 import { AuthMethod, SessionSigs } from '@lit-protocol/types';
 import { getProviderByAuthMethod } from '../../utils/lit';
-import { AuthSig, LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
+import { /*AuthSig,*/ LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
 import { IRelayPKP } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 
 export default function useLitSession() {
   const router = useRouter();
-  const [authSig] = useLocalStorage<AuthSig>("lit-wallet-sig");
+  /*const [authSig] = useLocalStorage<AuthSig>("lit-wallet-sig");*/
   const [ sessionSigs, setSessionSigs ] = useLocalStorage<SessionSigs>("sessionSigs");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error>();
@@ -63,7 +63,7 @@ export default function useLitSession() {
 
       } finally {
         setLoading(false);
-        router.push('/onboard')
+        await router.push('/onboard')
       }
       // }
     },

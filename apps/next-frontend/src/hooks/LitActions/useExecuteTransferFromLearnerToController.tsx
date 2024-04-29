@@ -5,7 +5,7 @@ import { litNodeClient } from '@/utils/litClients';
 
 export const useExecuteTransferFromLearnerToController = () => {
   const [sessionSigs] = useLocalStorage('sessionSigs');
-  const executeTransferFromLearnerToController = async (learnerAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: BigInt, requestedSessionDurationLearnerSig: SignatureLike | undefined, requestedSessionDurationTeacherSig: SignatureLike | undefined, hashedLearnerAddress: string | undefined, hashedTeacherAddress: string | undefined) => {
+  const executeTransferFromLearnerToController = async (learnerAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: bigint, requestedSessionDurationLearnerSig: SignatureLike | undefined, requestedSessionDurationTeacherSig: SignatureLike | undefined, hashedLearnerAddress: string | undefined, hashedTeacherAddress: string | undefined) => {
     const usdcContractAddress = process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS;
     const chainId = process.env.NEXT_PUBLIC_CHAIN_ID;
 

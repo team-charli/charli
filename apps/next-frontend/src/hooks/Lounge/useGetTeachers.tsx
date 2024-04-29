@@ -18,20 +18,27 @@ function useGetTeachers(selectedLang: string, modeView: string) {
       // console.log("userGroup", modeView)
       if (modeView === 'Learn' && supabaseClient && !supabaseLoading) {
         try {
-          let {data: user_data, error} =  await supabaseClient
+          const {data: user_data, error} =  await supabaseClient
             .from('user_data')
             .select('*')
             .contains('wants_to_teach_langs', [selectedLang]);
           setTeachers(user_data?.filter(user => user.id !== userId) || []);
 
+          if (user_data) {
+            console.log(user_data)
+          } else if (error){
+            console.log(error);
+          }
         } catch (e) {
           throw new Error(`Error ${e}`)
         }
       }
     }
 
-    fetchData();
-  }, [selectedLang, modeView]);
+    void (async () => {
+      await fetchData();
+    })();
+  }, [selectedLang, modeView, supabaseClient, supabaseLoading, userId]);
 
   return teachers;
 }

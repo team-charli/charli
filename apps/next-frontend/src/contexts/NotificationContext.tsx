@@ -25,15 +25,15 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (teacherId !== null) {
         try {
-        const { data: teacherData, error: teacherError } = await supabaseClient
-          .from('user_data')
-          .select('name')
-          .eq('id', teacherId)
-          .single();
+          const { data: teacherData, error: teacherError } = await supabaseClient
+            .from('user_data')
+            .select('name')
+            .eq('id', teacherId)
+            .single();
 
-        if (!teacherError && teacherData) {
-          teacherName = teacherData.name;
-        }
+          if (!teacherError && teacherData) {
+            teacherName = teacherData.name;
+          }
         } catch(teacherError) {
           console.error(teacherError);
         }
@@ -41,15 +41,15 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (learnerId !== null) {
         try {
-        const { data: learnerData, error: learnerError } = await supabaseClient
-          .from('user_data')
-          .select('name')
-          .eq('id', learnerId)
-          .single();
+          const { data: learnerData, error: learnerError } = await supabaseClient
+            .from('user_data')
+            .select('name')
+            .eq('id', learnerId)
+            .single();
 
-        if (!learnerError && learnerData) {
-          learnerName = learnerData.name;
-        }
+          if (!learnerError && learnerData) {
+            learnerName = learnerData.name;
+          }
         } catch (learnerError) {
           console.error(learnerError)
         }
@@ -88,16 +88,18 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
         event: '*',
         schema: 'public',
         table: 'sessions',
-      }, async (payload: any) => {
-          console.log("payload", payload)
+      }, (async (payload: any) => {
+          console.log("payload", payload);
           const baseSession: Session = payload.new;
-          if (baseSession.teacher_id !== null && baseSession.learner_id !== null) {
-            const fetchUserNamesResult  = await fetchLearnersAndTeachers(baseSession.teacher_id, baseSession.learner_id);
 
-            let teacherName
-            let learnerName
+          if (baseSession.teacher_id !== null && baseSession.learner_id !== null) {
+            const fetchUserNamesResult = await fetchLearnersAndTeachers(baseSession.teacher_id, baseSession.learner_id);
+
+            let teacherName;
+            let learnerName;
+
             if (!fetchUserNamesResult?.teacherName || !fetchUserNamesResult?.learnerName) {
-              throw new Error(`failed to fetch teacherName || learnerName from user_data table`)
+              throw new Error(`failed to fetch teacherName || learnerName from user_data table`);
             } else {
               teacherName = fetchUserNamesResult.teacherName;
               learnerName = fetchUserNamesResult.learnerName;
@@ -112,14 +114,17 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
 
             setNotifications(notifications => [...notifications, extendedSession]);
           }
-        })
+        }) as unknown as (payload: any) => void)
       .subscribe();
 
       return () => {
-        mySubscription.unsubscribe();
+        void (async () => {
+        await  mySubscription.unsubscribe();
+        })();
       };
     }
-  }, [supabaseClient, supabaseLoading, userId, fetchLearnersAndTeachers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabaseClient, supabaseLoading, userId]);
 
   return (
     <NotificationContext.Provider value={{ notificationsContextValue: notifications, showIndicator, setShowIndicator }}>

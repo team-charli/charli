@@ -39,13 +39,19 @@ const Room  = () => {
 
   const sessionManager = useSessionManager({clientSideRoomId: roomId, hashedLearnerAddress: hashed_learner_address, hashedTeacherAddress: hashed_teacher_address, userAddress: currentAccount?.ethAddress, sessionSigs, currentAccount});
 
-  const sessionDurationResponse= getIPFSDuration(String(sessionId));
-  let teacherDurationSig, learnerDurationSig, sessionDuration
-  if (sessionDurationResponse) {
-    teacherDurationSig = sessionDurationResponse.data.learnerSignature;
-    learnerDurationSig = sessionDurationResponse.data.teacherSignature;
-    sessionDuration = sessionDurationResponse.data.sessionDuration;
-  }
+  let teacherDurationSig, learnerDurationSig, sessionDuration;
+
+  getIPFSDuration(String(sessionId))
+    .then((sessionDurationResponse) => {
+      if (sessionDurationResponse) {
+        teacherDurationSig = sessionDurationResponse.data.teacherSignature;
+        learnerDurationSig = sessionDurationResponse.data.learnerSignature;
+        sessionDuration = sessionDurationResponse.data.sessionDuration;
+      }
+    })
+    .catch((error) => {
+      console.error('Error retrieving session duration:', error);
+    });
 
   const userIPFSData = useSessionCases(sessionManager);
   if (!userIPFSData) throw new Error('userIPFSData not defined')
@@ -61,21 +67,21 @@ const Room  = () => {
 
   useEffect(() => {
     void (async () => {
-    if (roomId &&
-      huddleAccessToken &&
-      roomJoinState === 'idle' &&
-      verifiedRoleAndAddress
-    ) {
-      await joinRoom({roomId, token: huddleAccessToken})
-    }
+      if (roomId &&
+        huddleAccessToken &&
+        roomJoinState === 'idle' &&
+        verifiedRoleAndAddress
+      ) {
+        await joinRoom({roomId, token: huddleAccessToken})
+      }
     })();
   },
     [joinRoom, roomId, roomJoinState, verifiedRoleAndAddress, huddleAccessToken]);
 
 
   useEffect(() => {
-   void (async () => {
-    if ( onLeaveCalled ) await router.push(`/room[roodId]-summary`);
+    void (async () => {
+      if ( onLeaveCalled ) await router.push(`/room[roodId]-summary`);
     })();
   }, [onLeaveCalled, router])
 

@@ -19,12 +19,12 @@ const useGetLanguages = () => {
       setIsLoading(true);
       try {
         if (isOnboarded && supabaseClient && !supabaseLoading) {
-        // console.log('superbaseClient', Boolean(supabaseClient));
+          // console.log('superbaseClient', Boolean(supabaseClient));
           const responseTeachingLangs = await supabaseClient
             .from('user_data')
             .select('wants_to_teach_langs');
           if (responseTeachingLangs.data) {
-            setWantsToTeachLangs(responseTeachingLangs.data.map(lang => lang.wants_to_teach_langs || ''));
+            setWantsToTeachLangs((responseTeachingLangs.data as any).map((lang: any) => lang.wants_to_teach_langs || ''));
           } else {
             console.log("no response data");
           }
@@ -35,7 +35,7 @@ const useGetLanguages = () => {
 
 
           if (responseLearningLangs.data) {
-            setWantsToLearnLangs(responseLearningLangs.data.map(lang => lang.wants_to_learn_langs || ''));
+            setWantsToLearnLangs((responseLearningLangs.data as any).map((lang: any) => lang.wants_to_learn_langs || ''));
           } else {
             console.log("no response data");
 
@@ -50,7 +50,9 @@ const useGetLanguages = () => {
       }
     };
 
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [supabaseClient, supabaseLoading, currentAccount, sessionSigs, isOnboarded/*, isOnline*/]);
 
   return {

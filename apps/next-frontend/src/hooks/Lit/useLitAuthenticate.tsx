@@ -12,41 +12,40 @@ export default function useAuthenticate(redirectUri: string, setAuthMethod: Loca
    * Handle redirect from Google OAuth
    */
   const authWithGoogle = useCallback(async (): Promise<void> => {
-      setLoading(true);
-      setError(undefined);
-      setAuthMethod(null);
+    setLoading(true);
+    setError(undefined);
+    setAuthMethod(null);
 
-      try {
-        const result: AuthMethod = (await authenticateWithGoogle(
-          redirectUri as any,
-        )) as any;
-        setAuthMethod(result);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
-    // }
+    try {
+      const result: AuthMethod = (await authenticateWithGoogle(
+        redirectUri as any,
+      )) as any;
+      setAuthMethod(result);
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setLoading(false);
+    }
   }, [redirectUri, setAuthMethod]);
   /**
    * Handle redirect from Discord OAuth
    */
   const authWithDiscord = useCallback(async (): Promise<void> => {
-      setLoading(true);
-      setError(undefined);
-      setAuthMethod(null);
+    setLoading(true);
+    setError(undefined);
+    setAuthMethod(null);
 
-      try {
-        const result: AuthMethod = (await authenticateWithDiscord(
-          redirectUri as any
-        )) as any;
-        console.log('setting authMethod');
-        setAuthMethod(result);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      const result: AuthMethod = (await authenticateWithDiscord(
+        redirectUri as any
+      )) as any;
+      console.log('setting authMethod');
+      setAuthMethod(result);
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setLoading(false);
+    }
     // }
   }, [redirectUri, setAuthMethod]);
 
@@ -55,9 +54,14 @@ export default function useAuthenticate(redirectUri: string, setAuthMethod: Loca
     if (redirectUri && isSignInRedirect(redirectUri)) {
       const providerName = getProviderFromUrl();
       if (providerName === 'google') {
-        authWithGoogle();
+        void (async () => {
+          await authWithGoogle();
+        })();
       } else if (providerName === 'discord') {
-        authWithDiscord();
+        void (async () => {
+          await authWithDiscord();
+        })();
+
       }
     }
   }, [redirectUri, authWithGoogle, authWithDiscord]);
