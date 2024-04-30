@@ -70,7 +70,10 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
         onToggleLanguage={handleToggleLanguage}
       />
       <NameInputField name={name} onNameChange={handleNameChange} />
-      <button type="submit">Submit</button>
+      <div className="__submit-button-container__ flex justify-center mt-7">
+        <button className="bg-zinc-300 rounded border p-1 border-black" type="submit">Submit</button>
+      </div>
+
     </form>
   );
 };

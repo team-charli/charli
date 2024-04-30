@@ -22,23 +22,27 @@ const SearchLangComboBox = ({
   };
 
   return (
-    <div>
+    <div className="flex justify-center">
+    <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search languages"
+        className="w-full p-2 border-2 border-2 border-black rounded-lg focus:border-blue-500 focus:outline-none"
+
       />
       <ul>
         {filteredLanguageOptions.map((language) => (
           <li key={language.language}>
-            <button onClick={() => handleSelectLanguage(language)}>
+            <button className="text-left px-4 py-2 hover:bg-gray-100" onClick={() => handleSelectLanguage(language)}>
               {language.language} {language.flag}
             </button>
           </li>
         ))}
       </ul>
     </div>
+  </div>
   );
 };
 
