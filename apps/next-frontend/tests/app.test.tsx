@@ -1,5 +1,5 @@
 // app.test.tsx
-import { isSessionSigsExpired } from '../src/utils/app';
+import { sessionSigsExpired } from '../src/utils/app';
 
 const sessionSigsData = {
   "https://cayenne.litgateway.com:7371": {
@@ -24,10 +24,9 @@ const sessionSigsData = {
     "algo": "ed25519"
   }
 };
-
-describe('isSessionSigsExpired', () => {
+describe('sessionSigsExpired', () => {
   it('should return false if no session signatures have expired', () => {
-    expect(isSessionSigsExpired(sessionSigsData)).toBe(false);
+    expect(sessionSigsExpired(sessionSigsData)).toBe(false);
   });
 
   it('should return true if any session signature has expired', () => {
@@ -41,6 +40,6 @@ describe('isSessionSigsExpired', () => {
         })
       }
     };
-    expect(isSessionSigsExpired(expiredSessionSigsData)).toBe(true);
+    expect(sessionSigsExpired(expiredSessionSigsData)).toBe(true);
   });
 });

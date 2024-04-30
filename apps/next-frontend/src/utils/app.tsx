@@ -120,19 +120,23 @@ export function verifyRoleAndAddress(hashed_teacher_address:string | undefined, 
   } else {throw new Error("you're busted")}
 }
 
-//TODO: Test this/ because it's not working
-export function isSessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
-  if (!sessionSigs) return true;
-  console.log(sessionSigs)
+export function sessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
+  console.log('ran expiry test')
+  if (!sessionSigs) {
+    console.log('failed expiry test')
+    return true;
+  }
   const currentTime = new Date();
   for (const key in sessionSigs) {
     if (sessionSigs.hasOwnProperty(key)) {
       const signedMessage = JSON.parse(sessionSigs[key].signedMessage);
       const expirationTime = new Date(signedMessage.expiration);
       if (currentTime > expirationTime) {
+        console.log('failed expiry test')
         return true;
       }
     }
   }
+  console.log("passed expiry test", sessionSigs)
   return false; // No session signatures have expired
 }

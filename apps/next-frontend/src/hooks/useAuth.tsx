@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useAuthenticate, useLitAccounts, useLitSession } from '../hooks/Lit';
 import { SessionSigs } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
-import { isSessionSigsExpired } from '@/utils/app';
+import { sessionSigsExpired } from '@/utils/app';
 
 export const useAuth = () => {
   const router = useRouter();
@@ -20,7 +20,7 @@ export const useAuth = () => {
     void (async () => {
       if (authMethod && currentAccount && !sessionSigs) {
         await initSession(authMethod, currentAccount);
-      } else if (authMethod && currentAccount && sessionSigs && isSessionSigsExpired(sessionSigs)) {
+      } else if (authMethod && currentAccount && sessionSigs && sessionSigsExpired(sessionSigs)) {
         await initSession(authMethod, currentAccount);
       } else if (authMethod && !currentAccount) {
         await fetchAccounts(authMethod);

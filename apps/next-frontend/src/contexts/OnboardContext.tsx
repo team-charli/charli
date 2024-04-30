@@ -23,11 +23,13 @@ export const OnboardContext = createContext<OnboardContextObj>(defaultOnboardCon
 export const useOnboardContext = () => useContext(OnboardContext);
 
 const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
-  const {onboardMode, setOnboardMode} = useOnboardMode();
   const [hasBalance, setHasBalance] = useLocalStorage<boolean | null>('hasBalance', null)
   useRouteRedirect();
   const { client: supabaseClient, supabaseLoading } = useSupabase();
   const {isOnboarded, setIsOnboarded} =  useIsOnboarded(supabaseClient, supabaseLoading);
+  const {onboardMode, setOnboardMode} = useOnboardMode();
+  console.log("onboardMode", onboardMode)
+  console.log("isOnboarded", isOnboarded)
 
   useHasBalance(hasBalance, setHasBalance);
   const [nativeLang, setNativeLang] = useState('');
