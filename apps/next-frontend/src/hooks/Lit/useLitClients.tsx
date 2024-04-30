@@ -4,6 +4,7 @@ import { LitNodeClient } from '@lit-protocol/lit-node-client';
 import { useEffect } from 'react';
 
 const useLitClients = (litNodeClient: LitNodeClient, litAuthClient: LitAuthClient) => {
+if (typeof window !== 'undefined') {
   useEffect(() => {
     const connectClients = async () => {
       await litNodeClient.connect();
@@ -19,5 +20,6 @@ const useLitClients = (litNodeClient: LitNodeClient, litAuthClient: LitAuthClien
   }, [litNodeClient]);
   return { litNodeClient, litAuthClient };
 };
+}
 
 export default useLitClients;

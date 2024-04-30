@@ -5,12 +5,14 @@ import { useLocalStorage } from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { isJwtExpired } from '../../utils/app';
 import { NonceData } from '../../types/types';
+import { useAuthContext } from '@/contexts';
 
 export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null) {
   const [userJWT, setUserJWT] = useLocalStorage<string | null>("userJWT");
   const [nonce, setNonce] = useState<string | null>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const {isLitLoggedIn } = useAuthContext();
   // const [debugRequestCount, setDebugRequestCount] = useState<number>(0)
   // const {isOnline} = useNetwork();
   // useEffect(() => {
@@ -29,8 +31,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
       // console.warn({isJwtExpired:  userJWT && isJwtExpired(userJWT), currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), userJWT: userJWT })
       setIsLoading(true);
       try {
-        //TODO: if !currentAccount || !sessionSigs
-        if (currentAccount && sessionSigs /*&& isOnline*/&& (userJWT === null || isJwtExpired(userJWT) || nonce === null)) {
+        if (isLitLoggedIn && sessionSigs && currentAccount && (userJWT === null || isJwtExpired(userJWT) || nonce === null)) {
           // Fetch new nonce
           let nonceResponse
           try {
@@ -57,16 +58,18 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
             await pkpWallet.init();
           } catch (e) {
             console.error("pkpWallet.init", e)
-            throw new Error(`error initializing pkpWallet: ${e}`)
+            throw new Error(`error initializing pkpWallet`)
           }
           let signature
           try {
             signature= await pkpWallet.signMessage(nonceResponse.nonce);
           } catch(e) {
-            throw new Error(`problem signing: ${e}`)
+            console.error(e)
+            throw new Error('problem signing')
           }
           let jwtResponse
           try {
+            console.log('run jwt request')
             jwtResponse= await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
               json: { ethereumAddress: currentAccount.ethAddress, signature, nonce: nonceResponse.nonce },
             }).json<{ token: string }>();

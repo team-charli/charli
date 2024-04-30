@@ -1,20 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isSignInRedirect, getProviderFromUrl } from '@lit-protocol/lit-auth-client';
-import { AuthMethod } from '@lit-protocol/types';
+import { AuthMethod, AuthSig } from '@lit-protocol/types';
 import { authenticateWithDiscord, authenticateWithGoogle } from '../../utils/lit';
-import { LocalStorageSetter } from '../../types/types';
 
-export default function useAuthenticate(redirectUri: string, setAuthMethod: LocalStorageSetter<AuthMethod>) {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<Error>();
+export default function useAuthenticate(redirectUri: string) {
+  const [authLoading, setLoading] = useState<boolean>(false);
+  const [authError, setError] = useState<Error>();
+  const [authMethod, setAuthMethod] = useState<AuthMethod | null>(null);
 
-  /**
-   * Handle redirect from Google OAuth
-   */
+  /** Handle redirect from Google OAuth */
+
   const authWithGoogle = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError(undefined);
-    setAuthMethod(null);
 
     try {
       const result: AuthMethod = (await authenticateWithGoogle(
@@ -34,7 +32,6 @@ export default function useAuthenticate(redirectUri: string, setAuthMethod: Loca
     setLoading(true);
     setError(undefined);
     setAuthMethod(null);
-
     try {
       const result: AuthMethod = (await authenticateWithDiscord(
         redirectUri as any
@@ -67,8 +64,9 @@ export default function useAuthenticate(redirectUri: string, setAuthMethod: Loca
   }, [redirectUri, authWithGoogle, authWithDiscord]);
 
   return {
-    loading,
-    error,
+    authMethod,
+    authLoading,
+    authError,
   };
 }
 

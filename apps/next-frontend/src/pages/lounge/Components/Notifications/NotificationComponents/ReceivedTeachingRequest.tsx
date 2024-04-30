@@ -1,5 +1,5 @@
 import ky from 'ky'
-import ethers, { SignatureLike } from 'ethers'
+import {ethers, SignatureLike } from 'ethers'
 import { useState } from "react";
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';

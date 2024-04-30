@@ -1,4 +1,4 @@
-import { IRelayPKP } from '@lit-protocol/types';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import bs58 from 'bs58';
 import {ethers} from 'ethers';
 
@@ -120,3 +120,19 @@ export function verifyRoleAndAddress(hashed_teacher_address:string | undefined, 
   } else {throw new Error("you're busted")}
 }
 
+//TODO: Test this/ because it's not working
+export function isSessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
+  if (!sessionSigs) return true;
+  console.log(sessionSigs)
+  const currentTime = new Date();
+  for (const key in sessionSigs) {
+    if (sessionSigs.hasOwnProperty(key)) {
+      const signedMessage = JSON.parse(sessionSigs[key].signedMessage);
+      const expirationTime = new Date(signedMessage.expiration);
+      if (currentTime > expirationTime) {
+        return true;
+      }
+    }
+  }
+  return false; // No session signatures have expired
+}

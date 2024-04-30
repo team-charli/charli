@@ -1,4 +1,4 @@
-import ethers from 'ethers'
+import { ethers } from 'ethers'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useAsyncEffect } from './utils/useAsyncEffect';
 import { LocalStorageSetter } from '../types/types';

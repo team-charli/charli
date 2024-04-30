@@ -1,4 +1,4 @@
-import ethers, { SignatureLike } from 'ethers';
+import {ethers, SignatureLike } from 'ethers';
 import { SupabaseClient } from "@supabase/supabase-js";
 import { convertLocalTimetoUtc } from "../../utils/app";
 import { Dispatch, SetStateAction } from "react";

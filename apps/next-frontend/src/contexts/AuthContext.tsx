@@ -1,25 +1,21 @@
 import { useAuth } from '../hooks/useAuth'
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useEffect } from 'react'
 import { AuthContextObj, AuthProviderProps  } from '../types/types'
-import { useRehydrate } from '../hooks/utils/useRehydrate';
 import { defaultAuthContext } from './utils/defaultAUTHcontext';
 import useLitLoggedIn from '../hooks/Lit/useLitLoggedIn';
-
 export const useAuthContext = () => useContext(AuthContext);
 
 const AuthProvider = ({children}: AuthProviderProps) => {
 
-  const { currentAccount, sessionSigs, authSig, setCurrentAccount, setSessionSigs, setAuthSig, authMethod, setAuthMethod } = useRehydrate();
-
-  const { authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuth(currentAccount, sessionSigs, authSig, setCurrentAccount, setSessionSigs, setAuthSig, authMethod, setAuthMethod);
+  const { authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError, authMethod } = useAuth();
 
   const isLitLoggedIn = useLitLoggedIn();
+  useEffect(()=> {
+    console.log("isLitLoggedIn", isLitLoggedIn)
+  }, [isLitLoggedIn])
 
   const auth: AuthContextObj = {
     authMethod,
-    currentAccount,
-    sessionSigs,
-    authSig,
     authLoading,
     accountsLoading,
     sessionLoading,

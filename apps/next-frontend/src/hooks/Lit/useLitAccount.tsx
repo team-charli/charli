@@ -1,53 +1,29 @@
 import { useCallback, useState } from 'react';
 import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
-import { getPKPs, mintPKP } from '../../utils/lit';
-import { LocalStorageSetter } from '../../types/types';
+import { getPKPs } from '../../utils/lit';
+import useLocalStorage from '@rehooks/local-storage';
 
-export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurrentAccount: LocalStorageSetter<IRelayPKP> ) {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<Error>();
-
-  /**
-   * Fetch PKPs tied to given auth method
-   */
+export default function useLitAccounts() {
+  const [currentAccount, setCurrentAccount] = useLocalStorage<IRelayPKP>("currentAccount");
+  const [accountsLoading, setLoading] = useState<boolean>(false);
+  const [accountsError, setError] = useState<Error>();
 
   const fetchAccounts = useCallback(
     async (authMethod: AuthMethod): Promise<void> => {
-        setLoading(true);
-        setError(undefined);
-        try {
-          const myPKPs = await getPKPs(authMethod);
-          if (myPKPs.length){
-            console.log("setting currentAccount")
-            localStorage.setItem("currentAccount", JSON.stringify(myPKPs[0]))
-            setCurrentAccount(myPKPs[0])
-          }
-        } catch (err) {
-          setError(err as Error);
-        } finally {
-          setLoading(false);
+      setLoading(true);
+      setError(undefined);
+      try {
+        const myPKPs = await getPKPs(authMethod);
+        if (myPKPs.length) {
+          console.log("setting currentAccount");
+          localStorage.setItem("currentAccount", JSON.stringify(myPKPs[0]));
+          setCurrentAccount(myPKPs[0]);
         }
-    },
-    [setCurrentAccount]
-  );
-
-  /**
-   * Mint a new PKP for current auth method
-   */
-  const createAccount = useCallback(
-    async (authMethod: AuthMethod): Promise<void> => {
-      // if (isOnline) {
-        setLoading(true);
-        setError(undefined);
-        try {
-          const newPKP = await mintPKP(authMethod);
-          localStorage.setItem("currentAccount", JSON.stringify(newPKP))
-        } catch (err) {
-          setError(err as Error);
-        } finally {
-          setLoading(false);
-        }
-      // }
+      } catch (err) {
+        setError(err as Error);
+      } finally {
+        setLoading(false);
+      }
     },
     []
   );
@@ -55,9 +31,7 @@ export default function useLitAccounts(currentAccount: IRelayPKP | null, setCurr
   return {
     currentAccount,
     fetchAccounts,
-    createAccount,
-    loading,
-    error,
+    accountsLoading,
+    accountsError,
   };
 }
-

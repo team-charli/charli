@@ -1,43 +1,34 @@
-import { useEffect } from 'react'
-import { useAuthenticate as useLitAuthenticate, useLitAccounts, useLitSession } from '../hooks/Lit';
-import { AuthMethod, AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { LocalStorageSetter } from '../types/types';
+// useAuth.tsx
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
+import { useAuthenticate, useLitAccounts, useLitSession } from '../hooks/Lit';
+import { SessionSigs } from '@lit-protocol/types';
+import useLocalStorage from '@rehooks/local-storage';
+import { isSessionSigsExpired } from '@/utils/app';
 
-export const useAuth = (currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, authSig: AuthSig | null, setCurrentAccount: LocalStorageSetter<IRelayPKP>, setSessionSigs: LocalStorageSetter<SessionSigs>, setAuthSig:LocalStorageSetter<AuthSig>, authMethod: AuthMethod | null, setAuthMethod: LocalStorageSetter<AuthMethod>) => {
-const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI
-  if (!redirectUrl) throw new Error(`redirectUrl`)
-  const {
-    error: authError,
-    loading: authLoading,
-  } = useLitAuthenticate(redirectUrl , setAuthMethod);
+export const useAuth = () => {
+  const router = useRouter();
+  const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
+  if (!redirectUrl) throw new Error(`redirectUrl`);
 
-  const {
-    fetchAccounts,
-    error: accountsError,
-    loading: accountsLoading,
-  } = useLitAccounts(currentAccount, setCurrentAccount);
-
-  const {
-    initSession,
-    loading: sessionLoading,
-    error: sessionError,
-  } = useLitSession();
+  const { authMethod, authLoading, authError } = useAuthenticate(redirectUrl);
+  const { currentAccount, fetchAccounts, accountsLoading, accountsError } = useLitAccounts();
+  const { initSession, sessionLoading, sessionError } = useLitSession();
+  const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
 
   useEffect(() => {
     void (async () => {
-    if (authMethod) {
-      await fetchAccounts(authMethod);
-    }
+      if (authMethod && currentAccount && !sessionSigs) {
+        await initSession(authMethod, currentAccount);
+      } else if (authMethod && currentAccount && sessionSigs && isSessionSigsExpired(sessionSigs)) {
+        await initSession(authMethod, currentAccount);
+      } else if (authMethod && !currentAccount) {
+        await fetchAccounts(authMethod);
+      } else if (!authMethod) {
+        await router.push('/login');
+      }
     })();
-  }, [authMethod, fetchAccounts]);
+  }, [authMethod, fetchAccounts, currentAccount, initSession, sessionSigs]);
 
-  useEffect(() => {
-    void (async () => {
-    if (authMethod && currentAccount && !sessionSigs) {
-      await initSession(authMethod, currentAccount);
-    }
-    })();
-  }, [authMethod, currentAccount, sessionSigs, initSession]);
-
-  return {authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError };
-}
+  return { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError };
+};

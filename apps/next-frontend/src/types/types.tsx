@@ -75,9 +75,6 @@ export interface AuthContextObj {
   authError: Error | undefined;
   accountsError: Error | undefined;
   sessionError: Error | undefined;
-  currentAccount: IRelayPKP | null;
-  sessionSigs: SessionSigs | null;
-  authSig: AuthSig | null;
   isLitLoggedIn: boolean;
 }
 
