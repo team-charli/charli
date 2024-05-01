@@ -196,4 +196,19 @@ export function getProviderByAuthMethod(authMethod: AuthMethod) {
       return;
   }
 }
+export async function handleGoogleLogin(redirectUrl: string | null | undefined) {
+  if (redirectUrl) {
+    await signInWithGoogle(redirectUrl);
+  } else {
+    throw new Error(`redirectUrl undefined`)
+  }
+}
+
+export async function handleDiscordLogin(redirectUrl: string | null | undefined) {
+  if (redirectUrl) {
+    await signInWithDiscord(redirectUrl)
+  }else {
+    throw new Error(`redirectUrl undefined`)
+  }
+}
 

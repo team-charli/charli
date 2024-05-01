@@ -6,9 +6,9 @@ import { useContext } from 'react';
 import OnboardForm from './Components/OnboardForm';
 
 export const Onboard = () => {
-  const { onboardMode } = useContext(OnboardContext);
+  const { onboardMode, isOnboarded } = useContext(OnboardContext);
 
-  if (!onboardMode) {
+  if (!onboardMode && !isOnboarded) {
     return (
       <>
         <IconHeader />

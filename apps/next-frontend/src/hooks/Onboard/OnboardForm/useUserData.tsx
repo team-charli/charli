@@ -19,7 +19,7 @@ export const useUserData = () => {
   useEffect(() => {
     // Replace this with your actual data loading logic
     const userData = {
-      name: 'John Doe',
+      name: '',
       learningLangs: ['English', 'Spanish'],
       teachingLangs: ['French'],
       isOnboarded: true,

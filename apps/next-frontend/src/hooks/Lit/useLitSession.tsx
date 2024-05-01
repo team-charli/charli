@@ -8,7 +8,7 @@ import { IRelayPKP } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { litNodeClient } from '@/utils/litClients';
 
-export default function useLitSession() {
+export default function useLitSession(isOnboarded: boolean | null) {
   const router = useRouter();
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
   const [sessionLoading, setLoading] = useState<boolean>(false);
@@ -52,7 +52,13 @@ export default function useLitSession() {
         setError(error);
       } finally {
         setLoading(false);
-        await router.push('/onboard');
+        void (async()=> {
+        if (!isOnboarded) {
+          await router.push('/onboard');
+        } else {
+            await router.push('/')
+          }
+        })();
       }
     },
     [setSessionSigs]

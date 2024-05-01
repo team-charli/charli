@@ -9,7 +9,10 @@ const useLitLoggedIn = () => {
   const [isLitLoggedIn, setIsLitLoggedIn] = useLocalStorage<boolean>("isLitLoggedIn", false)
 
   useEffect(() => {
-
+    // console.log('currentAccount', Boolean(currentAccount))
+    // console.log('sessionSigs', Boolean(sessionSigs))
+    // console.log('sessionSigsExpired', sessionSigsExpired(sessionSigs))
+    // console.log('sessionSigs', sessionSigs)
     if (currentAccount && sessionSigs && !sessionSigsExpired(sessionSigs)) {
       console.log("set lit logged in = true")
       setIsLitLoggedIn(true)

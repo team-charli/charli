@@ -1,6 +1,6 @@
-import { useState, createContext, useContext } from 'react';
+import { useState, createContext, useContext, useEffect } from 'react';
 import { OnboardContextObj, OnboardStateProviderProps } from '../types/types';
-import {useHasBalance, useIsOnboarded, useOnboardMode, useRouteRedirect } from '../hooks/Onboard/';
+import {useHasBalance, useIsOnboarded, useOnboardMode } from '../hooks/Onboard/';
 import useLocalStorage from '@rehooks/local-storage';
 import { useSupabase } from './SupabaseContext';
 
@@ -24,14 +24,11 @@ export const useOnboardContext = () => useContext(OnboardContext);
 
 const OnboardStateProvider = ({children}: OnboardStateProviderProps) => {
   const [hasBalance, setHasBalance] = useLocalStorage<boolean | null>('hasBalance', null)
-  useRouteRedirect();
   const { client: supabaseClient, supabaseLoading } = useSupabase();
   const {isOnboarded, setIsOnboarded} =  useIsOnboarded(supabaseClient, supabaseLoading);
-  const {onboardMode, setOnboardMode} = useOnboardMode();
-  console.log("onboardMode", onboardMode)
-  console.log("isOnboarded", isOnboarded)
+  const {onboardMode, setOnboardMode} = useOnboardMode(isOnboarded);
 
-  useHasBalance(hasBalance, setHasBalance);
+  useHasBalance(isOnboarded, hasBalance, setHasBalance);
   const [nativeLang, setNativeLang] = useState('');
 
   const [name, setName] = useState("");

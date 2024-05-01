@@ -19,6 +19,7 @@ const Bolsa = () => {
     modal = <UturnModal />
   } else if (isAuthenticated && !isOnboarded) {
     modal = null;
+    console.log('push to /onboard');
     router.push("/onboard")
       .catch((error) => {
         console.log(error);

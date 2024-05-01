@@ -81,7 +81,10 @@ const Room  = () => {
 
   useEffect(() => {
     void (async () => {
-      if ( onLeaveCalled ) await router.push(`/room[roodId]-summary`);
+      if ( onLeaveCalled ) {
+        console.log('push to room summary');
+        await router.push(`/room[roodId]-summary`);
+      }
     })();
   }, [onLeaveCalled, router])
 

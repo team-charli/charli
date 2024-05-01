@@ -8,7 +8,7 @@ const SearchLangComboBox = ({
   onSelectLanguage,
 }: SearchLangComboBoxProps ) => {
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageButton>();
-  console.log("selectedLanguage", selectedLanguage)
+  // console.log("selectedLanguage", selectedLanguage)
   const [query, setQuery] = useState('');
 
   const filteredLanguageOptions = query ? languageButtons.filter((language) =>

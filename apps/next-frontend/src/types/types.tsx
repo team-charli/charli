@@ -38,7 +38,7 @@ export type NameInputFieldProps = {
   onNameChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 export interface OnboardFormProps {
-  onboardMode: "Teach"  | "Learn"
+  onboardMode: "Teach"  | "Learn" | null;
 }
 export type FormValues = {
   name: string;
@@ -281,6 +281,7 @@ export type SearchLangComboBoxProps = {
 };
 
 export type LanguageToggleButtonsProps = {
+  languageButtons: LanguageButton[];
   selectedLanguages: LanguageButton[];
   onToggleLanguage: OnToggleLanguage;
 };

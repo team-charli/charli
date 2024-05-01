@@ -1,7 +1,7 @@
-import { useAsyncEffect } from '../utils/useAsyncEffect';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { useEffect } from 'react';
 
 export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoading: boolean  ) => {
   const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded');
@@ -10,11 +10,9 @@ export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoa
   const [ isLitLoggedIn ] = useLocalStorage("isLitLoggedIn");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [userID, setUserID] = useLocalStorage("userID")
-  //FIX:: value from Context is 'undefined'
-  useAsyncEffect(
-    async () => {
-    // console.warn({isOnboarded, currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), supabaseClient: Boolean(supabaseClient), supabaseLoading })
-      if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient && !supabaseLoading /*&& isOnline*/) {
+  useEffect( () => {
+    void (async () => {
+      if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient && !supabaseLoading) {
         try {
           console.log('run isOnboarded');
           const { data, error } = await supabaseClient
@@ -22,23 +20,22 @@ export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoa
             .select("id, user_address")
             .eq("user_address", currentAccount?.ethAddress)
             .single();
-          if (!error) {
-            console.log('isOnboarded:', true)
+          console.log('data', data)
+          if (error || !data) {
+            console.log('set isOnboarded: false')
+            setIsOnboarded(false);
+          } else if (!error && data) {
+            console.log('set isOnboarded: true' )
             setUserID(data.id);
             setIsOnboarded(true);
-          } else {
-            console.log('isOnboarded:', false)
-            setIsOnboarded(false);
           }
         } catch(e) {
-          // console.log('isOnboarded catch hit')
-          throw new Error(`Error: ${e}`)
+          console.log('api call to user_address failed')
+          throw new Error(`Error`)
         }
-
-      }},
-    async () => Promise.resolve(),
-    [supabaseClient, isOnboarded, supabaseLoading, isLitLoggedIn, currentAccount, sessionSigs]
-  )
+      }
+    })();
+  }, [supabaseClient, isOnboarded, supabaseLoading, isLitLoggedIn, currentAccount, sessionSigs])
   return {isOnboarded, setIsOnboarded};
 }
 

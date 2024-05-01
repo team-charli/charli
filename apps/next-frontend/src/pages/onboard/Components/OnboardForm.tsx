@@ -66,6 +66,7 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
         onSelectLanguage={handleSelectLanguage}
       />
       <LanguageToggleButtons
+        languageButtons={languageButtons}
         selectedLanguages={selectedLanguages}
         onToggleLanguage={handleToggleLanguage}
       />
