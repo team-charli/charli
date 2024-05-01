@@ -8,7 +8,7 @@ import { sessionSigsExpired } from '@/utils/app';
 import { useHasBalance, useIsOnboarded, useOnboardMode } from '../hooks/Onboard/';
 import { useSupabase } from '@/contexts';
 
-export const useAuth = () => {
+export const useAuthOboard = () => {
   const router = useRouter();
   const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
   if (!redirectUrl) throw new Error(`redirectUrl`);
