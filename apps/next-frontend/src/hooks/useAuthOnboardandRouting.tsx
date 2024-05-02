@@ -47,38 +47,38 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
       // User is authenticated but accounts are not fetched
       fetchAccounts(authMethod);
 
-    } else if (isLitLoggedIn && !isOnboarded) {
-      console.log("has currentAccount && sessionSigs but not onboarded")
-      router.push('/onboard').catch(e => console.log(e))
+    //} else if (isLitLoggedIn && !isOnboarded) {
+    //  console.log("has currentAccount && sessionSigs !onboarded: push to /onboard")
+    //  router.push('/onboard').catch(e => console.log(e))
 
 
-    } else if (isLitLoggedIn && isOnboarded) {
-      // User is authenticated and onboarded
-        console.log('User is authenticated and onboarded: push to /lounge');
-        router.push('/lounge').catch(e => console.log(e));
-
-
-
-    } else if (!isLitLoggedIn && onboardMode) {
-      // User is not authenticated but has selected an onboarding mode
-      console.log("User is not authenticated but has selected an onboarding mode")
-      router.push('/login').catch(e => console.log(e));
+    //} else if (isLitLoggedIn && isOnboarded) {
+    //  // User is authenticated and onboarded
+    //    console.log('authenticated and onboarded: push to /lounge');
+    //    router.push('/lounge').catch(e => console.log(e));
 
 
 
-    } else if (!isLitLoggedIn && !onboardMode) {
-      //User is not authenticated and hasn't selected an onboarding mode
-      console.log("User is not authenticated and hasn't selected an onboarding mode: push to /")
-      router.push('/').catch(e => console.log(e));
+    //} else if (!isLitLoggedIn && onboardMode) {
+    //  // User is not authenticated but has selected an onboarding mode
+    //  console.log("not authenticated, onboardMode===true: push to /login")
+    //  router.push('/login').catch(e => console.log(e));
 
 
 
-    } else if (!isLitLoggedIn && !isOnboarded) {
-      // User is authenticated but not onboarded
-      if (onboardMode !== 'Teach' && onboardMode !== "Learn") {
-        console.log("User is authenticated but not onboarded: push to /", onboardMode);
-        router.push('/').catch(e => console.log(e))
-      }
+    //} else if (!isLitLoggedIn && !onboardMode) {
+    //  //User is not authenticated and hasn't selected an onboarding mode
+    //  console.log("not authenticated, onboardMode===false: push to /")
+    //  router.push('/').catch(e => console.log(e));
+
+
+
+    //} else if (!isLitLoggedIn && !isOnboarded) {
+    //  // User is authenticated but not onboarded
+    //  if (onboardMode !== 'Teach' && onboardMode !== "Learn") {
+    //    console.log("User is authenticated but not onboarded: push to /", onboardMode);
+    //    router.push('/').catch(e => console.log(e))
+    //  }
 
     }
   }, [authMethod, fetchAccounts, currentAccount, initSession, sessionSigs, onboardMode, isOnboarded, isLitLoggedIn]);

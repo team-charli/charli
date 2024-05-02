@@ -130,15 +130,50 @@ export function sessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
       const signedMessage = JSON.parse(sessionSigs[key].signedMessage);
       const expirationTime = new Date(signedMessage.expiration).getTime();
 
-      console.log('Time difference (expiration - current):', expirationTime - currentTime);
-      console.log('sessionSigs', sessionSigs)
+      const timeUntilExpire = formatTimeUntilExpire(expirationTime - currentTime);
+
+      console.log(JSON.stringify({
+        timeUntilExpire,
+        signedMessage_expiration: signedMessage.expiration,
+        current_time: new Date()
+      }));
 
       if (currentTime >= expirationTime) {
-        console.log('failed expiry test');
+        // localStorage.removeItem("sessionSigs")
+        // localStorage.removeItem("currentAccount")
+        // localStorage.removeItem("lit-wallet-sig")
+        // localStorage.removeItem("lit-session-key")
         return true;
       }
     }
   }
 
   return false;
+}
+
+function formatTimeUntilExpire(milliseconds: number): string {
+  const isExpired = milliseconds < 0;
+  const absoluteMilliseconds = Math.abs(milliseconds);
+  const seconds = Math.floor(absoluteMilliseconds / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const remainingSeconds = seconds % 60;
+  const remainingMinutes = minutes % 60;
+  const remainingHours = hours % 24;
+  const timeComponents = [];
+  if (days > 0) {
+    timeComponents.push(`${days} day${days > 1 ? 's' : ''}`);
+  }
+  if (remainingHours > 0) {
+    timeComponents.push(`${remainingHours} hour${remainingHours > 1 ? 's' : ''}`);
+  }
+  if (remainingMinutes > 0) {
+    timeComponents.push(`${remainingMinutes} minute${remainingMinutes > 1 ? 's' : ''}`);
+  }
+  if (remainingSeconds > 0 || timeComponents.length === 0) {
+    timeComponents.push(`${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''}`);
+  }
+  const formattedTime = timeComponents.join(', ');
+  return isExpired ? `expired ${formattedTime} ago` : `expires in ${formattedTime}`;
 }

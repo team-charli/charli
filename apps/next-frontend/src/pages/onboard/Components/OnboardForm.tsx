@@ -8,9 +8,12 @@ import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
 import { submitOnboardLearnAPI } from '@/api/submitOnboardLearnAPI';
 import { submitOnboardTeachAPI } from '@/api/submitOnboardTeachAPI';
+import { useAuthOboardRouting } from '@/hooks/useAuthOnboardandRouting';
 
 const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
   const { languageButtons, setLanguageButtons } = useLanguageData();
+  // const context = useAuthOboardRouting();
+  const {isLitLoggedIn} = useAuthOboardRouting();
   const {
     currentAccount,
     sessionSigs,
@@ -23,11 +26,9 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
     setIsOnboarded,
     name,
     setName,
-    isLitLoggedin,
   } = useUserData();
 
   const [selectedLanguages, setSelectedLanguages] = useState<LanguageButton[]>([]);
-
   const handleSelectLanguage = (language: LanguageButton) => {
     const isSelected = selectedLanguages.some( lang=> lang.language === language.language);
     if (isSelected) {
@@ -51,10 +52,10 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
     .map((lang) => lang.language);
 
     if (onboardMode === 'Learn') {
-      await submitOnboardLearnAPI(selectedLanguageCodes, isOnboarded,  setIsOnboarded,name, hasBalance, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
+      await submitOnboardLearnAPI(selectedLanguageCodes, isOnboarded,  setIsOnboarded,name, hasBalance, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedIn)
 
     } else {
-      await submitOnboardTeachAPI(selectedLanguageCodes, isOnboarded, setIsOnboarded, name, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedin)
+      await submitOnboardTeachAPI(selectedLanguageCodes, isOnboarded, setIsOnboarded, name, supabaseClient, supabaseLoading, currentAccount, sessionSigs, isLitLoggedIn)
     }
   };
 

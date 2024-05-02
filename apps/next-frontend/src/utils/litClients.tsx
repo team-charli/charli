@@ -5,6 +5,7 @@ import { LitAuthClient } from '@lit-protocol/lit-auth-client';
 export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
   litNetwork: 'cayenne',
+  debug: true,
 });
 
 export const litAuthClient: LitAuthClient = new LitAuthClient({

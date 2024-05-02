@@ -12,7 +12,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
   const [nonce, setNonce] = useState<string | null>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const {isLitLoggedIn } = useAuthOnboardContext();
+  const context = useAuthOnboardContext();
   // const [debugRequestCount, setDebugRequestCount] = useState<number>(0)
   // const {isOnline} = useNetwork();
   // useEffect(() => {
@@ -31,7 +31,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
       // console.warn({isJwtExpired:  userJWT && isJwtExpired(userJWT), currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), userJWT: userJWT })
       setIsLoading(true);
       try {
-        if (isLitLoggedIn && sessionSigs && currentAccount && (userJWT === null || isJwtExpired(userJWT) || nonce === null)) {
+        if (context?.isLitLoggedIn && sessionSigs && currentAccount && (userJWT === null || isJwtExpired(userJWT) || nonce === null)) {
           // Fetch new nonce
           let nonceResponse
           try {

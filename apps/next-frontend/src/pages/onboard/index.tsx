@@ -6,19 +6,10 @@ import { useContext } from 'react';
 import OnboardForm from './Components/OnboardForm';
 
 export const Onboard = () => {
-  const { onboardMode, isOnboarded } = useContext(OnboardContext);
-
-  if (!onboardMode && !isOnboarded) {
-    return (
-      <>
-        <IconHeader />
-        <BannerHeader />
-        <NonButtonLink /> {/* This will render an empty NonButtonLink */}
-      </>
-    );
-  }
+  const { onboardMode } = useContext(OnboardContext);
 
   const buttonText = onboardMode === 'Learn' ? 'Learn 🎓' : 'Teach 🤑';
+  console.log('onboardMode', onboardMode)
 
   return (
     <>
