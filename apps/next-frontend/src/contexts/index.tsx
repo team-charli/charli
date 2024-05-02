@@ -1,4 +1,4 @@
-export { useAuthContext } from './AuthContext'
+export { useAuthOnboardContext } from './AuthOnboardContext'
 export { useNetwork } from './NetworkContext'
 export { useOnboardContext } from './OnboardContext'
 export { useSessionContext } from './SessionsContext'

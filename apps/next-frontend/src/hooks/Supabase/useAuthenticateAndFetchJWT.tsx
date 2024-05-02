@@ -5,14 +5,14 @@ import { useLocalStorage } from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { isJwtExpired } from '../../utils/app';
 import { NonceData } from '../../types/types';
-import { useAuthContext } from '@/contexts';
+import { useAuthOnboardContext } from '@/contexts';
 
 export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null) {
   const [userJWT, setUserJWT] = useLocalStorage<string | null>("userJWT");
   const [nonce, setNonce] = useState<string | null>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const {isLitLoggedIn } = useAuthContext();
+  const {isLitLoggedIn } = useAuthOnboardContext();
   // const [debugRequestCount, setDebugRequestCount] = useState<number>(0)
   // const {isOnline} = useNetwork();
   // useEffect(() => {

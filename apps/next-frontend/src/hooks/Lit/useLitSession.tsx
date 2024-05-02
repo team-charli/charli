@@ -1,5 +1,4 @@
 // useLitSession.tsx
-import { useRouter } from 'next/router';
 import { useCallback, useState } from 'react';
 import { AuthMethod, SessionSigs } from '@lit-protocol/types';
 import { getProviderByAuthMethod } from '../../utils/lit';
@@ -9,7 +8,6 @@ import useLocalStorage from '@rehooks/local-storage';
 import { litNodeClient } from '@/utils/litClients';
 
 export default function useLitSession(isOnboarded: boolean | null) {
-  const router = useRouter();
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
   const [sessionLoading, setLoading] = useState<boolean>(false);
   const [sessionError, setError] = useState<Error>();
@@ -42,7 +40,7 @@ export default function useLitSession(isOnboarded: boolean | null) {
             },
             litNodeClient,
           });
-          console.log(`setting sessionSigs: `, sessionSigs);
+          console.log(`setting sessionSigs: `, sessionSigs)
           setSessionSigs(sessionSigs);
         }
       } catch (e) {
@@ -52,13 +50,6 @@ export default function useLitSession(isOnboarded: boolean | null) {
         setError(error);
       } finally {
         setLoading(false);
-        void (async()=> {
-        if (!isOnboarded) {
-          await router.push('/onboard');
-        } else {
-            await router.push('/')
-          }
-        })();
       }
     },
     [setSessionSigs]

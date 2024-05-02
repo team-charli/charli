@@ -5,9 +5,11 @@ import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useEffect } from 'react';
 
-export function useHasBalance(isOnboarded: boolean | null, hasBalance: boolean | null, setHasBalance:LocalStorageSetter<boolean> ) {
+export function useHasBalance(isOnboarded: boolean | null) {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
+  const [hasBalance, setHasBalance] = useLocalStorage<boolean | null>('hasBalance', null);
+
   useEffect(() => {
     void (async () => {
       if (isOnboarded && currentAccount && sessionSigs && hasBalance === null) {
@@ -50,5 +52,5 @@ export function useHasBalance(isOnboarded: boolean | null, hasBalance: boolean |
     [hasBalance, currentAccount, sessionSigs]
   )
 
-  return hasBalance
+  return {hasBalance}
 }

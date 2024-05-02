@@ -45,29 +45,7 @@ export type FormValues = {
   [key: string]: string | boolean;  // Allow additional keys for languages
 };
 
-export interface OnboardContextObj {
-  hasBalance: boolean | null;
-
-  isOnboarded: boolean | null;
-  setIsOnboarded: LocalStorageSetter<boolean>;
-
-  nativeLang: string;
-  setNativeLang: Dispatch<SetStateAction<string>>;
-
-  teachingLangs: string[];
-  setTeachingLangs: Dispatch<SetStateAction<string[]>>;
-
-  learningLangs: string[];
-  setLearningLangs: Dispatch<SetStateAction<string[]>>;
-
-  onboardMode: "Learn" | "Teach" | null;
-  setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>;
-
-  name: string;
-  setName: Dispatch<SetStateAction<string>>;
-}
-
-export interface AuthContextObj {
+export interface AuthOnboardContextObj {
   authMethod: AuthMethod | null;
   authLoading: boolean;
   accountsLoading: boolean;
@@ -76,6 +54,21 @@ export interface AuthContextObj {
   accountsError: Error | undefined;
   sessionError: Error | undefined;
   isLitLoggedIn: boolean;
+  onboardMode: "Learn" | "Teach" | null;
+  setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>;
+  isOnboarded: boolean | null;
+  setIsOnboarded: LocalStorageSetter<boolean>;
+  hasBalance: boolean | null;
+  nativeLang: string;
+  setNativeLang: Dispatch<SetStateAction<string>>;
+  name: string;
+  setName: Dispatch<SetStateAction<string>>;
+  teachingLangs: string[];
+  setTeachingLangs: Dispatch<SetStateAction<string[]>>;
+
+  learningLangs: string[];
+  setLearningLangs: Dispatch<SetStateAction<string[]>>;
+
 }
 
 

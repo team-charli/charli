@@ -1,21 +1,14 @@
 
 import AuthMethods from "@/components/Lit/AuthMethods";
-import { useAuthContext, useOnboardContext } from "@/contexts";
+import { useAuthOnboardContext } from "@/contexts";
 import { useSetLoginViewCSS } from "@/hooks/css/useSetLoginViewCSS";
 import { LoginViewProps } from "@/types/types";
-import { handleDiscordLogin, handleGoogleLogin, signInWithDiscord, signInWithGoogle } from "@/utils/lit";
-import { useRouter } from "next/router";
+import { handleDiscordLogin, handleGoogleLogin} from "@/utils/lit";
 import { useEffect } from "react";
 
 const LoginView = ({parentIsRoute}: LoginViewProps) => {
   const { marginTop, flex } = useSetLoginViewCSS(parentIsRoute);
-  const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError, isLitLoggedIn } = useAuthContext();
-  const {onboardMode, isOnboarded} = useOnboardContext();
-  const router = useRouter();
-
-  useEffect(()=> {
-    console.log("onboardMode", onboardMode)
-  }, [onboardMode])
+  const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuthOnboardContext();
 
   const error = authError || accountsError || sessionError;
 
@@ -40,19 +33,6 @@ const LoginView = ({parentIsRoute}: LoginViewProps) => {
 
   if (authMethod) {
     return null;
-  }
-
-  if (onboardMode !== 'Teach' && onboardMode !== "Learn" && isLitLoggedIn && !isOnboarded) {
-    console.log({onboardMode});
-    (async () => {
-      console.log('push to /');
-      await router.push('/');
-    })();
-  } else if (onboardMode !== 'Teach' && onboardMode !== "Learn" && isLitLoggedIn && isOnboarded) {
-    (async () => {
-      console.log('push to /lounge');
-      await router.push('/lounge');
-    })();
   }
 
   return (

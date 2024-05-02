@@ -1,37 +1,35 @@
-// useAuth.tsx
+// useAuthOboardRouting.tsx
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { useAuthenticate, useLitAccounts, useLitSession } from '../hooks/Lit';
+import { useAuthenticate, useLitAccounts, useLitSession, useLitLoggedIn } from '../hooks/Lit';
 import { SessionSigs } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { sessionSigsExpired } from '@/utils/app';
 import { useHasBalance, useIsOnboarded, useOnboardMode } from '../hooks/Onboard/';
 import { useSupabase } from '@/contexts';
+import { AuthOnboardContextObj  } from '@/types/types';
 
-export const useAuthOboard = () => {
+export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
+
+
   const router = useRouter();
   const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
   if (!redirectUrl) throw new Error(`redirectUrl`);
-
   const { authMethod, authLoading, authError } = useAuthenticate(redirectUrl);
   const { currentAccount, fetchAccounts, accountsLoading, accountsError } = useLitAccounts();
   const { client: supabaseClient, supabaseLoading } = useSupabase();
-
   const { isOnboarded, setIsOnboarded } = useIsOnboarded(supabaseClient, supabaseLoading);
-
   const { initSession, sessionLoading, sessionError } = useLitSession(isOnboarded);
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
-  const [isLitLoggedIn] = useLocalStorage<boolean>("isLitLoggedIn", false);
-
-  const [hasBalance, setHasBalance] = useLocalStorage<boolean | null>('hasBalance', null);
+  const {isLitLoggedIn} = useLitLoggedIn();
   const { onboardMode, setOnboardMode } = useOnboardMode(isOnboarded);
-
-  useHasBalance(isOnboarded, hasBalance, setHasBalance);
-
+  const { hasBalance } = useHasBalance(isOnboarded);
   const [nativeLang, setNativeLang] = useState('');
   const [name, setName] = useState("");
   const [teachingLangs, setTeachingLangs] = useState([] as string[]);
   const [learningLangs, setLearningLangs] = useState([] as string[]);
+
+
 
   useEffect(() => {
 
@@ -45,43 +43,45 @@ export const useAuthOboard = () => {
       initSession(authMethod, currentAccount);
 
 
-
     } else if (authMethod && !currentAccount) {
       // User is authenticated but accounts are not fetched
       fetchAccounts(authMethod);
 
+    } else if (isLitLoggedIn && !isOnboarded) {
+      console.log("has currentAccount && sessionSigs but not onboarded")
+      router.push('/onboard').catch(e => console.log(e))
 
 
-    } else if (!authMethod && onboardMode) {
+    } else if (isLitLoggedIn && isOnboarded) {
+      // User is authenticated and onboarded
+        console.log('User is authenticated and onboarded: push to /lounge');
+        router.push('/lounge').catch(e => console.log(e));
+
+
+
+    } else if (!isLitLoggedIn && onboardMode) {
       // User is not authenticated but has selected an onboarding mode
-      router.push('/login');
+      console.log("User is not authenticated but has selected an onboarding mode")
+      router.push('/login').catch(e => console.log(e));
 
 
 
-    } else if (!authMethod && !onboardMode) {
-      // User is not authenticated and hasn't selected an onboarding mode
-      setOnboardMode(null);
-      router.push('/');
+    } else if (!isLitLoggedIn && !onboardMode) {
+      //User is not authenticated and hasn't selected an onboarding mode
+      console.log("User is not authenticated and hasn't selected an onboarding mode: push to /")
+      router.push('/').catch(e => console.log(e));
 
 
 
-    } else if (authMethod && !isOnboarded) {
+    } else if (!isLitLoggedIn && !isOnboarded) {
       // User is authenticated but not onboarded
       if (onboardMode !== 'Teach' && onboardMode !== "Learn") {
-        console.log({onboardMode});
-        router.push('/');
+        console.log("User is authenticated but not onboarded: push to /", onboardMode);
+        router.push('/').catch(e => console.log(e))
       }
 
-
-
-    } else if (authMethod && isOnboarded) {
-      // User is authenticated and onboarded
-      if (onboardMode !== 'Teach' && onboardMode !== "Learn") {
-        console.log('push to /lounge');
-        router.push('/lounge');
-      }
     }
-  }, [authMethod, fetchAccounts, currentAccount, initSession, sessionSigs, onboardMode, isOnboarded]);
+  }, [authMethod, fetchAccounts, currentAccount, initSession, sessionSigs, onboardMode, isOnboarded, isLitLoggedIn]);
 
   const error = authError || accountsError || sessionError;
 
@@ -105,7 +105,6 @@ export const useAuthOboard = () => {
     onboardMode,
     isOnboarded,
     hasBalance,
-    setHasBalance,
     setIsOnboarded,
     nativeLang,
     setNativeLang,

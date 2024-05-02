@@ -8,6 +8,7 @@ export const litNodeClient: LitNodeClient = new LitNodeClient({
 });
 
 export const litAuthClient: LitAuthClient = new LitAuthClient({
+  debug: true,
   litRelayConfig: {
     relayApiKey: "E02B0102-DFF4-67E9-3385-5C71096D7CA0_charli",
   },
