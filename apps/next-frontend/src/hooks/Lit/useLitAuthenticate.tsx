@@ -15,10 +15,10 @@ export default function useAuthenticate(redirectUri: string) {
     setError(undefined);
 
     try {
-      const result: AuthMethod = (await authenticateWithGoogle(
+      const result = (await authenticateWithGoogle(
         redirectUri as any,
-      )) as any;
-      setAuthMethod(result);
+      ).catch(error => {console.error(error); throw new Error(error)}))
+      setAuthMethod(result as AuthMethod);
     } catch (err) {
       setError(err as Error);
     } finally {

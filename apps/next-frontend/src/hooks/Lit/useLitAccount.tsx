@@ -13,7 +13,7 @@ export default function useLitAccounts() {
       setLoading(true);
       setError(undefined);
       try {
-        const myPKPs = await getPKPs(authMethod);
+        const myPKPs = await getPKPs(authMethod).catch(error => {console.error(error); throw new Error('error getPKPs')});
         if (myPKPs.length) {
           console.log("setting currentAccount");
           localStorage.setItem("currentAccount", JSON.stringify(myPKPs[0]));

@@ -8,19 +8,10 @@ import { useEffect } from "react";
 
 const LoginView = ({parentIsRoute}: LoginViewProps) => {
   const { marginTop, flex } = useSetLoginViewCSS(parentIsRoute);
-  const { authMethod, authLoading, accountsLoading, sessionLoading, authError, accountsError, sessionError } = useAuthOnboardContext();
+  const { authMethod, authLoading, accountsLoading, sessionLoading } = useAuthOnboardContext();
 
-  const error = authError || accountsError || sessionError;
 
   const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
-
-  useEffect(()=> {
-    if (error) {
-      console.error(error);
-      throw new Error();
-    }
-  }, [error])
-
 
   const loadingMessage = authLoading ? 'auth loading'
     : accountsLoading ? 'accounts loading'

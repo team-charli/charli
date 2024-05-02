@@ -7,14 +7,14 @@ const useLitClients = (litNodeClient: LitNodeClient, litAuthClient: LitAuthClien
 if (typeof window !== 'undefined') {
   useEffect(() => {
     const connectClients = async () => {
-      await litNodeClient.connect();
+      await litNodeClient.connect().catch(error => {console.error(error); throw new Error('error litNodeClient.connect error')});
     };
     void (async () => {
-      await connectClients();
+      await connectClients().catch(error => {console.error(error); throw new Error('error connectClients()')});
     })();
     return () => {
       void (async () => {
-        await litNodeClient.disconnect();
+        await litNodeClient.disconnect().catch(error => {console.error(error); throw new Error('error disconnect()')});
       })();
     };
   }, [litNodeClient]);

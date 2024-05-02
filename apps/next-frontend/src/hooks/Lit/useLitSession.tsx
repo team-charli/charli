@@ -39,7 +39,7 @@ export default function useLitSession(isOnboarded: boolean | null) {
               resourceAbilityRequests: resourceAbilities,
             },
             litNodeClient,
-          });
+          }).catch(error => {console.error(error); throw new Error('error getSessionSigs')});
           console.log(`setting sessionSigs: `, sessionSigs)
           setSessionSigs(sessionSigs);
         }
