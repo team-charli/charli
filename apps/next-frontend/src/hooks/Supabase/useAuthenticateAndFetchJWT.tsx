@@ -47,7 +47,6 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
             pkpWallet = new PKPEthersWallet({
               controllerSessionSigs: sessionSigs,
               pkpPubKey: currentAccount.publicKey,
-              // debug: true
             });
           } catch(e) {
             console.error("new PKPEthersWallet", e)

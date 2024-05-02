@@ -16,7 +16,7 @@ const LoginView = ({parentIsRoute}: LoginViewProps) => {
 
   useEffect(()=> {
     if (error) {
-      console.log(error);
+      console.error(error);
       throw new Error();
     }
   }, [error])

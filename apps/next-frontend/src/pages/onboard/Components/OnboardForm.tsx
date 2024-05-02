@@ -11,8 +11,6 @@ import { submitOnboardTeachAPI } from '@/api/submitOnboardTeachAPI';
 import { useAuthOboardRouting } from '@/hooks/useAuthOnboardandRouting';
 
 const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
-  const { languageButtons, setLanguageButtons } = useLanguageData();
-  // const context = useAuthOboardRouting();
   const {isLitLoggedIn} = useAuthOboardRouting();
   const {
     currentAccount,
@@ -27,6 +25,7 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
     name,
     setName,
   } = useUserData();
+  const { languageButtons, setLanguageButtons } = useLanguageData();
 
   const [selectedLanguages, setSelectedLanguages] = useState<LanguageButton[]>([]);
   const handleSelectLanguage = (language: LanguageButton) => {
@@ -37,14 +36,11 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
       setSelectedLanguages(prevSelected => [...prevSelected, language]);
     }
   };
-
   const handleToggleLanguage = (languageButton: LanguageButton) => {
     const updatedLanguages = selectedLanguages.map(selectedLang => selectedLang.language === languageButton.language ? { ...selectedLang, isSelected: !selectedLang.isSelected } : selectedLang);
     setSelectedLanguages(updatedLanguages);
   };
-
   const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => { setName(event.target.value); };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const selectedLanguageCodes = selectedLanguages

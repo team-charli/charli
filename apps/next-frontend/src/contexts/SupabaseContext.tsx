@@ -44,7 +44,7 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
       const client = supabaseClientSingleton.getInstance(userJWT);
       setSupabaseClient(client);
     }
-  }, [userJWT, supabaseClient, jwtLoading]); // Ensure nonce is not directly a dependency to avoid re-fetching JWT unnecessarily
+  }, [userJWT, supabaseClient, jwtLoading]);
 
   const isLoading = jwtLoading || !supabaseClient;
 
