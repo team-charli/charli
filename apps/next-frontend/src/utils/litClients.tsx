@@ -1,17 +1,20 @@
 // litClients.ts
 import { LitNodeClient } from '@lit-protocol/lit-node-client';
 import { LitAuthClient } from '@lit-protocol/lit-auth-client';
+import { LIT_NETWORKS_KEYS } from '@lit-protocol/types';
 
+const litNetwork = process.env.NEXT_PUBLIC_LIT_NETWORK_C as LIT_NETWORKS_KEYS;
+if (!litNetwork) throw new Error('problem importing litNetwork env')
 export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
-  litNetwork: 'cayenne',
+  litNetwork,
   debug: true,
 });
 
 export const litAuthClient: LitAuthClient = new LitAuthClient({
   debug: true,
   litRelayConfig: {
-    relayApiKey: "E02B0102-DFF4-67E9-3385-5C71096D7CA0_charli",
+    relayApiKey: process.env.NEXT_PUBLIC_LIT_RELAY_API_KEY,
   },
   litNodeClient,
 });
