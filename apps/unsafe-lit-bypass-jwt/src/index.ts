@@ -2,7 +2,7 @@ import { Wallet } from 'ethers';
 import { SignJWT } from 'jose';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'http://localhost:4200',
+  'Access-Control-Allow-Origin': 'http://localhost:3000',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': '*',
   'Content-Type': 'application/json'
