@@ -1,4 +1,5 @@
 // useLitSession.tsx
+import {Wallet} from '@ethersproject/wallet'
 import { useCallback, useState } from 'react';
 import { AuthMethod, SessionSigs } from '@lit-protocol/types';
 import { getProviderByAuthMethod } from '../../utils/lit';
@@ -17,9 +18,11 @@ export default function useLitSession(isOnboarded: boolean | null) {
       console.log('run initSession');
       setLoading(true);
       setError(undefined);
+
       try {
         const resourceAbilities = [{ resource: new LitActionResource('*'), ability: LitAbility.PKPSigning }];
         const expiration = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(); // 1 week
+
         let provider;
         try {
           provider = getProviderByAuthMethod(authMethod);
@@ -29,7 +32,19 @@ export default function useLitSession(isOnboarded: boolean | null) {
         } catch (e) {
           console.error('error obtaining provider', e);
         }
+
         if (provider && !sessionSigs) {
+          const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_M as string;
+          const walletWithCapacityCredit = new Wallet(privateKey);
+          const capacityTokenIdStr = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_ID_STRING;
+
+          const { capacityDelegationAuthSig } = await litNodeClient.createCapacityDelegationAuthSig({
+            uses: '1',
+            dAppOwnerWallet: walletWithCapacityCredit,
+            capacityTokenId: capacityTokenIdStr,
+            delegateeAddresses: [pkp.ethAddress],
+          });
+
           const sessionSigs: SessionSigs = await provider.getSessionSigs({
             authMethod,
             pkpPublicKey: pkp.publicKey,
@@ -37,10 +52,12 @@ export default function useLitSession(isOnboarded: boolean | null) {
               chain: 'ethereum',
               expiration,
               resourceAbilityRequests: resourceAbilities,
+              capacityDelegationAuthSig,
             },
             litNodeClient,
-          }).catch(error => {console.error(error); throw new Error('error getSessionSigs')});
-          console.log(`setting sessionSigs: `, sessionSigs)
+          }).catch(error => { console.error(error); throw new Error('error getSessionSigs') });
+
+          console.log(`setting sessionSigs: `, sessionSigs);
           setSessionSigs(sessionSigs);
         }
       } catch (e) {

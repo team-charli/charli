@@ -64,59 +64,6 @@ export async function authenticateWithDiscord(redirectUri: string
   return authMethod;
 }
 
-export async function getSessionSigs({
-  pkpPublicKey,
-  authMethod
-}: {
-    pkpPublicKey: string;
-    authMethod: AuthMethod;
-    litNodeClient: LitNodeClient;
-  }): Promise<SessionSigs> {
-  try {
-    const sessionKeyPair = litNodeClient.getSessionKey();
-    const authNeededCallback = async (params: any ) => {
-      const response = await litNodeClient.signSessionKey({
-        sessionKey: sessionKeyPair,
-        statement: params.statement,
-        authMethods: [authMethod],
-        pkpPublicKey: pkpPublicKey,
-        expiration: params.expiration,
-        resources: params.resources,
-        chainId: 1,
-      });
-      return response.authSig;
-    };
-
-    const resourceAbilities = [ { resource: new LitActionResource('*'), ability: LitAbility.PKPSigning } ];
-    let sessionSigs: SessionSigs;
-    try {
-      sessionSigs = await litNodeClient.getSessionSigs({
-        chain: 'ethereum',
-        expiration: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
-        resourceAbilityRequests: resourceAbilities,
-        sessionKey: sessionKeyPair,
-        authNeededCallback,
-      });
-      return sessionSigs
-    } catch (e) {
-      console.error("An error occurred while getting session signatures:", e);
-      throw e
-    }
-  } catch(e) {
-    const error = e as Error;
-    console.error("litNodeClient.getSessionSigs(): stack", error.stack);
-    console.error("litNodeClient.getSessionSigs(): error", error)
-    throw error
-  }
-}
-
-export async function updateSessionSigs(
-  params: GetSessionSigsProps
-): Promise<SessionSigs> {
-  const sessionSigs = await litNodeClient.getSessionSigs(params);
-  return sessionSigs;
-}
-
 /** Fetch PKPs associated with given auth method */
 export async function getPKPs(authMethod: AuthMethod): Promise<IRelayPKP[]> {
   const provider = getProviderByAuthMethod(authMethod);
