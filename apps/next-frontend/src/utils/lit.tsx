@@ -117,13 +117,7 @@ export async function updateSessionSigs(
   return sessionSigs;
 }
 
-export function getSessionKeyPair() {
-  return litNodeClient.getSessionKey()
-}
-
-/**
- * Fetch PKPs associated with given auth method
- */
+/** Fetch PKPs associated with given auth method */
 export async function getPKPs(authMethod: AuthMethod): Promise<IRelayPKP[]> {
   const provider = getProviderByAuthMethod(authMethod);
   if (!isDefined(provider)) throw new Error('provider not defined')
@@ -131,18 +125,13 @@ export async function getPKPs(authMethod: AuthMethod): Promise<IRelayPKP[]> {
   return allPKPs;
 }
 
-/**
- * Mint a new PKP for current auth method
- */
+/** Mint a new PKP for current auth method */
 export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
   const provider = getProviderByAuthMethod(authMethod);
-
   let txHash: string;
-
   if (authMethod.authMethodType === AuthMethodType.WebAuthn) {
     // Register new WebAuthn credential
     const options = await (provider as WebAuthnProvider).register();
-
     // Verify registration and mint PKP through relay server
     txHash = await (
       provider as WebAuthnProvider
@@ -175,9 +164,7 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
   }
 }
 
-/**
- * Get provider for given auth method
- */
+/** Get provider for given auth method */
 export function getProviderByAuthMethod(authMethod: AuthMethod) {
   switch (authMethod.authMethodType) {
     case AuthMethodType.GoogleJwt:
