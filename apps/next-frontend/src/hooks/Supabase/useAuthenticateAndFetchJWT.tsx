@@ -13,14 +13,6 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const context = useAuthOnboardContext();
-  // const [debugRequestCount, setDebugRequestCount] = useState<number>(0)
-  // const {isOnline} = useNetwork();
-  // useEffect(() => {
-  // console.log('nonce', nonce)
-  //    if (debugRequestCount > 1) {
-  //      console.log("debugRequestCount",debugRequestCount)
-  //      }
-  // }, [nonce])
 
   useEffect(() => {
     if(userJWT && isJwtExpired(userJWT)) setUserJWT(null)
@@ -28,14 +20,12 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
 
   useEffect(() => {
     const authenticateAndFetchJWT = async () => {
-      // console.warn({isJwtExpired:  userJWT && isJwtExpired(userJWT), currentAccount:Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), userJWT: userJWT })
       setIsLoading(true);
       try {
         if (context?.isLitLoggedIn && sessionSigs && currentAccount && (userJWT === null || isJwtExpired(userJWT) || nonce === null)) {
           // Fetch new nonce
           let nonceResponse
           try {
-            // setDebugRequestCount(prevCount => prevCount + 1)
             nonceResponse= await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
             setNonce(nonceResponse.nonce);
           } catch(e) {
@@ -76,6 +66,27 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
           } catch(e) {
             throw new Error(`problem with jwt request to worker: ${e}`)
           }
+        } else {
+          let nonceResponse
+          try {
+            nonceResponse= await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
+            setNonce(nonceResponse.nonce);
+          } catch(e) {
+            throw new Error(`error fetching nonce: ${e}`)
+          }
+
+          let jwtResponse
+          try {
+            console.log('run jwt request')
+            jwtResponse= await ky.post(' https://unsafe-lit-bypass-jwt.zach-greco.workers.dev', {
+              json: {  nonce: nonceResponse.nonce },
+            }).json<{ token: string }>();
+            setUserJWT(jwtResponse.token);
+            } catch(e) {
+            throw new Error(`problem with jwt request to worker: ${e}`)
+          }
+
+          // call new worker
         }
       } catch (e) {
         console.error("Error final catch", e)
@@ -94,8 +105,3 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
 
   return { cachedJWT: userJWT, nonce, isLoading, error };
 }
-//TODO:  determine behavior of app if it's been sitting idle and various tokens expire
-//for instance: jwt === null in local-storage and not fetching new token because
-// !currentAccount && !sessionSigs.  Those need to be addressed too and considered in the larger issue of how to handle a return from idle state.
-// those can be grouped into something like isLitOnline, along with a new isSuperbaseOnline, to consolidate app state for overall idle state handling
-// this prevents you from having to check currentAccount and sessionSigs in places where they're not directly used
