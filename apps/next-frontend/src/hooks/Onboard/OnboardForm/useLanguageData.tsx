@@ -9,7 +9,7 @@ export const useLanguageData = () => {
 
   useEffect(() => {
     const fetchLanguageData = async () => {
-      console.log('supabaseClient', Boolean(supabaseClient))
+      // console.log('supabaseClient', Boolean(supabaseClient))
       if (supabaseClient && !supabaseLoading) {
         try {
           const {data, error} = await supabaseClient
@@ -18,7 +18,7 @@ export const useLanguageData = () => {
           if (data) {
             const languageData = data.map(langObj => ({language: langObj.name, languageCode: langObj.language_code, flag: langObj.emoji, isSelected: false}))
 
-            console.log('languageData', languageData)
+            // console.log('languageData', languageData)
             setLanguageButtons(languageData);
 
           } else if (error) {

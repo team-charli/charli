@@ -253,9 +253,9 @@ export interface LangIso2NameMap {
 
 export interface LanguageButton {
   language: string;
+  languageCode: string;
   flag: string;
   isSelected?: boolean;
-  languageCode: string;
 }
 
 type OnToggleLanguage = (languageButton: LanguageButton) => void;
@@ -275,8 +275,7 @@ export type SearchLangComboBoxProps = {
 
 export type LanguageToggleButtonsProps = {
   languageButtons: LanguageButton[];
-  selectedLanguages: LanguageButton[];
-  onToggleLanguage: OnToggleLanguage;
+  onToggleLanguage: (languageButton: LanguageButton) => void;
 };
 
 export interface OnboardFormData {
