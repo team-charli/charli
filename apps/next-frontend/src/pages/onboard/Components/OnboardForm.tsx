@@ -57,6 +57,7 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)}>
+      {/* remove pending vote for new language feature*/}
       <SearchLangComboBox
         languageButtons={languageButtons}
         setLanguageButtons={setLanguageButtons}
