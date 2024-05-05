@@ -132,11 +132,11 @@ export function sessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
 
       const timeUntilExpire = formatTimeUntilExpire(expirationTime - currentTime);
 
-      console.log(JSON.stringify({
-        timeUntilExpire,
-        signedMessage_expiration: signedMessage.expiration,
-        current_time: new Date()
-      }));
+      // console.log(JSON.stringify({
+      //   timeUntilExpire,
+      //   signedMessage_expiration: signedMessage.expiration,
+      //   current_time: new Date()
+      // }));
 
       if (currentTime >= expirationTime) {
         // localStorage.removeItem("sessionSigs")

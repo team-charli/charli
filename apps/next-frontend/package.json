@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
+    "@ethersproject/bytes": "^5.7.0",
     "@ethersproject/wallet": "^5.7.0",
     "@headlessui/react": "^1.7.17",
     "@heroicons/react": "^2.0.18",

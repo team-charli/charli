@@ -1,5 +1,6 @@
 // useLitSession.tsx
 import {Wallet} from '@ethersproject/wallet'
+// import {hexlify} from '@ethersproject/bytes'
 import { useCallback, useState } from 'react';
 import { AuthMethod, SessionSigs } from '@lit-protocol/types';
 import { getProviderByAuthMethod } from '../../utils/lit';
@@ -8,18 +9,19 @@ import { IRelayPKP } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { litNodeClient } from '@/utils/litClients';
 
-export default function useLitSession(isOnboarded: boolean | null) {
+export default function useLitSession() {
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
   const [sessionLoading, setLoading] = useState<boolean>(false);
   const [sessionError, setError] = useState<Error>();
 
   const initSession = useCallback(
     async (authMethod: AuthMethod, pkp: IRelayPKP): Promise<void> => {
-      console.log('run initSession');
       setLoading(true);
       setError(undefined);
 
       try {
+        console.log("run initSession");
+
         const resourceAbilities = [{ resource: new LitActionResource('*'), ability: LitAbility.PKPSigning }];
         const expiration = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(); // 1 week
 
@@ -36,7 +38,7 @@ export default function useLitSession(isOnboarded: boolean | null) {
         if (provider && !sessionSigs) {
           const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_M as string;
           const walletWithCapacityCredit = new Wallet(privateKey);
-          const capacityTokenIdStr = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_ID_STRING;
+          const capacityTokenIdStr = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_ID_STRING as string;
 
           const { capacityDelegationAuthSig } = await litNodeClient.createCapacityDelegationAuthSig({
             uses: '1',
@@ -62,7 +64,6 @@ export default function useLitSession(isOnboarded: boolean | null) {
         }
       } catch (e) {
         const error = e as Error;
-        console.error("initSession: stack", error.stack);
         console.error("initSession: error", error);
         setError(error);
       } finally {

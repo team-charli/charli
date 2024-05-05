@@ -9,7 +9,6 @@ const useLitLoggedIn = () => {
   const [isLitLoggedIn, setIsLitLoggedIn] = useState(false);
 
   useEffect(() => {
-    // console.log('sessionSigs', sessionSigs)
     if (currentAccount && sessionSigs && !sessionSigsExpired(sessionSigs)) {
       // console.log(JSON.stringify({setIsLitLoggedIn: true, currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), sessionSigsExpired: sessionSigsExpired(sessionSigs)}));
       setIsLitLoggedIn(true)

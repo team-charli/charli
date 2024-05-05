@@ -1,12 +1,11 @@
 import IconHeader from '@/components/IconHeader';
 import NonButtonLink from '@/components/elements/NonButtonLink';
 import BannerHeader from '@/components/headers/BannerHeader';
-import { OnboardContext } from '@/contexts/OnboardContext';
-import { useContext } from 'react';
 import OnboardForm from './Components/OnboardForm';
+import { useAuthOnboardContext } from '@/contexts';
 
 export const Onboard = () => {
-  const { onboardMode } = useContext(OnboardContext);
+  const { onboardMode } = useAuthOnboardContext();
 
   const buttonText = onboardMode === 'Learn' ? 'Learn 🎓' : 'Teach 🤑';
   console.log('onboardMode', onboardMode)

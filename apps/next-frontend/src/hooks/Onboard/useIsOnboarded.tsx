@@ -4,7 +4,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { useEffect } from 'react';
 
 export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoading: boolean  ) => {
-  const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded');
+  const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded', false);
+
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   const [ isLitLoggedIn ] = useLocalStorage("isLitLoggedIn");
@@ -20,7 +21,7 @@ export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoa
             .select("id, user_address")
             .eq("user_address", currentAccount?.ethAddress)
             .single();
-          console.log('data', data)
+            console.log('data', data)
           if (error || !data) {
             console.log('set isOnboarded: false')
             setIsOnboarded(false);

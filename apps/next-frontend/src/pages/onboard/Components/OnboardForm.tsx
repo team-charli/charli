@@ -1,27 +1,23 @@
 // OnboardForm.tsx
 import { useLanguageData } from '@/hooks/Onboard/OnboardForm/useLanguageData';
-import { useUserData } from '@/hooks/Onboard/OnboardForm/useUserData';
 import { OnboardFormProps, LanguageButton } from '@/types/types';
-import React, { FormEvent } from 'react';
+import React, { FormEvent, useState } from 'react';
 import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
 import { submitOnboardLearnAPI } from '@/api/submitOnboardLearnAPI';
 import { submitOnboardTeachAPI } from '@/api/submitOnboardTeachAPI';
 import { useAuthOboardRouting } from '@/hooks/useAuthOnboardandRouting';
+import { useSupabase } from '@/contexts';
+import useLocalStorage from '@rehooks/local-storage';
+import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
-  const { isLitLoggedIn } = useAuthOboardRouting();
-  const {
-    currentAccount,
-    sessionSigs,
-    isOnboarded,
-    hasBalance,
-    supabaseClient,
-    supabaseLoading,
-    setIsOnboarded,
-    name,
-    setName,
-  } = useUserData();
+  const [name, setName] = useState('');
+
+  const { client: supabaseClient, supabaseLoading} = useSupabase();
+  const [ currentAccount ] = useLocalStorage<IRelayPKP | null>('currentAccount')
+  const [ sessionSigs ] = useLocalStorage<SessionSigs | null>('sessionSigs')
+  const { isLitLoggedIn, isOnboarded, hasBalance } = useAuthOboardRouting();
   const { languageButtons, setLanguageButtons } = useLanguageData();
 
   const handleToggleLanguage = (languageButton: LanguageButton) => {
@@ -54,7 +50,6 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
         await submitOnboardLearnAPI(
           selectedLanguageCodes,
           isOnboarded,
-          setIsOnboarded,
           name,
           hasBalance,
           supabaseClient,
@@ -68,7 +63,6 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
         await submitOnboardTeachAPI(
           selectedLanguageCodes,
           isOnboarded,
-          setIsOnboarded,
           name,
           supabaseClient,
           supabaseLoading,

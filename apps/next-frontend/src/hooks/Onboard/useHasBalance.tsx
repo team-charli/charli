@@ -1,6 +1,5 @@
 import { ethers } from 'ethers'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import { LocalStorageSetter } from '../../types/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useEffect } from 'react';
@@ -36,8 +35,8 @@ export function useHasBalance(isOnboarded: boolean | null) {
           balance =  await pkpWallet.getBalance(currentAccount.ethAddress)
           console.log('balance', balance);
         } catch(e) {
-          const error = e as Response
-          console.log(error.json())
+          console.error(e)
+          throw new Error('error useHasBalance');
         }
         if (balance?.gt(minBalanceWei)) {
           console.log('setHasBalance(true)');

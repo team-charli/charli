@@ -5,7 +5,6 @@ import { Dispatch, SetStateAction, ReactNode } from 'react'
 export interface AuthMethodsProps {
   handleGoogleLogin: () => Promise<void>;
   handleDiscordLogin: () => Promise<void>;
-  /*setView: React.Dispatch<React.SetStateAction<string>>;*/
 }
 
 export interface LoginProps {
@@ -57,7 +56,6 @@ export interface AuthOnboardContextObj {
   onboardMode: "Learn" | "Teach" | null;
   setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>;
   isOnboarded: boolean | null;
-  setIsOnboarded: LocalStorageSetter<boolean>;
   hasBalance: boolean | null;
   nativeLang: string;
   setNativeLang: Dispatch<SetStateAction<string>>;
@@ -69,6 +67,8 @@ export interface AuthOnboardContextObj {
   learningLangs: string[];
   setLearningLangs: Dispatch<SetStateAction<string[]>>;
 
+  setRenderLoginButtons: Dispatch<SetStateAction<true | false>>;
+  renderLoginButtons: boolean;
 }
 
 
