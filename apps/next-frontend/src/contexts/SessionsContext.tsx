@@ -1,3 +1,5 @@
+'use client';
+
 // SessionContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSupabase } from './SupabaseContext';

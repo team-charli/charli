@@ -1,3 +1,4 @@
+'use client';
 import { useAuthOnboardContext } from "@/contexts";
 import { useEffect } from "react";
 

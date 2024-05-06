@@ -1,3 +1,4 @@
+'use client';
 import AuthMethods from "@/components/Lit/AuthMethods";
 import { useSetLoginViewCSS } from "@/hooks/css/useSetLoginViewCSS";
 import { LoginViewProps } from "@/types/types";

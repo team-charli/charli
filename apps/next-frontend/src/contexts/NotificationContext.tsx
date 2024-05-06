@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState, useContext, createContext } from 'react';
 import { useSupabase } from './SupabaseContext';
 import useLocalStorage from '@rehooks/local-storage';

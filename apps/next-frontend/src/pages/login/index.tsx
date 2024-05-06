@@ -1,38 +1,35 @@
-import dynamic from 'next/dynamic';
+'use client';
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
 import { useAuthOnboardContext } from "@/contexts";
-import { useEffect } from 'react';
-const LoginView = dynamic(() => import('./Components/LoginView'), { ssr: false });
-const Loading = dynamic(() => import('@/components/Loading'), { ssr: false });
+import { useEffect, useState } from 'react';
+import LoginView from "./Components/LoginView";
+import Loading from "@/components/Loading";
 
 const Login = () => {
-  const { authLoading, accountsLoading, sessionLoading, renderLoginButtons } = useAuthOnboardContext();
+  const [hydrated, setHydrated] = useState(false);
+  const { renderLoginButtons, authLoading, accountsLoading, sessionLoading } = useAuthOnboardContext();
 
   useEffect(() => {
-    if( authLoading || accountsLoading || sessionLoading) {
-      console.log("loading: ", authLoading || accountsLoading || sessionLoading)
-    }
-  }, [ authLoading, accountsLoading, sessionLoading])
+    setHydrated(true);
+  }, []);
 
-  if (renderLoginButtons) {
-    return (
-      <>
-        <IconHeader />
-        <BannerHeader />
-        <LoginView parentIsRoute={true}  />
-      </>
-    );
-  } else {
-    return (
-      <>
-        <IconHeader />
-        <BannerHeader />
-        <Loading />
-      </>
-    );
+  if (!hydrated) {
+    // Render a placeholder or loading state on the server-side
+    return null;
   }
+
+  return (
+    <>
+      <IconHeader />
+      <BannerHeader />
+      {renderLoginButtons ? (
+        <LoginView parentIsRoute={true} />
+      ) : (
+        <Loading />
+      )}
+    </>
+  );
 };
 
 export default Login;
-

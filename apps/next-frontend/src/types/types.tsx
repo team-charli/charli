@@ -67,8 +67,9 @@ export interface AuthOnboardContextObj {
   learningLangs: string[];
   setLearningLangs: Dispatch<SetStateAction<string[]>>;
 
-  setRenderLoginButtons: Dispatch<SetStateAction<true | false>>;
+  setRenderLoginButtons: (newValue: LocalStorageSetStateValue<boolean> | null) => void;
   renderLoginButtons: boolean;
+
 }
 
 

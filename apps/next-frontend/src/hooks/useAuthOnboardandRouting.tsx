@@ -1,3 +1,4 @@
+'use client';
 // useAuthOboardRouting.tsx
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
@@ -29,6 +30,7 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
   const [teachingLangs, setTeachingLangs] = useState([] as string[]);
   const [learningLangs, setLearningLangs] = useState([] as string[]);
   const [renderLoginButtons, setRenderLoginButtons] = useLocalStorage<boolean>("renderLoginButtons", true);
+
 
   useEffect(() => {
     if( authLoading || accountsLoading || sessionLoading) {
@@ -67,7 +69,7 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
 
 
     } else if (!authMethod && !currentAccount && !sessionSigs && onboardMode){
-     // console.log("Step2: Obtain Auth Method");
+      // console.log("Step2: Obtain Auth Method");
 
     } else {
       // console.log("something else happened", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs)})
@@ -129,6 +131,6 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
     setLearningLangs,
 
     renderLoginButtons,
-    setRenderLoginButtons
+    setRenderLoginButtons,
   };
 };
