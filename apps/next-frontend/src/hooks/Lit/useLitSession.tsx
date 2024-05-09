@@ -36,7 +36,7 @@ export default function useLitSession() {
         }
 
         if (provider && !sessionSigs) {
-          const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_M as string;
+          const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV as string;
           const walletWithCapacityCredit = new Wallet(privateKey);
           const capacityTokenIdStr = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_ID_STRING as string;
 
