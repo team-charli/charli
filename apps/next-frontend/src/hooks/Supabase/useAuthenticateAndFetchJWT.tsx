@@ -59,7 +59,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
           try {
             signature = await pkpWallet.signMessage(nonceResponse.nonce);
           } catch (e) {
-            console.error(e);
+            console.error("problem signing nonce", e);
             throw new Error('problem signing');
           }
           let jwtResponse;

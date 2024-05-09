@@ -8,7 +8,6 @@ export const Onboard = () => {
   const { onboardMode } = useAuthOnboardContext();
 
   const buttonText = onboardMode === 'Learn' ? 'Learn 🎓' : 'Teach 🤑';
-  console.log('onboardMode', onboardMode)
 
   return (
     <>

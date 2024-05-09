@@ -7,10 +7,8 @@ import { useAuthOnboardContext } from "@/contexts";
 import useLitClients from "@/hooks/Lit/useLitClients";
 import { litNodeClient as litNodeClientInstance, litAuthClient as litAuthClientInstance } from "@/utils/litClients";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
 
 const Entry = () => {
-  const router = useRouter();
   useLitClients(litNodeClientInstance, litAuthClientInstance);
   const { setOnboardMode } = useAuthOnboardContext();
   return (

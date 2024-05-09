@@ -8,7 +8,8 @@ if (!litNetwork) throw new Error('problem importing litNetwork env')
 export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
   litNetwork,
-  checkNodeAttestation: false
+  checkNodeAttestation: false,
+  debug: true
 });
 
 export const litAuthClient: LitAuthClient = new LitAuthClient({

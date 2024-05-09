@@ -2,7 +2,7 @@
 // useAuthOboardRouting.tsx
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { useAuthenticate, useLitAccounts, useLitSession, useLitLoggedIn } from '../hooks/Lit';
+import { useAuthenticate, useLitAccounts, useLitSession, useIsLitLoggedIn } from '../hooks/Lit';
 import { SessionSigs } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { sessionSigsExpired } from '@/utils/app';
@@ -21,7 +21,7 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
   const { isOnboarded, setIsOnboarded } = useIsOnboarded(supabaseClient, supabaseLoading);
   const { initSession, sessionLoading, sessionError } = useLitSession();
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
-  const {isLitLoggedIn} = useLitLoggedIn();
+  const isLitLoggedIn = useIsLitLoggedIn(currentAccount, sessionSigs);
   const { onboardMode, setOnboardMode } = useOnboardMode(isOnboarded);
   // const { hasBalance } = useHasBalance(isOnboarded);
   const hasBalance = null;
@@ -31,48 +31,28 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
   const [learningLangs, setLearningLangs] = useState([] as string[]);
   const [renderLoginButtons, setRenderLoginButtons] = useLocalStorage<boolean>("renderLoginButtons", true);
 
-
   useEffect(() => {
-    if( authLoading || accountsLoading || sessionLoading) {
-      console.log({authLoading, accountsLoading, sessionLoading})
-    }
-  }, [ authLoading, accountsLoading, sessionLoading])
+    if (!authMethod && !currentAccount && !sessionSigs) {
 
-  useEffect(() => {
-
-    if (authMethod && currentAccount && !sessionSigs) {
+    } else if (authMethod && currentAccount && !sessionSigs) {
       // User is authenticated but session is not initialized
-      // console.log("Step4: obtain sessionSigs");
-
       initSession(authMethod, currentAccount);
 
 
     } else if (authMethod && currentAccount && sessionSigs && sessionSigsExpired(sessionSigs)) {
       // User is authenticated but session has expired
-      // console.log("sessionSigs expired: run initSession");
-
       initSession(authMethod, currentAccount);
 
 
     } else if (authMethod && !currentAccount && !sessionSigs) {
       // User is authenticated but accounts are not fetched
-      // console.log("Step3: fetchAccounts")
       fetchAccounts(authMethod);
 
-
-    } else if (authMethod && currentAccount && sessionSigs && !sessionSigsExpired(sessionSigs)) {
-      // console.log("loggedIn");
-
-
-    } else if (!authMethod && !currentAccount && !sessionSigs && !onboardMode){
-      // console.log("Step1: entry point")
-
-
-    } else if (!authMethod && !currentAccount && !sessionSigs && onboardMode){
-      // console.log("Step2: Obtain Auth Method");
-
-    } else {
-      // console.log("something else happened", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs)})
+    } else if (sessionSigs && currentAccount && !authMethod){
+    } else if (sessionSigs && currentAccount && authMethod) {
+    }
+    else {
+      // console.log("something else happened. Other condidtions:(authMethod && !currentAccount && !sessionSigs);User is authenticated but accounts are not fetched; authMethod && currentAccount && sessionSigs && sessionSigsExpired(sessionSigs)User is authenticated but session has expired ", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs)})
 
     }
 
@@ -84,28 +64,30 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
     } else if (isLitLoggedIn && isOnboarded) {
       // User is authenticated and onboarded
       // console.log('authenticated and onboarded: push to /lounge');
-      router.push('/lounge').catch(e => console.log(e));
+      router.push('/lounge').catch(e => console.error(e));
 
 
     } else if (!isLitLoggedIn && (onboardMode === 'Teach' || onboardMode === 'Learn')) {
       // User is not authenticated but has selected an onboarding mode
-      // console.log("not authenticated, onboardMode===true: push to /login")
-      router.push('/login').catch(e => console.log(e));
+      // console.log("not authenticated, onboardMode===true: push to /login", {isLitLoggedIn, sessionSigs: Boolean(sessionSigs), currentAccount: Boolean(currentAccount), onboardMode, isExpired: sessionSigsExpired(sessionSigs)})
+      router.push('/login').catch(e => console.error(e));
 
 
     } else if (!isLitLoggedIn && !onboardMode) {
       //User is not authenticated and hasn't selected an onboarding mode
       // console.log("not authenticated, onboardMode===false: push to /")
-      router.push('/').catch(e => console.log(e));
+      router.push('/').catch(e => console.error(e));
     }
-    // else if (!isLitLoggedIn && !isOnboarded) {
-    //   // User is authenticated but not onboarded
-    //   if (onboardMode !== 'Teach' && onboardMode !== "Learn") {
-    //     // console.log("User is authenticated but not onboarded: push to /", onboardMode);
-    //     router.push('/').catch(e => console.log(e))
-    //   }
-    // }
-  }, [authMethod, fetchAccounts, currentAccount, initSession, sessionSigs, onboardMode, isOnboarded, isLitLoggedIn]);
+    else if (!isLitLoggedIn && !isOnboarded) {
+      // User is authenticated but not onboarded
+      if (onboardMode !== 'Teach' && onboardMode !== "Learn") {
+        // console.log("User is authenticated but not onboarded: push to /", onboardMode);
+        router.push('/').catch(e => console.error(e))
+      } else if (onboardMode === 'Teach' || onboardMode === "Learn") {
+        router.push('/onboard').catch(e => console.error(e))
+      }
+    }
+  }, [authMethod, currentAccount, sessionSigs, fetchAccounts, initSession,  onboardMode, isOnboarded, isLitLoggedIn]);
 
 
   return {

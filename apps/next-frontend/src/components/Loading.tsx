@@ -14,11 +14,6 @@ const Loading = () => {
   } else if (sessionLoading) {
     loadingMessage = 'Initializing session...';
   }
-  useEffect(() => {
-    // if( authLoading || accountsLoading || sessionLoading) {
-      console.log({authLoading, accountsLoading, sessionLoading})
-    // }
-  }, [ authLoading, accountsLoading, sessionLoading])
 
   return (
     <div className="loading-container">
