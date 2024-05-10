@@ -31,8 +31,13 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
           let nonceResponse;
           try {
             nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
+            if (nonceResponse) {
+            console.log('setNonce')
             setNonce(nonceResponse.nonce);
             currentNonce = nonceResponse.nonce;
+            } else {
+              console.log("setNonce failed")
+            }
           } catch (e) {
             console.error(e);
             throw new Error(`error fetching nonce:`);
