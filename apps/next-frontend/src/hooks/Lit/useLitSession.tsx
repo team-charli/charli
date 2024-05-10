@@ -21,9 +21,8 @@ export default function useLitSession() {
 
       try {
         console.log("run initSession");
-
-        const resourceAbilities = [{ resource: new LitActionResource('*'), ability: LitAbility.PKPSigning }];
-        const expiration = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(); // 1 week
+        console.log('authMethod', authMethod)
+        console.log('pkp', pkp)
 
         let provider;
         try {
@@ -38,10 +37,13 @@ export default function useLitSession() {
         if (provider && !sessionSigs) {
           const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV as string;
           const walletWithCapacityCredit = new Wallet(privateKey);
-          const capacityTokenIdStr = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_ID_STRING as string;
+
+          const expiration = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(); // 1 week
+          const resourceAbilities = [{ resource: new LitActionResource('*'), ability: LitAbility.PKPSigning }];
+          const capacityTokenIdStr = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_ID_STRING_H as string;
 
           const { capacityDelegationAuthSig } = await litNodeClient.createCapacityDelegationAuthSig({
-            uses: '1',
+            // uses: '1',
             dAppOwnerWallet: walletWithCapacityCredit,
             capacityTokenId: capacityTokenIdStr,
             delegateeAddresses: [pkp.ethAddress],

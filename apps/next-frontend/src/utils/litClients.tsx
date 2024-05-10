@@ -9,11 +9,11 @@ export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
   litNetwork,
   checkNodeAttestation: false,
-  debug: true
+  // debug: true
 });
 
 export const litAuthClient: LitAuthClient = new LitAuthClient({
-  debug: true,
+  // debug: true,
   litRelayConfig: {
     relayApiKey: process.env.NEXT_PUBLIC_LIT_RELAY_API_KEY,
   },
