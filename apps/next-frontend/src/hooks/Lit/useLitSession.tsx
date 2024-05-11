@@ -36,9 +36,10 @@ export default function useLitSession() {
         }
 
         if (provider && !sessionSigs) {
-          const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_M as string;
+          const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV;
+          if (!privateKey) throw new Error("problem importing process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV;")
           const walletWithCapacityCredit = new Wallet(privateKey);
-          const capacityTokenIdStr = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_ID_STRING as string;
+          const capacityTokenIdStr = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_ID_STRING_M;
 
           const { capacityDelegationAuthSig } = await litNodeClient.createCapacityDelegationAuthSig({
             uses: '1',
