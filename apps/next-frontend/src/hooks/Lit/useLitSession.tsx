@@ -1,5 +1,7 @@
 // useLitSession.tsx
 import {Wallet} from '@ethersproject/wallet'
+import {JsonRpcProvider} from '@ethersproject/providers'
+
 // import {hexlify} from '@ethersproject/bytes'
 import { useCallback, useState } from 'react';
 import { AuthMethod, SessionSigs } from '@lit-protocol/types';
@@ -38,7 +40,9 @@ export default function useLitSession() {
         if (provider && !sessionSigs) {
           const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV;
           if (!privateKey) throw new Error("problem importing process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV;")
-          const walletWithCapacityCredit = new Wallet(privateKey);
+          const ethersProvider = new JsonRpcProvider("https://chain-rpc.litprotocol.com/http");
+
+          const walletWithCapacityCredit = new Wallet(privateKey, ethersProvider  );
           const capacityTokenIdStr = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_ID_STRING_M;
 
           const { capacityDelegationAuthSig } = await litNodeClient.createCapacityDelegationAuthSig({
@@ -51,13 +55,14 @@ export default function useLitSession() {
           const sessionSigs: SessionSigs = await provider.getSessionSigs({
             authMethod,
             pkpPublicKey: pkp.publicKey,
+            litNodeClient,
+
             sessionSigsParams: {
               chain: 'ethereum',
               expiration,
               resourceAbilityRequests: resourceAbilities,
               capacityDelegationAuthSig,
             },
-            litNodeClient,
           }).catch(error => { console.error(error); throw new Error('error getSessionSigs') });
 
           console.log(`setting sessionSigs: `, sessionSigs);
