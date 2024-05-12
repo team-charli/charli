@@ -1,5 +1,6 @@
 // useLitSession.tsx
 import {Wallet} from '@ethersproject/wallet'
+import {JsonRpcProvider} from '@ethersproject/providers'
 // import {hexlify} from '@ethersproject/bytes'
 import { useCallback, useState } from 'react';
 import { AuthMethod, SessionSigs } from '@lit-protocol/types';
@@ -35,8 +36,10 @@ export default function useLitSession() {
         }
 
         if (provider && !sessionSigs) {
-          const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV as string;
-          const walletWithCapacityCredit = new Wallet(privateKey);
+          const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV;
+          if (!privateKey) throw new Error("problem importing process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV;")
+          const ethersProvider = new JsonRpcProvider("https://chain-rpc.litprotocol.com/http");
+          const walletWithCapacityCredit = new Wallet(privateKey, ethersProvider  );
 
           const expiration = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(); // 1 week
           const resourceAbilities = [{ resource: new LitActionResource('*'), ability: LitAbility.PKPSigning }];
