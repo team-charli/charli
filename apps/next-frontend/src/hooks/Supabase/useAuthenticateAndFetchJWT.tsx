@@ -28,54 +28,49 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
       try {
         if (context?.isLitLoggedIn && sessionSigs && currentAccount && (userJWT === null || isJwtExpired(userJWT) || currentNonce === null)) {
           // Fetch new nonce
-          let nonceResponse;
-          try {
-            nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
-            if (nonceResponse) {
-            console.log('setNonce')
+          let nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce')
+            .json<NonceData>()
+            .catch(e => {
+              console.error("Error fetching nonce", e);
+              throw new Error(`Error fetching nonce: ${e}`);
+            });
+
+          if (nonceResponse) {
+            console.log('setNonce');
             setNonce(nonceResponse.nonce);
             currentNonce = nonceResponse.nonce;
-            } else {
-              console.log("setNonce failed")
-            }
-          } catch (e) {
-            console.error(e);
-            throw new Error(`error fetching nonce:`);
+          } else {
+            console.log("setNonce failed");
           }
+
           // Use the nonce to sign a message and fetch a new JWT
-          let pkpWallet;
-          try {
-            pkpWallet = new PKPEthersWallet({
-              controllerSessionSigs: sessionSigs,
-              pkpPubKey: currentAccount.publicKey,
+          let pkpWallet = new PKPEthersWallet({
+            controllerSessionSigs: sessionSigs,
+            pkpPubKey: currentAccount.publicKey,
+          });
+
+          await pkpWallet?.init().catch(e => console.error("pkpWallet.init", e));
+
+          if (!nonceResponse?.nonce) throw new Error("no response on nonce");
+
+          let signature = await pkpWallet?.signMessage(nonceResponse.nonce).catch(e => console.error("problem signing nonce", e));
+
+          console.log('run jwt request');
+          let jwtResponse = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
+            json: { ethereumAddress: currentAccount.ethAddress, signature, nonce: nonceResponse.nonce },
+          })
+            .json<{ token: string }>()
+            .catch(e => {
+              console.error('problem with jwt request to worker', e);
+              return null; // Return null if an error occurs
             });
-          } catch (e) {
-            console.error("new PKPEthersWallet", e);
-            throw new Error(`Wallet Constructor: ${e}`);
-          }
-          try {
-            // 401 is still a question of bad sigs I think
-            await pkpWallet.init();
-          } catch (e) {
-            console.error("pkpWallet.init", e);
-            throw new Error(`error initializing pkpWallet`);
-          }
-          let signature;
-          try {
-            signature = await pkpWallet.signMessage(nonceResponse.nonce);
-          } catch (e) {
-            console.error("problem signing nonce", e);
-            throw new Error('problem signing');
-          }
-          let jwtResponse;
-          try {
-            console.log('run jwt request');
-            jwtResponse = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
-              json: { ethereumAddress: currentAccount.ethAddress, signature, nonce: nonceResponse.nonce },
-            }).json<{ token: string }>();
-            setUserJWT(jwtResponse.token);
-          } catch (e) {
-            throw new Error(`problem with jwt request to worker: ${e}`);
+
+          if (jwtResponse && jwtResponse.token) {
+            const token = jwtResponse.token;
+            setUserJWT(token);
+          } else {
+            console.error('Invalid JWT response');
+            // Handle the case when the JWT response is invalid or missing the token
           }
         }
       } catch (e) {
