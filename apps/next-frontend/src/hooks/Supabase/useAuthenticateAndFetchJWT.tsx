@@ -30,65 +30,66 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
     const authenticateAndFetchJWT = async () => {
       setIsLoading(true);
       try {
-        if (context?.isLitLoggedIn && currentAccount && sessionSigs && (userJWT === null || isJwtExpired(userJWT) || currentNonce === null)) {
-          // Fetch new nonce
-          const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce')
-          .json<NonceData>()
-          .catch(e => {
-            console.error("Error fetching nonce", e);
-            throw new Error(`Error fetching nonce: ${e}`);
-          });
+        // if (context?.isLitLoggedIn && currentAccount && sessionSigs && (userJWT === null || isJwtExpired(userJWT) || currentNonce === null)) {
+        //   // Fetch new nonce
+        //   const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce')
+        //   .json<NonceData>()
+        //   .catch(e => {
+        //     console.error("Error fetching nonce", e);
+        //     throw new Error(`Error fetching nonce: ${e}`);
+        //   });
 
-          if (nonceResponse) {
-            console.log('setNonce');
-            setNonce(nonceResponse.nonce);
-            currentNonce = nonceResponse.nonce;
-          } else {
-            console.log("setNonce failed");
-          }
+        //   if (nonceResponse) {
+        //     console.log('setNonce');
+        //     setNonce(nonceResponse.nonce);
+        //     currentNonce = nonceResponse.nonce;
+        //   } else {
+        //     console.log("setNonce failed");
+        //   }
 
-          // Use the nonce to sign a message and fetch a new JWT
-          const pkpWallet = new PKPEthersWallet({
-            controllerSessionSigs: sessionSigs,
-            pkpPubKey: currentAccount.publicKey,
-          });
+        //   // Use the nonce to sign a message and fetch a new JWT
+        //   const pkpWallet = new PKPEthersWallet({
+        //     controllerSessionSigs: sessionSigs,
+        //     pkpPubKey: currentAccount.publicKey,
+        //   });
 
-          await pkpWallet?.init().catch(e => console.error("pkpWallet.init", e));
+        //   await pkpWallet?.init().catch(e => console.error("pkpWallet.init", e));
 
-          if (!currentNonce) throw new Error("no response on nonce");
+        //   if (!currentNonce) throw new Error("no response on nonce");
 
-          let signature;
-          try {
-            signature = await pkpWallet?.signMessage(currentNonce);
-          } catch (e) {
-            console.error("problem signing nonce with pkpWallet, falling back to litLessWallet", e);
-            const litLessPrivateKey = process.env.NEXT_PUBLIC_LITLESS_PRIVATE_KEY;
-            if (!litLessPrivateKey) throw new Error('problem importing NEXT_PUBLIC_LITLESS_PRIVATE_KEY');
-            console.log("LITLESS MODE");
-            const litLessWallet = new ethers.Wallet(litLessPrivateKey);
-            signature = await litLessWallet.signMessage(currentNonce).catch(e => console.error("problem signing nonce with litLessWallet", e));
-          }
+        //   let signature;
+        //   try {
+        //     signature = await pkpWallet?.signMessage(currentNonce);
+        //     if (signature) console.log()
+        //   } catch (e) {
+        //     console.error("problem signing nonce with pkpWallet, falling back to litLessWallet", e);
+        //     const litLessPrivateKey = process.env.NEXT_PUBLIC_LITLESS_PRIVATE_KEY;
+        //     if (!litLessPrivateKey) throw new Error('problem importing NEXT_PUBLIC_LITLESS_PRIVATE_KEY');
+        //     console.log("LITLESS MODE");
+        //     const litLessWallet = new ethers.Wallet(litLessPrivateKey);
+        //     signature = await litLessWallet.signMessage(currentNonce).catch(e => console.error("problem signing nonce with litLessWallet", e));
+        //   }
 
-          console.log('run jwt request');
-          const jwtResponse = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
-            json: { ethereumAddress: currentAccount.ethAddress, signature, nonce: currentNonce },
-          })
-          .json<{ token: string }>()
-          .catch(e => {
-            console.error('problem with jwt request to worker', e);
-            throw e;
-          });
+        //   const jwtResponse = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
+        //     json: { ethereumAddress: currentAccount.ethAddress, signature, nonce: currentNonce },
+        //   })
+        //   .json<{ token: string }>()
+        //   .catch(e => {
+        //     console.error('problem with jwt request to worker', e);
+        //     throw e;
+        //   });
+        //   console.log('ran jwt request', jwtResponse);
 
-          if (jwtResponse && jwtResponse.token) {
-            const token = jwtResponse.token;
-            setUserJWT(token);
-          } else {
-            console.error('Invalid JWT response');
-            // Handle the case when the JWT response is invalid or missing the token
-          }
-        } else if (litLess) {
+        //   if (jwtResponse && jwtResponse.token) {
+        //     const token = jwtResponse.token;
+        //     setUserJWT(token);
+        //   } else {
+        //     console.error('Invalid JWT response');
+        //     // Handle the case when the JWT response is invalid or missing the token
+        //   }
+        // } else if (litLess) {
           await litLessFetchJwt();
-        }
+        // }
       } catch (e) {
         console.error("Error final catch", e);
         const errorInstance = e instanceof Error ? e : new Error('An unknown error occurred');
