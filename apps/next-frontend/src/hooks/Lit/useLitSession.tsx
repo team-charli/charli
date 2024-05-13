@@ -12,6 +12,7 @@ import { litNodeClient } from '@/utils/litClients';
 
 export default function useLitSession() {
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
+  const [litLess, setLitless] = useLocalStorage<boolean>("litLess", false)
   const [sessionLoading, setLoading] = useState<boolean>(false);
   const [sessionError, setError] = useState<Error>();
 
@@ -62,7 +63,9 @@ export default function useLitSession() {
               capacityDelegationAuthSig,
             },
             litNodeClient,
-          }).catch(error => { console.error(error); throw new Error('error getSessionSigs') });
+          }).catch(error => { console.error(error); throw new Error('error getSessionSigs')
+          setLitless(true);
+          });
 
           console.log(`setting sessionSigs: `, sessionSigs);
           setSessionSigs(sessionSigs);

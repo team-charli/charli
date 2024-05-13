@@ -3,7 +3,7 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useAuthenticate, useLitAccounts, useLitSession, useIsLitLoggedIn } from '../hooks/Lit';
-import { SessionSigs } from '@lit-protocol/types';
+import { AuthMethod, SessionSigs } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { sessionSigsExpired } from '@/utils/app';
 import { useHasBalance, useIsOnboarded, useOnboardMode } from '../hooks/Onboard/';
@@ -15,7 +15,8 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
   const router = useRouter();
   const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
   if (!redirectUrl) throw new Error(`redirectUrl`);
-  const { authMethod, authLoading, authError } = useAuthenticate(redirectUrl);
+  const { authLoading, authError } = useAuthenticate(redirectUrl);
+  const [authMethod] = useLocalStorage<AuthMethod | null>("authMethod");
   const { currentAccount, fetchAccounts, accountsLoading, accountsError } = useLitAccounts();
   const { client: supabaseClient, supabaseLoading } = useSupabase();
   const { isOnboarded, setIsOnboarded } = useIsOnboarded(supabaseClient, supabaseLoading);
