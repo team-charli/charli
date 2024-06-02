@@ -8,6 +8,7 @@ import { LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
 import { IRelayPKP } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { litNodeClient } from '@/utils/litClients';
+const [currentAccount] = useLocalStorage<IRelayPKP>("currentAccount");
 
 export default function useLitSession() {
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
@@ -34,7 +35,7 @@ export default function useLitSession() {
           console.error('error obtaining provider', e);
         }
 
-        if (provider && !sessionSigs) {
+        if (provider && currentAccount?.publicKey && authMethod && !sessionSigs) {
           // const privateKey = process.env.NEXT_PUBLIC_LIT_CAPACITY_TOKEN_WALLET_DEV as string;
           // const walletWithCapacityCredit = new Wallet(privateKey);
 
@@ -49,16 +50,10 @@ export default function useLitSession() {
           //   delegateeAddresses: [pkp.ethAddress],
           // });
 
-          const sessionSigs: SessionSigs = await provider.getSessionSigs({
-            authMethod,
-            pkpPublicKey: pkp.publicKey,
-            sessionSigsParams: {
-              chain: 'ethereum',
-              expiration,
-              resourceAbilityRequests: resourceAbilities,
-              // capacityDelegationAuthSig, remove for cayenne
-            },
-            litNodeClient,
+          const sessionSigs: SessionSigs = await litNodeClient.getPkpSessionSigs(
+            {pkpPublicKey: currentAccount.publicKey,
+            authMethods: [authMethod],
+            resourceAbilityRequests: resourceAbilities
           }).catch(error => { console.error(error); throw new Error('error getSessionSigs') });
 
           console.log(`setting sessionSigs: `, sessionSigs);
@@ -82,3 +77,5 @@ export default function useLitSession() {
     sessionError,
   };
 }
+
+
