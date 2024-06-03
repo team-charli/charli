@@ -10,6 +10,10 @@ const useLitClients = (litNodeClient: LitNodeClient, litAuthClient: LitAuthClien
         await litNodeClient.connect().catch(error => {console.error(error); throw new Error('error litNodeClient.connect error')});
     };
     void (async () => {
+      console.log("connect clients")
+      await connectClients();
+    })();
+    void (async () => {
       // await connectClients().catch(error => {console.error(error); throw new Error('error connectClients()')});
     })();
     return () => {
