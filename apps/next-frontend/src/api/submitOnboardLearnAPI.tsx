@@ -1,11 +1,12 @@
 import { Database } from '../supabaseTypes';
-import { SupabaseClient } from '@supabase/supabase-js';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { LocalStorageSetter } from '../types/types';
+import { createClient } from '@/utils/supabase/client';
 
-export const submitOnboardLearnAPI = async (selectedLanguageCodes: string[], isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, name: string, hasBalance: boolean | null,  supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null)=> {
+export const submitOnboardLearnAPI = async (selectedLanguageCodes: string[], isOnboarded: boolean | null, name: string, hasBalance: boolean | null, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null)=> {
+
+  const supabaseClient = createClient();
   try {
-    if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  selectedLanguageCodes.length && name.length && supabaseClient && !supabaseLoading) {
+    if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  selectedLanguageCodes.length && name.length && supabaseClient) {
       if (hasBalance === false) {
         return false;
         // <ErrorModal errorText="To learn you either need money in your account or you need to be a teacher" />
@@ -34,7 +35,7 @@ export const submitOnboardLearnAPI = async (selectedLanguageCodes: string[], isO
       }
     }
     else {
-      console.error("Missing Values", {isLitLoggedIn, isOnboarded, currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), selectedLanguageCodes, name, supabaseClient: Boolean(supabaseClient), supabaseLoading});
+      console.error("Missing Values", {isLitLoggedIn, isOnboarded, currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), selectedLanguageCodes, name, supabaseClient: Boolean(supabaseClient)});
       throw new Error('missing  {isLitLoggedIn, isOnboarded, currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), selectedLanguageCodes, name, supabaseClient: Boolean(supabaseClient), supabaseLoading} ')
     }
   } catch (e) {

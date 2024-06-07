@@ -3,10 +3,13 @@ import { Database } from '../supabaseTypes';
 import { LocalStorageSetter } from '../types/types';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { CurrencyEuroIcon } from '@heroicons/react/20/solid';
+import { createClient } from '@/utils/supabase/client';
 
-export const submitOnboardTeachAPI = async (selectedLanguageCodes: string[], isOnboarded: boolean | null, name: string, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null) => {
+export const submitOnboardTeachAPI = async (selectedLanguageCodes: string[], isOnboarded: boolean | null, name: string, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null) => {
 
-  if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  selectedLanguageCodes.length && name.length && supabaseClient && !supabaseLoading ) {
+  const supabaseClient = createClient();
+
+  if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  selectedLanguageCodes.length && name.length && supabaseClient) {
     try {
     const insertData: Database["public"]["Tables"]["user_data"]["Insert"] = {
       name: name,
@@ -33,7 +36,7 @@ export const submitOnboardTeachAPI = async (selectedLanguageCodes: string[], isO
     console.error(e)
   }
 } else {
-    console.error("Missing Values", {isLitLoggedIn, isOnboarded, currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), selectedLanguageCodes, name, supabaseClient: Boolean(supabaseClient), supabaseLoading});
+    console.error("Missing Values", {isLitLoggedIn, isOnboarded, currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), selectedLanguageCodes, name, supabaseClient: Boolean(supabaseClient)});
     throw new Error('missing  {isLitLoggedIn, isOnboarded, currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), selectedLanguageCodes, name, supabaseClient: Boolean(supabaseClient), supabaseLoading} ')
   }
 }
