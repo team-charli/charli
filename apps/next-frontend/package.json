@@ -26,7 +26,7 @@
     "@simplewebauthn/browser": "^10.0.0",
     "@stytch/react": "^11.0.0",
     "@stytch/vanilla-js": "^3.1.1",
-    "@supabase/supabase-js": "^2.38.1",
+    "@supabase/supabase-js": "^2.43.4",
     "@typescript-eslint/eslint-plugin": "^6.9.1",
     "@typescript-eslint/parser": "^6.9.1",
     "@vercel/node": "^3.0.26",

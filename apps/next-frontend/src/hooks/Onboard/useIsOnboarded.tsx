@@ -3,7 +3,7 @@ import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useEffect } from 'react';
 
-export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoading: boolean  ) => {
+export const useIsOnboarded = ( ) => {
   const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded', false);
 
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
