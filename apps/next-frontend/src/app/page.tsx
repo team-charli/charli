@@ -1,23 +1,20 @@
 'use client';
 
-import ButtonLink from "@/components/elements/ButtonLink";
-import BannerHeader from "@/components/headers/BannerHeader";
-import IconHeader from "@/components/headers/IconHeader";
-import { useAuthOnboardContext } from "@/contexts";
-import useLitClients from "@/hooks/Lit/useLitClients";
 import { litNodeClient as litNodeClientInstance, litAuthClient as litAuthClientInstance } from "@/utils/litClients";
-import { useRouter } from "next/router";
+import IconHeader from "./Components/IconHeader";
+import BannerHeader from "./Components/headers/BannerHeader";
+import ButtonLink from "./Components/elements/ButtonLink";
+import { useState } from "react";
 
 const Entry = () => {
-  useLitClients(litNodeClientInstance, litAuthClientInstance);
-  const { setOnboardMode } = useAuthOnboardContext();
+  const [onboardMode, setOnboardMode] = useState<string>();
   return (
     <>
      <IconHeader />
      <BannerHeader />
       <div className=" _button-container_ flex justify-center gap-x-8 mt-64">
-      <ButtonLink path="/login" onButtonClick={() => {/*console.log('setOnboardMode Learn');*/ return setOnboardMode("Learn")}} >Learn 🎓 </ButtonLink>
-      <ButtonLink path="/login" onButtonClick={() => {/*console.log("setOnboardMode Teach");*/setOnboardMode("Teach")}}>Teach 🤑</ButtonLink>
+      <ButtonLink path="/login" onButtonClick={() => { setOnboardMode("Learn")}} >Learn 🎓 </ButtonLink>
+      <ButtonLink path="/login" onButtonClick={() => {setOnboardMode("Teach")}}>Teach 🤑</ButtonLink>
       </div>
     </>
   );

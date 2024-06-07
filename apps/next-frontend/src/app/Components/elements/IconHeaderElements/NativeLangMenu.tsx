@@ -1,22 +1,17 @@
 'use client'
 import { CheckIcon } from '@heroicons/react/20/solid'
 import { Listbox } from '@headlessui/react'
-import globe_icon from '../../../assets/globe.png'
+import globe_icon from '../../../../assets/globe.png'
 import { Fragment, useState } from 'react';
-import { useAuthOboardRouting } from '@/hooks/useAuthOnboardandRouting';
 
 interface NativeLangMenuPropTypes {
   languages: string[] ;
 }
 const NativeLangMenu = ({ languages }: NativeLangMenuPropTypes) => {
-  const { setNativeLang, nativeLang } = useAuthOboardRouting();
-  const [selectedLang, setSelectedLang] = useState<string>(nativeLang || languages[0] || '');
+  const [selectedLang, setSelectedLang] = useState<string>(languages[0]);
 
   const handleLanguageChange = (newLang: string) => {
     setSelectedLang(newLang);
-    if (newLang !== nativeLang) {
-      setNativeLang(newLang);
-    }
   };
   return (
     <Listbox value={selectedLang} onChange={handleLanguageChange}>

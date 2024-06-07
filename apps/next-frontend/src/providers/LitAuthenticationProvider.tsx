@@ -1,7 +1,8 @@
-// src/providers/LitAuthenticationProvider.tsx
+'use client'
+// src/app/LitAuthenticateProvider.tsx
 import { ReactNode } from 'react';
 import { cookies } from 'next/headers';
-import LitAuthenticateClient from './LitAuthenticateClient';
+import LitAuthenticateClient from '../utils/components/LitAuthenticateClient';
 import { parseAuthMethodFromCookie } from '../utils/parseAuthMethodFromCookie';
 
 interface LitAuthenticationProviderProps {
