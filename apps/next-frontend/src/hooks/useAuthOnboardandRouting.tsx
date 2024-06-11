@@ -9,8 +9,12 @@ import { sessionSigsExpired } from '@/utils/app';
 import { useHasBalance, useIsOnboarded, useOnboardMode } from '../hooks/Onboard/';
 import { useSupabase } from '@/contexts';
 import { AuthOnboardContextObj  } from '@/types/types';
+import useLitClients from './Lit/useLitClients';
+import { litNodeClient, litAuthClient } from '@/utils/litClients';
 
 export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
+
+  useLitClients();
 
   const router = useRouter();
   const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
@@ -23,8 +27,7 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
   const isLitLoggedIn = useIsLitLoggedIn(currentAccount, sessionSigs);
   const { onboardMode, setOnboardMode } = useOnboardMode(isOnboarded);
-  // const { hasBalance } = useHasBalance(isOnboarded);
-  const hasBalance = null;
+  const { hasBalance } = useHasBalance(isOnboarded);
   const [nativeLang, setNativeLang] = useState('');
   const [name, setName] = useState("");
   const [teachingLangs, setTeachingLangs] = useState([] as string[]);
@@ -33,13 +36,12 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
 
   useEffect(() => {
     if (!authMethod && !currentAccount && !sessionSigs) {
-
-    } else if (authMethod && currentAccount && !sessionSigs) {
+    //
+    } else if (authMethod && currentAccount && !sessionSigs && litNodeClient.ready) {
       // User is authenticated but session is not initialized
       initSession(authMethod, currentAccount);
 
-
-    } else if (authMethod && currentAccount && sessionSigs && sessionSigsExpired(sessionSigs)) {
+    } else if (authMethod && currentAccount && sessionSigs && sessionSigsExpired(sessionSigs) && litNodeClient.ready) {
       // User is authenticated but session has expired
       initSession(authMethod, currentAccount);
 
@@ -87,7 +89,7 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
         router.push('/onboard').catch(e => console.error(e))
       }
     }
-  }, [authMethod, currentAccount, sessionSigs, fetchAccounts, initSession,  onboardMode, isOnboarded, isLitLoggedIn]);
+  }, [authMethod, currentAccount, sessionSigs, fetchAccounts, initSession,  onboardMode, isOnboarded, isLitLoggedIn, litNodeClient.ready]);
 
 
   return {
@@ -101,6 +103,7 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
     isLitLoggedIn,
     onboardMode,
     isOnboarded,
+    setIsOnboarded,
     hasBalance,
     nativeLang,
     setNativeLang,
