@@ -1,15 +1,9 @@
-'use client';
-
 import ButtonLink from "@/components/elements/ButtonLink";
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
 import { useAuthOnboardContext } from "@/contexts";
-import useLitClients from "@/hooks/Lit/useLitClients";
-import { litNodeClient as litNodeClientInstance, litAuthClient as litAuthClientInstance } from "@/utils/litClients";
-import { useRouter } from "next/router";
 
 const Entry = () => {
-  useLitClients(litNodeClientInstance, litAuthClientInstance);
   const { setOnboardMode } = useAuthOnboardContext();
   return (
     <>

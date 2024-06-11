@@ -8,7 +8,7 @@ import IconHeader from '@/components/IconHeader'
 
 export const Lounge = () => {
   const [modeView, setModeView] = useState<"Learn" | "Teach">("Learn")
-  const {selectedLang, languagesToShow, setSelectedLang } =  useLangNavData(modeView)
+  const { selectedLang, languagesToShow, setSelectedLang } =  useLangNavData(modeView)
   return (
     <>
       <IconHeader />
