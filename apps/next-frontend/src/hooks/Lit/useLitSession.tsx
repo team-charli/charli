@@ -7,13 +7,12 @@ import useLocalStorage from '@rehooks/local-storage';
 import { litNodeClient } from '@/utils/litClients';
 
 export default function useLitSession() {
-  const [currentAccount] = useLocalStorage<IRelayPKP | null>("currentAccount");
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
   const [sessionLoading, setLoading] = useState<boolean>(false);
   const [sessionError, setError] = useState<Error>();
 
   const initSession = useCallback(
-    async (authMethod: AuthMethod, pkp: IRelayPKP): Promise<void> => {
+    async (authMethod: AuthMethod, currentAccount: IRelayPKP): Promise<void> => {
       setLoading(true);
       setError(undefined);
 
@@ -22,14 +21,14 @@ export default function useLitSession() {
       try {
         console.log("run initSession");
         console.log('authMethod', authMethod);
-        console.log('pkp', pkp);
+        console.log('currentAccount', currentAccount);
 
         const provider = getProviderByAuthMethod(authMethod);
         if (!provider) {
           throw new Error('No provider object');
         }
 
-        if (provider && pkp?.publicKey && authMethod && !sessionSigs) {
+        if (provider && currentAccount?.publicKey && authMethod && !sessionSigs) {
           const resourceAbilityRequests = [
             {
               resource: new LitPKPResource('*'),
@@ -43,12 +42,16 @@ export default function useLitSession() {
 
           try {
             const sessionSigs: SessionSigs = await litNodeClient.getPkpSessionSigs({
-              pkpPublicKey: pkp.publicKey,
+              pkpPublicKey: currentAccount.publicKey,
               authMethods: [authMethod],
               resourceAbilityRequests: resourceAbilityRequests
             });
-            console.log(`setting sessionSigs:`, sessionSigs);
-            setSessionSigs(sessionSigs);
+            if (sessionSigs) {
+              console.log(`setting sessionSigs:`, sessionSigs);
+              setSessionSigs(sessionSigs);
+            } else {
+              console.log("problem getting session sigs", sessionSigs)
+            }
           } catch (error) {
             console.error("Error in litNodeClient.getPkpSessionSigs:", error);
             throw error;
@@ -61,7 +64,7 @@ export default function useLitSession() {
         setLoading(false);
       }
     },
-    [setSessionSigs]
+    [setSessionSigs ]
   );
 
   return {
