@@ -1,20 +1,17 @@
 // useLitClients.ts
-import {Wallet} from '@ethersproject/wallet'
-import { LitAuthClient } from '@lit-protocol/lit-auth-client';
-import { LitNodeClient } from '@lit-protocol/lit-node-client';
+import { litAuthClient, litNodeClient } from '@/utils/litClients';
 import { useEffect } from 'react';
 
-const useLitClients = (litNodeClient: LitNodeClient, litAuthClient: LitAuthClient) => {
+const useLitClients = () => {
   useEffect(() => {
       const connectClients = async () => {
         await litNodeClient.connect().catch(error => {console.error(error); throw new Error('error litNodeClient.connect error')});
     };
     void (async () => {
-      console.log("connect clients")
       await connectClients();
     })();
     void (async () => {
-      // await connectClients().catch(error => {console.error(error); throw new Error('error connectClients()')});
+      await connectClients().catch(error => {console.error(error); throw new Error('error connectClients()')});
     })();
     return () => {
       void (async () => {
@@ -22,7 +19,6 @@ const useLitClients = (litNodeClient: LitNodeClient, litAuthClient: LitAuthClien
       })();
     };
   }, [litNodeClient]);
-  return { litNodeClient, litAuthClient };
 };
 
 export default useLitClients;
