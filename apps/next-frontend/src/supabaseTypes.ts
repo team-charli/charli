@@ -9,6 +9,69 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      language_interest: {
+        Row: {
+          created_at: string | null
+          id: number
+          interest_type: string | null
+          language_id: number
+          user_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          interest_type?: string | null
+          language_id: number
+          user_id: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          interest_type?: string | null
+          language_id?: number
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_language"
+            columns: ["language_id"]
+            isOneToOne: false
+            referencedRelation: "languages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_user"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_data"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      languages: {
+        Row: {
+          country_code: string | null
+          emoji: string | null
+          id: number
+          language_code: string
+          name: string
+        }
+        Insert: {
+          country_code?: string | null
+          emoji?: string | null
+          id?: number
+          language_code: string
+          name: string
+        }
+        Update: {
+          country_code?: string | null
+          emoji?: string | null
+          id?: number
+          language_code?: string
+          name?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           confirmed_time_date: string | null
@@ -29,6 +92,8 @@ export type Database = {
           request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date: string | null
           requested_session_duration: number | null
+          requested_session_duration_learner_sig: string | null
+          requested_session_duration_teacher_sig: string | null
           session_id: number
           session_rejected_reason:
             | Database["public"]["Enums"]["session_req_reject_reason"]
@@ -57,6 +122,8 @@ export type Database = {
           request_origin_type: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
           requested_session_duration?: number | null
+          requested_session_duration_learner_sig?: string | null
+          requested_session_duration_teacher_sig?: string | null
           session_id?: number
           session_rejected_reason?:
             | Database["public"]["Enums"]["session_req_reject_reason"]
@@ -85,6 +152,8 @@ export type Database = {
           request_origin_type?: Database["public"]["Enums"]["request_origin_enum"]
           request_time_date?: string | null
           requested_session_duration?: number | null
+          requested_session_duration_learner_sig?: string | null
+          requested_session_duration_teacher_sig?: string | null
           session_id?: number
           session_rejected_reason?:
             | Database["public"]["Enums"]["session_req_reject_reason"]
@@ -125,8 +194,8 @@ export type Database = {
           id: number
           name: string
           user_address: string | null
-          wants_to_learn_langs: string[] | null
-          wants_to_teach_langs: string[] | null
+          wants_to_learn_langs: number[] | null
+          wants_to_teach_langs: number[] | null
         }
         Insert: {
           created_at?: string
@@ -134,8 +203,8 @@ export type Database = {
           id?: number
           name: string
           user_address?: string | null
-          wants_to_learn_langs?: string[] | null
-          wants_to_teach_langs?: string[] | null
+          wants_to_learn_langs?: number[] | null
+          wants_to_teach_langs?: number[] | null
         }
         Update: {
           created_at?: string
@@ -143,8 +212,8 @@ export type Database = {
           id?: number
           name?: string
           user_address?: string | null
-          wants_to_learn_langs?: string[] | null
-          wants_to_teach_langs?: string[] | null
+          wants_to_learn_langs?: number[] | null
+          wants_to_teach_langs?: number[] | null
         }
         Relationships: []
       }
@@ -153,6 +222,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_wants_to_learn_langs: {
+        Args: {
+          langs: number[]
+        }
+        Returns: boolean
+      }
+      check_wants_to_teach_langs: {
+        Args: {
+          langs: number[]
+        }
+        Returns: boolean
+      }
       get_eth_address_from_jwt: {
         Args: Record<PropertyKey, never>
         Returns: string
