@@ -2,8 +2,9 @@ import { Database } from '../supabaseTypes';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../types/types';
+import { litNodeClient } from '@/utils/litClients';
 
-export const submitOnboardLearnAPI = async (selectedLanguageCodes: string[], isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, name: string, hasBalance: boolean | null,  supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null)=> {
+export const submitOnboardLearnAPI = async (selectedLanguageCodes: number[], isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, name: string, hasBalance: boolean | null,  supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null, nativeLang: string)=> {
   try {
     if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  selectedLanguageCodes.length && name.length && supabaseClient && !supabaseLoading) {
       if (hasBalance === false) {
@@ -17,7 +18,7 @@ export const submitOnboardLearnAPI = async (selectedLanguageCodes: string[], isO
         name: name,
         wants_to_learn_langs: selectedLanguageCodes,
         user_address: currentAccount.ethAddress,
-        default_native_language: 'English',
+        default_native_language: nativeLang,
       };
 
       const { data:user_data, error } = await supabaseClient
@@ -30,6 +31,7 @@ export const submitOnboardLearnAPI = async (selectedLanguageCodes: string[], isO
         setIsOnboarded(true);
       } else if (error) {
         console.error('Supabase error:', error);
+        litNodeClient.disconnect()
         throw new Error('Failed to insert user data');
       }
     }

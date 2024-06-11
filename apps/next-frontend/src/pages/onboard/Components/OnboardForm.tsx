@@ -1,7 +1,7 @@
 // OnboardForm.tsx
 import { useLanguageData } from '@/hooks/Onboard/OnboardForm/useLanguageData';
 import { OnboardFormProps, LanguageButton } from '@/types/types';
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useEffect, useState } from 'react';
 import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
 import { submitOnboardLearnAPI } from '@/api/submitOnboardLearnAPI';
@@ -17,7 +17,7 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
   const { client: supabaseClient, supabaseLoading} = useSupabase();
   const [ currentAccount ] = useLocalStorage<IRelayPKP | null>('currentAccount')
   const [ sessionSigs ] = useLocalStorage<SessionSigs | null>('sessionSigs')
-  const { isLitLoggedIn, isOnboarded, hasBalance } = useAuthOboardRouting();
+  const { isLitLoggedIn, nativeLang, hasBalance, isOnboarded, setIsOnboarded } = useAuthOboardRouting();
   const { languageButtons, setLanguageButtons } = useLanguageData();
 
   const handleToggleLanguage = (languageButton: LanguageButton) => {
@@ -40,9 +40,7 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
 
     const selectedLanguageCodes = languageButtons
     .filter(lang => lang.isSelected)
-    .map(lang => lang.languageCode);
-
-    console.log('Selected language codes:', selectedLanguageCodes);
+    .map(lang => lang.id);
 
     try {
       if (onboardMode === 'Learn') {
@@ -50,25 +48,29 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
         await submitOnboardLearnAPI(
           selectedLanguageCodes,
           isOnboarded,
+          setIsOnboarded,
           name,
           hasBalance,
           supabaseClient,
           supabaseLoading,
           currentAccount,
           sessionSigs,
-          isLitLoggedIn
+          isLitLoggedIn,
+          navigator.languages[0]
         );
       } else {
         console.log('Submitting teach onboarding');
         await submitOnboardTeachAPI(
           selectedLanguageCodes,
           isOnboarded,
+          setIsOnboarded,
           name,
           supabaseClient,
           supabaseLoading,
           currentAccount,
           sessionSigs,
-          isLitLoggedIn
+          isLitLoggedIn,
+          navigator.languages[0]
         );
       }
     } catch (error) {
@@ -93,3 +95,5 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
 };
 
 export default OnboardForm;
+
+
