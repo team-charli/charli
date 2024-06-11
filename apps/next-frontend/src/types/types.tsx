@@ -52,10 +52,11 @@ export interface AuthOnboardContextObj {
   authError: Error | undefined;
   accountsError: Error | undefined;
   sessionError: Error | undefined;
-  isLitLoggedIn: boolean;
+  isLitLoggedIn: boolean | null;
   onboardMode: "Learn" | "Teach" | null;
   setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>;
   isOnboarded: boolean | null;
+  setIsOnboarded:LocalStorageSetter<boolean>;
   hasBalance: boolean | null;
   nativeLang: string;
   setNativeLang: Dispatch<SetStateAction<string>>;
@@ -253,6 +254,7 @@ export interface LangIso2NameMap {
 }
 
 export interface LanguageButton {
+  id: number;
   language: string;
   languageCode: string;
   flag: string;

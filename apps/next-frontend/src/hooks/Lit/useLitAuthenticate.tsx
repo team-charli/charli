@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isSignInRedirect, getProviderFromUrl } from '@lit-protocol/lit-auth-client';
-import { AuthMethod, AuthSig } from '@lit-protocol/types';
+import { AuthMethod } from '@lit-protocol/types';
 import { authenticateWithDiscord, authenticateWithGoogle } from '../../utils/lit';
 
 export default function useAuthenticate(redirectUri: string) {

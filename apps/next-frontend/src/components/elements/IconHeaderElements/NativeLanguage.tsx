@@ -4,6 +4,7 @@ import NativeLangMenu from './NativeLangMenu'
 
 const NativeLanguage = () => {
   const [languages, setLanguages] = useState<string[]>([])
+
   useEffect(() => {
   const deduplicatedLanguages = deduplicateLanguages([...navigator.languages]);
   if (deduplicatedLanguages.length === 0) {

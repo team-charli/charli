@@ -5,6 +5,7 @@ import { LIT_NETWORKS_KEYS } from '@lit-protocol/types';
 
 const litNetwork = process.env.NEXT_PUBLIC_LIT_NETWORK_C as LIT_NETWORKS_KEYS;
 if (!litNetwork) throw new Error('problem importing litNetwork env')
+
 export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
   litNetwork,
