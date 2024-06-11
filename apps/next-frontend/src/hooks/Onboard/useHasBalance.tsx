@@ -3,6 +3,7 @@ import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useEffect } from 'react';
+import {litNodeClient} from '../../utils/litClients';
 
 export function useHasBalance(isOnboarded: boolean | null) {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
@@ -11,12 +12,13 @@ export function useHasBalance(isOnboarded: boolean | null) {
 
   useEffect(() => {
     void (async () => {
-      if (isOnboarded && currentAccount && sessionSigs && hasBalance === null) {
+      if (isOnboarded && currentAccount && sessionSigs && hasBalance === null &&litNodeClient.ready) {
         let pkpWallet
         try {
           pkpWallet = new PKPEthersWallet({
             pkpPubKey: currentAccount.publicKey,
             controllerSessionSigs: sessionSigs,
+            litNodeClient
           });
         } catch (e) {
           console.error(e);
