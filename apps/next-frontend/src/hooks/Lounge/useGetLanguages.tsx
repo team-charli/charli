@@ -4,7 +4,7 @@ import { useSupabase } from '../../contexts/SupabaseContext';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 const useGetLanguages = () => {
-  const { client: supabaseClient, supabaseLoading } = useSupabase();
+  const { getAuthenticatedClient, supabaseLoading } = useSupabase();
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
   const [isOnboarded] = useLocalStorage<boolean>("isOnboarded")
@@ -18,8 +18,8 @@ const useGetLanguages = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
+        const supabaseClient = await getAuthenticatedClient(); // JWT check happens here
         if (isOnboarded && supabaseClient && !supabaseLoading) {
-          // console.log('superbaseClient', Boolean(supabaseClient));
           const responseTeachingLangs = await supabaseClient
             .from('user_data')
             .select('wants_to_teach_langs');
@@ -35,6 +35,7 @@ const useGetLanguages = () => {
 
 
           if (responseLearningLangs.data) {
+            console.log("setWantsToLearnLangs", )
             setWantsToLearnLangs((responseLearningLangs.data as any).map((lang: any) => lang.wants_to_learn_langs || ''));
           } else {
             console.log("no response data");

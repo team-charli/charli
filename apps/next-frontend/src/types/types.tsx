@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { AuthMethod, AuthSig, IRelayPKP, SessionSigs  } from '@lit-protocol/types';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
+import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 
 export interface AuthMethodsProps {
   handleGoogleLogin: () => Promise<void>;
@@ -43,6 +44,13 @@ export type FormValues = {
   name: string;
   [key: string]: string | boolean;  // Allow additional keys for languages
 };
+
+export interface PkpWalletContextObj {
+  pkpWallet: PKPEthersWallet | null;
+}
+export interface PkpWalletProviderProps {
+  children: ReactNode;
+}
 
 export interface AuthOnboardContextObj {
   authMethod: AuthMethod | null;
@@ -290,8 +298,8 @@ type LocalStorageSetStateValue<TValue> = TValue | ((prevState: TValue | null) =>
 export type LocalStorageSetter<TValue> = (newValue: LocalStorageSetStateValue<TValue> | null) => void;
 
 export interface SupabaseContextValue {
-  client: SupabaseClient | null;
   supabaseLoading: boolean;
+  getAuthenticatedClient: () => Promise<SupabaseClient | null>;
 }
 export interface NonceData {
   nonce: string;
