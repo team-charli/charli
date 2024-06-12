@@ -36,8 +36,7 @@ const supabaseClientSingleton = (() => {
 export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
-  const { isLoading: jwtLoading } = useAuthenticateAndFetchJWT(currentAccount, sessionSigs)
-  const [ userJWT ] = useLocalStorage<string>('userJWT');
+  const { userJWT, isLoading: jwtLoading } = useAuthenticateAndFetchJWT(currentAccount, sessionSigs)
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
 
   useEffect(() => {

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import ky from 'ky';
 import { useLocalStorage } from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { isJwtExpired } from '../../utils/app';
 import { NonceData } from '../../types/types';
 import { useAuthOnboardContext } from '@/contexts';
+import { usePkpWallet } from '@/contexts/PkpWalletContext';
 
 export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null) {
   const [userJWT, setUserJWT] = useLocalStorage<string | null>("userJWT");
@@ -13,7 +13,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const context = useAuthOnboardContext();
-
+  const {pkpWallet} = usePkpWallet();
   useEffect(() => {
     if (userJWT && isJwtExpired(userJWT)) {
       setUserJWT(null);
@@ -26,8 +26,9 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
     const authenticateAndFetchJWT = async (currentNonce: string | null) => {
       setIsLoading(true);
       try {
-        if (context?.isLitLoggedIn && sessionSigs && currentAccount && (userJWT === null || isJwtExpired(userJWT) || currentNonce === null)) {
+        if (pkpWallet && currentAccount && (userJWT === null || isJwtExpired(userJWT) || currentNonce === null)) {
           // Fetch new nonce
+          // Use the nonce to sign a message and fetch a new JWT
           let nonceResponse;
           try {
             nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
@@ -37,24 +38,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
             console.error(e);
             throw new Error(`error fetching nonce:`);
           }
-          // Use the nonce to sign a message and fetch a new JWT
-          let pkpWallet;
-          try {
-            pkpWallet = new PKPEthersWallet({
-              controllerSessionSigs: sessionSigs,
-              pkpPubKey: currentAccount.publicKey,
-            });
-          } catch (e) {
-            console.error("new PKPEthersWallet", e);
-            throw new Error(`Wallet Constructor: ${e}`);
-          }
-          try {
-            // 401 is still a question of bad sigs I think
-            await pkpWallet.init();
-          } catch (e) {
-            console.error("pkpWallet.init", e);
-            throw new Error(`error initializing pkpWallet`);
-          }
+
           let signature;
           try {
             signature = await pkpWallet.signMessage(nonceResponse.nonce);
@@ -95,5 +79,5 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null, ses
     };
   }, [currentAccount, sessionSigs, userJWT]);
 
-  return { cachedJWT: userJWT, nonce, isLoading, error };
+  return { userJWT, nonce, isLoading, error };
 }
