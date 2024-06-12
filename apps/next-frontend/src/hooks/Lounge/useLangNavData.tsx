@@ -10,12 +10,9 @@ const useLangNavData = (modeView: 'Learn' | 'Teach' | 'Schedule'  ) => {
   useEffect(() => {
     let languages: string[] = [];
     if (modeView === 'Learn') {
-      languages = Array.from(new Set(wantsToTeachLangs.flatMap(subArr => subArr))).filter(language => language.trim() !== "");
+      languages = Array.from(new Set(wantsToTeachLangs.flatMap(subArr =>subArr)));
     } else if (modeView === 'Teach') {
-      //TODO: from notifications
-      // languages = Array.from(new Set(wantsToLearnLangs.flatMap(subArr => subArr))).filter(language => language.trim() !== "");
-    } else if (modeView === 'Schedule') {
-      // languages = Array.from(new Set([...wantsToLearnLangs.flatMap(subArr => subArr), ...wantsToTeachLangs.flatMap(subArr => subArr)])).filter(language => language.trim() !== "");
+      languages = Array.from(new Set(wantsToLearnLangs.flatMap(subArr => subArr)));
     }
 
     setLanguagesToShow(languages);
