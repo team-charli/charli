@@ -31,6 +31,8 @@ export const submitOnboardLearnAPI = async (selectedLanguageCodes: number[], isO
         setIsOnboarded(true);
       } else if (error) {
         console.error('Supabase error:', error);
+        console.log('disconnect -- submitOnboardLearnAPI');
+
         litNodeClient.disconnect()
         throw new Error('Failed to insert user data');
       }

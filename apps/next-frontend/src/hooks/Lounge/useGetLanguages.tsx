@@ -54,7 +54,7 @@ const useGetLanguages = () => {
     void (async () => {
       await fetchData();
     })();
-  }, [supabaseClient, supabaseLoading, currentAccount, sessionSigs, isOnboarded/*, isOnline*/]);
+  }, [getAuthenticatedClient, supabaseLoading, currentAccount, sessionSigs, isOnboarded]);
 
   return {
     wantsToTeachLangs,

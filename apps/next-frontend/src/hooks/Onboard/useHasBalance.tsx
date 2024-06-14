@@ -1,45 +1,54 @@
-import { ethers } from 'ethers'
+import { ethers } from 'ethers';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useEffect } from 'react';
-import {litNodeClient} from '../../utils/litClients';
+import { litNodeClient } from '../../utils/litClients';
 
 export function useHasBalance(isOnboarded: boolean | null) {
-  const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
-  const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
+  const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
+  const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
   const [hasBalance, setHasBalance] = useLocalStorage<boolean | null>('hasBalance', null);
 
   useEffect(() => {
     void (async () => {
-      if (isOnboarded && currentAccount && sessionSigs && hasBalance === null &&litNodeClient.ready) {
-        let pkpWallet
+      if (isOnboarded && currentAccount && sessionSigs && hasBalance === null && litNodeClient.ready) {
+        let pkpWallet;
+        let balance;
+
         try {
-          pkpWallet = new PKPEthersWallet({
-            pkpPubKey: currentAccount.publicKey,
-            controllerSessionSigs: sessionSigs,
-            litNodeClient
-          });
+          try {
+            pkpWallet = new PKPEthersWallet({
+              pkpPubKey: currentAccount.publicKey,
+              controllerSessionSigs: sessionSigs,
+              litNodeClient,
+            });
+          } catch (e) {
+            console.error(e);
+            throw new Error();
+          }
+
+          try {
+            await pkpWallet.init();
+          } catch (e) {
+            console.error(e);
+            throw new Error();
+          }
+
+
+          try {
+            balance = await pkpWallet.getBalance(currentAccount.ethAddress);
+            console.log('balance', balance);
+          } catch (e) {
+            console.error(e);
+            throw new Error('error useHasBalance');
+          }
         } catch (e) {
           console.error(e);
-          throw new Error()
+          // Handle the error without re-throwing
         }
-        try {
-          await pkpWallet.init()
-        } catch (e) {
-          console.error(e)
-          throw new Error;
-        }
-        const minBalanceWei = ethers.parseEther('0.003259948275487362')
+        const minBalanceWei = ethers.parseEther('0.003259948275487362');
 
-        let balance
-        try {
-          balance =  await pkpWallet.getBalance(currentAccount.ethAddress)
-          console.log('balance', balance);
-        } catch(e) {
-          console.error(e)
-          throw new Error('error useHasBalance');
-        }
         if (balance?.gt(minBalanceWei)) {
           console.log('setHasBalance(true)');
           setHasBalance(true);
@@ -49,9 +58,7 @@ export function useHasBalance(isOnboarded: boolean | null) {
         }
       }
     })();
-  },
-    [hasBalance, currentAccount, sessionSigs]
-  )
+  }, [hasBalance, currentAccount, sessionSigs]);
 
-  return {hasBalance}
+  return { hasBalance };
 }

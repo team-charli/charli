@@ -11,7 +11,8 @@ const useLangNavData = (modeView: 'Learn' | 'Teach' | 'Schedule'  ) => {
     let languages: string[] = [];
     if (modeView === 'Learn') {
       languages = Array.from(new Set(wantsToTeachLangs.flatMap(subArr =>subArr)));
-    } else if (modeView === 'Teach') {
+    }
+    if (modeView === 'Teach') {
       languages = Array.from(new Set(wantsToLearnLangs.flatMap(subArr => subArr)));
     }
 

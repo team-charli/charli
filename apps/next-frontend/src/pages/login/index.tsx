@@ -1,33 +1,16 @@
-'use client';
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
-import { useAuthOnboardContext } from "@/contexts";
-import { useEffect, useState } from 'react';
-import LoginView from "./Components/LoginView";
 import Loading from "@/components/Loading";
 
+
 const Login = () => {
-  const [hydrated, setHydrated] = useState(false);
-  const { renderLoginButtons, authLoading, accountsLoading, sessionLoading } = useAuthOnboardContext();
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-
-  if (!hydrated) {
-    // Render a placeholder or loading state on the server-side
-    return null;
-  }
+  const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
   return (
     <>
       <IconHeader />
       <BannerHeader />
-      {renderLoginButtons ? (
-        <LoginView parentIsRoute={true} />
-      ) : (
-        <Loading />
-      )}
+      <Loading redirectUrl={redirectUrl} />
     </>
   );
 };

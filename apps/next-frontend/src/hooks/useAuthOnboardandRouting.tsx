@@ -7,10 +7,9 @@ import { SessionSigs } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { sessionSigsExpired } from '@/utils/app';
 import { useHasBalance, useIsOnboarded, useOnboardMode } from '../hooks/Onboard/';
-import { useSupabase } from '@/contexts';
 import { AuthOnboardContextObj  } from '@/types/types';
 import useLitClients from './Lit/useLitClients';
-import { litNodeClient, litAuthClient } from '@/utils/litClients';
+import { litNodeClient } from '@/utils/litClients';
 
 export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
 
@@ -21,8 +20,7 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
   if (!redirectUrl) throw new Error(`redirectUrl`);
   const { authMethod, authLoading, authError } = useAuthenticate(redirectUrl);
   const { currentAccount, fetchAccounts, accountsLoading, accountsError } = useLitAccounts();
-  const { client: supabaseClient, supabaseLoading } = useSupabase();
-  const { isOnboarded, setIsOnboarded } = useIsOnboarded(supabaseClient, supabaseLoading);
+  const { isOnboarded, setIsOnboarded } = useIsOnboarded();
   const { initSession, sessionLoading, sessionError } = useLitSession();
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
   const isLitLoggedIn = useIsLitLoggedIn(currentAccount, sessionSigs);
@@ -59,31 +57,34 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
     }
 
     if (isLitLoggedIn && !isOnboarded) {
-      // console.log("has currentAccount && sessionSigs !onboarded: push to /onboard")
+      console.log("has currentAccount && sessionSigs !onboarded: push to /onboard")
       router.push('/onboard').catch(e => console.log(e))
 
 
     } else if (isLitLoggedIn && isOnboarded) {
       // User is authenticated and onboarded
-      // console.log('authenticated and onboarded: push to /lounge');
+      console.log('authenticated and onboarded: push to /lounge');
       router.push('/lounge').catch(e => console.error(e));
 
+   } else if (!isLitLoggedIn && isOnboarded) {
+      console.log('onboared && !isLitLoggedIn')
+      router.push('/login').catch(e => console.error(e));
 
     } else if (!isLitLoggedIn && (onboardMode === 'Teach' || onboardMode === 'Learn')) {
       // User is not authenticated but has selected an onboarding mode
-      // console.log("not authenticated, onboardMode===true: push to /login", {isLitLoggedIn, sessionSigs: Boolean(sessionSigs), currentAccount: Boolean(currentAccount), onboardMode, isExpired: sessionSigsExpired(sessionSigs)})
-      router.push('/login').catch(e => console.error(e));
+      console.log("not authenticated, onboardMode===true: push to /login", {isLitLoggedIn, sessionSigs: Boolean(sessionSigs), currentAccount: Boolean(currentAccount), onboardMode, isExpired: sessionSigsExpired(sessionSigs)})
+      router.push('/login').catch(e => console.error("push to /login", e));
 
 
     } else if (!isLitLoggedIn && !onboardMode) {
       //User is not authenticated and hasn't selected an onboarding mode
-      // console.log("not authenticated, onboardMode===false: push to /")
+      console.log("not authenticated, onboardMode===false: push to /")
       router.push('/').catch(e => console.error(e));
     }
     else if (!isLitLoggedIn && !isOnboarded) {
       // User is authenticated but not onboarded
       if (onboardMode !== 'Teach' && onboardMode !== "Learn") {
-        // console.log("User is authenticated but not onboarded: push to /", onboardMode);
+        console.log("User is authenticated but not onboarded: push to /", onboardMode);
         router.push('/').catch(e => console.error(e))
       } else if (onboardMode === 'Teach' || onboardMode === "Learn") {
         router.push('/onboard').catch(e => console.error(e))

@@ -19,9 +19,11 @@ export function deduplicateLanguages(languages: string[]) {
 }
 
 
-export function isJwtExpired(token: string) {
+export function isJwtExpired(token: string): boolean {
   // Decode the payload
-  const payload = JSON.parse(atob(token.split('.')[1]));
+  const base64Url = token.split('.')[1];
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const payload = JSON.parse(Buffer.from(base64, 'base64').toString());
 
   // Get the current time in seconds
   const currentTime = Date.now() / 1000;

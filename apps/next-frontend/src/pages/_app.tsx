@@ -8,20 +8,23 @@ import SupabaseProvider from '@/contexts/SupabaseContext';
 import { StrictMode } from 'react';
 import SessionProvider from "@/contexts/SessionsContext";
 import AuthOnboardProvider from '@/contexts/AuthOnboardContext';
+import { PkpWalletProvider } from '@/contexts/PkpWalletContext';
 
 function CharliApp({ Component, pageProps }: AppProps) {
   return (
     <StrictMode>
       <AuthOnboardProvider>
-        <SupabaseProvider>
-          <NotificationProvider>
-            <HuddleProvider client={huddleClient}>
-              <SessionProvider>
-                <Component {...pageProps} />
-              </SessionProvider>
-            </HuddleProvider>
-          </NotificationProvider>
-        </SupabaseProvider>
+        <PkpWalletProvider>
+          <SupabaseProvider>
+            <NotificationProvider>
+              <HuddleProvider client={huddleClient}>
+                <SessionProvider>
+                  <Component {...pageProps} />
+                </SessionProvider>
+              </HuddleProvider>
+            </NotificationProvider>
+          </SupabaseProvider>
+        </PkpWalletProvider>
       </AuthOnboardProvider>
     </StrictMode>
   );

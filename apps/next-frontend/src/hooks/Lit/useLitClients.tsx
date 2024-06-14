@@ -15,6 +15,8 @@ const useLitClients = () => {
     })();
     return () => {
       void (async () => {
+        console.log('call disconnect -- useClients cleanup');
+
         await litNodeClient.disconnect().catch(error => {console.error(error); throw new Error('error disconnect()')});
       })();
     };

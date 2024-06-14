@@ -28,6 +28,8 @@ export const submitOnboardTeachAPI = async (selectedLanguageCodes: number[], isO
 
       } else if (error) {
         console.error("onboard submission error", error)
+        console.log('disconnect -- submitOnboardTeachAPI');
+
         litNodeClient.disconnect()
         throw new Error("submitOnboardTeachAPI error")
       }

@@ -1,19 +1,23 @@
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { SupabaseClient } from '@supabase/supabase-js';
 import { useEffect } from 'react';
+import { useSupabase } from '@/contexts';
 
-export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoading: boolean  ) => {
+export const useIsOnboarded = () => {
   const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded', false);
 
+  const {  getAuthenticatedClient, supabaseLoading } = useSupabase();
+
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
+
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   const [ isLitLoggedIn ] = useLocalStorage("isLitLoggedIn");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [userID, setUserID] = useLocalStorage("userID")
   useEffect( () => {
     void (async () => {
-      if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient && !supabaseLoading) {
+      const supabaseClient = await getAuthenticatedClient();
+      if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient) {
         try {
           console.log('run isOnboarded');
           const { data, error } = await supabaseClient
@@ -36,7 +40,7 @@ export const useIsOnboarded = (supabaseClient: SupabaseClient| null, supabaseLoa
         }
       }
     })();
-  }, [supabaseClient, isOnboarded, supabaseLoading, isLitLoggedIn, currentAccount, sessionSigs])
+  }, [getAuthenticatedClient,  isOnboarded, supabaseLoading, isLitLoggedIn, currentAccount, sessionSigs])
   return {isOnboarded, setIsOnboarded};
 }
 
