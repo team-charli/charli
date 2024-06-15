@@ -33,6 +33,10 @@ export const useAuthOboardRouting = (): AuthOnboardContextObj   => {
   const [renderLoginButtons, setRenderLoginButtons] = useLocalStorage<boolean>("renderLoginButtons", true);
 
   useEffect(() => {
+
+  }, [currentAccount, authMethod, sessionSigs])
+
+  useEffect(() => {
     if (!authMethod && !currentAccount && !sessionSigs) {
     //
     } else if (authMethod && currentAccount && !sessionSigs && litNodeClient.ready) {

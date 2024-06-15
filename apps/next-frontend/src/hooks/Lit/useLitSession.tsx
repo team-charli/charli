@@ -5,6 +5,7 @@ import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/aut
 import { IRelayPKP } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { litNodeClient } from '@/utils/litClients';
+import { sessionSigsExpired } from '@/utils/app';
 
 export default function useLitSession() {
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
@@ -27,8 +28,11 @@ export default function useLitSession() {
         if (!provider) {
           throw new Error('No provider object');
         }
+       console.log("session vals", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), sessionsSigsExpired: sessionSigsExpired(sessionSigs)})
 
-        if (provider && currentAccount?.publicKey && authMethod && !sessionSigs) {
+      console.log("sessions Condidtion", Boolean(provider && currentAccount?.publicKey && authMethod && (!sessionSigs|| sessionSigsExpired(sessionSigs))))
+
+        if (provider && currentAccount?.publicKey && authMethod && (!sessionSigs|| sessionSigsExpired(sessionSigs))) {
           const resourceAbilityRequests = [
             {
               resource: new LitPKPResource('*'),

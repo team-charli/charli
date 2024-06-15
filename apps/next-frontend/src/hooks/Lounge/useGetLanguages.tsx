@@ -19,6 +19,7 @@ const useGetLanguages = () => {
       setIsLoading(true);
       try {
         const supabaseClient = await getAuthenticatedClient(); // JWT check happens here
+        console.log({isOnboarded, supabaseClient, supabaseLoading  })
         if (isOnboarded && supabaseClient && !supabaseLoading) {
           const responseTeachingLangs = await supabaseClient
             .from('user_data')

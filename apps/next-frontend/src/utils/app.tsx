@@ -124,6 +124,7 @@ export function verifyRoleAndAddress(hashed_teacher_address:string | undefined, 
 
 export function sessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
   if (!sessionSigs) {
+    console.log("early return: no sessionsSigs");
     return true;
   }
   const currentTime = new Date().getTime();
@@ -134,17 +135,14 @@ export function sessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
 
       const timeUntilExpire = formatTimeUntilExpire(expirationTime - currentTime);
 
-      // console.log(JSON.stringify({
-      //   timeUntilExpire,
-      //   signedMessage_expiration: signedMessage.expiration,
-      //   current_time: new Date()
-      // }));
+      console.log(JSON.stringify({
+        timeUntilExpire,
+        signedMessage_expiration: signedMessage.expiration,
+        current_time: new Date()
+      }));
 
       if (currentTime >= expirationTime) {
-        // localStorage.removeItem("sessionSigs")
-        // localStorage.removeItem("currentAccount")
-        // localStorage.removeItem("lit-wallet-sig")
-        // localStorage.removeItem("lit-session-key")
+        console.log("session sigs expired")
         return true;
       }
     }
