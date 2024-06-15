@@ -6,7 +6,7 @@ import { useSupabase } from '@/contexts';
 export const useIsOnboarded = () => {
   const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded', false);
 
-  const {  getAuthenticatedClient, supabaseLoading } = useSupabase();
+  const {  supabaseClient, supabaseLoading } = useSupabase();
 
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
 
@@ -16,7 +16,6 @@ export const useIsOnboarded = () => {
   const [userID, setUserID] = useLocalStorage("userID")
   useEffect( () => {
     void (async () => {
-      const supabaseClient = await getAuthenticatedClient();
       if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient) {
         try {
           console.log('run isOnboarded');
@@ -40,7 +39,7 @@ export const useIsOnboarded = () => {
         }
       }
     })();
-  }, [getAuthenticatedClient,  isOnboarded, supabaseLoading, isLitLoggedIn, currentAccount, sessionSigs])
+  }, [supabaseClient,  isOnboarded, supabaseLoading, isLitLoggedIn, currentAccount, sessionSigs])
   return {isOnboarded, setIsOnboarded};
 }
 

@@ -299,7 +299,7 @@ export type LocalStorageSetter<TValue> = (newValue: LocalStorageSetStateValue<TV
 
 export interface SupabaseContextValue {
   supabaseLoading: boolean;
-  getAuthenticatedClient: () => Promise<SupabaseClient | null>;
+  supabaseClient: SupabaseClient | null;
 }
 export interface NonceData {
   nonce: string;

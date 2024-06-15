@@ -1,67 +1,28 @@
+// SupabaseContext.tsx
 'use client';
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import React, { createContext, useContext, useMemo } from 'react';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseContextValue, SupabaseProviderProps } from '../types/types';
 import { useLocalStorage } from '@rehooks/local-storage';
 import { IRelayPKP } from '@lit-protocol/types';
 import { useAuthenticateAndFetchJWT } from '../hooks/Supabase/useAuthenticateAndFetchJWT';
-import { isJwtExpired } from '../utils/app';
+import supabaseClientSingleton from './Utils/supabaseClientSingleton';
 
-const SupabaseContext = createContext<SupabaseContextValue>({ supabaseLoading: true, getAuthenticatedClient: async () => null });
-
-const supabaseClientSingleton = (() => {
-  let instance: SupabaseClient | null = null;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLIC_API_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) throw new Error("can't find supabaseUrl and/or supabaseAnonKey");
-
-  const createInstance = (jwt: string) => {
-    const client = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${jwt}` } },
-    });
-
-    console.log('created supabase instance');
-    return client;
-  };
-
-  return {
-    getInstance: (jwt: string) => {
-      if (jwt && jwt.length) {
-        instance = createInstance(jwt);
-      }
-      return instance;
-    }
-  };
-})();
+const SupabaseContext = createContext<SupabaseContextValue | undefined>(undefined);
 
 export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
-  const { userJWT, isLoading: jwtLoading, authenticateAndFetchJWT } = useAuthenticateAndFetchJWT(currentAccount);
-  const [supabaseLoading, setSupabaseLoading] = useState(true);
+  const { userJWT, isLoading } = useAuthenticateAndFetchJWT(currentAccount);
 
-const getAuthenticatedClient = useCallback(async (): Promise<SupabaseClient | null> => {
-  if (!userJWT || isJwtExpired(userJWT)) {
-    await authenticateAndFetchJWT();
-    if (!userJWT || isJwtExpired(userJWT)) {
-      return null;
+  const supabaseClient: SupabaseClient | null = useMemo(() => {
+    if (userJWT) {
+      return supabaseClientSingleton.getSupabaseClient(userJWT);
     }
-  }
-  return supabaseClientSingleton.getInstance(userJWT!);
-}, [userJWT, authenticateAndFetchJWT]);
-
-  useEffect(() => {
-    if (userJWT !== null && userJWT.length > 0) {
-      (async () => {
-        const client = await getAuthenticatedClient();
-        setSupabaseLoading(!client);
-      })();
-    }
-  }, [userJWT, getAuthenticatedClient]);
-
-  const isLoading = jwtLoading || supabaseLoading;
+    return null;
+  }, [userJWT]);
 
   return (
-    <SupabaseContext.Provider value={{ supabaseLoading: isLoading, getAuthenticatedClient }}>
+    <SupabaseContext.Provider value={{ supabaseClient, supabaseLoading: isLoading }}>
       {children}
     </SupabaseContext.Provider>
   );

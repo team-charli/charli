@@ -4,18 +4,18 @@ import { AppProps } from 'next/app';
 import { HuddleProvider } from "@huddle01/react"
 import { huddleClient } from '@/Huddle/huddleClient';
 import NotificationProvider from '@/contexts/NotificationContext';
-import SupabaseProvider from '@/contexts/SupabaseContext';
 import { StrictMode } from 'react';
 import SessionProvider from "@/contexts/SessionsContext";
 import AuthOnboardProvider from '@/contexts/AuthOnboardContext';
 import { PkpWalletProvider } from '@/contexts/PkpWalletContext';
+import SupabaseProvider from '@/contexts/SupabaseContext';
 
 function CharliApp({ Component, pageProps }: AppProps) {
   return (
     <StrictMode>
-      <AuthOnboardProvider>
-        <PkpWalletProvider>
-          <SupabaseProvider>
+      <SupabaseProvider>
+        <AuthOnboardProvider>
+          <PkpWalletProvider>
             <NotificationProvider>
               <HuddleProvider client={huddleClient}>
                 <SessionProvider>
@@ -23,9 +23,9 @@ function CharliApp({ Component, pageProps }: AppProps) {
                 </SessionProvider>
               </HuddleProvider>
             </NotificationProvider>
-          </SupabaseProvider>
-        </PkpWalletProvider>
-      </AuthOnboardProvider>
+          </PkpWalletProvider>
+        </AuthOnboardProvider>
+      </SupabaseProvider>
     </StrictMode>
   );
 }
