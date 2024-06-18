@@ -1,3 +1,4 @@
+'use client'
 // litClients.ts
 import { LitNodeClient } from '@lit-protocol/lit-node-client';
 import { LitAuthClient } from '@lit-protocol/lit-auth-client';
@@ -10,8 +11,9 @@ export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
   litNetwork,
   checkNodeAttestation: false,
-  debug: false
+  debug: false,
 });
+
 
 export const litAuthClient: LitAuthClient = new LitAuthClient({
    debug: false,

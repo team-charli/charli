@@ -1,7 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SessionParamsResult } from "../../types/types";
 
-export const fetchLearnerToControllerParams = async (supabaseClient: SupabaseClient, supabaseLoading: boolean, sessionId: number): Promise<SessionParamsResult> => {
+export const fetchLearnerToControllerParams = async (supabaseClient: SupabaseClient, sessionId: number): Promise<SessionParamsResult> => {
 
   const defaultReturn: SessionParamsResult = {
     controllerPublicKey: null,
@@ -12,7 +12,7 @@ export const fetchLearnerToControllerParams = async (supabaseClient: SupabaseCli
     keyId: null,
     hashedLearnerAddress: null
   };
-  if (!supabaseClient || supabaseLoading) {
+  if (!supabaseClient) {
     console.error("Supabase client is not available or is loading.");
     return defaultReturn;
   }

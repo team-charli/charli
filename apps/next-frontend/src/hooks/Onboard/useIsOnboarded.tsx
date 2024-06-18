@@ -1,12 +1,13 @@
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useEffect } from 'react';
-import { useSupabase } from '@/contexts';
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
 
 export const useIsOnboarded = () => {
   const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded', false);
 
-  const {  supabaseClient, supabaseLoading } = useSupabase();
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
 
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
 
@@ -39,7 +40,7 @@ export const useIsOnboarded = () => {
         }
       }
     })();
-  }, [supabaseClient,  isOnboarded, supabaseLoading, isLitLoggedIn, currentAccount, sessionSigs])
+  }, [supabaseClient,  isOnboarded, isLitLoggedIn, currentAccount, sessionSigs])
   return {isOnboarded, setIsOnboarded};
 }
 

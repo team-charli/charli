@@ -298,9 +298,13 @@ type LocalStorageSetStateValue<TValue> = TValue | ((prevState: TValue | null) =>
 export type LocalStorageSetter<TValue> = (newValue: LocalStorageSetStateValue<TValue> | null) => void;
 
 export interface SupabaseContextValue {
-  supabaseLoading: boolean;
-  supabaseClient: SupabaseClient | null;
+  // supabaseLoading: boolean;
+  supabaseClient: SupabaseClient<any, "public", any> | null;
 }
+export interface SupabaseProviderProps {
+  children: ReactNode;
+}
+
 export interface NonceData {
   nonce: string;
 }

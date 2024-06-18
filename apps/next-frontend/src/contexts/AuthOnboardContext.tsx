@@ -2,13 +2,13 @@
 // AuthOnboardContext.tsx
 import { createContext, useContext } from 'react';
 import { AuthOnboardContextObj, AuthProviderProps } from '../types/types';
-import { useAuthOboardRouting } from '@/hooks/useAuthOnboardandRouting';
+import { useAuthOnboardRouting } from '@/hooks/useAuthOnboardandRouting';
 import { defaultAuthContext } from './default/defaultAuthOnBoardContext';
 
 export const useAuthOnboardContext = () => useContext(AuthOnboardContext);
 
 const AuthOnboardProvider = ({ children }: AuthProviderProps) => {
-  const auth = useAuthOboardRouting();
+  const auth = useAuthOnboardRouting();
 
   return <AuthOnboardContext.Provider value={auth}>{children}</AuthOnboardContext.Provider>;
 };

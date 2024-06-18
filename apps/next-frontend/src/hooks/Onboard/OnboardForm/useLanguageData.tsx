@@ -1,16 +1,17 @@
 // useLanguageData.ts
 import { useState, useEffect } from 'react';
 import { LanguageButton } from '@/types/types';
-import { useSupabase } from '@/contexts';
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
 
 export const useLanguageData = () => {
-  const {client: supabaseClient, supabaseLoading} = useSupabase();
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
   const [languageButtons, setLanguageButtons] = useState<LanguageButton[]>([]);
 
   useEffect(() => {
     const fetchLanguageData = async () => {
       // console.log('supabaseClient', Boolean(supabaseClient))
-      if (supabaseClient && !supabaseLoading) {
+      if (supabaseClient) {
         try {
           const {data, error} = await supabaseClient
             .from('languages')
@@ -33,7 +34,7 @@ export const useLanguageData = () => {
     void (async () => {
       await fetchLanguageData();
     })();
-  }, [supabaseClient, supabaseLoading]);
+  }, [supabaseClient]);
 
   return { languageButtons, setLanguageButtons };
 };

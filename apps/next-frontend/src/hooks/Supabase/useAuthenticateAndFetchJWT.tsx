@@ -1,46 +1,41 @@
-// useAuthenticateAndFetchJWT.tsx
-import { useState, useEffect } from 'react';
+// useAuthenticateAndFetchJWT.ts
+import { useRecoilValue, useSetRecoilState } from 'recoil';
+import { currentAccountAtom, litNodeClientAtom, pkpWalletAtom, userJWTAtom } from '@/atoms/atoms';
+import { NonceData } from '@/types/types';
 import ky from 'ky';
-import { useLocalStorage } from '@rehooks/local-storage';
+import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP } from '@lit-protocol/types';
-import { isJwtExpired } from '../../utils/app';
-import { NonceData } from '../../types/types';
-import { usePkpWallet } from '@/contexts/PkpWalletContext';
 
-export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null) {
-  const [userJWT, setUserJWT] = useLocalStorage<string | null>("userJWT");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const { pkpWallet } = usePkpWallet();
+export function useAuthenticateAndFetchJWT() {
+  const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount')
+  const pkpWallet = useRecoilValue(pkpWalletAtom);
+  const litNodeClient = useRecoilValue(litNodeClientAtom);
+  const setUserJWT = useSetRecoilState(userJWTAtom);
 
-  useEffect(() => {
-    const fetchJWT = async () => {
-      setIsLoading(true);
-      try {
-        if (pkpWallet && currentAccount && (userJWT === null || isJwtExpired(userJWT))) {
-          const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
-          const nonce = nonceResponse.nonce;
-          const signature = await pkpWallet.signMessage(nonce);
-          const jwtResponse = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
-            json: { ethereumAddress: currentAccount.ethAddress, signature, nonce },
-          }).json<{ token: string }>();
-
-          if (jwtResponse.token) {
-            setUserJWT(jwtResponse.token);
-          } else {
-            console.error("failed to set jwt");
-          }
+  const fetchJWT = async () => {
+    try {
+      console.log("Fetching JWT...");
+      if (pkpWallet && currentAccount && litNodeClient.ready) {
+        const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
+        const nonce = nonceResponse.nonce;
+        const signature = await pkpWallet.signMessage(nonce);
+        const jwtResponse = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
+          json: { ethereumAddress: currentAccount.ethAddress, signature, nonce },
+        }).json<{ token: string }>();
+        console.log("JWT Response:", jwtResponse);
+        if (jwtResponse.token) {
+          setUserJWT(jwtResponse.token);
+          console.log("JWT set successfully:", jwtResponse.token);
+        } else {
+          console.error("Failed to set JWT");
         }
-      } catch (e) {
-        console.error("Error fetching JWT", e);
-        setError(e instanceof Error ? e : new Error('An unknown error occurred'));
-      } finally {
-        setIsLoading(false);
+      } else {
+        console.log("Conditions not met for fetching JWT");
       }
-    };
+    } catch (e) {
+      console.error("Error fetching JWT", e);
+    }
+  };
 
-    fetchJWT();
-  }, [currentAccount, pkpWallet, userJWT]);
-
-  return { userJWT, isLoading, error };
+  return { fetchJWT };
 }

@@ -4,7 +4,9 @@ import useLocalStorage from "@rehooks/local-storage";
 import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 import signApproveFundController from "@/Lit/SignPKPEthers/signApproveFundController";
 import { learnerSubmitLearningRequest } from "@/Supabase/DbCalls/learnerSubmitLearningRequest";
-import { useSupabase } from "@/contexts";
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
+
 import { usePreCalculateTimeDate } from "@/hooks/Lounge/usePreCalculateTimeDate";
 import { useComputeControllerAddress } from "@/hooks/LitActions/useComputeControllerAddress";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
@@ -37,13 +39,13 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
     }
   }, [sessionLengthInputValue])
   const { dateTime, setDateTime } = usePreCalculateTimeDate();
-  const { client: supabaseClient, supabaseLoading } = useSupabase()
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
   const [userID] = useLocalStorage("userID")
 
   const handleSubmitLearningRequest = async () => {
     if (sessionDuration && currentAccount && sessionSigs) {
      const requestedSessionDurationLearnerSig = await signSessionDuration({sessionDuration, currentAccount, sessionSigs});
-    if (supabaseClient && !supabaseLoading && userID && sessionDuration) {
+    if (supabaseClient && userID && sessionDuration) {
       const learningRequestSuccess = await learnerSubmitLearningRequest(supabaseClient, dateTime, teacherID, userID, teachingLang, setRenderSubmitConfirmation, sessionDuration, controller_address, claim_key_id, controller_claim_user_id, controller_public_key, currentAccount, requestedSessionDurationLearnerSig)
 
       if (learningRequestSuccess && amount && contractAddress) {

@@ -2,13 +2,13 @@ import { CheckIcon } from '@heroicons/react/20/solid'
 import { Listbox } from '@headlessui/react'
 import globe_icon from '../../../assets/globe.png'
 import { Fragment, useState } from 'react';
-import { useAuthOboardRouting } from '@/hooks/useAuthOnboardandRouting';
+import { useAuthOnboardRouting } from '@/hooks/useAuthOnboardandRouting';
 
 interface NativeLangMenuPropTypes {
   languages: string[] ;
 }
 const NativeLangMenu = ({ languages }: NativeLangMenuPropTypes) => {
-  const { setNativeLang, nativeLang } = useAuthOboardRouting();
+  const { setNativeLang, nativeLang } = useAuthOnboardRouting();
   const [selectedLang, setSelectedLang] = useState<string>(nativeLang || languages[0] || '');
 
   const handleLanguageChange = (newLang: string) => {

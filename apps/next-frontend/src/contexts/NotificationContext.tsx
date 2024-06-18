@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect, useState, useContext, createContext } from 'react';
-import { useSupabase } from './SupabaseContext';
 import useLocalStorage from '@rehooks/local-storage';
 import { checkIfNotificationExpired } from '../utils/app';
 import { ExtendedSession, NotificationContextType, Session } from '../types/types';
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
 
 const NotificationContext = createContext<NotificationContextType>({ notificationsContextValue: [], showIndicator: false, setShowIndicator: ()=>{} });
 
@@ -12,7 +13,7 @@ export const useNotificationContext = () => useContext(NotificationContext);
 
 const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const [showIndicator, setShowIndicator] = useState<boolean>(false);
-  const { client: supabaseClient, supabaseLoading } = useSupabase();
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
   const [userId] = useLocalStorage<number>("userID");
   const [notifications, setNotifications] = useState<ExtendedSession[]>([]);
 
@@ -21,7 +22,7 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   }, [showIndicator])
 
   const fetchLearnersAndTeachers = async (teacherId: number, learnerId: number) => {
-    if (supabaseClient && !supabaseLoading) {
+    if (supabaseClient) {
       let teacherName = '';
       let learnerName = '';
 
@@ -83,7 +84,7 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    if (supabaseClient && !supabaseLoading && userId) {
+    if (supabaseClient && userId) {
       const mySubscription = supabaseClient
       .channel('realtime:public.sessions')
       .on('postgres_changes', {
@@ -126,7 +127,7 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
       };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabaseClient, supabaseLoading, userId]);
+  }, [supabaseClient, userId]);
 
   return (
     <NotificationContext.Provider value={{ notificationsContextValue: notifications, showIndicator, setShowIndicator }}>

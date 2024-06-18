@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
-import { useSupabase } from '../../contexts/SupabaseContext';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
 
 const useGetLanguages = () => {
-  const { getAuthenticatedClient, supabaseLoading } = useSupabase();
+
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
   const [isOnboarded] = useLocalStorage<boolean>("isOnboarded")
@@ -13,14 +14,14 @@ const useGetLanguages = () => {
   const [wantsToLearnLangs, setWantsToLearnLangs] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const supabaseClient = await getAuthenticatedClient(); // JWT check happens here
-        console.log({isOnboarded, supabaseClient, supabaseLoading  })
-        if (isOnboarded && supabaseClient && !supabaseLoading) {
+        console.log(JSON.stringify({isOnboarded, supabaseClient  }))
+        if (isOnboarded && supabaseClient) {
           const responseTeachingLangs = await supabaseClient
             .from('user_data')
             .select('wants_to_teach_langs');
@@ -55,7 +56,7 @@ const useGetLanguages = () => {
     void (async () => {
       await fetchData();
     })();
-  }, [getAuthenticatedClient, supabaseLoading, currentAccount, sessionSigs, isOnboarded]);
+  }, [supabaseClient, currentAccount, sessionSigs, isOnboarded]);
 
   return {
     wantsToTeachLangs,

@@ -2,7 +2,6 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../supabaseTypes';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { CurrencyEuroIcon } from '@heroicons/react/20/solid';
-import { litNodeClient } from '@/utils/litClients';
 import { LocalStorageSetter } from '@/types/types';
 
 export const submitOnboardTeachAPI = async (selectedLanguageCodes: number[], isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, name: string, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null, defaultNativeLanguage: string) => {
@@ -30,7 +29,7 @@ export const submitOnboardTeachAPI = async (selectedLanguageCodes: number[], isO
         console.error("onboard submission error", error)
         console.log('disconnect -- submitOnboardTeachAPI');
 
-        litNodeClient.disconnect()
+        // litNodeClient.disconnect()
         throw new Error("submitOnboardTeachAPI error")
       }
     } catch (e) {

@@ -1,18 +1,14 @@
-import { LitAbility, LitActionResource } from '@lit-protocol/auth-helpers';
 import {
   AuthMethod,
-  GetSessionSigsProps,
   IRelayPKP,
-  SessionSigs,
 } from '@lit-protocol/types';
 import {
   GoogleProvider,
   DiscordProvider,
   WebAuthnProvider,
 } from '@lit-protocol/lit-auth-client';
-import { litNodeClient, litAuthClient } from './litClients';
+import { litAuthClient } from './litClients';
 
-import { LitNodeClient } from '@lit-protocol/lit-node-client';
 import { AuthMethodType, ProviderType } from '@lit-protocol/constants';
 import {isDefined} from './app'
 export const DOMAIN = process.env.NEXT_PUBLIC_PUBLIC_PROD_URL || 'localhost';

@@ -2,9 +2,17 @@ import ButtonLink from "@/components/elements/ButtonLink";
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
 import { useAuthOnboardContext } from "@/contexts";
+import { litNodeClient } from "@/utils/litClients";
+import { useEffect } from "react";
 
 const Entry = () => {
   const { setOnboardMode } = useAuthOnboardContext();
+  useEffect(() => {
+    void (async () => {
+      await litNodeClient.connect()
+      console.log('litNodeClient.ready', litNodeClient.ready)
+    })();
+  }, [litNodeClient])
   return (
     <>
      <IconHeader />

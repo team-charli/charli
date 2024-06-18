@@ -2,7 +2,8 @@
 
 // SessionContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useSupabase } from './SupabaseContext';
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
 import { Session } from '../types/types';
 
 type SessionContextType = {
@@ -15,10 +16,10 @@ export const useSessionContext = () => useContext(SessionContext);
 
 const SessionProvider = ({ children }: { children: React.ReactNode}) => {
   const [sessionData, setSessionData] = useState<Session | null>(null);
-  const { client: supabaseClient, supabaseLoading } = useSupabase();
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
 
   useEffect(() => {
-    if (supabaseClient && !supabaseLoading) {
+    if (supabaseClient) {
       const mySubscription = supabaseClient
         .channel('realtime:public.sessions')
         .on('postgres_changes', {
@@ -39,7 +40,7 @@ const SessionProvider = ({ children }: { children: React.ReactNode}) => {
         })();
       };
     }
-  }, [supabaseClient, supabaseLoading]);
+  }, [supabaseClient]);
 
   return (
     <SessionContext.Provider value={{ sessionData }}>

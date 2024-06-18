@@ -6,18 +6,19 @@ import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
 import { submitOnboardLearnAPI } from '@/api/submitOnboardLearnAPI';
 import { submitOnboardTeachAPI } from '@/api/submitOnboardTeachAPI';
-import { useAuthOboardRouting } from '@/hooks/useAuthOnboardandRouting';
-import { useSupabase } from '@/contexts';
+import { useAuthOnboardRouting } from '@/hooks/useAuthOnboardandRouting';
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
   const [name, setName] = useState('');
 
-  const { client: supabaseClient, supabaseLoading} = useSupabase();
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
   const [ currentAccount ] = useLocalStorage<IRelayPKP | null>('currentAccount')
   const [ sessionSigs ] = useLocalStorage<SessionSigs | null>('sessionSigs')
-  const { isLitLoggedIn, nativeLang, hasBalance, isOnboarded, setIsOnboarded } = useAuthOboardRouting();
+  const { isLitLoggedIn, nativeLang, hasBalance, isOnboarded, setIsOnboarded } = useAuthOnboardRouting();
   const { languageButtons, setLanguageButtons } = useLanguageData();
 
   const handleToggleLanguage = (languageButton: LanguageButton) => {

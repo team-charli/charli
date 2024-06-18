@@ -4,33 +4,30 @@ import { getProviderByAuthMethod } from '../../utils/lit';
 import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers';
 import { IRelayPKP } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
-import { litNodeClient } from '@/utils/litClients';
 import { sessionSigsExpired } from '@/utils/app';
-
+import {litNodeClientAtom} from '@/atoms/atoms'
+import { useRecoilValue } from 'recoil';
 export default function useLitSession() {
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
   const [sessionLoading, setLoading] = useState<boolean>(false);
   const [sessionError, setError] = useState<Error>();
+  const litNodeClient = useRecoilValue(litNodeClientAtom);
 
   const initSession = useCallback(
     async (authMethod: AuthMethod, currentAccount: IRelayPKP): Promise<void> => {
       setLoading(true);
       setError(undefined);
-
+      // await litNodeClient.connect();
       console.log("latest blockhash", await litNodeClient.getLatestBlockhash())
 
       try {
-        console.log("run initSession");
-        console.log('authMethod', authMethod);
-        console.log('currentAccount', currentAccount);
-
         const provider = getProviderByAuthMethod(authMethod);
         if (!provider) {
           throw new Error('No provider object');
         }
-       console.log("session vals", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), sessionsSigsExpired: sessionSigsExpired(sessionSigs)})
+        // console.log(" init session vals", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), sessionsSigsExpired: sessionSigsExpired(sessionSigs)})
 
-      console.log("sessions Condidtion", Boolean(provider && currentAccount?.publicKey && authMethod && (!sessionSigs|| sessionSigsExpired(sessionSigs))))
+        // console.log("sessions Condidtion", Boolean(provider && currentAccount?.publicKey && authMethod && (!sessionSigs|| sessionSigsExpired(sessionSigs))))
 
         if (provider && currentAccount?.publicKey && authMethod && (!sessionSigs|| sessionSigsExpired(sessionSigs))) {
           const resourceAbilityRequests = [

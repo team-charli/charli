@@ -2,9 +2,11 @@ import ky from 'ky'
 import {ethers, SignatureLike } from 'ethers'
 import { useState } from "react";
 import useLocalStorage from '@rehooks/local-storage';
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
+
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { NotificationIface } from '@/types/types';
-import { useSupabase } from '@/contexts';
 import { useLocalizeAndFormatDateTime } from '@/hooks/utils/useLocalizeAndFormatDateTime';
 import { useExecuteTransferFromLearnerToController } from '@/hooks/LitActions/useExecuteTransferFromLearnerToController';
 import { fetchLearnerToControllerParams } from '@/Supabase/DbCalls/fetchLearnerToControllerParams';
@@ -19,7 +21,7 @@ type ReceivedTeachingRequestProps = {
 const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps) => {
   const [requestedSessionDurationTeacherSig, setRequestedSessionDurationTeacherSig] = useState<SignatureLike>();
   const [hashedTeacherAddress, setHashedTeacherAddress] = useState<string>();
-  const { client: supabaseClient, supabaseLoading } = useSupabase();
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
   const [uiCondition, setUiCondition] = useState<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>('initial');
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs');
@@ -27,13 +29,13 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
   const { executeTransferFromLearnerToController } = useExecuteTransferFromLearnerToController();
 
   const handleTeacherChoice = async (action: string) => {
-    if (supabaseClient && !supabaseLoading) {
+    if (supabaseClient) {
       switch (action) {
         case 'accept':
           let fetchParamsResult;
           let  controllerPublicKey, controllerAddress, learnerAddress, requestedSessionDuration, requestedSessionDurationLearnerSig, keyId, hashedLearnerAddress;
           try {
-            fetchParamsResult = await fetchLearnerToControllerParams(supabaseClient, supabaseLoading, notification.session_id);
+            fetchParamsResult = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
 
             controllerPublicKey = fetchParamsResult.controllerPublicKey;
             controllerAddress = fetchParamsResult.controllerAddress;

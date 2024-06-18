@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import { useSupabase } from '../../contexts/SupabaseContext';
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
 import { FaultData, Message, SessionData, SessionIPFSData } from '@/types/types';
 
 const useSessionCases = (messages: Message[]) => {
   const [sessionIPFSData, setSessionIPFSData] = useState<SessionIPFSData | null>(null);
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
-  const { client: supabaseClient, supabaseLoading } = useSupabase();
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
 
   useEffect(() => {
     const handleMessage = async (message: Message) => {

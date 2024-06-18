@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useSupabase } from "../../contexts/SupabaseContext";
 import useLocalStorage from "@rehooks/local-storage";
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
 
 interface FetchTeachersResponse {
   name: string;
@@ -10,13 +11,13 @@ interface FetchTeachersResponse {
 
 function useGetTeachers(selectedLang: string, modeView: string) {
   const [userId] = useLocalStorage<number>("userID");
-  const {client: supabaseClient, supabaseLoading } = useSupabase();
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
   const [teachers, setTeachers] = useState<FetchTeachersResponse[] | null> ([]);
 
   useEffect(() => {
     async function fetchData() {
       // console.log("userGroup", modeView)
-      if (modeView === 'Learn' && supabaseClient && !supabaseLoading) {
+      if (modeView === 'Learn' && supabaseClient) {
         try {
           const {data: user_data, error} =  await supabaseClient
             .from('user_data')
@@ -38,7 +39,7 @@ function useGetTeachers(selectedLang: string, modeView: string) {
     void (async () => {
       await fetchData();
     })();
-  }, [selectedLang, modeView, supabaseClient, supabaseLoading, userId]);
+  }, [selectedLang, modeView, supabaseClient, userId]);
 
   return teachers;
 }

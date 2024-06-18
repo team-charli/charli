@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useSupabase } from "../../contexts/SupabaseContext";
 import useLocalStorage from "@rehooks/local-storage";
+import { supabaseClientAtom } from '@/atoms/atoms';
+import { useRecoilValue } from 'recoil';
 
 interface FetchLearnersResponse {
   name: string;
@@ -10,14 +11,14 @@ interface FetchLearnersResponse {
 
 function useGetLearners(selectedLang: string, modeView: "Learn" | "Teach") {
   const [userId] = useLocalStorage<number>("userID");
-  const {client: supabaseClient, supabaseLoading } = useSupabase();
+  const supabaseClient = useRecoilValue(supabaseClientAtom);
   const [learners, setLearners] = useState<FetchLearnersResponse[] | null> ([]);
 
   useEffect(() => {
     async function fetchData() {
       if (modeView === 'Teach') {
         try {
-          if (supabaseClient && !supabaseLoading  ) {
+          if (supabaseClient) {
             console.log("run useGetLearners");
 
             const {data: user_data, error} =  await supabaseClient
@@ -39,7 +40,7 @@ function useGetLearners(selectedLang: string, modeView: "Learn" | "Teach") {
     void (async () => {
       await fetchData();
     })();
-  }, [selectedLang, modeView, supabaseClient, supabaseLoading, userId]);
+  }, [selectedLang, modeView, supabaseClient, userId]);
 
   return learners;
 }

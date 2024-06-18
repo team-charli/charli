@@ -1,4 +1,3 @@
-'use client'
 import '@/styles/globals.css';
 import { AppProps } from 'next/app';
 import { HuddleProvider } from "@huddle01/react"
@@ -8,12 +7,12 @@ import { StrictMode } from 'react';
 import SessionProvider from "@/contexts/SessionsContext";
 import AuthOnboardProvider from '@/contexts/AuthOnboardContext';
 import { PkpWalletProvider } from '@/contexts/PkpWalletContext';
-import SupabaseProvider from '@/contexts/SupabaseContext';
+import { RecoilRoot } from 'recoil';
 
 function CharliApp({ Component, pageProps }: AppProps) {
   return (
     <StrictMode>
-      <SupabaseProvider>
+      <RecoilRoot>
         <AuthOnboardProvider>
           <PkpWalletProvider>
             <NotificationProvider>
@@ -25,7 +24,7 @@ function CharliApp({ Component, pageProps }: AppProps) {
             </NotificationProvider>
           </PkpWalletProvider>
         </AuthOnboardProvider>
-      </SupabaseProvider>
+      </RecoilRoot>
     </StrictMode>
   );
 }
