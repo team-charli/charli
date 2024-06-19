@@ -8,10 +8,12 @@ import SessionProvider from "@/contexts/SessionsContext";
 import AuthOnboardProvider from '@/contexts/AuthOnboardContext';
 import { PkpWalletProvider } from '@/contexts/PkpWalletContext';
 import { RecoilRoot } from 'recoil';
+import { LitClientProvider } from '@/contexts/LitClientContext';
 
 function CharliApp({ Component, pageProps }: AppProps) {
   return (
     <StrictMode>
+      <LitClientProvider>
       <RecoilRoot>
         <AuthOnboardProvider>
           <PkpWalletProvider>
@@ -25,6 +27,7 @@ function CharliApp({ Component, pageProps }: AppProps) {
           </PkpWalletProvider>
         </AuthOnboardProvider>
       </RecoilRoot>
+    </LitClientProvider>
     </StrictMode>
   );
 }

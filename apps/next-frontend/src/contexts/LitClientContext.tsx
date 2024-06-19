@@ -1,27 +1,36 @@
 // // 'use client'
-// // LitClientProvider.tsx
-// import React, { ReactNode, useEffect } from 'react';
-// import { useRecoilValue } from 'recoil';
-// import { litNodeClientAtom } from '@/atoms/atoms';
+// LitClientProvider.tsx
+import React, { ReactNode, useEffect } from 'react';
+import {litNodeClient} from '@/utils/litClients'
+interface LitClientProviderProps {
+  children: ReactNode;
+}
 
-// interface LitClientProviderProps {
-//   children: ReactNode;
-// }
+export const LitClientProvider = ({ children }: LitClientProviderProps) => {
 
-// export const LitClientProvider = ({ children }: LitClientProviderProps) => {
-//   const litNodeClient = useRecoilValue(litNodeClientAtom);
+  useEffect(() => {
+    const connectClient = async () => {
+      try {
+        await litNodeClient.connect();
+        console.log("LitNodeClient connected");
+      } catch (error) {
+        console.error("Error connecting LitNodeClient:", error);
+      }
+    };
+    connectClient();
+    const disconnectClient = async () => {
+      try{
+        await litNodeClient.disconnect();
+        console.log('lit node client disconnected')
+      } catch(e) {
+        console.error(e);
+      }
+    }
 
-//   useEffect(() => {
-//     const connectClient = async () => {
-//       try {
-//         await litNodeClient.connect();
-//         console.log("LitNodeClient connected");
-//       } catch (error) {
-//         console.error("Error connecting LitNodeClient:", error);
-//       }
-//     };
-//     connectClient();
-//   }, [litNodeClient]);
+    () => { disconnectClient(); }
 
-//   return <>{children}</>;
-// };
+  }, [litNodeClient]);
+
+  return <>{children}</>;
+};
+

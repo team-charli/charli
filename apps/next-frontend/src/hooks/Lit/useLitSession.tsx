@@ -5,19 +5,18 @@ import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/aut
 import { IRelayPKP } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { sessionSigsExpired } from '@/utils/app';
-import {litNodeClientAtom} from '@/atoms/atoms'
-import { useRecoilValue } from 'recoil';
+import { litNodeClient } from '@/utils/litClients';
+
 export default function useLitSession() {
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
   const [sessionLoading, setLoading] = useState<boolean>(false);
   const [sessionError, setError] = useState<Error>();
-  const litNodeClient = useRecoilValue(litNodeClientAtom);
 
   const initSession = useCallback(
     async (authMethod: AuthMethod, currentAccount: IRelayPKP): Promise<void> => {
       setLoading(true);
       setError(undefined);
-      // await litNodeClient.connect();
+      await litNodeClient.connect();
       console.log("latest blockhash", await litNodeClient.getLatestBlockhash())
 
       try {

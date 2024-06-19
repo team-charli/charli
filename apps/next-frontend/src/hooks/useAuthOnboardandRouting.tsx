@@ -7,10 +7,9 @@ import useLocalStorage from '@rehooks/local-storage';
 import { sessionSigsExpired } from '@/utils/app';
 import { useHasBalance, useIsOnboarded, useOnboardMode } from '../hooks/Onboard/';
 import { AuthOnboardContextObj  } from '@/types/types';
-import {litNodeClientAtom} from '@/atoms/atoms';import { useRecoilValue } from 'recoil';
+import { litNodeClient } from '@/utils/litClients';
 
 export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
-
 
   const router = useRouter();
   const redirectUrl = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI;
@@ -28,13 +27,12 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
   const [teachingLangs, setTeachingLangs] = useState([] as string[]);
   const [learningLangs, setLearningLangs] = useState([] as string[]);
   const [renderLoginButtons, setRenderLoginButtons] = useLocalStorage<boolean>("renderLoginButtons", true);
-  const litNodeClient = useRecoilValue(litNodeClientAtom);
 
   useEffect(() => {
     console.log("vals", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs)})
 
     if (!authMethod && !currentAccount && !sessionSigs) {
-    //
+   // blank
     } else if (authMethod && currentAccount && !sessionSigs && litNodeClient.ready) {
       // User is authenticated but session is not initialized
       initSession(authMethod, currentAccount);
