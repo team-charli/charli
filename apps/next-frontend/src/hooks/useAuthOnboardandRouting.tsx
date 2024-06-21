@@ -1,13 +1,15 @@
 'use client';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthenticate, useLitAccounts, useLitSession, useIsLitLoggedIn } from '../hooks/Lit';
 import { SessionSigs } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
-import { sessionSigsExpired } from '@/utils/app';
 import { useHasBalance, useIsOnboarded, useOnboardMode } from '../hooks/Onboard/';
 import { AuthOnboardContextObj  } from '@/types/types';
 import { litNodeClient } from '@/utils/litClients';
+import { sessionSigsExpired } from '@/utils/app';
+import { useAuthenticateAndFetchJWT } from './Supabase/useAuthenticateAndFetchJWT';
+import { usePkpWallet } from './Lit/usePkpWallet';
 
 export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
 
@@ -16,10 +18,10 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
   if (!redirectUrl) throw new Error(`redirectUrl`);
   const { authMethod, authLoading, authError } = useAuthenticate(redirectUrl);
   const { currentAccount, fetchAccounts, accountsLoading, accountsError } = useLitAccounts();
-  const { isOnboarded, setIsOnboarded } = useIsOnboarded();
   const { initSession, sessionLoading, sessionError } = useLitSession();
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
   const isLitLoggedIn = useIsLitLoggedIn(currentAccount, sessionSigs);
+  const { isOnboarded, setIsOnboarded } = useIsOnboarded(isLitLoggedIn);
   const { onboardMode, setOnboardMode } = useOnboardMode(isOnboarded);
   const { hasBalance } = useHasBalance(isOnboarded);
   const [nativeLang, setNativeLang] = useState('');
@@ -27,61 +29,79 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
   const [teachingLangs, setTeachingLangs] = useState([] as string[]);
   const [learningLangs, setLearningLangs] = useState([] as string[]);
   const [renderLoginButtons, setRenderLoginButtons] = useLocalStorage<boolean>("renderLoginButtons", true);
+  usePkpWallet();
+  const { fetchJWT } = useAuthenticateAndFetchJWT(currentAccount);
 
   useEffect(() => {
-    console.log("vals", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs)})
+    console.log("Checking JWT fetch conditions", { isLitLoggedIn, currentAccount: !!currentAccount, sessionSigs: !!sessionSigs });
+    if (isLitLoggedIn && currentAccount && (!sessionSigs || sessionSigsExpired(sessionSigs))) {
+      console.log("Attempting to fetch JWT");
+      fetchJWT();
+    }
+  }, [isLitLoggedIn, currentAccount, sessionSigs, fetchJWT]);
+  const isLoading = useMemo(() => authLoading || accountsLoading || sessionLoading,
+    [authLoading, accountsLoading, sessionLoading]);
 
+
+
+  const handleAuthAndRouting = useCallback(async () => {
+
+    // Auth logic
     if (!authMethod && !currentAccount && !sessionSigs) {
-   // blank
-    } else if (authMethod && currentAccount && !sessionSigs && litNodeClient.ready) {
-      // User is authenticated but session is not initialized
-      initSession(authMethod, currentAccount);
-
+      // blank
+    } else if (authMethod && currentAccount && !sessionSigs) {
+      await initSession(authMethod, currentAccount);
     } else if (authMethod && currentAccount && sessionSigs && sessionSigsExpired(sessionSigs)) {
-      // User is authenticated but session has expired
       console.log('initSession');
-
-      initSession(authMethod, currentAccount);
-
-
+      await initSession(authMethod, currentAccount);
     } else if (authMethod && !currentAccount && !sessionSigs) {
-      // User is authenticated but accounts are not fetched
-      fetchAccounts(authMethod);
-
-    } else if (sessionSigs && currentAccount && !authMethod){
-    } else if (sessionSigs && currentAccount && authMethod) {
-    }
-    else {
-      // console.log("something else happened. Other condidtions:(authMethod && !currentAccount && !sessionSigs);User is authenticated but accounts are not fetched; authMethod && currentAccount && sessionSigs && sessionSigsExpired(sessionSigs)User is authenticated but session has expired ", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs)})
-
+      await fetchAccounts(authMethod);
     }
 
+    // Routing logic
+    if (isLoading) return;
 
-  if (isLitLoggedIn && !isOnboarded)  {
-    console.log("has currentAccount && sessionSigs !onboarded: push to /onboard");
-    router.push('/onboard').catch(e => console.log(e));
-  } else if (isLitLoggedIn && isOnboarded)  {
-    console.log('authenticated and onboarded: push to /lounge');
-    router.push('/lounge').catch(e => console.error(e));
-  } else if (!isLitLoggedIn && isOnboarded)  {
-    console.log('onboared && !isLitLoggedIn');
-    router.push('/login').catch(e => console.error(e));
-  } else if (!isLitLoggedIn && (onboardMode === 'Teach' || onboardMode === 'Learn'))  {
-    console.log("not authenticated, onboardMode===true: push to /login", {isLitLoggedIn, sessionSigs: Boolean(sessionSigs), currentAccount: Boolean(currentAccount), onboardMode, isExpired: sessionSigsExpired(sessionSigs)});
-    router.push('/login').catch(e => console.error("push to /login", e));
-  } else if (!isLitLoggedIn && !onboardMode)  {
-    console.log("not authenticated, onboardMode===false: push to /");
-    router.push('/').catch(e => console.error(e));
-  } else if (!isLitLoggedIn && !isOnboarded) {
-    if (onboardMode !== 'Teach' && onboardMode !== "Learn")  {
-      console.log("User is authenticated but not onboarded: push to /", onboardMode);
-      router.push('/').catch(e => console.error(e));
-    } else if ((onboardMode === 'Teach' || onboardMode === "Learn"))  {
-      router.push('/onboard').catch(e => console.error(e));
+    let targetRoute = null;
+    if (isLitLoggedIn && !isOnboarded && router.pathname !== '/onboard') {
+      console.log("has currentAccount && sessionSigs !onboarded: push to /onboard");
+      await router.push('/onboard');
+    } else if (isLitLoggedIn && isOnboarded && router.pathname !== '/lounge') {
+      console.log('authenticated and onboarded: push to /lounge');
+      await router.push('/lounge');
+    } else if (!isLitLoggedIn && isOnboarded && router.pathname !== '/login') {
+      console.log('onboarded && !isLitLoggedIn');
+      await router.push('/login');
+    } else if (!isLitLoggedIn && (onboardMode === 'Teach' || onboardMode === 'Learn')) {
+      console.log("not authenticated, onboardMode===true: push to /login", {isLitLoggedIn, sessionSigs: Boolean(sessionSigs), currentAccount: Boolean(currentAccount), onboardMode, isExpired: sessionSigs ? sessionSigsExpired(sessionSigs) : null});
+      targetRoute = '/login';
+    } else if (!isLitLoggedIn && !onboardMode) {
+      console.log("not isLitLoggedIn, onboardMode===false: push to /");
+      targetRoute = '/';
+    } else if (!isLitLoggedIn && !isOnboarded) {
+      if (onboardMode !== 'Teach' && onboardMode !== "Learn") {
+        console.log("User is authenticated but not onboarded: push to /", onboardMode);
+        targetRoute = '/';
+      } else if ((onboardMode === 'Teach' || onboardMode === "Learn")) {
+        targetRoute = '/onboard';
+      }
     }
-  }
-}, [authMethod, currentAccount, sessionSigs, fetchAccounts, initSession,  onboardMode, isOnboarded, isLitLoggedIn, litNodeClient.ready]);
 
+    if (targetRoute && router.pathname !== targetRoute) {
+      router.push(targetRoute).catch(e => console.error(`Error routing to ${targetRoute}:`, e));
+    }
+  }, [authMethod, currentAccount, sessionSigs, isLoading, isLitLoggedIn, isOnboarded, onboardMode, router, initSession, fetchAccounts, litNodeClient.ready]);
+
+  useEffect(() => {
+    console.log('AuthOnboardRouting effect', {
+      isLitLoggedIn,
+      isOnboarded,
+      authMethod: !!authMethod,
+      currentAccount: !!currentAccount,
+      sessionSigs: !!sessionSigs,
+      isLoading
+    });
+    handleAuthAndRouting();
+  }, [isLitLoggedIn, isOnboarded, authMethod, currentAccount, sessionSigs, isLoading, handleAuthAndRouting]);
 
   return {
     authMethod,

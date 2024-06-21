@@ -6,7 +6,6 @@ import NotificationProvider from '@/contexts/NotificationContext';
 import { StrictMode } from 'react';
 import SessionProvider from "@/contexts/SessionsContext";
 import AuthOnboardProvider from '@/contexts/AuthOnboardContext';
-import { PkpWalletProvider } from '@/contexts/PkpWalletContext';
 import { RecoilRoot } from 'recoil';
 import { LitClientProvider } from '@/contexts/LitClientContext';
 
@@ -14,9 +13,8 @@ function CharliApp({ Component, pageProps }: AppProps) {
   return (
     <StrictMode>
       <LitClientProvider>
-      <RecoilRoot>
-        <AuthOnboardProvider>
-          <PkpWalletProvider>
+        <RecoilRoot>
+          <AuthOnboardProvider>
             <NotificationProvider>
               <HuddleProvider client={huddleClient}>
                 <SessionProvider>
@@ -24,10 +22,9 @@ function CharliApp({ Component, pageProps }: AppProps) {
                 </SessionProvider>
               </HuddleProvider>
             </NotificationProvider>
-          </PkpWalletProvider>
-        </AuthOnboardProvider>
-      </RecoilRoot>
-    </LitClientProvider>
+          </AuthOnboardProvider>
+        </RecoilRoot>
+      </LitClientProvider>
     </StrictMode>
   );
 }

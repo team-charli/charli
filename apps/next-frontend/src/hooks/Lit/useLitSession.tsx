@@ -6,8 +6,11 @@ import { IRelayPKP } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { sessionSigsExpired } from '@/utils/app';
 import { litNodeClient } from '@/utils/litClients';
+import AuthMethods from '@/components/Lit/AuthMethods';
+import { useLitClientReady } from '@/contexts/LitClientContext';
 
 export default function useLitSession() {
+  const { litNodeClientReady } = useLitClientReady();
   const [sessionSigs, setSessionSigs] = useLocalStorage<SessionSigs>("sessionSigs");
   const [sessionLoading, setLoading] = useState<boolean>(false);
   const [sessionError, setError] = useState<Error>();
@@ -16,17 +19,23 @@ export default function useLitSession() {
     async (authMethod: AuthMethod, currentAccount: IRelayPKP): Promise<void> => {
       setLoading(true);
       setError(undefined);
-      await litNodeClient.connect();
-      console.log("latest blockhash", await litNodeClient.getLatestBlockhash())
+
+      console.log("useLitSession() called; litNodeClient.ready:", litNodeClient.ready)
+
+      if (!litNodeClientReady ) {
+        try {
+          await litNodeClient.connect()
+          console.log("latest blockhash", await litNodeClient.getLatestBlockhash())
+        } catch(e) {
+          console.error(e)
+        }
+      }
 
       try {
         const provider = getProviderByAuthMethod(authMethod);
-        if (!provider) {
-          throw new Error('No provider object');
-        }
+        if (!provider) { throw new Error('No provider object'); }
         // console.log(" init session vals", {authMethod: Boolean(authMethod), currentAccount: Boolean(currentAccount), sessionSigs: Boolean(sessionSigs), sessionsSigsExpired: sessionSigsExpired(sessionSigs)})
 
-        // console.log("sessions Condidtion", Boolean(provider && currentAccount?.publicKey && authMethod && (!sessionSigs|| sessionSigsExpired(sessionSigs))))
 
         if (provider && currentAccount?.publicKey && authMethod && (!sessionSigs|| sessionSigsExpired(sessionSigs))) {
           const resourceAbilityRequests = [
@@ -49,12 +58,9 @@ export default function useLitSession() {
             if (sessionSigs) {
               console.log(`setting sessionSigs:`, sessionSigs);
               setSessionSigs(sessionSigs);
-            } else {
-              console.log("problem getting session sigs", sessionSigs)
-            }
+            } else { console.log("problem getting session sigs", sessionSigs)}
           } catch (error) {
             console.error("Error in litNodeClient.getPkpSessionSigs:", error);
-            throw error;
           }
         }
       } catch (error) {
@@ -64,7 +70,7 @@ export default function useLitSession() {
         setLoading(false);
       }
     },
-    [setSessionSigs ]
+    [setSessionSigs, litNodeClientReady  ]
   );
 
   return {

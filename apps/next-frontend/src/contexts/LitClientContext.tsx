@@ -1,36 +1,50 @@
-// // 'use client'
-// LitClientProvider.tsx
-import React, { ReactNode, useEffect } from 'react';
-import {litNodeClient} from '@/utils/litClients'
+import React, { ReactNode, useEffect, useState, createContext, useContext } from 'react';
+import { litNodeClient } from '@/utils/litClients'
+
+interface LitClientContextType {
+  litNodeClientReady: boolean;
+}
+
+const LitClientContext = createContext<LitClientContextType>({ litNodeClientReady: false });
+
+export const useLitClientReady = () => useContext(LitClientContext);
+
 interface LitClientProviderProps {
   children: ReactNode;
 }
 
 export const LitClientProvider = ({ children }: LitClientProviderProps) => {
+  const [litNodeClientReady, setLitNodeClientReady] = useState(false);
 
   useEffect(() => {
     const connectClient = async () => {
       try {
         await litNodeClient.connect();
         console.log("LitNodeClient connected");
+        setLitNodeClientReady(true);
       } catch (error) {
         console.error("Error connecting LitNodeClient:", error);
       }
     };
     connectClient();
-    const disconnectClient = async () => {
-      try{
-        await litNodeClient.disconnect();
-        console.log('lit node client disconnected')
-      } catch(e) {
-        console.error(e);
-      }
-    }
 
-    () => { disconnectClient(); }
+    return () => {
+      const disconnectClient = async () => {
+        try {
+          await litNodeClient.disconnect();
+          console.log('lit node client disconnected');
+          setLitNodeClientReady(false);
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      disconnectClient();
+    };
+  }, []);
 
-  }, [litNodeClient]);
-
-  return <>{children}</>;
+  return (
+    <LitClientContext.Provider value={{ litNodeClientReady }}>
+      {children}
+    </LitClientContext.Provider>
+  );
 };
-

@@ -3,8 +3,9 @@ import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useEffect } from 'react';
 import { supabaseClientAtom } from '@/atoms/atoms';
 import { useRecoilValue } from 'recoil';
+import { litNodeClient } from '@/utils/litClients';
 
-export const useIsOnboarded = () => {
+export const useIsOnboarded = (isLitLoggedIn: boolean | null) => {
   const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded', false);
 
   const supabaseClient = useRecoilValue(supabaseClientAtom);
@@ -12,35 +13,36 @@ export const useIsOnboarded = () => {
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
 
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
-  const [ isLitLoggedIn ] = useLocalStorage("isLitLoggedIn");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [userID, setUserID] = useLocalStorage("userID")
-  useEffect( () => {
-    void (async () => {
-      if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient) {
+  useEffect(() => {
+    if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient) {
+      (async () => {
+        console.log('Conditions met, checking onboarding status');
         try {
-          console.log('run isOnboarded');
           const { data, error } = await supabaseClient
             .from("user_data")
             .select("id, user_address")
             .eq("user_address", currentAccount?.ethAddress)
             .single();
-            console.log('data', data)
+          console.log('Supabase query result', { data, error });
+
           if (error || !data) {
-            console.log('set isOnboarded: false')
+            console.log('set isOnboarded: false');
             setIsOnboarded(false);
-          } else if (!error && data) {
-            console.log('set isOnboarded: true' )
+          } else {
+            console.log('set isOnboarded: true');
             setUserID(data.id);
             setIsOnboarded(true);
           }
         } catch(e) {
-          console.log('api call to user_address failed')
-          throw new Error(`Error`)
+          console.error('API call to user_address failed', e);
         }
-      }
-    })();
-  }, [supabaseClient,  isOnboarded, isLitLoggedIn, currentAccount, sessionSigs])
+      })();
+    } else {
+      console.log('Conditions not met for checking onboarding status', {isLitLoggedIn, currentAccount: Boolean(currentAccount),sessionSigs: Boolean(sessionSigs), supabaseClient: Boolean(supabaseClient)});
+    }
+  }, [supabaseClient, isLitLoggedIn, currentAccount, sessionSigs]);
   return {isOnboarded, setIsOnboarded};
 }
 
