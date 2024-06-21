@@ -25,7 +25,7 @@ export const usePkpWallet = () => {
         try {
           await wallet.init();
           setPkpWallet(wallet);
-          console.log("pkpWallet initialized:", wallet!!);
+          // console.log("pkpWallet initialized:", wallet!!);
         } catch (e) {
           console.error("Error initializing pkpWallet:", e);
         }

@@ -3,20 +3,23 @@ import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useEffect } from 'react';
 import { supabaseClientAtom } from '@/atoms/atoms';
 import { useRecoilValue } from 'recoil';
-import { litNodeClient } from '@/utils/litClients';
+import { useLitClientReady } from '@/contexts/LitClientContext';
 
 export const useIsOnboarded = (isLitLoggedIn: boolean | null) => {
   const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded', false);
-
   const supabaseClient = useRecoilValue(supabaseClientAtom);
-
   const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
-
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [userID, setUserID] = useLocalStorage("userID")
+  const { litNodeClientReady } = useLitClientReady();
+
   useEffect(() => {
-    if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient) {
+    console.log({isLitLoggedIn: isLitLoggedIn!!, currentAccount: currentAccount!!, sessionSigs: sessionSigs!!, supabaseClient:supabaseClient!!, litNodeClientReady: litNodeClientReady!!})
+  }, [isLitLoggedIn, currentAccount, sessionSigs, supabaseClient, litNodeClientReady])
+
+  useEffect(() => {
+    if (isLitLoggedIn && currentAccount && sessionSigs && supabaseClient && litNodeClientReady) {
       (async () => {
         console.log('Conditions met, checking onboarding status');
         try {
@@ -39,10 +42,8 @@ export const useIsOnboarded = (isLitLoggedIn: boolean | null) => {
           console.error('API call to user_address failed', e);
         }
       })();
-    } else {
-      console.log('Conditions not met for checking onboarding status', {isLitLoggedIn, currentAccount: Boolean(currentAccount),sessionSigs: Boolean(sessionSigs), supabaseClient: Boolean(supabaseClient)});
     }
-  }, [supabaseClient, isLitLoggedIn, currentAccount, sessionSigs]);
+  }, [supabaseClient, isLitLoggedIn, currentAccount, sessionSigs, litNodeClientReady ]);
   return {isOnboarded, setIsOnboarded};
 }
 

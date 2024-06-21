@@ -6,10 +6,10 @@ import { SessionSigs } from '@lit-protocol/types';
 import useLocalStorage from '@rehooks/local-storage';
 import { useHasBalance, useIsOnboarded, useOnboardMode } from '../hooks/Onboard/';
 import { AuthOnboardContextObj  } from '@/types/types';
-import { litNodeClient } from '@/utils/litClients';
 import { sessionSigsExpired } from '@/utils/app';
 import { useAuthenticateAndFetchJWT } from './Supabase/useAuthenticateAndFetchJWT';
 import { usePkpWallet } from './Lit/usePkpWallet';
+import { useLitClientReady } from '@/contexts/LitClientContext';
 
 export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
 
@@ -29,6 +29,7 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
   const [teachingLangs, setTeachingLangs] = useState([] as string[]);
   const [learningLangs, setLearningLangs] = useState([] as string[]);
   const [renderLoginButtons, setRenderLoginButtons] = useLocalStorage<boolean>("renderLoginButtons", true);
+  const { litNodeClientReady } = useLitClientReady();
   usePkpWallet();
   const { fetchJWT } = useAuthenticateAndFetchJWT(currentAccount);
 
@@ -39,16 +40,13 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
       fetchJWT();
     }
   }, [isLitLoggedIn, currentAccount, sessionSigs, fetchJWT]);
-  const isLoading = useMemo(() => authLoading || accountsLoading || sessionLoading,
-    [authLoading, accountsLoading, sessionLoading]);
 
-
+  const isLoading = useMemo(() => authLoading || accountsLoading || sessionLoading, [authLoading, accountsLoading, sessionLoading]);
 
   const handleAuthAndRouting = useCallback(async () => {
 
     // Auth logic
     if (!authMethod && !currentAccount && !sessionSigs) {
-      // blank
     } else if (authMethod && currentAccount && !sessionSigs) {
       await initSession(authMethod, currentAccount);
     } else if (authMethod && currentAccount && sessionSigs && sessionSigsExpired(sessionSigs)) {
@@ -89,19 +87,19 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
     if (targetRoute && router.pathname !== targetRoute) {
       router.push(targetRoute).catch(e => console.error(`Error routing to ${targetRoute}:`, e));
     }
-  }, [authMethod, currentAccount, sessionSigs, isLoading, isLitLoggedIn, isOnboarded, onboardMode, router, initSession, fetchAccounts, litNodeClient.ready]);
+  }, [authMethod, currentAccount, sessionSigs, isLoading, isLitLoggedIn, isOnboarded, onboardMode, router, initSession, fetchAccounts, litNodeClientReady]);
 
   useEffect(() => {
-    console.log('AuthOnboardRouting effect', {
-      isLitLoggedIn,
-      isOnboarded,
-      authMethod: !!authMethod,
-      currentAccount: !!currentAccount,
-      sessionSigs: !!sessionSigs,
-      isLoading
-    });
+    // console.log('AuthOnboardRouting effect', {
+    //   isLitLoggedIn,
+    //   isOnboarded,
+    //   authMethod: !!authMethod,
+    //   currentAccount: !!currentAccount,
+    //   sessionSigs: !!sessionSigs,
+    //   isLoading
+    // });
     handleAuthAndRouting();
-  }, [isLitLoggedIn, isOnboarded, authMethod, currentAccount, sessionSigs, isLoading, handleAuthAndRouting]);
+  }, [isLitLoggedIn, isOnboarded, authMethod, currentAccount, sessionSigs, isLoading, handleAuthAndRouting, litNodeClientReady]);
 
   return {
     authMethod,
