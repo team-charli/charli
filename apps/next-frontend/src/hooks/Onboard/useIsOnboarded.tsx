@@ -1,17 +1,18 @@
 import useLocalStorage from '@rehooks/local-storage';
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { useEffect } from 'react';
-import { supabaseClientAtom } from '@/atoms/atoms';
+import { supabaseClientSelector } from '@/selectors/supabaseClientSelector';
 import { useRecoilValue } from 'recoil';
 import { useLitClientReady } from '@/contexts/LitClientContext';
+import { currentAccountAtom } from '@/atoms/litAccountAtoms';
+import { sessionSigsAtom } from '@/atoms/litSessionAtoms';
 
 export const useIsOnboarded = (isLitLoggedIn: boolean | null) => {
   const [isOnboarded, setIsOnboarded] = useLocalStorage<boolean>('isOnboarded', false);
-  const supabaseClient = useRecoilValue(supabaseClientAtom);
-  const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount');
-  const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
+  const supabaseClient = useRecoilValue(supabaseClientSelector);
+  const currentAccount  = useRecoilValue(currentAccountAtom);
+  const sessionSigs  = useRecoilValue(sessionSigsAtom);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [userID, setUserID] = useLocalStorage("userID")
+  const [userID, setUserID] = useLocalStorage("userID");
   const { litNodeClientReady } = useLitClientReady();
 
   useEffect(() => {

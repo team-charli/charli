@@ -7,7 +7,7 @@ export default function useIsLitLoggedIn(
   sessionSigs: SessionSigs | null
 ) {
   const isLitLoggedIn = useMemo(() => {
-    console.log('useIsLitLoggedIn called', { currentAccount: !!currentAccount, sessionSigs: !!sessionSigs });
+    // console.log('useIsLitLoggedIn called', { currentAccount: !!currentAccount, sessionSigs: !!sessionSigs });
     const result = currentAccount && sessionSigs && !sessionSigsExpired(sessionSigs);
     console.log('useIsLitLoggedIn result', result);
     return result;

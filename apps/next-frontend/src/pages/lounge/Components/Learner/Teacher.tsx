@@ -4,7 +4,7 @@ import useLocalStorage from "@rehooks/local-storage";
 import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 import signApproveFundController from "@/Lit/SignPKPEthers/signApproveFundController";
 import { learnerSubmitLearningRequest } from "@/Supabase/DbCalls/learnerSubmitLearningRequest";
-import { supabaseClientAtom } from '@/atoms/atoms';
+import { supabaseClientSelector } from '@/selectors/supabaseClientSelector';
 import { useRecoilValue } from 'recoil';
 
 import { usePreCalculateTimeDate } from "@/hooks/Lounge/usePreCalculateTimeDate";
@@ -39,7 +39,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
     }
   }, [sessionLengthInputValue])
   const { dateTime, setDateTime } = usePreCalculateTimeDate();
-  const supabaseClient = useRecoilValue(supabaseClientAtom);
+  const supabaseClient = useRecoilValue(supabaseClientSelector);
   const [userID] = useLocalStorage("userID")
 
   const handleSubmitLearningRequest = async () => {

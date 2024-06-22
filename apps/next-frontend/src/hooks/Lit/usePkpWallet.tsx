@@ -1,42 +1,27 @@
-// PkpWalletProvider.tsx
-import { useEffect, useState } from 'react';
-import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import useLocalStorage from '@rehooks/local-storage';
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { litNodeClient } from '@/utils/litClients';
-import { useLitClientReady } from '@/contexts/LitClientContext';
+// hooks/usePkpWallet.ts
+import { useRecoilCallback, useRecoilValue } from 'recoil';
+import { pkpWalletSelector } from '@/selectors/pkpWalletSelector';
+import { pkpWalletAtom } from '@/atoms/atoms';  // We'll create this
 
-export const usePkpWallet = () => {
-  const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount')
-  const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs')
-  const [ pkpWallet, setPkpWallet ] = useState<PKPEthersWallet | null>(null);
-  const { litNodeClientReady } = useLitClientReady();
+export function usePkpWallet() {
+  const pkpWallet = useRecoilValue(pkpWalletAtom);
 
-  useEffect(() => {
-    const initializePkpWallet = async () => {
-      if (sessionSigs && currentAccount && litNodeClient?.ready) {
-        console.log("Initializing pkpWallet...");
-        const wallet = new PKPEthersWallet({
-          controllerSessionSigs: sessionSigs,
-          pkpPubKey: currentAccount.publicKey,
-          litNodeClient,
-        });
-
-        try {
-          await wallet.init();
-          setPkpWallet(wallet);
-          // console.log("pkpWallet initialized:", wallet!!);
-        } catch (e) {
-          console.error("Error initializing pkpWallet:", e);
-        }
+  const initializePkpWallet = useRecoilCallback(({ snapshot, set }) => async () => {
+    try {
+      const wallet = await snapshot.getPromise(pkpWalletSelector);
+      if (wallet) {
+        set(pkpWalletAtom, wallet);
+        console.log("PKP Wallet initialized successfully");
       } else {
-        // console.log("Conditions not met for pkpWallet initialization");
+        console.log("Failed to initialize PKP Wallet");
       }
-    };
+    } catch (error) {
+      console.error("Error initializing PKP Wallet:", error);
+    }
+  }, []);
 
-    initializePkpWallet();
-  }, [litNodeClientReady , sessionSigs, currentAccount]);
-
-  return pkpWallet;
-};
-
+  return {
+    pkpWallet,
+    initializePkpWallet,
+  };
+}

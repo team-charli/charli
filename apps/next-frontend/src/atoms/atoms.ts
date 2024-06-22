@@ -1,12 +1,11 @@
 // atoms.ts
-import { atom, selector } from 'recoil';
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { atom } from 'recoil';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import { SupabaseClient, createClient } from '@supabase/supabase-js';
-import { isJwtExpired } from '../utils/app';
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLIC_API_KEY!;
 
+export const litNodeClientReadyAtom = atom<boolean>({
+  key: 'litNodeClientReady',
+  default: false
+})
 
 export const pkpWalletAtom = atom<PKPEthersWallet | null>({
   key: 'pkpWallet',
@@ -18,27 +17,12 @@ export const userJWTAtom = atom<string | null>({
   default: null,
 });
 
-export const supabaseClientAtom = selector<SupabaseClient | null>({
-  key: 'supabaseClient',
-  get: ({ get }) => {
-    const userJWT = get(userJWTAtom);
-    if (userJWT && !isJwtExpired(userJWT)) {
-      return createClient(supabaseUrl!, supabaseAnonKey!, {
-        global: { headers: { Authorization: `Bearer ${userJWT}` } },
-      });
-    }
-    return null;
-  },
-});
 
-export const currentAccountAtom = atom<IRelayPKP | null>({
-  key: 'currentAccount',
-  default: null,
-});
+export const renderLoginButtonsAtom = atom<boolean>({
+  key: 'renderLoginButtons',
+  default: false
+})
 
-export const sessionSigsAtom = atom<SessionSigs | null>({
-  key: 'sessionSigs',
-  default: null,
-});
+
 
 

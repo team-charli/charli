@@ -1,7 +1,7 @@
 import { selector, DefaultValue } from 'recoil';
 import { sessionSigsAtom, sessionSigsLoadingAtom, sessionSigsErrorAtom } from '@/atoms/litSessionAtoms';
 import { authMethodAtom } from '@/atoms/litAuthenticateAtoms';
-import {  SessionSigs} from '@lit-protocol/types';
+import { SessionSigs} from '@lit-protocol/types';
 import { getProviderByAuthMethod } from '@/utils/lit';
 import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers';
 import { sessionSigsExpired } from '@/utils/app';

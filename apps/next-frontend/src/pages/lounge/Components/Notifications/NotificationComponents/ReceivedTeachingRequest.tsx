@@ -2,7 +2,7 @@ import ky from 'ky'
 import {ethers, SignatureLike } from 'ethers'
 import { useState } from "react";
 import useLocalStorage from '@rehooks/local-storage';
-import { supabaseClientAtom } from '@/atoms/atoms';
+import { supabaseClientSelector } from '@/selectors/supabaseClientSelector'
 import { useRecoilValue } from 'recoil';
 
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
@@ -21,7 +21,7 @@ type ReceivedTeachingRequestProps = {
 const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps) => {
   const [requestedSessionDurationTeacherSig, setRequestedSessionDurationTeacherSig] = useState<SignatureLike>();
   const [hashedTeacherAddress, setHashedTeacherAddress] = useState<string>();
-  const supabaseClient = useRecoilValue(supabaseClientAtom);
+  const supabaseClient = useRecoilValue(supabaseClientSelector);
   const [uiCondition, setUiCondition] = useState<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>('initial');
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs');

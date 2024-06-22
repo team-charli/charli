@@ -7,15 +7,14 @@ import NameInputField from './Form/NameInputField';
 import { submitOnboardLearnAPI } from '@/api/submitOnboardLearnAPI';
 import { submitOnboardTeachAPI } from '@/api/submitOnboardTeachAPI';
 import { useAuthOnboardRouting } from '@/hooks/useAuthOnboardandRouting';
-import { supabaseClientAtom } from '@/atoms/atoms';
 import { useRecoilValue } from 'recoil';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-
+import {supabaseClientSelector} from '@/selectors/supabaseClientSelector';
 const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
   const [name, setName] = useState('');
 
-  const supabaseClient = useRecoilValue(supabaseClientAtom);
+  const supabaseClient = useRecoilValue(supabaseClientSelector);
   const [ currentAccount ] = useLocalStorage<IRelayPKP | null>('currentAccount')
   const [ sessionSigs ] = useLocalStorage<SessionSigs | null>('sessionSigs')
   const { isLitLoggedIn, nativeLang, hasBalance, isOnboarded, setIsOnboarded } = useAuthOnboardRouting();

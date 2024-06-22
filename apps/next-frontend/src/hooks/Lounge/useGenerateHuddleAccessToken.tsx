@@ -1,10 +1,10 @@
 import useLocalStorage from "@rehooks/local-storage";
-import { supabaseClientAtom } from '@/atoms/atoms';
+import { supabaseClientSelector } from '@/selectors/supabaseClientSelector';
 import { useRecoilValue } from 'recoil';
 
 export const useGenerateHuddleAccessToken = () => {
   const [huddleAccessToken, setHuddleAccessToken] = useLocalStorage('huddle-access-token');
-  const supabaseClient = useRecoilValue(supabaseClientAtom);
+  const supabaseClient = useRecoilValue(supabaseClientSelector);
 
   const generateAccessToken = async (roomId: string | undefined, event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();

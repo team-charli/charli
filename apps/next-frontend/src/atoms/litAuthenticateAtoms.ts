@@ -1,6 +1,11 @@
 import { atom } from 'recoil';
 import { AuthMethod } from '@lit-protocol/types';
 
+export const signInInitiatedAtom = atom<boolean>({
+  key: 'signInInitiatedAtom',
+  default: false,
+});
+
 export const authMethodAtom = atom<AuthMethod | null>({
   key: 'authMethod',
   default: null,

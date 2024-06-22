@@ -8,12 +8,14 @@ import SessionProvider from "@/contexts/SessionsContext";
 import AuthOnboardProvider from '@/contexts/AuthOnboardContext';
 import { RecoilRoot } from 'recoil';
 import { LitClientProvider } from '@/contexts/LitClientContext';
+import { LitClientSynchronizer } from '@/components/Lit/LitClientSynchronizer';
 
 function CharliApp({ Component, pageProps }: AppProps) {
   return (
     <StrictMode>
-      <LitClientProvider>
-        <RecoilRoot>
+      <RecoilRoot>
+        <LitClientProvider>
+          <LitClientSynchronizer />
           <AuthOnboardProvider>
             <NotificationProvider>
               <HuddleProvider client={huddleClient}>
@@ -23,8 +25,9 @@ function CharliApp({ Component, pageProps }: AppProps) {
               </HuddleProvider>
             </NotificationProvider>
           </AuthOnboardProvider>
-        </RecoilRoot>
-      </LitClientProvider>
+        </LitClientProvider>
+      </RecoilRoot>
+
     </StrictMode>
   );
 }

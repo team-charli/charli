@@ -1,17 +1,18 @@
 // useAuthenticateAndFetchJWT.ts
 import { useEffect, useCallback } from 'react';
-import { useRecoilValue, useSetRecoilState } from 'recoil';
+import { useRecoilCallback, useRecoilValue, useSetRecoilState } from 'recoil';
 import { pkpWalletAtom, userJWTAtom } from '@/atoms/atoms';
 import { NonceData } from '@/types/types';
 import ky from 'ky';
 import { IRelayPKP } from '@lit-protocol/types';
 import { litNodeClient } from '@/utils/litClients';
+import { supabaseJWTSelector } from '@/selectors/supabaseJWTSelector';
 
 export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null) {
   const pkpWallet = useRecoilValue(pkpWalletAtom);
   const setUserJWT = useSetRecoilState(userJWTAtom);
 
-  const fetchJWT = useCallback(async () => {
+  const initializeFetchJWT = useRecoilCallback(({snapshot, set}) => async () => {
     console.log("fetchJWT called", {
       pkpWallet: !!pkpWallet,
       currentAccount: !!currentAccount,
@@ -25,6 +26,7 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null) {
 
     try {
       console.log("Fetching JWT...");
+      const jwt = await snapshot.getPromise(supabaseJWTSelector)
       const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
       const nonce = nonceResponse.nonce;
       const signature = await pkpWallet.signMessage(nonce);
@@ -43,13 +45,6 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null) {
     }
   }, [pkpWallet, currentAccount, setUserJWT]);
 
-  useEffect(() => {
-    console.log("useAuthenticateAndFetchJWT effect", {
-      pkpWallet: !!pkpWallet,
-      currentAccount: !!currentAccount,
-      litNodeClientReady: litNodeClient.ready
-    });
-  }, [pkpWallet, currentAccount]);
 
-  return { fetchJWT };
+  return { fetchJWT: initializeFetchJWT };
 }

@@ -4,7 +4,7 @@ import React, { useEffect, useState, useContext, createContext } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import { checkIfNotificationExpired } from '../utils/app';
 import { ExtendedSession, NotificationContextType, Session } from '../types/types';
-import { supabaseClientAtom } from '@/atoms/atoms';
+import { supabaseClientSelector } from '@/selectors/supabaseClientSelector'
 import { useRecoilValue } from 'recoil';
 
 const NotificationContext = createContext<NotificationContextType>({ notificationsContextValue: [], showIndicator: false, setShowIndicator: ()=>{} });
@@ -13,7 +13,7 @@ export const useNotificationContext = () => useContext(NotificationContext);
 
 const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const [showIndicator, setShowIndicator] = useState<boolean>(false);
-  const supabaseClient = useRecoilValue(supabaseClientAtom);
+  const supabaseClient = useRecoilValue(supabaseClientSelector);
   const [userId] = useLocalStorage<number>("userID");
   const [notifications, setNotifications] = useState<ExtendedSession[]>([]);
 

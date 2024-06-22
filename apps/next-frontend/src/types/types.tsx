@@ -4,8 +4,6 @@ import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 
 export interface AuthMethodsProps {
-  handleGoogleLogin: () => Promise<void>;
-  handleDiscordLogin: () => Promise<void>;
 }
 
 export interface LoginProps {
@@ -53,31 +51,7 @@ export interface PkpWalletProviderProps {
 }
 
 export interface AuthOnboardContextObj {
-  authMethod: AuthMethod | null;
-  authLoading: boolean;
-  accountsLoading: boolean;
-  sessionLoading: boolean;
-  authError: Error | undefined;
-  accountsError: Error | undefined;
-  sessionError: Error | undefined;
-  isLitLoggedIn: boolean | null;
-  onboardMode: "Learn" | "Teach" | null;
-  setOnboardMode: Dispatch<SetStateAction<"Learn" |"Teach"| null>>;
-  isOnboarded: boolean | null;
-  setIsOnboarded:LocalStorageSetter<boolean>;
   hasBalance: boolean | null;
-  nativeLang: string;
-  setNativeLang: Dispatch<SetStateAction<string>>;
-  name: string;
-  setName: Dispatch<SetStateAction<string>>;
-  teachingLangs: string[];
-  setTeachingLangs: Dispatch<SetStateAction<string[]>>;
-
-  learningLangs: string[];
-  setLearningLangs: Dispatch<SetStateAction<string[]>>;
-
-  setRenderLoginButtons: (newValue: LocalStorageSetStateValue<boolean> | null) => void;
-  renderLoginButtons: boolean;
 
 }
 
