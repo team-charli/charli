@@ -35,21 +35,28 @@ export function useLitAuthChain() {
   const sessionSigsLoading = useRecoilValue(sessionSigsLoadingAtom);
   const sessionSigsError = useRecoilValue(sessionSigsErrorAtom);
 
-  const initiateAuthChain = useRecoilCallback(({ snapshot, set }) => async () => {
+ const initiateAuthChain = useRecoilCallback(({ snapshot, set }) => async () => {
     try {
       const signInInitiated = await snapshot.getPromise(signInInitiatedAtom);
       if (!signInInitiated) return;
 
       // Step 1: Authenticate
       const authMethod = await snapshot.getPromise(authenticateSelector);
-      if (!authMethod) return;
+      if (!authMethod) throw new Error("Authentication failed");
+      set(authMethodAtom, authMethod);
 
       // Step 2: Fetch Account
-      await snapshot.getPromise(fetchAccountsSelector);
+      const account = await snapshot.getPromise(fetchAccountsSelector);
+      set(currentAccountAtom, account);
+
       // Step 3: Get Session Signatures
-      await snapshot.getPromise(litSessionSelector);
+      const sessionSigs = await snapshot.getPromise(litSessionSelector);
+      set(sessionSigsAtom, sessionSigs);
+
+      console.log("Auth chain completed successfully");
     } catch (error) {
       console.error("Auth chain error:", error);
+      // Here you could set error states for each step if needed
     }
   }, []);
 

@@ -1,37 +1,25 @@
-import { pkpWalletAtom } from "@/atoms/atoms";
-import { currentAccountAtom } from "@/atoms/litAccountAtoms";
-import { NonceData } from "@/types/types";
-import ky from "ky";
-import { selector } from "recoil";
+// selectors/supabaseJWTSelector.ts
+import { selector } from 'recoil';
+import ky from 'ky';
+import { currentAccountAtom } from '@/atoms/litAccountAtoms';
+import { signatureSelector } from './signatureSelector';
+import { nonceSelector } from './nonceSelector';
 
-export const supabaseJWTSelector = selector<string | null>({
+export const supabaseJWTSelector = selector<string>({
   key: 'supabaseJWTSelector',
-  get: async ({get}) => {
-
-    const pkpWallet = get(pkpWalletAtom);
+  get: async ({ get }) => {
     const currentAccount = get(currentAccountAtom);
-    try {
-      if (!pkpWallet || !currentAccount) {
-        return null;  // Return null if conditions are not met
-      }
-      const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
-      const nonce = nonceResponse.nonce;
-      const signature = await pkpWallet.signMessage(nonce);
-      const jwtResponse = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
-        json: { ethereumAddress: currentAccount.ethAddress, signature, nonce },
-      }).json<{ token: string }>();
-      console.log("JWT Response:", jwtResponse);
-      if (jwtResponse.token) {
-        console.log("JWT set successfully:", jwtResponse.token);
-        return jwtResponse.token;
-      } else {
-        console.error("Failed to set JWT");
-        return null;  // Return null if token is not present
-      }
-    } catch (e) {
-      console.error("Error fetching JWT", e);
-      return null;
-    }
+    const signature = get(signatureSelector);
+    const nonce = get(nonceSelector);
 
-  }
-})
+    if (!currentAccount) throw new Error('Current account not available');
+
+    const jwtResponse = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
+      json: { ethereumAddress: currentAccount.ethAddress, signature, nonce },
+    }).json<{ token: string }>();
+
+    if (!jwtResponse.token) throw new Error('Failed to fetch JWT');
+
+    return jwtResponse.token;
+  },
+});

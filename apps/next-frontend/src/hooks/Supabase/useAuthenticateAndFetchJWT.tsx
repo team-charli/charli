@@ -7,25 +7,17 @@ import ky from 'ky';
 import { IRelayPKP } from '@lit-protocol/types';
 import { litNodeClient } from '@/utils/litClients';
 import { supabaseJWTSelector } from '@/selectors/supabaseJWTSelector';
+import { currentAccountAtom } from '@/atoms/litAccountAtoms';
 
-export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null) {
+export function useAuthenticateAndFetchJWT() {
   const pkpWallet = useRecoilValue(pkpWalletAtom);
   const setUserJWT = useSetRecoilState(userJWTAtom);
-
+  const currentAccount = useRecoilValue(currentAccountAtom);
   const initializeFetchJWT = useRecoilCallback(({snapshot, set}) => async () => {
-    console.log("fetchJWT called", {
-      pkpWallet: !!pkpWallet,
-      currentAccount: !!currentAccount,
-      litNodeClientReady: litNodeClient.ready
-    });
 
-    if (!pkpWallet || !currentAccount || !litNodeClient.ready) {
-      console.log("Conditions not met for fetching JWT");
-      return;
-    }
-
+  if (!pkpWallet || !currentAccount) return null;
     try {
-      console.log("Fetching JWT...");
+
       const jwt = await snapshot.getPromise(supabaseJWTSelector)
       const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
       const nonce = nonceResponse.nonce;
@@ -46,5 +38,5 @@ export function useAuthenticateAndFetchJWT(currentAccount: IRelayPKP | null) {
   }, [pkpWallet, currentAccount, setUserJWT]);
 
 
-  return { fetchJWT: initializeFetchJWT };
+  return { initializeFetchJWT };
 }

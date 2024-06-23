@@ -1,22 +1,24 @@
 'use client';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useHasBalance, useIsOnboarded } from '../hooks/Onboard/';
+import { useCallback, useEffect, useMemo } from 'react';
 import { AuthOnboardContextObj  } from '@/types/types';
 import { sessionSigsExpired } from '@/utils/app';
-import { usePkpWallet } from './Lit/usePkpWallet';
-import { useLitClientReady } from '@/contexts/LitClientContext';
-import { useLitAuthChain } from './Lit/useLitAuthChain';
-import { useRecoilState, useRecoilValue, useRecoilValueLoadable } from 'recoil';
+import { usePkpWallet } from '@/hooks/RecoilInitializers/usePkpWallet';
+import { useLitAuthChain } from '@/hooks/RecoilInitializers/useLitAuthChain';
+import {  useRecoilValue } from 'recoil';
 import { isLitLoggedInSelector, supabaseJWTSelector, supabaseClientSelector } from '@/selectors/index';
 import { isOnboardedAtom, onboardModeAtom } from '@/atoms/userDataAtoms';
+import { useAuthenticateAndFetchJWT } from './Supabase/useAuthenticateAndFetchJWT';
+import { useSupabaseClient } from './RecoilInitializers/useSupabaseClient';
+import { useLitClientReady } from '@/contexts/LitClientContext';
+import { useHasBalance } from './RecoilInitializers/useHasBalance';
+import { useIsOnboarded } from './RecoilInitializers/useIsOnboarded';
 
 export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
 
   const router = useRouter();
 
   const { litNodeClientReady } = useLitClientReady();
-  const isLitLoggedIn = useRecoilValue(isLitLoggedInSelector);
 
   const {
     authMethod,
@@ -30,26 +32,30 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
     sessionSigsError,
     initiateAuthChain,
   } = useLitAuthChain();
-
   const { initializePkpWallet } = usePkpWallet();
-  useRecoilValueLoadable(supabaseJWTSelector);
-  useRecoilValue(supabaseClientSelector);
+  const {initializeFetchJWT} = useAuthenticateAndFetchJWT()
+  const {initializeSupabaseClient} = useSupabaseClient();
+  const { initializeIsOnboarded, isOnboarded } = useIsOnboarded();
+  const { initializeHasBalance, hasBalance } = useHasBalance();
   useEffect(() => {
     const initializeAll = async () => {
       try {
         await initiateAuthChain();
         await initializePkpWallet();
+        await initializeFetchJWT();
+        await initializeSupabaseClient();
+        await initializeIsOnboarded();
+        await initializeHasBalance();
       } catch (error) {
         console.error("Initialization error:", error);
       }
     };
 
     initializeAll();
-  }, [initiateAuthChain, initializePkpWallet]);
+  }, [initiateAuthChain, initializePkpWallet, initializeFetchJWT]);
 
-  const isOnboarded  = useRecoilValue(isOnboardedAtom);
   const onboardMode  = useRecoilValue(onboardModeAtom);
-  const { hasBalance } = useHasBalance(isOnboarded);
+  const isLitLoggedIn = useRecoilValue(isLitLoggedInSelector);
 
 
   const isLoading = useMemo(() => authLoading || accountsLoading || sessionSigsLoading, [authLoading, accountsLoading, sessionSigsLoading]);
