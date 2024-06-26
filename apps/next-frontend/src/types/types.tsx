@@ -2,6 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { AuthMethod, AuthSig, IRelayPKP, SessionSigs  } from '@lit-protocol/types';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
+import { Atom } from 'jotai';
 
 export interface AuthMethodsProps {
 }
@@ -52,9 +53,11 @@ export interface PkpWalletProviderProps {
 
 export interface AuthOnboardContextObj {
   hasBalance: boolean | null;
-
 }
 
+export interface HydrateAtomsIface {
+  children: ReactNode;
+}
 
 interface Notification {
  unread: boolean;
@@ -475,3 +478,28 @@ export interface UseSessionManagerOptions {
   sessionSigs: SessionSigs | null;
 }
 
+export type QueryState<T> = {
+  data: T | null;
+  error: Error | undefined;
+  isLoading: boolean;
+};
+
+export type QueryAtoms<T> = {
+  state: Atom<QueryState<T>>;
+  value: Atom<T | null>;
+};
+
+export type SetQueryState<T> = (
+  atoms: QueryAtoms<T>,
+  update: SetStateAction<QueryState<T>>
+) => void;
+
+export type QueryCallbacks<T> = {
+  onSuccess: (data: T, helpers: { set: SetQueryState<T> }) => void;
+  onError: (error: Error, helpers: { set: SetQueryState<T> }) => void;
+  onSettled: (data: T | undefined, error: Error | null, helpers: { set: SetQueryState<T> }) => void;
+};
+
+export type SessionSigsCallbacks = QueryCallbacks<SessionSigs>;
+export type LitAccountCallbacks = QueryCallbacks<IRelayPKP>;
+export type AuthMethodCallbacks = QueryCallbacks<AuthMethod>;

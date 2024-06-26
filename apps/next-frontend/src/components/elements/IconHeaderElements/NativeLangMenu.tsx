@@ -3,18 +3,14 @@ import { Listbox } from '@headlessui/react'
 import globe_icon from '../../../assets/globe.png'
 import { Fragment } from 'react';
 import { atom, useRecoilState } from 'recoil';
-import { nativeLangAtom } from '@/atoms/userDataAtoms';
+import { nativeLangAtom, selectedLangAtom } from '@/atoms/atoms';
 
 interface NativeLangMenuPropTypes {
   languages: string[] ;
 }
 const NativeLangMenu = ({ languages }: NativeLangMenuPropTypes) => {
-
-const [nativeLang, setNativeLang] = useRecoilState(nativeLangAtom);
-  const [selectedLang, setSelectedLang] = useRecoilState(atom<string>({
-    key: 'selectedLang',
-    default: nativeLang || languages[0] || ''
-  }));
+  const [nativeLang, setNativeLang] = useRecoilState(nativeLangAtom);
+  const [selectedLang, setSelectedLang] = useRecoilState(selectedLangAtom);
 
   const handleLanguageChange = (newLang: string) => {
     setSelectedLang(newLang);

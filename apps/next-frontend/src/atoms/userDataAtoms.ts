@@ -68,7 +68,5 @@ export const onboardStatusAtom = atom<{ isOnboarded: boolean; userId: string | n
 });
 
 
-export const nativeLangAtom = atom<string>({
-  key: 'nativeLang',
-  default: ''
-})
+
+// export const onboardTeachingLangs

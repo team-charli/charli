@@ -1,36 +1,43 @@
+import { Provider } from 'jotai/react'
+import { useHydrateAtoms } from 'jotai/react/utils'
+import {QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/globals.css';
 import { AppProps } from 'next/app';
 import { HuddleProvider } from "@huddle01/react"
 import { huddleClient } from '@/Huddle/huddleClient';
 import NotificationProvider from '@/contexts/NotificationContext';
-import { StrictMode } from 'react';
+import { ReactNode, StrictMode } from 'react';
 import SessionProvider from "@/contexts/SessionsContext";
 import AuthOnboardProvider from '@/contexts/AuthOnboardContext';
-import { RecoilRoot } from 'recoil';
-import { LitClientProvider } from '@/contexts/LitClientContext';
-import { LitClientSynchronizer } from '@/components/Lit/LitClientSynchronizer';
+import  {queryClientAtom } from 'jotai-tanstack-query'
+import { HydrateAtomsIface } from '@/types/types';
+// import { LitClientProvider, useLitClientReady } from '@/contexts/LitClientContext';
+// import { LitClientSynchronizer } from '@/components/Lit/LitClientSynchronizer';
 
 function CharliApp({ Component, pageProps }: AppProps) {
+  const queryClient = new QueryClient();
+  const HydrateAtoms = ({ children }: { children: ReactNode }) =>{
+    useHydrateAtoms([[queryClientAtom, () => queryClient]]);
+    return children;
+  };
   return (
     <StrictMode>
-      <RecoilRoot>
-        <LitClientProvider>
-          <LitClientSynchronizer />
-          <AuthOnboardProvider>
-            <NotificationProvider>
-              <HuddleProvider client={huddleClient}>
-                <SessionProvider>
-                  <Component {...pageProps} />
-                </SessionProvider>
-              </HuddleProvider>
-            </NotificationProvider>
-          </AuthOnboardProvider>
-        </LitClientProvider>
-      </RecoilRoot>
-
+      <QueryClientProvider client={queryClient}>
+        <Provider>
+          <HydrateAtoms>
+            <AuthOnboardProvider>
+              <NotificationProvider>
+                <HuddleProvider client={huddleClient}>
+                  <SessionProvider>
+                    <Component {...pageProps} />
+                  </SessionProvider>
+                </HuddleProvider>
+              </NotificationProvider>
+            </AuthOnboardProvider>
+          </HydrateAtoms>
+        </Provider>
+      </QueryClientProvider>
     </StrictMode>
   );
 }
-
 export default CharliApp;
-

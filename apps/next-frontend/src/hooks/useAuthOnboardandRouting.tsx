@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthOnboardContextObj  } from '@/types/types';
 import { sessionSigsExpired } from '@/utils/app';
 import { usePkpWallet } from '@/hooks/RecoilInitializers/usePkpWallet';
@@ -15,7 +15,12 @@ import { useHasBalance } from './RecoilInitializers/useHasBalance';
 import { useIsOnboarded } from './RecoilInitializers/useIsOnboarded';
 
 export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
+  const [isMounted, setIsMounted] = useState(false);
 
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
   const router = useRouter();
 
   const { litNodeClientReady } = useLitClientReady();
@@ -39,6 +44,9 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
   const { initializeHasBalance, hasBalance } = useHasBalance();
   useEffect(() => {
     const initializeAll = async () => {
+      if (!isMounted) return;
+
+
       try {
         await initiateAuthChain();
         await initializePkpWallet();
@@ -51,8 +59,11 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
       }
     };
 
-    initializeAll();
-  }, [initiateAuthChain, initializePkpWallet, initializeFetchJWT]);
+    if (isMounted) {
+      initializeAll();
+    }
+
+  }, [isMounted, initiateAuthChain, initializePkpWallet, initializeFetchJWT]);
 
   const onboardMode  = useRecoilValue(onboardModeAtom);
   const isLitLoggedIn = useRecoilValue(isLitLoggedInSelector);
