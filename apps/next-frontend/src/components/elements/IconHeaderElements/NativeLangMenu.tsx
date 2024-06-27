@@ -2,15 +2,15 @@ import { CheckIcon } from '@heroicons/react/20/solid'
 import { Listbox } from '@headlessui/react'
 import globe_icon from '../../../assets/globe.png'
 import { Fragment } from 'react';
-import { atom, useRecoilState } from 'recoil';
 import { nativeLangAtom, selectedLangAtom } from '@/atoms/atoms';
+import { useAtom } from 'jotai';
 
 interface NativeLangMenuPropTypes {
   languages: string[] ;
 }
 const NativeLangMenu = ({ languages }: NativeLangMenuPropTypes) => {
-  const [nativeLang, setNativeLang] = useRecoilState(nativeLangAtom);
-  const [selectedLang, setSelectedLang] = useRecoilState(selectedLangAtom);
+  const [nativeLang, setNativeLang] = useAtom(nativeLangAtom);
+  const [selectedLang, setSelectedLang] = useAtom(selectedLangAtom);
 
   const handleLanguageChange = (newLang: string) => {
     setSelectedLang(newLang);

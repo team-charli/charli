@@ -4,7 +4,7 @@ import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { LocalStorageSetter } from '../types/types';
 import { litNodeClient } from '@/utils/litClients';
 
-export const submitOnboardLearnAPI = async (selectedLanguageCodes: number[], isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, name: string, hasBalance: boolean | null,  supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null, nativeLang: string)=> {
+export const submitOnboardLearnAPI = async (selectedLanguageCodes: number[], isOnboarded: boolean | undefined, setIsOnboarded:LocalStorageSetter<boolean>, name: string, hasBalance: boolean | null | undefined,  supabaseClient: SupabaseClient | null | undefined, supabaseLoading: boolean, currentAccount: IRelayPKP | null | undefined, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null, nativeLang: string)=> {
   try {
     if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  selectedLanguageCodes.length && name.length && supabaseClient && !supabaseLoading) {
       if (hasBalance === false) {

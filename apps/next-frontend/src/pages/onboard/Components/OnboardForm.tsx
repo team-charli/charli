@@ -7,17 +7,25 @@ import NameInputField from './Form/NameInputField';
 import { submitOnboardLearnAPI } from '@/api/submitOnboardLearnAPI';
 import { submitOnboardTeachAPI } from '@/api/submitOnboardTeachAPI';
 import { useAuthOnboardRouting } from '@/hooks/useAuthOnboardandRouting';
-import { useRecoilValue } from 'recoil';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import {supabaseClientSelector} from '@/selectors/supabaseClientSelector';
+import { useAtom } from 'jotai';
+import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
+import { isLitLoggedInAtom } from '@/atoms/LitAuth/isLitLoggedInAtom';
+import { nativeLangAtom } from '@/atoms/atoms';
+import { fetchLitAccountsAtom } from '@/atoms/LitAuth/litAccountsAtomQuery';
+import { hasBalanceAtom } from '@/atoms/HasBalance/hasBalanceAtomQuery';
+import { isOnboardedAtom } from '@/atoms/IsOnboarded/isOnboardedAtomQuery';
 const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
   const [name, setName] = useState('');
 
-  const supabaseClient = useRecoilValue(supabaseClientSelector);
-  const [ currentAccount ] = useLocalStorage<IRelayPKP | null>('currentAccount')
+  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
   const [ sessionSigs ] = useLocalStorage<SessionSigs | null>('sessionSigs')
-  const { isLitLoggedIn, nativeLang, hasBalance, isOnboarded, setIsOnboarded } = useAuthOnboardRouting();
+  const isLitLoggedIn = useAtom(isLitLoggedInAtom)
+  const [nativeLang] = useAtom(nativeLangAtom)
+  const [{ data: currentAccount, isLoading: accountsLoading, error: accountsError }] = useAtom(fetchLitAccountsAtom);
+  const [{data:hasBalance}] = useAtom(hasBalanceAtom);
+  const [{data: isOnboarded}] = useAtom(isOnboardedAtom)
   const { languageButtons, setLanguageButtons } = useLanguageData();
 
   const handleToggleLanguage = (languageButton: LanguageButton) => {

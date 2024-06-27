@@ -4,70 +4,42 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthOnboardContextObj  } from '@/types/types';
 import { sessionSigsExpired } from '@/utils/app';
 import { usePkpWallet } from '@/hooks/RecoilInitializers/usePkpWallet';
-import { useLitAuthChain } from '@/hooks/RecoilInitializers/useLitAuthChain';
-import {  useRecoilValue } from 'recoil';
-import { isLitLoggedInSelector, supabaseJWTSelector, supabaseClientSelector } from '@/selectors/index';
-import { isOnboardedAtom, onboardModeAtom } from '@/atoms/userDataAtoms';
+import { isLitLoggedInSelector } from '@/selectors/index';
+import { onboardModeAtom } from '@/atoms/userDataAtoms';
 import { useAuthenticateAndFetchJWT } from './Supabase/useAuthenticateAndFetchJWT';
 import { useSupabaseClient } from './RecoilInitializers/useSupabaseClient';
 import { useLitClientReady } from '@/contexts/LitClientContext';
 import { useHasBalance } from './RecoilInitializers/useHasBalance';
 import { useIsOnboarded } from './RecoilInitializers/useIsOnboarded';
+import { useAtom } from 'jotai';
+import { authenticateAtom } from '@/atoms/LitAuth/litAuthMethodAtomQuery';
+import { fetchLitAccountsAtom } from '@/atoms/LitAuth/litAccountsAtomQuery';
+import { litSessionAtom } from '@/atoms/LitAuth/sessionSigsAtomQuery';
+import { pkpWalletAtom } from '@/atoms/PkpWallet/pkpWalletAtomQuery';
+import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
+import { nonceAtom } from '@/atoms/SupabaseClient/nonceAtomQuery';
+import { signatureAtom } from '@/atoms/SupabaseClient/signatureAtomQuery';
+import isOnline from 'is-online';
+import { isOnboardedAtom } from '@/atoms/IsOnboarded/isOnboardedAtomQuery';
+import { hasBalanceAtom } from '@/atoms/HasBalance/hasBalanceAtomQuery';
+import { isLitLoggedInAtom } from '@/atoms/LitAuth/isLitLoggedInAtom';
 
 export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    return () => setIsMounted(false);
-  }, []);
   const router = useRouter();
 
+  const [{ data: authMethod, isLoading: authLoading, error: authError }] = useAtom(authenticateAtom);
+  const [{ data: currentAccount, isLoading: accountsLoading, error: accountsError }] = useAtom(fetchLitAccountsAtom);
+  const [{ data: sessionSigs, isLoading: sessionSigsLoading, error: sessionSigsError }] = useAtom(litSessionAtom);
+  const [{data: pkpWallet, isLoading: pkpWalletLoading, error: pkpWalletError }] = useAtom(pkpWalletAtom);
+  useAtom(pkpWalletAtom)
+  useAtom(nonceAtom);
+  useAtom(signatureAtom);
+  useAtom(supabaseClientAtom);
+  const [isOnboarded] = useAtom(isOnboardedAtom);
+  const [hasBalance] = useAtom(hasBalanceAtom);
+  const [isLitLoggedIn] = useAtom(isLitLoggedInAtom)
   const { litNodeClientReady } = useLitClientReady();
-
-  const {
-    authMethod,
-    authLoading,
-    authError,
-    currentAccount,
-    accountsLoading,
-    accountsError,
-    sessionSigs,
-    sessionSigsLoading,
-    sessionSigsError,
-    initiateAuthChain,
-  } = useLitAuthChain();
-  const { initializePkpWallet } = usePkpWallet();
-  const {initializeFetchJWT} = useAuthenticateAndFetchJWT()
-  const {initializeSupabaseClient} = useSupabaseClient();
-  const { initializeIsOnboarded, isOnboarded } = useIsOnboarded();
-  const { initializeHasBalance, hasBalance } = useHasBalance();
-  useEffect(() => {
-    const initializeAll = async () => {
-      if (!isMounted) return;
-
-
-      try {
-        await initiateAuthChain();
-        await initializePkpWallet();
-        await initializeFetchJWT();
-        await initializeSupabaseClient();
-        await initializeIsOnboarded();
-        await initializeHasBalance();
-      } catch (error) {
-        console.error("Initialization error:", error);
-      }
-    };
-
-    if (isMounted) {
-      initializeAll();
-    }
-
-  }, [isMounted, initiateAuthChain, initializePkpWallet, initializeFetchJWT]);
-
-  const onboardMode  = useRecoilValue(onboardModeAtom);
-  const isLitLoggedIn = useRecoilValue(isLitLoggedInSelector);
-
+  const [onboardMode]= useAtom(onboardModeAtom);
 
   const isLoading = useMemo(() => authLoading || accountsLoading || sessionSigsLoading, [authLoading, accountsLoading, sessionSigsLoading]);
   const handleAuthAndRouting = useCallback(async () => {
@@ -114,8 +86,6 @@ export const useAuthOnboardRouting = (): AuthOnboardContextObj   => {
   }, [isLitLoggedIn, isOnboarded, authMethod, currentAccount, sessionSigs, isLoading, handleAuthAndRouting, litNodeClientReady]);
 
   return {
-    hasBalance,
-
   };
 };
 

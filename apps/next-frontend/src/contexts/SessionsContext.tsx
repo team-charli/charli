@@ -2,9 +2,9 @@
 
 // SessionContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabaseClientSelector } from '@/selectors/supabaseClientSelector';
-import { useRecoilValue } from 'recoil';
 import { Session } from '../types/types';
+import { useAtom } from 'jotai';
+import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
 
 type SessionContextType = {
   sessionData: Session | null;
@@ -16,7 +16,7 @@ export const useSessionContext = () => useContext(SessionContext);
 
 const SessionProvider = ({ children }: { children: React.ReactNode}) => {
   const [sessionData, setSessionData] = useState<Session | null>(null);
-  const supabaseClient = useRecoilValue(supabaseClientSelector);
+  const [{ data: supabaseClient }] = useAtom(supabaseClientAtom);
 
   useEffect(() => {
     if (supabaseClient) {

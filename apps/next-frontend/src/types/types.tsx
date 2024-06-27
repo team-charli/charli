@@ -52,7 +52,6 @@ export interface PkpWalletProviderProps {
 }
 
 export interface AuthOnboardContextObj {
-  hasBalance: boolean | null;
 }
 
 export interface HydrateAtomsIface {
@@ -503,3 +502,4 @@ export type QueryCallbacks<T> = {
 export type SessionSigsCallbacks = QueryCallbacks<SessionSigs>;
 export type LitAccountCallbacks = QueryCallbacks<IRelayPKP>;
 export type AuthMethodCallbacks = QueryCallbacks<AuthMethod>;
+export type PkpWalletCallbacks = QueryCallbacks<PKPEthersWallet>;

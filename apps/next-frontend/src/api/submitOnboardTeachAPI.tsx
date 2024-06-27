@@ -4,7 +4,7 @@ import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { CurrencyEuroIcon } from '@heroicons/react/20/solid';
 import { LocalStorageSetter } from '@/types/types';
 
-export const submitOnboardTeachAPI = async (selectedLanguageCodes: number[], isOnboarded: boolean | null, setIsOnboarded:LocalStorageSetter<boolean>, name: string, supabaseClient: SupabaseClient | null, supabaseLoading: boolean, currentAccount: IRelayPKP | null, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null, defaultNativeLanguage: string) => {
+export const submitOnboardTeachAPI = async (selectedLanguageCodes: number[], isOnboarded: boolean | undefined, setIsOnboarded:LocalStorageSetter<boolean>, name: string, supabaseClient: SupabaseClient | null | undefined,  supabaseLoading: boolean, currentAccount: IRelayPKP | null | undefined, sessionSigs: SessionSigs | null, isLitLoggedIn: boolean | null, defaultNativeLanguage: string) => {
 
   if (isLitLoggedIn && isOnboarded === false && currentAccount && sessionSigs &&  selectedLanguageCodes.length && name.length && supabaseClient && !supabaseLoading ) {
     try {
