@@ -1,13 +1,13 @@
 'use client'
 // components/LitClientSynchronizer.tsx
 import { useEffect } from 'react';
-import { useSetRecoilState } from 'recoil';
 import { useLitClientReady } from '@/contexts/LitClientContext';
 import { litNodeClientReadyAtom } from '@/atoms/atoms';
+import { useAtom } from 'jotai';
 
 export const LitClientSynchronizer = () => {
   const { litNodeClientReady } = useLitClientReady();
-  const setLitNodeClientReady = useSetRecoilState(litNodeClientReadyAtom);
+  const [_,setLitNodeClientReady] = useAtom(litNodeClientReadyAtom)
 
   useEffect(() => {
     setLitNodeClientReady(litNodeClientReady);

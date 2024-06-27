@@ -3,11 +3,11 @@ import { onboardModeAtom } from "@/atoms/userDataAtoms";
 import ButtonLink from "@/components/elements/ButtonLink";
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
-import { useRecoilState } from "recoil";
+import { useAtom } from "jotai";
 
 const Entry = () => {
 
-  const [_, setOnboardMode] = useRecoilState(onboardModeAtom);
+  const [_, setOnboardMode ] = useAtom(onboardModeAtom);
 
   return (
     <>

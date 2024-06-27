@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import { supabaseClientSelector } from '@/selectors/supabaseClientSelector';
-import { useRecoilValue } from 'recoil';
 import { FaultData, Message, SessionData, SessionIPFSData } from '@/types/types';
+import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
+import { useAtom } from 'jotai';
 
 const useSessionCases = (messages: Message[]) => {
   const [sessionIPFSData, setSessionIPFSData] = useState<SessionIPFSData | null>(null);
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
-  const supabaseClient = useRecoilValue(supabaseClientSelector);
+  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
 
   useEffect(() => {
     const handleMessage = async (message: Message) => {

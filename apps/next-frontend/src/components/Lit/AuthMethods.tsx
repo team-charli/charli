@@ -1,14 +1,14 @@
 import google from '../../assets/google.png'
 import android_logo from '../../assets/android_logo.png'
 import discord from '../../assets/discord.png'
-import { useSetRecoilState } from 'recoil';
-import { signInInitiatedAtom } from '@/atoms/litAuthenticateAtoms';
 import { signInWithGoogle, signInWithDiscord } from '@/utils/lit';
 import { renderLoginButtonsAtom } from '@/atoms/atoms';
+import { signInInitiatedAtom } from '@/atoms/LitAuth/litAuthMethodAtomQuery';
+import { useAtom } from 'jotai';
 
 const AuthMethods = () => {
-  const setSignInInitiated = useSetRecoilState(signInInitiatedAtom);
-  const setRenderLoginButtons = useSetRecoilState(renderLoginButtonsAtom);
+  const [_, setSignInInitiated] = useAtom(signInInitiatedAtom);
+  const [__,setRenderLoginButtons] = useAtom(renderLoginButtonsAtom);
 
   const handleGoogleLogin = async () => {
     setSignInInitiated(true);

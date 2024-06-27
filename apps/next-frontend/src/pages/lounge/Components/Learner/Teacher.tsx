@@ -4,14 +4,14 @@ import useLocalStorage from "@rehooks/local-storage";
 import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 import signApproveFundController from "@/Lit/SignPKPEthers/signApproveFundController";
 import { learnerSubmitLearningRequest } from "@/Supabase/DbCalls/learnerSubmitLearningRequest";
-import { supabaseClientSelector } from '@/selectors/supabaseClientSelector';
-import { useRecoilValue } from 'recoil';
 
 import { usePreCalculateTimeDate } from "@/hooks/Lounge/usePreCalculateTimeDate";
 import { useComputeControllerAddress } from "@/hooks/LitActions/useComputeControllerAddress";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
 import signSessionDuration from "@/Lit/SignPKPEthers/signSessionDuration";
+import { supabaseClientAtom } from "@/atoms/SupabaseClient/supabaseClientAtom";
+import { useAtom } from "jotai";
 
 interface TeacherProps {
   teacherName: string;
@@ -39,7 +39,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
     }
   }, [sessionLengthInputValue])
   const { dateTime, setDateTime } = usePreCalculateTimeDate();
-  const supabaseClient = useRecoilValue(supabaseClientSelector);
+  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
   const [userID] = useLocalStorage("userID")
 
   const handleSubmitLearningRequest = async () => {

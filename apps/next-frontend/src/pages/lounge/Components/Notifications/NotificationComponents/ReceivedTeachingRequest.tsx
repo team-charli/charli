@@ -2,8 +2,6 @@ import ky from 'ky'
 import {ethers, SignatureLike } from 'ethers'
 import { useState } from "react";
 import useLocalStorage from '@rehooks/local-storage';
-import { supabaseClientSelector } from '@/selectors/supabaseClientSelector'
-import { useRecoilValue } from 'recoil';
 
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { NotificationIface } from '@/types/types';
@@ -14,6 +12,8 @@ import { calculateSessionCost } from '@/utils/app';
 import { teacherChangeDateTime, teacherConfirmRequestDb, teacherRejectRequest } from '@/Supabase/DbCalls/teacherConfirmRejectReschedule';
 import DateTimeLocalInput from '@/components/elements/DateTimeLocalInput';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
+import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
+import { useAtom } from 'jotai';
 
 type ReceivedTeachingRequestProps = {
   notification: NotificationIface;
@@ -21,8 +21,9 @@ type ReceivedTeachingRequestProps = {
 const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps) => {
   const [requestedSessionDurationTeacherSig, setRequestedSessionDurationTeacherSig] = useState<SignatureLike>();
   const [hashedTeacherAddress, setHashedTeacherAddress] = useState<string>();
-  const supabaseClient = useRecoilValue(supabaseClientSelector);
   const [uiCondition, setUiCondition] = useState<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>('initial');
+  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
+
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs');
   const { dateTime, setDateTime, localTimeAndDate: { displayLocalDate, displayLocalTime } } = useLocalizeAndFormatDateTime(notification.request_time_date);

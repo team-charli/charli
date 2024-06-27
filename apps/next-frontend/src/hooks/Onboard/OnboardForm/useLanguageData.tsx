@@ -1,11 +1,11 @@
 // useLanguageData.ts
 import { useState, useEffect } from 'react';
 import { LanguageButton } from '@/types/types';
-import { supabaseClientSelector } from '@/selectors/supabaseClientSelector';
-import { useRecoilValue } from 'recoil';
+import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
+import { useAtom } from 'jotai';
 
 export const useLanguageData = () => {
-  const supabaseClient = useRecoilValue(supabaseClientSelector);
+  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
   const [languageButtons, setLanguageButtons] = useState<LanguageButton[]>([]);
 
   useEffect(() => {

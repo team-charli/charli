@@ -1,16 +1,16 @@
 import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 import useLocalStorage from "@rehooks/local-storage";
-import { supabaseClientSelector } from '@/selectors/supabaseClientSelector
-import { useRecoilValue } from 'recoil';
 import { PKPEthersWallet } from "@lit-protocol/pkp-ethers";
 import { IPFSResponse, SessionDurationData } from "../../types/types";
+import { supabaseClientAtom } from "@/atoms/SupabaseClient/supabaseClientAtom";
+import { useAtom } from "jotai";
 const pinata_api_key = process.env.NEXT_PUBLIC_PINATA_API_KEY;
 const pinata_secret_api_key = process.env.NEXT_PUBLIC_PINATA_API_SECRET;
 
 export const useSessionDurationIPFS = () => {
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs');
-  const supabaseClient = useRecoilValue(supabaseClientSelector);
+  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
 
   const pinJSONToIPFS = async (data: any): Promise<string> => {
     const url = 'https://api.pinata.cloud/pinning/pinJSONToIPFS';
