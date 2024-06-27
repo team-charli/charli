@@ -1,10 +1,10 @@
 // atoms.ts
 import { atom } from 'jotai';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
+import { createQueryAtom } from '@/utils/queryAtomUtils';
 
 export const litNodeClientReadyAtom = atom<boolean>(false);
 
-export const pkpWalletAtom = atom<PKPEthersWallet | null>(null);
 
 export const userJWTAtom = atom<string | null>(null);
 
