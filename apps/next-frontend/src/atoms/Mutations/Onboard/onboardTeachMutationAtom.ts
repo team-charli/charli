@@ -1,7 +1,7 @@
 import { atomWithMutation } from 'jotai-tanstack-query';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '@/supabaseTypes';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { Database } from '../../../supabaseTypes';
 
 type OnboardTeachVariables = {
   selectedLanguageCodes: number[];
@@ -21,7 +21,6 @@ export const onboardTeachMutationAtom = atomWithMutation<Database["public"]["Tab
     defaultNativeLanguage,
     supabaseClient,
   }: OnboardTeachVariables) => {
-    if (!currentAccount) throw new Error('missing currentAccount')
     const insertData: Database["public"]["Tables"]["user_data"]["Insert"] = {
       name: name,
       wants_to_teach_langs: selectedLanguageCodes,

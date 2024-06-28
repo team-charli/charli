@@ -1,10 +1,6 @@
 import { atomWithQuery } from 'jotai-tanstack-query';
 import { ethers } from 'ethers';
-import { litNodeClientReadyAtom } from '@/atoms/atoms';
-import { isOnboardedAtom } from '../userDataAtoms';
-import { pkpWalletAtom } from '../PkpWallet/pkpWalletAtomQuery';
-import { fetchLitAccountsAtom } from '../LitAuth/litAccountsAtomQuery';
-
+import { fetchLitAccountsAtom, litNodeClientReadyAtom, isOnboardedAtom, pkpWalletAtom} from '@/atoms/index'
 export const hasBalanceAtom = atomWithQuery((get) => ({
   queryKey: ['hasBalance', get(isOnboardedAtom), get(pkpWalletAtom), get(fetchLitAccountsAtom), get(litNodeClientReadyAtom)],
   queryFn: async (): Promise<boolean | null> => {

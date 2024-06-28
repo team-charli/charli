@@ -1,8 +1,8 @@
 import { atomWithQuery } from 'jotai-tanstack-query';
 import ky from 'ky';
 import { signatureAtom } from './signatureAtomQuery';
-import { fetchLitAccountsAtom } from '../LitAuth/litAccountsAtomQuery';
 import { nonceAtom } from './nonceAtomQuery';
+import { fetchLitAccountsAtom } from '../Lit/litAccountsAtomQuery';
 
 export const supabaseJWTAtom = atomWithQuery((get) => ({
   queryKey: ['supabaseJWT', get(signatureAtom), get(fetchLitAccountsAtom), get(nonceAtom)],

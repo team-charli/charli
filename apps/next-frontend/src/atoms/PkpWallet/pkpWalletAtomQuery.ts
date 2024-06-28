@@ -1,9 +1,9 @@
 import { atomWithQuery } from 'jotai-tanstack-query';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { litNodeClient } from '@/utils/litClients';
-import { litNodeClientReadyAtom } from '@/atoms/atoms';
-import { litSessionAtom } from '../LitAuth/sessionSigsAtomQuery';
-import { fetchLitAccountsAtom } from '../LitAuth/litAccountsAtomQuery';
+import { litSessionAtom } from '../Lit/sessionSigsAtomQuery';
+import { fetchLitAccountsAtom } from '../Lit/litAccountsAtomQuery';
+import { litNodeClientReadyAtom } from '../Lit/litNodeClientReadyAtomQuery';
 
 export const pkpWalletAtom = atomWithQuery((get) => ({
   queryKey: ['pkpWallet', get(litSessionAtom), get(fetchLitAccountsAtom), get(litNodeClientReadyAtom)],

@@ -1,9 +1,7 @@
 // atoms/isOnboardedAtom.ts
 import { atomWithQuery } from 'jotai-tanstack-query';
-import { supabaseClientAtom } from '../SupabaseClient/supabaseClientAtom';
-import { litNodeClientReadyAtom } from '../atoms';
-import { litSessionAtom } from '@/atoms/LitAuth/sessionSigsAtomQuery';
-import { fetchLitAccountsAtom } from '../LitAuth/litAccountsAtomQuery';
+import { } from '../SupabaseClient/supabaseClientAtom';
+import { litNodeClientReadyAtom, supabaseClientAtom, litSessionAtom, fetchLitAccountsAtom } from '@/atoms/index';
 
 export const isOnboardedAtom = atomWithQuery((get) => ({
   queryKey: ['isOnboarded', get(supabaseClientAtom), get(litSessionAtom), get(fetchLitAccountsAtom), get(litNodeClientReadyAtom)],
