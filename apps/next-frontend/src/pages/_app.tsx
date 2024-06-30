@@ -10,7 +10,6 @@ import { ReactNode, StrictMode } from 'react';
 import SessionProvider from "@/contexts/SessionsContext";
 import AuthOnboardProvider from '@/contexts/AuthOnboardContext';
 import  {queryClientAtom } from 'jotai-tanstack-query'
-import { HydrateAtomsIface } from '@/types/types';
 // import { LitClientProvider, useLitClientReady } from '@/contexts/LitClientContext';
 // import { LitClientSynchronizer } from '@/components/Lit/LitClientSynchronizer';
 

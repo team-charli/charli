@@ -10,4 +10,4 @@ export { signatureAtom } from '@/atoms/SupabaseClient/signatureAtomQuery';
 export { isOnboardedAtom } from '@/atoms/IsOnboarded/isOnboardedAtomQuery';
 export { hasBalanceAtom } from '@/atoms/HasBalance/hasBalanceAtomQuery';
 export { onboardModeAtom } from '@/atoms/userDataAtoms';
-export { renderLoginButtonsAtom, signInInitiatedAtom   } from '@/atoms/atoms'
+export { renderLoginButtonsAtom } from '@/atoms/atoms'

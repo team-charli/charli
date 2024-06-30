@@ -2,21 +2,18 @@ import google from '../../assets/google.png'
 import android_logo from '../../assets/android_logo.png'
 import discord from '../../assets/discord.png'
 import { signInWithGoogle, signInWithDiscord } from '@/utils/lit';
-import { signInInitiatedAtom, renderLoginButtonsAtom } from '@/atoms/index';
+import { renderLoginButtonsAtom } from '@/atoms/index';
 import { useAtom } from 'jotai';
 
 const AuthMethods = () => {
-  const [_, setSignInInitiated] = useAtom(signInInitiatedAtom);
   const [__,setRenderLoginButtons] = useAtom(renderLoginButtonsAtom);
 
   const handleGoogleLogin = async () => {
-    setSignInInitiated(true);
     await signInWithGoogle(process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!);
     setRenderLoginButtons(false);
   };
 
   const handleDiscordLogin = async () => {
-    setSignInInitiated(true);
     await signInWithDiscord(process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!);
     setRenderLoginButtons(false);
   };
