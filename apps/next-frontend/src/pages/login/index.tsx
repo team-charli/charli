@@ -1,18 +1,18 @@
 'use client'
-import { authenticateAtom, fetchLitAccountsAtom, litSessionAtom} from "@/atoms";
+import { accountsErrorAtom, accountsLoadingAtom, authErrorAtom, authLoadingAtom, sessionSigsLoadingAtom } from "@/atoms/atoms";
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
 import AuthMethods from "@/components/Lit/AuthMethods";
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 
 
 const Login = () => {
-
-
-  const [{ isLoading: authLoading, error: authError }] = useAtom(authenticateAtom);
-  const [{ isLoading: accountsLoading, error: accountsError }] = useAtom(fetchLitAccountsAtom);
-  const [{ isLoading: sessionSigsLoading, error: sessionError }] = useAtom(litSessionAtom);
-
+const authLoading = useAtomValue(authLoadingAtom);
+const accountsLoading = useAtomValue(accountsLoadingAtom);
+const sessionSigsLoading = useAtomValue(sessionSigsLoadingAtom);
+const authError = useAtomValue(authErrorAtom);
+const accountsError = useAtomValue(accountsErrorAtom);
+const sessionError = useAtomValue(sessionSigsLoadingAtom);
   return (
     <>
       <IconHeader />
@@ -23,7 +23,7 @@ const Login = () => {
         {sessionSigsLoading && <p className={`flex justify-center marginTop`}>Initializing session...</p>}
         {authError && <p className="error">{authError.message}</p>}
         {accountsError && <p className="error">{accountsError.message}</p>}
-        {sessionError && <p className="error">{sessionError.message}</p>}
+        {sessionError && <p className="error">{sessionError}</p>}
         <div className={`_LoginMethods_ flex justify-center mt-64`}>
           <AuthMethods />
         </div>

@@ -5,7 +5,7 @@ import useLocalStorage from '@rehooks/local-storage';
 import { checkIfNotificationExpired } from '../utils/app';
 import { ExtendedSession, NotificationContextType, Session } from '../types/types';
 import { useAtom } from 'jotai';
-import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
+import { supabaseClientAtom } from '@/atoms/atoms';
 
 const NotificationContext = createContext<NotificationContextType>({ notificationsContextValue: [], showIndicator: false, setShowIndicator: ()=>{} });
 
@@ -13,7 +13,7 @@ export const useNotificationContext = () => useContext(NotificationContext);
 
 const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const [showIndicator, setShowIndicator] = useState<boolean>(false);
-  const [{ data: supabaseClient }] = useAtom(supabaseClientAtom);
+  const [supabaseClient] = useAtom(supabaseClientAtom);
   const [userId] = useLocalStorage<number>("userID");
   const [notifications, setNotifications] = useState<ExtendedSession[]>([]);
 

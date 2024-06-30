@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session } from '../types/types';
 import { useAtom } from 'jotai';
-import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
+import { supabaseClientAtom } from '@/atoms/atoms';
 
 type SessionContextType = {
   sessionData: Session | null;
@@ -16,7 +16,7 @@ export const useSessionContext = () => useContext(SessionContext);
 
 const SessionProvider = ({ children }: { children: React.ReactNode}) => {
   const [sessionData, setSessionData] = useState<Session | null>(null);
-  const [{ data: supabaseClient }] = useAtom(supabaseClientAtom);
+  const [supabaseClient] = useAtom(supabaseClientAtom);
 
   useEffect(() => {
     if (supabaseClient) {

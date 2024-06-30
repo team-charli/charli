@@ -1,6 +1,6 @@
 // useAuthQueries.ts
 import { useQuery } from '@tanstack/react-query';
-import { useSetAtom, useAtomValue } from 'jotai';
+import { useSetAtom } from 'jotai';
 import {
   authMethodAtom, litAccountAtom, sessionSigsAtom, litNodeClientReadyAtom,
   authLoadingAtom, accountsLoadingAtom, sessionSigsLoadingAtom, litNodeClientReadyLoadingAtom,
@@ -31,9 +31,6 @@ export const useAuthQueries = () => {
   const setLitNodeClientReadyError = useSetAtom(litNodeClientReadyErrorAtom);
 
   const setIsOAuthRedirect = useSetAtom(isOAuthRedirectAtom);
-
-  const authMethod = useAtomValue(authMethodAtom);
-  const litAccount = useAtomValue(litAccountAtom);
 
   useQuery({
     queryKey: ['authenticate'],
@@ -66,10 +63,11 @@ export const useAuthQueries = () => {
   });
 
   useQuery({
-    queryKey: ['fetchLitAccounts', authMethod],
+    queryKey: ['fetchLitAccounts'],
     queryFn: async () => {
       setAccountsLoading(true);
       try {
+        const authMethod = setAuthMethod.__wrapped; // Access the current value
         if (!authMethod) return null;
         const myPKPs = await getPKPs(authMethod);
         const result = myPKPs.length ? myPKPs[0] : await mintPKP(authMethod);
@@ -82,14 +80,16 @@ export const useAuthQueries = () => {
         setAccountsLoading(false);
       }
     },
-    enabled: !!authMethod,
+    enabled: !!setAuthMethod.__wrapped,
   });
 
   useQuery({
-    queryKey: ['litSession', authMethod, litAccount],
+    queryKey: ['litSession'],
     queryFn: async () => {
       setSessionSigsLoading(true);
       try {
+        const authMethod = setAuthMethod.__wrapped;
+        const litAccount = setLitAccount.__wrapped;
         if (!authMethod || !litAccount) return null;
         if (!litNodeClient.ready) {
           await litNodeClient.connect();
@@ -120,7 +120,7 @@ export const useAuthQueries = () => {
         setSessionSigsLoading(false);
       }
     },
-    enabled: !!authMethod && !!litAccount,
+    enabled: !!setAuthMethod.__wrapped && !!setLitAccount.__wrapped,
   });
 
   useQuery({

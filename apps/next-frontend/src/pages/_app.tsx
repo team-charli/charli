@@ -8,15 +8,15 @@ import { huddleClient } from '@/Huddle/huddleClient';
 import NotificationProvider from '@/contexts/NotificationContext';
 import { ReactNode, StrictMode } from 'react';
 import SessionProvider from "@/contexts/SessionsContext";
-import AuthOnboardProvider from '@/contexts/AuthOnboardContext';
 import  {queryClientAtom } from 'jotai-tanstack-query'
-// import { LitClientProvider, useLitClientReady } from '@/contexts/LitClientContext';
-// import { LitClientSynchronizer } from '@/components/Lit/LitClientSynchronizer';
+import {useAuthOnboardAndRouting} from '@/hooks/useAuthOnboardandRouting'
 
 function CharliApp({ Component, pageProps }: AppProps) {
   const queryClient = new QueryClient();
   const HydrateAtoms = ({ children }: { children: ReactNode }) =>{
     useHydrateAtoms([[queryClientAtom, () => queryClient]]);
+    useAuthOnboardAndRouting();
+
     return children;
   };
   return (
@@ -24,15 +24,13 @@ function CharliApp({ Component, pageProps }: AppProps) {
       <QueryClientProvider client={queryClient}>
         <Provider>
           <HydrateAtoms>
-            <AuthOnboardProvider>
-              <NotificationProvider>
-                <HuddleProvider client={huddleClient}>
-                  <SessionProvider>
-                    <Component {...pageProps} />
-                  </SessionProvider>
-                </HuddleProvider>
-              </NotificationProvider>
-            </AuthOnboardProvider>
+            <NotificationProvider>
+              <HuddleProvider client={huddleClient}>
+                <SessionProvider>
+                  <Component {...pageProps} />
+                </SessionProvider>
+              </HuddleProvider>
+            </NotificationProvider>
           </HydrateAtoms>
         </Provider>
       </QueryClientProvider>
