@@ -4,21 +4,14 @@ import { useCallback, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { isOnboardedAtom, isLitLoggedInAtom, onboardModeAtom, isLoadingAtom, isOAuthRedirectAtom } from '@/atoms/atoms';
 import { isSignInRedirect } from '@lit-protocol/lit-auth-client';
-import { useAuthQueries, usePkpWallet, useNonce, useSignature, useSupabaseJWT, useSupabaseClient, useIsOnboarded, useHasBalance } from '@/hooks/Auth/index';
+import { useInitQueries } from './Auth/useInitQueries';
 
 const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useAuthOnboardAndRouting = () => {
 
   const router = useRouter();
-  useAuthQueries();
-  usePkpWallet();
-  useNonce();
-  useSignature();
-  useSupabaseJWT();
-  useSupabaseClient();
-  useIsOnboarded();
-  useHasBalance();
+  useInitQueries();
 
   const [isOnboarded] = useAtom(isOnboardedAtom);
   const [isLitLoggedIn] = useAtom(isLitLoggedInAtom);

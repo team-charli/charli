@@ -36,6 +36,7 @@ export const useLitSessionSigsQuery = (authMethod: AuthMethod | null | undefined
           resourceAbilityRequests: resourceAbilityRequests
         });
         if (result) {
+          console.log('hasSessionSigs')
           setSessionSigs(result);
           return result;
         }
