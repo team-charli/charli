@@ -3,7 +3,7 @@ import { accountsErrorAtom, accountsLoadingAtom, authErrorAtom, authLoadingAtom,
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
 import AuthMethods from "@/components/Lit/AuthMethods";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtomValue } from "jotai";
 
 
 const Login = () => {

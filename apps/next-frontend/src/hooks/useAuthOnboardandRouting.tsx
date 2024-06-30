@@ -9,6 +9,7 @@ import { useAuthQueries, usePkpWallet, useNonce, useSignature, useSupabaseJWT, u
 const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useAuthOnboardAndRouting = () => {
+
   const router = useRouter();
   useAuthQueries();
   usePkpWallet();

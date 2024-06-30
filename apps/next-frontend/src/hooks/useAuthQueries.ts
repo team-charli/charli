@@ -15,6 +15,7 @@ import { getPKPs, getProviderByAuthMethod, mintPKP } from '@/utils/lit';
 const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useAuthQueries = () => {
+  console.log('useAuthQueries')
   const setAuthMethod = useSetAtom(authMethodAtom);
   const setLitAccount = useSetAtom(litAccountAtom);
   const setSessionSigs = useSetAtom(sessionSigsAtom);
@@ -38,12 +39,16 @@ export const useAuthQueries = () => {
   useQuery({
     queryKey: ['authenticate'],
     queryFn: async () => {
+      console.log("Auth query function started");
       setAuthLoading(true);
       try {
-        if (typeof window === 'undefined') return null;
         const isRedirect = isSignInRedirect(redirectUri);
+        console.log("Is redirect?", isRedirect, "Redirect URI:", redirectUri);
         setIsOAuthRedirect(isRedirect);
-        if (!isRedirect) return null;
+        if (!isRedirect) {
+          console.log("Not a redirect, returning null");
+          return null;
+        }
 
         const providerName = getProviderFromUrl();
         if (providerName !== 'google' && providerName !== 'discord') return null;
@@ -56,10 +61,14 @@ export const useAuthQueries = () => {
         setAuthMethod(result);
         return result;
       } catch (error) {
+        console.error("Error in auth query:", error);
+
         setAuthError(error instanceof Error ? error : new Error('Unknown error during authentication'));
         throw error;
       } finally {
         setAuthLoading(false);
+        console.log("Auth query function completed");
+
       }
     },
     enabled: typeof window !== 'undefined',
