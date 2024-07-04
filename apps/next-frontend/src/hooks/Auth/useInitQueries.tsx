@@ -5,6 +5,8 @@ import { isLoadingAtom } from '@/atoms/atoms';
 import { useEffect } from 'react';
 
 export const useInitQueries = () => {
+  const jwtExpirationCheck = useJwtExpirationCheck();
+
   const litNodeClientQuery = useLitNodeClientReadyQuery();
   const authMethodQuery = useLitAuthMethodQuery();
   const litAccountQuery = useLitAccountQuery(authMethodQuery.data);
