@@ -1,23 +1,28 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAtomValue } from 'jotai';
-import { supabaseJWTAtom } from '@/atoms/atoms';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { isJwtExpiredAtom, supabaseJWTAtom } from '@/atoms/atoms';
 import { isJwtExpired } from '@/utils/app';
 
 export const useJwtExpirationCheck = () => {
   const queryClient = useQueryClient();
   const supabaseJWT = useAtomValue(supabaseJWTAtom);
+  const setJwtExpiration = useSetAtom(isJwtExpiredAtom);
 
   return useQuery({
     queryKey: ['jwtExpirationCheck'],
     queryFn: () => {
-      if (!supabaseJWT || isJwtExpired(supabaseJWT)) {
-        // Invalidate queries that depend on the JWT
-        queryClient.invalidateQueries({queryKey:['supabaseClient']});
-        // Add any other queries that depend on the JWT
+      if (!supabaseJWT) {
+        return false;
+      } else if (isJwtExpired(supabaseJWT)) {
+        console.log('jwtExpirationCheck: setJwtExpiration(true)');
 
-        throw new Error('JWT expired or not available');
+        setJwtExpiration(true);
+
+        queryClient.invalidateQueries({queryKey:['nonce', 'signature', 'supabaseJWT', 'supabaseClient']});
+
+        return true;
       }
-      return true;
+      return false;
     },
     retry: false,
     refetchInterval: 60000, // Check every minute, adjust as needed

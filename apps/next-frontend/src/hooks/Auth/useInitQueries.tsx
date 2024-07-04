@@ -3,10 +3,12 @@ import { useLitNodeClientReadyQuery } from './LitAuth/useLitNodeClientReadyQuery
 import { useSetAtom } from 'jotai';
 import { isLoadingAtom } from '@/atoms/atoms';
 import { useEffect } from 'react';
+import { useJwtExpirationCheck } from './SupabaseClient/useJWTExpirationCheck';
+import { useLitSessionSigsExpirationCheck } from './LitAuth/useLitSessionSigsExpirationCheck';
 
 export const useInitQueries = () => {
-  const jwtExpirationCheck = useJwtExpirationCheck();
-
+  const jwtExpired = useJwtExpirationCheck();
+  const sessionSigsExpired =  useLitSessionSigsExpirationCheck();
   const litNodeClientQuery = useLitNodeClientReadyQuery();
   const authMethodQuery = useLitAuthMethodQuery();
   const litAccountQuery = useLitAccountQuery(authMethodQuery.data);

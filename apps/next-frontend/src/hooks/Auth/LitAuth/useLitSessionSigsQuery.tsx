@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { litNodeClientReadyAtom, sessionSigsAtom, sessionSigsErrorAtom } from '@/atoms/atoms';
 import { AuthMethod, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { litNodeClient } from '@/utils/litClients';
@@ -7,16 +7,23 @@ import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/aut
 import { getProviderByAuthMethod } from '@/utils/lit';
 
 export const useLitSessionSigsQuery = (authMethod: AuthMethod | null | undefined, litAccount: IRelayPKP | null | undefined) => {
-  const setSessionSigs = useSetAtom(sessionSigsAtom);
+  const queryClient = useQueryClient();
+  const [sessionSigs, setSessionSigs] = useAtom(sessionSigsAtom);
   const setSessionSigsError = useSetAtom(sessionSigsErrorAtom);
   const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
 
-  return useQuery<SessionSigs | null, Error>({
-    queryKey: ['litSession'],
+  const query = useQuery<SessionSigs | null, Error>({
+    queryKey: ['litSession', authMethod, litAccount],
     queryFn: async (): Promise<SessionSigs | null> => {
       const startTime = Date.now();
       console.log('3a: start sessionSigs query')
       if (!authMethod || !litAccount) return null;
+
+      if (sessionSigs) {
+        console.log('Using persisted sessionSigs');
+        return sessionSigs;
+      }
+
       try {
         if (!litNodeClient.ready) {
           await litNodeClient.connect();
@@ -42,7 +49,6 @@ export const useLitSessionSigsQuery = (authMethod: AuthMethod | null | undefined
           console.log('hasSessionSigs')
           setSessionSigs(result);
           console.log(`3b sessionSigs finish:`, (Date.now() - startTime) / 1000);
-
           return result;
         }
         return null;
@@ -51,6 +57,16 @@ export const useLitSessionSigsQuery = (authMethod: AuthMethod | null | undefined
         throw error;
       }
     },
-    enabled: !!authMethod && !!litAccount && litNodeClientReady ,
+    enabled: !!authMethod && !!litAccount && litNodeClientReady,
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
+
+  if (query.isError) {
+    setSessionSigsError(query.error);
+    setSessionSigs(null);
+    queryClient.setQueryData(['litSession', authMethod, litAccount], null);
+  }
+
+  return query;
 };

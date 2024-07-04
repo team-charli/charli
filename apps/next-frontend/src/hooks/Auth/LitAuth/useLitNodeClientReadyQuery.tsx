@@ -5,9 +5,6 @@ import { litNodeClientReadyAtom, litNodeClientReadyErrorAtom } from '@/atoms/ato
 export const useLitNodeClientReadyQuery = () => {
   const setLitNodeClientReady = useSetAtom(litNodeClientReadyAtom);
   const setLitNodeClientReadyError = useSetAtom(litNodeClientReadyErrorAtom);
-
-
-
   return useQuery<boolean, Error>({
     queryKey: ['litNodeClientReady'],
     queryFn: async (): Promise<boolean> => {

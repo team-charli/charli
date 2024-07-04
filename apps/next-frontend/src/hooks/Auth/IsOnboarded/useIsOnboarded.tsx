@@ -28,7 +28,7 @@ export const useIsOnboarded = () => {
           .single();
         const isOnboarded = !error && !!data;
         setIsOnboarded(isOnboarded);
-        console.log(`9b: isOnboarded query finish:`, (Date.now() - startTime) / 1000);
+        console.log(`9b: isOnboarded query finish:`, (Date.now() - startTime) / 1000, isOnboarded );
 
         return isOnboarded;
       } catch (e) {

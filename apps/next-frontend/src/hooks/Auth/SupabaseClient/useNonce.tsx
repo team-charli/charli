@@ -20,7 +20,7 @@ export const useNonce = () => {
       console.log(`5b: nonce query finish`);
       return nonceResponse.nonce;
     },
-    enabled: !!pkpWallet,
+    enabled: !!pkpWallet && (!existingJWT || isJwtExpired(existingJWT)),
     staleTime: Infinity,
     gcTime: 10 * 60 * 1000,
     retry: 3,

@@ -1,18 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { authMethodAtom, isOAuthRedirectAtom, authErrorAtom, litNodeClientReadyAtom} from '@/atoms/atoms';
 import { isSignInRedirect, getProviderFromUrl } from '@lit-protocol/lit-auth-client';
 
 const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useLitAuthMethodQuery = () => {
-  const queryClient = useQueryClient();
-  const setAuthMethod = useSetAtom(authMethodAtom);
+  const [authMethod, setAuthMethod] = useAtom(authMethodAtom);
   const setIsOAuthRedirect = useSetAtom(isOAuthRedirectAtom);
   const setAuthError = useSetAtom(authErrorAtom);
   const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
 
-  const query = useQuery({
+  return useQuery({
     queryKey: ['authMethod'],
     queryFn: async () => {
       const startTime = Date.now();
@@ -20,18 +19,8 @@ export const useLitAuthMethodQuery = () => {
       const isRedirect = isSignInRedirect(redirectUri);
       setIsOAuthRedirect(isRedirect);
 
-      if (!isRedirect) {
-        const persistedAuthMethod = localStorage.getItem('authMethod');
-        if (persistedAuthMethod) {
-          try {
-            const parsedAuthMethod = JSON.parse(persistedAuthMethod);
-            setAuthMethod(parsedAuthMethod);
-            return parsedAuthMethod;
-          } catch {
-            localStorage.removeItem('authMethod');
-          }
-        }
-        return null;
+      if (!isRedirect && authMethod) {
+        return authMethod;
       }
 
       const providerName = getProviderFromUrl();
@@ -44,7 +33,6 @@ export const useLitAuthMethodQuery = () => {
 
       if (result) {
         setAuthMethod(result);
-        localStorage.setItem('authMethod', JSON.stringify(result));
         console.log(`1b: authMethod finish:`, (Date.now() - startTime) / 1000);
         return result;
       }
@@ -53,19 +41,6 @@ export const useLitAuthMethodQuery = () => {
     staleTime: Infinity,
     gcTime: Infinity,
     enabled: litNodeClientReady && isSignInRedirect(redirectUri),
-    retry: false, // Prevent retrying on error
+    retry: false,
   });
-
-  // Handle success and error states
-  if (query.isSuccess && query.data) {
-    setAuthMethod(query.data);
-  }
-
-  if (query.isError) {
-    setAuthError(query.error instanceof Error ? query.error : new Error('Unknown error during authentication'));
-    localStorage.removeItem('authMethod');
-    queryClient.setQueryData(['authMethod'], null);
-  }
-
-  return query;
 };
