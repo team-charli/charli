@@ -5,7 +5,7 @@ import useLocalStorage from '@rehooks/local-storage';
 import { checkIfNotificationExpired } from '../utils/app';
 import { ExtendedSession, NotificationContextType, Session } from '../types/types';
 import { useAtom } from 'jotai';
-import { supabaseClientAtom } from '@/atoms/atoms';
+import { supabaseClientAtom } from '@/atoms/supabaseClientAtom';
 
 const NotificationContext = createContext<NotificationContextType>({ notificationsContextValue: [], showIndicator: false, setShowIndicator: ()=>{} });
 

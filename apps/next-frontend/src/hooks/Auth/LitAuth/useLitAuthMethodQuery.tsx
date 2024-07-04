@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useSetAtom } from 'jotai';
-import { authMethodAtom, isOAuthRedirectAtom, authErrorAtom } from '@/atoms/atoms';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { authMethodAtom, isOAuthRedirectAtom, authErrorAtom, litNodeClientReadyAtom} from '@/atoms/atoms';
 import { AuthMethod } from '@lit-protocol/types';
 import { isSignInRedirect, getProviderFromUrl } from '@lit-protocol/lit-auth-client';
 
@@ -10,10 +10,14 @@ export const useLitAuthMethodQuery = () => {
   const setAuthMethod = useSetAtom(authMethodAtom);
   const setIsOAuthRedirect = useSetAtom(isOAuthRedirectAtom);
   const setAuthError = useSetAtom(authErrorAtom);
+  const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
 
   return useQuery<AuthMethod | null, Error>({
-    queryKey: ['authenticate'],
-    queryFn: async (): Promise<AuthMethod | null | undefined> => {
+    queryKey: ['authMedthod'],
+    queryFn: async (): Promise<AuthMethod | null > => {
+      const startTime = Date.now();
+      console.log('1a: start authMethod query')
+
       const isRedirect = isSignInRedirect(redirectUri);
       setIsOAuthRedirect(isRedirect);
       if (!isRedirect) return null;
@@ -29,6 +33,8 @@ export const useLitAuthMethodQuery = () => {
 
         if (result) {
           setAuthMethod(result);
+          console.log(`1b: authMedthod finish:`, (Date.now() - startTime) / 1000);
+
           return result;
         }
         return null;
@@ -39,5 +45,6 @@ export const useLitAuthMethodQuery = () => {
     },
     staleTime: Infinity,
     gcTime: Infinity,
+    enabled: litNodeClientReady && isSignInRedirect(redirectUri) && isSignInRedirect(redirectUri),
   });
 };

@@ -18,7 +18,7 @@ export const onboardModeAtom = atom<'Teach' | 'Learn' | null>(null);
 export const pkpWalletAtom = atom<PKPEthersWallet | null>(null);
 export const nonceAtom = atom<string | null>(null);
 export const signatureAtom = atom<string | null>(null);
-export const supabaseClientAtom = atom<SupabaseClient | null>(null);
+// export const supabaseClientAtom = atom<SupabaseClient | null>(null);
 export const supabaseJWTAtom = atom<string | null>(null);
 export const hasBalanceAtom = atom<boolean | null>(null);
 
@@ -32,9 +32,4 @@ export const accountsErrorAtom = atom<Error | null>(null);
 export const sessionSigsErrorAtom = atom<Error | null>(null);
 export const litNodeClientReadyErrorAtom = atom<Error | null>(null);
 
-export const isLoadingAtom = atom((get) =>
-  get(authLoadingAtom) ||
-  get(accountsLoadingAtom) ||
-  get(sessionSigsLoadingAtom) ||
-  get(litNodeClientReadyLoadingAtom)
-);
+export const isLoadingAtom = atom<boolean>(false);

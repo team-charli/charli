@@ -1,57 +1,56 @@
-// useAuthOnboardAndRouting.ts
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect } from 'react';
-import { useAtom } from 'jotai';
-import { isOnboardedAtom, isLitLoggedInAtom, onboardModeAtom, isLoadingAtom, isOAuthRedirectAtom } from '@/atoms/atoms';
-import { isSignInRedirect } from '@lit-protocol/lit-auth-client';
+import { useAtomValue } from 'jotai';
+import { isOnboardedAtom, isLitLoggedInAtom, onboardModeAtom, isOAuthRedirectAtom } from '@/atoms/atoms';
 import { useInitQueries } from './Auth/useInitQueries';
 
-const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
+
+const getTargetRoute = (
+  isLoading: boolean,
+  isOAuthRedirect: boolean,
+  isLitLoggedIn: boolean,
+  isOnboarded: boolean | undefined,
+  onboardMode: 'Teach' | 'Learn' | null,
+  isSuccess: boolean
+) => {
+  if (typeof window === 'undefined' || isLoading || (isOAuthRedirect && !isSuccess)) {
+    return null;
+  }
+  if (isLitLoggedIn && isOnboarded === false) return '/onboard';
+  if (isLitLoggedIn && isOnboarded) return '/lounge';
+  if (!isLitLoggedIn) return '/login';
+  return null; // This should never happen, but we'll handle it just in case
+};
 
 export const useAuthOnboardAndRouting = () => {
-
   const router = useRouter();
-  useInitQueries();
+  const { isLoading, isSuccess, isOnboardedQuery, authMethodQuery } = useInitQueries();
+  const isOnboarded = useAtomValue(isOnboardedAtom);
+  const isLitLoggedIn = useAtomValue(isLitLoggedInAtom);
+  const onboardMode = useAtomValue(onboardModeAtom);
+  const isOAuthRedirect = useAtomValue(isOAuthRedirectAtom);
 
-  const [isOnboarded] = useAtom(isOnboardedAtom);
-  const [isLitLoggedIn] = useAtom(isLitLoggedInAtom);
-  const [onboardMode] = useAtom(onboardModeAtom);
-  const [isLoading, setIsLoading] = useAtom(isLoadingAtom);
-  const [isOAuthRedirect, setIsOAuthRedirect] = useAtom(isOAuthRedirectAtom);
+  const { data: targetRoute, error: targetRouteError } = useQuery({
+    queryKey: ['targetRoute'],
+    queryFn: () => getTargetRoute(isLoading, isOAuthRedirect, isLitLoggedIn, isOnboarded, onboardMode, isSuccess),
+    enabled: !isLoading && isSuccess && isOnboardedQuery.isSuccess && !!authMethodQuery.data,
+  });
 
-  useEffect(() => {
-    setIsOAuthRedirect(isSignInRedirect(redirectUri));
-  }, [setIsOAuthRedirect]);
-
-
-  const getTargetRoute = useCallback(() => {
-    if (typeof window === 'undefined' || isLoading || isOAuthRedirect) {
+  useQuery({
+    queryKey: ['routeNavigation'],
+    queryFn: async () => {
+      if (targetRoute && router.pathname !== targetRoute) {
+        console.log(`Navigating to: ${targetRoute}`);
+        await router.push(targetRoute);
+      }
       return null;
-    }
+    },
+    enabled: !!targetRoute && targetRoute !== router.pathname,
+  });
 
-    if (!isLitLoggedIn && !isOnboarded) {
-      return '/login';
-    }
+  if (targetRouteError) {
+    console.error('Error determining target route:', targetRouteError);
+  }
 
-    if (isLitLoggedIn && isOnboarded) {
-      return '/lounge';
-    }
-
-    if (!isLitLoggedIn && isOnboarded) {
-      return '/login';
-    }
-
-    if (onboardMode === 'Teach' || onboardMode === 'Learn') {
-      return '/login';
-    }
-
-    return '/';
-  }, [isLoading, isOAuthRedirect, isLitLoggedIn, isOnboarded, onboardMode]);
-
-  useEffect(() => {
-    const route = getTargetRoute();
-    if (route && router.pathname !== route) {
-      router.push(route).catch(e => console.error(`Error routing to ${route}:`, e));
-    }
-  }, [getTargetRoute, router]);
+  return null;
 };

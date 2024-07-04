@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session } from '../types/types';
 import { useAtom } from 'jotai';
-import { supabaseClientAtom } from '@/atoms/atoms';
+import { supabaseClientAtom } from '@/atoms/supabaseClientAtom';
 
 type SessionContextType = {
   sessionData: Session | null;

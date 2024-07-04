@@ -12,8 +12,11 @@ export const usePkpWallet = () => {
   const setPkpWallet = useSetAtom(pkpWalletAtom);
 
   return useQuery({
-    queryKey: ['pkpWallet', sessionSigs, currentAccount, litNodeClientReady],
+    queryKey: ['pkpWallet'],
     queryFn: async (): Promise<PKPEthersWallet | null> => {
+      const startTime = Date.now();
+      console.log("4a: start pkpWallet query");
+
       if (sessionSigs && currentAccount && litNodeClient?.ready && litNodeClientReady) {
         console.log("Initializing pkpWallet...");
         const wallet = new PKPEthersWallet({
@@ -24,6 +27,8 @@ export const usePkpWallet = () => {
 
         await wallet.init();
         setPkpWallet(wallet);
+        console.log(`4b: pkp query finish:`, (Date.now() - startTime) / 1000);
+
         return wallet;
       }
       return null;

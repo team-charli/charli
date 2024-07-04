@@ -1,6 +1,6 @@
 import useLocalStorage from '@rehooks/local-storage'
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types'
-import UturnModal from '@/components/elements/UturnModal';
+// import UturnModal from '@/components/elements/UturnModal';
 import IconHeader from '@/components/headers/IconHeader';
 import { useRouter } from 'next/router';
 
@@ -16,7 +16,8 @@ const Bolsa = () => {
   if (isOnboarded && isAuthenticated) {
     modal = null;
   } else if (!isAuthenticated && isOnboarded) {
-    modal = <UturnModal />
+    modal = null
+    // modal = <UturnModal />
   } else if (isAuthenticated && !isOnboarded) {
     modal = null;
     console.log('push to /onboard');

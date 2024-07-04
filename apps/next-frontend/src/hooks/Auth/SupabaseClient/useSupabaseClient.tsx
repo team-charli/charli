@@ -1,29 +1,33 @@
-// useSupabaseClient.ts
+// useSupabaseClient hook
+import { supabaseJWTAtom } from '@/atoms/atoms';
+import { supabaseClientAtom, supabaseClientWriteAtom } from '@/atoms/supabaseClientAtom';
 import { useQuery } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { isJwtExpired } from '@/utils/app';
-import { supabaseJWTAtom, supabaseClientAtom } from '@/atoms/atoms';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLIC_API_KEY!;
 
 export const useSupabaseClient = () => {
   const userJWT = useAtomValue(supabaseJWTAtom);
-  const setSupabaseClient = useSetAtom(supabaseClientAtom);
+  const supabaseClient = useAtomValue(supabaseClientAtom);
+  const setSupabaseClient = useSetAtom(supabaseClientWriteAtom);
 
   return useQuery({
-    queryKey: ['supabaseClient', userJWT],
-    queryFn: async (): Promise<SupabaseClient | null> => {
-      if (userJWT && !isJwtExpired(userJWT)) {
-        const client = createClient(supabaseUrl, supabaseAnonKey, {
-          global: { headers: { Authorization: `Bearer ${userJWT}` } },
-        });
-        setSupabaseClient(client);
-        return client;
+
+    queryKey: ['supabaseClient'],
+    queryFn: () => {
+      console.log("8a: start supabaseClientQuery");
+      if (!userJWT) {
+        console.log("No JWT available, returning null");
+        setSupabaseClient(null);
+        return null;
       }
-      return null;
+
+      setSupabaseClient(userJWT);
+      console.log("8b: finish supabaseClientQuery");
+
+      return supabaseClient;
     },
     enabled: !!userJWT,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
   });
 };

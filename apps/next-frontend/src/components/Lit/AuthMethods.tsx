@@ -2,8 +2,8 @@ import google from '../../assets/google.png'
 import android_logo from '../../assets/android_logo.png'
 import discord from '../../assets/discord.png'
 import { signInWithGoogle, signInWithDiscord } from '@/utils/lit';
-import { renderLoginButtonsAtom } from '@/atoms/index';
 import { useAtom } from 'jotai';
+import { renderLoginButtonsAtom } from '@/atoms/atoms';
 
 const AuthMethods = () => {
   const [__,setRenderLoginButtons] = useAtom(renderLoginButtonsAtom);
