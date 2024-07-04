@@ -10,8 +10,8 @@ import { useComputeControllerAddress } from "@/hooks/LitActions/useComputeContro
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
 import signSessionDuration from "@/Lit/SignPKPEthers/signSessionDuration";
-import { supabaseClientAtom } from "@/atoms/SupabaseClient/supabaseClientAtom";
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
+import { supabaseClientAtom } from "@/atoms/supabaseClientAtom";
 
 interface TeacherProps {
   teacherName: string;
@@ -39,7 +39,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
     }
   }, [sessionLengthInputValue])
   const { dateTime, setDateTime } = usePreCalculateTimeDate();
-  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
+  const supabaseClient = useAtomValue(supabaseClientAtom);
   const [userID] = useLocalStorage("userID")
 
   const handleSubmitLearningRequest = async () => {

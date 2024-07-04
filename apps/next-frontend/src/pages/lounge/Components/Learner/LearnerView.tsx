@@ -1,4 +1,4 @@
-import { useNotificationContext } from "@/contexts";
+import { useNotificationContext } from "@/contexts/NotificationContext";
 import Notifications from "../Notifications/Notifications";
 import Teachers from "./Teachers";
 import { NotificationIface } from "@/types/types";

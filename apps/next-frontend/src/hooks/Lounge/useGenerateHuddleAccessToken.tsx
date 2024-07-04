@@ -1,10 +1,10 @@
-import { supabaseClientAtom } from "@/atoms/SupabaseClient/supabaseClientAtom";
+import { supabaseClientAtom } from "@/atoms/supabaseClientAtom";
 import useLocalStorage from "@rehooks/local-storage";
-import { useAtom } from "jotai";
+import { useAtomValue } from "jotai";
 
 export const useGenerateHuddleAccessToken = () => {
   const [huddleAccessToken, setHuddleAccessToken] = useLocalStorage('huddle-access-token');
-  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
+  const supabaseClient  = useAtomValue(supabaseClientAtom);
 
   const generateAccessToken = async (roomId: string | undefined, event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();

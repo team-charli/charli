@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import useLocalStorage from "@rehooks/local-storage";
-import { supabaseClientAtom } from "@/atoms/SupabaseClient/supabaseClientAtom";
-import { useAtom } from "jotai";
+import { useAtomValue } from "jotai";
+import { supabaseClientAtom } from "@/atoms/supabaseClientAtom";
 
 interface FetchLearnersResponse {
   name: string;
@@ -11,7 +11,7 @@ interface FetchLearnersResponse {
 
 function useGetLearners(selectedLang: string, modeView: "Learn" | "Teach") {
   const [userId] = useLocalStorage<number>("userID");
-  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
+  const supabaseClient = useAtomValue(supabaseClientAtom);
   const [learners, setLearners] = useState<FetchLearnersResponse[] | null> ([]);
 
   useEffect(() => {

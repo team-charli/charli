@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
+import { supabaseClientAtom } from '@/atoms/supabaseClientAtom';
 
 const useGetLanguages = () => {
 
@@ -14,7 +14,7 @@ const useGetLanguages = () => {
   const [wantsToLearnLangs, setWantsToLearnLangs] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
+  const supabaseClient = useAtomValue(supabaseClientAtom);
 
   useEffect(() => {
     const fetchData = async () => {

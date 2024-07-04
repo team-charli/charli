@@ -12,8 +12,8 @@ import { calculateSessionCost } from '@/utils/app';
 import { teacherChangeDateTime, teacherConfirmRequestDb, teacherRejectRequest } from '@/Supabase/DbCalls/teacherConfirmRejectReschedule';
 import DateTimeLocalInput from '@/components/elements/DateTimeLocalInput';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
+import { supabaseClientAtom } from '@/atoms/supabaseClientAtom';
 
 type ReceivedTeachingRequestProps = {
   notification: NotificationIface;
@@ -22,7 +22,7 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
   const [requestedSessionDurationTeacherSig, setRequestedSessionDurationTeacherSig] = useState<SignatureLike>();
   const [hashedTeacherAddress, setHashedTeacherAddress] = useState<string>();
   const [uiCondition, setUiCondition] = useState<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>('initial');
-  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
+  const supabaseClient= useAtomValue(supabaseClientAtom);
 
   const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount');
   const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs');
