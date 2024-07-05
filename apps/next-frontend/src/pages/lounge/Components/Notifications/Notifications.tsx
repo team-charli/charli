@@ -8,51 +8,33 @@ interface NotificationsProps {
   modeView: "Learn" | "Teach";
 }
 
-const Notifications = ({notifications: all_notifications , modeView}: NotificationsProps) => {
+const Notifications = ({ notifications, modeView }: NotificationsProps) => {
+  const [userId] = useLocalStorage<number>("userID");
 
-  const [userId] = useLocalStorage<number>("userID")
-  const matchModeView = all_notifications.filter(notification =>
-    notification.type === toLower(modeView))
-
-  const involveUser = matchModeView.filter(notification => notification &&  (notification.learner_id  === userId)  || notification.teacher_id);
-
-  function hasConfirmedTimeDate(notif: NotificationIface): notif is NotificationIface {
-    return 'confirmed_time_date' in notif && notif.confirmed_time_date !== undefined;
-  }
-
-  function hasCounterTimeDate(notif: NotificationIface): notif is NotificationIface {
-    return 'counter_time_date' in notif && notif.counter_time_date !== undefined;
-  }
-
-  const sortedNotifications = involveUser.sort((a, b) => {
-    const getSignificantDate = (notif: NotificationIface): Date => {
-      if (hasConfirmedTimeDate(notif) && notif.confirmed_time_date) {
-        return new Date(notif.confirmed_time_date);
-      } else if (hasCounterTimeDate(notif) && notif.counter_time_date !== undefined) {
-        return new Date(notif.counter_time_date);
-      } else {
-        return new Date(notif.request_time_date);
-      }
-    };
-
-    const aDate = getSignificantDate(a);
-    const bDate = getSignificantDate(b);
-
-    const today = new Date();
-    const aDiff = (aDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-    const bDiff = (bDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-
-    return bDiff - aDiff;
-  });
+  const filteredNotifications = notifications
+  .filter(notification =>
+    notification.type === modeView.toLowerCase() &&
+      (notification.learner_id === userId || notification.teacher_id === userId)
+  )
+  .sort((a, b) => getSignificantDate(b).getTime() - getSignificantDate(a).getTime());
 
   return (
     <div>
-      {sortedNotifications.map((notification: NotificationIface, index: number) => {
-        return <NotificationComponent key={index} notification={notification} />;
-      })}
+      {filteredNotifications.map((notification, index) => (
+        <NotificationComponent key={`${notification.session_id}-${index}`} notification={notification} />
+      ))}
     </div>
-
   );
 };
 
-export default Notifications
+const getSignificantDate = (notification: NotificationIface): Date => {
+  if (notification.confirmed_time_date) {
+    return new Date(notification.confirmed_time_date);
+  } else if (notification.counter_time_date) {
+    return new Date(notification.counter_time_date);
+  } else {
+    return new Date(notification.request_time_date);
+  }
+};
+
+export default Notifications;

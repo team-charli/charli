@@ -12,10 +12,17 @@ export const Lounge = () => {
   return (
     <>
       <IconHeader />
-      <LangNav setSelectedLang={setSelectedLang} selectedLang={selectedLang} languagesToShow={languagesToShow} />
-      <DropDownButton modeView={modeView} setModeView={setModeView}/>
-      {modeView === "Learn" && <LearnerView modeView={modeView} selectedLang={selectedLang} />}
-      {modeView === "Teach" && <TeacherView modeView={modeView} selectedLang={selectedLang} /> }
+      <LangNav
+        setSelectedLang={setSelectedLang}
+        selectedLang={selectedLang}
+        languagesToShow={languagesToShow}
+      />
+      <DropDownButton modeView={modeView} setModeView={setModeView} />
+      {modeView === "Learn" ? (
+        <LearnerView modeView={modeView} selectedLang={selectedLang} />
+      ) : (
+          <TeacherView modeView={modeView} selectedLang={selectedLang} />
+        )}
     </>
   )
 }
