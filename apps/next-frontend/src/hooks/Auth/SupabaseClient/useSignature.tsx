@@ -1,23 +1,40 @@
-import { useQuery } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { pkpWalletAtom, nonceAtom, signatureAtom } from '@/atoms/atoms';
+import { nonceAtom, signatureAtom } from '@/atoms/atoms';
+import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
+import { usePkpWalletWithCheck } from '../PkpWallet/usePkpWalletWithCheck';
 
 export const useSignature = () => {
-  const pkpWallet = useAtomValue(pkpWalletAtom);
   const nonce = useAtomValue(nonceAtom);
   const setSignature = useSetAtom(signatureAtom);
 
-  return useQuery({
-    queryKey: ['signature'],
-    queryFn: async (): Promise<string> => {
+  // console.log("useSignature: nonce available", !!nonce);
+
+  return usePkpWalletWithCheck(
+    ['signature', nonce] as const,
+    async (pkpWallet: PKPEthersWallet): Promise<string> => {
       console.log("6a: start signature query");
-      if (!pkpWallet) throw new Error('PKP Wallet not available');
+      // console.log("Nonce value:", nonce);
+
       if (!nonce) throw new Error('Nonce not available');
-      const signature = await pkpWallet.signMessage(nonce);
-      setSignature(signature);
-      console.log(`6b: signature query finish`);
-      return signature;
+
+      try {
+        const signature = await pkpWallet.signMessage(nonce);
+
+        console.log("Signature generated successfully");
+
+        setSignature(signature);
+
+        console.log(`6b: signature query finish`);
+
+        return signature;
+
+      } catch (error) {
+        console.error("Error in signature generation:", error);
+        throw error;
+      }
     },
-    enabled: !!pkpWallet && !!nonce,
-  });
+    {
+      enabled: !!nonce,
+    }
+  );
 };

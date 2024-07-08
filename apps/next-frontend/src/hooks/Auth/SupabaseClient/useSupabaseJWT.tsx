@@ -11,7 +11,7 @@ export const useSupabaseJWT = () => {
   const setSupabaseJWT = useSetAtom(supabaseJWTAtom);
 
   const query = useQuery<string, Error>({
-    queryKey: ['supabaseJWT'],
+    queryKey: ['supabaseJWT', signature],
     queryFn: async (): Promise<string> => {
       console.log('7a: Starting JWT fetch');
 

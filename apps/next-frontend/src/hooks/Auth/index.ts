@@ -1,4 +1,5 @@
-export {usePkpWallet} from './PkpWallet/usePkpWallet';
+export {usePkpWallet } from './PkpWallet/usePkpWallet'
+export {usePkpWalletWithCheck} from './PkpWallet/usePkpWalletWithCheck';
 export {useNonce} from './SupabaseClient/useNonce';
 export {useSignature} from './SupabaseClient/useSignature';
 export {useSupabaseJWT} from './SupabaseClient/useSupabaseJWT';

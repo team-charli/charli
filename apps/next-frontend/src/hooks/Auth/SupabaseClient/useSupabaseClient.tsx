@@ -1,6 +1,7 @@
 // useSupabaseClient hook
 import { supabaseJWTAtom } from '@/atoms/atoms';
 import { supabaseClientAtom, supabaseClientWriteAtom } from '@/atoms/supabaseClientAtom';
+import { isJwtExpired } from '@/utils/app';
 import { useQuery } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 
@@ -11,7 +12,7 @@ export const useSupabaseClient = () => {
 
   return useQuery({
 
-    queryKey: ['supabaseClient'],
+    queryKey: ['supabaseClient', userJWT],
     queryFn: () => {
       console.log("8a: start supabaseClientQuery");
       if (!userJWT) {
@@ -25,7 +26,7 @@ export const useSupabaseClient = () => {
 
       return supabaseClient;
     },
-    enabled: !!userJWT,
+    enabled: !!userJWT && !isJwtExpired(userJWT),
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,

@@ -3,16 +3,14 @@ import { useLitNodeClientReadyQuery } from './LitAuth/useLitNodeClientReadyQuery
 import { useSetAtom } from 'jotai';
 import { isLoadingAtom } from '@/atoms/atoms';
 import { useEffect } from 'react';
-import { useJwtExpirationCheck } from './SupabaseClient/useJWTExpirationCheck';
 import { useLitSessionSigsExpirationCheck } from './LitAuth/useLitSessionSigsExpirationCheck';
 
 export const useInitQueries = () => {
-  const jwtExpired = useJwtExpirationCheck();
-  const sessionSigsExpired =  useLitSessionSigsExpirationCheck();
+  const sessionSigsExpired = useLitSessionSigsExpirationCheck();
   const litNodeClientQuery = useLitNodeClientReadyQuery();
   const authMethodQuery = useLitAuthMethodQuery();
-  const litAccountQuery = useLitAccountQuery(authMethodQuery.data);
-  const sessionSigsQuery = useLitSessionSigsQuery(authMethodQuery.data, litAccountQuery.data);
+  const litAccountQuery = useLitAccountQuery();
+  const sessionSigsQuery = useLitSessionSigsQuery();
   const pkpWalletQuery = usePkpWallet();
   const nonceQuery = useNonce();
   const signatureQuery = useSignature();
@@ -22,39 +20,8 @@ export const useInitQueries = () => {
   const hasBalanceQuery = useHasBalance();
   const setIsLoading = useSetAtom(isLoadingAtom);
 
-
-  const isLoading =
-    litNodeClientQuery.isLoading ||
-      authMethodQuery.isLoading ||
-      litAccountQuery.isLoading ||
-      sessionSigsQuery.isLoading ||
-      pkpWalletQuery.isLoading ||
-      nonceQuery.isLoading ||
-      signatureQuery.isLoading ||
-      supabaseJWTQuery.isLoading ||
-      supabaseClientQuery.isLoading ||
-      isOnboardedQuery.isLoading ||
-      hasBalanceQuery.isLoading;
-
-  const isSuccess =
-    litNodeClientQuery.isSuccess &&
-      authMethodQuery.isSuccess &&
-      litAccountQuery.isSuccess &&
-      sessionSigsQuery.isSuccess &&
-      pkpWalletQuery.isSuccess &&
-      nonceQuery.isSuccess &&
-      signatureQuery.isSuccess &&
-      supabaseJWTQuery.isSuccess &&
-      supabaseClientQuery.isSuccess &&
-      isOnboardedQuery.isSuccess &&
-      hasBalanceQuery.isSuccess;
-
-  useEffect(() => {
-    setIsLoading(isLoading);
-  }, [isLoading, setIsLoading]);
-
-
-  return {
+  const queries = {
+    litNodeClientQuery,
     authMethodQuery,
     litAccountQuery,
     sessionSigsQuery,
@@ -64,7 +31,27 @@ export const useInitQueries = () => {
     supabaseJWTQuery,
     supabaseClientQuery,
     isOnboardedQuery,
-    hasBalanceQuery,
+    hasBalanceQuery
+  };
+
+  const isLoading = Object.values(queries).some(query => query.isLoading);
+  const isSuccess = hasBalanceQuery.isSuccess;
+
+  useEffect(() => {
+    setIsLoading(isLoading);
+  }, [isLoading, setIsLoading]);
+
+  // useEffect(() => {
+  //   if (!isSuccess) {
+  //     const failedQueries = Object.entries(queries)
+  //       .filter(([_, query]) => !query.isSuccess)
+  //       .map(([name, _]) => name);
+  //     console.log('Failed queries:', failedQueries.join(', '));
+  //   }
+  // }, [isSuccess]);
+
+  return {
+    ...queries,
     isLoading,
     isSuccess
   };

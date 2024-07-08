@@ -360,7 +360,7 @@ export type NotificationContextType = {
 };
 
 export interface NotificationIface {
-  type: 'learn' | 'teach';
+  type: 'Learn' | 'Teach';
   subType: string;
   session_id: number;
   request_origin_type?: 'learner' | 'teacher';

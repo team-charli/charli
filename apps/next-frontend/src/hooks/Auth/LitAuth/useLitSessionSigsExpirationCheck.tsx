@@ -7,25 +7,45 @@ export const useLitSessionSigsExpirationCheck = () => {
   const queryClient = useQueryClient();
   const sessionSigs = useAtomValue(sessionSigsAtom);
   const setSessionSigsExpiration = useSetAtom(sessionSigsExpiredAtom);
-
+  const sessionSigsExist = !!sessionSigs;
   return useQuery({
-    queryKey: ['jwtExpirationCheck'],
+    queryKey: ['sessionSigsExpirationCheck', sessionSigsExist],
+
     queryFn: () => {
-      if (!sessionSigs)  {
-        // Invalidate queries that depend on the JWT
+
+      console.log('Checking session sigs expiration');
+
+      if (!sessionSigs) {
+
+        console.log('No sessionSigs available');
+
+        setSessionSigsExpiration(false);
+
+        queryClient.refetchQueries({queryKey:['litSession', 'pkpWallet']});
+
+        return { status: 'missing' as const };
+      }
+      const isExpired = sessionSigsExpired(sessionSigs);
+
+      // console.log(`sessionSigsExpired returned: ${isExpired}`);
+
+      if (isExpired) {
+
         setSessionSigsExpiration(true);
 
-        queryClient.invalidateQueries({queryKey:['sessionSigs']});
-        // Add any other queries that depend on the JWT
-        return false
-        // throw new Error('JWT expired or not available');
-      } else if (sessionSigsExpired(sessionSigs)) {
-        return true;
+        queryClient.refetchQueries({queryKey:['litSession', 'pkpWallet']});
+
+        console.log('sessionSigs -- expired, refetching');
+
+        return { status: 'expired' as const };
       }
-      return false;
+      setSessionSigsExpiration(false);
+
+      // console.log('sessionSigs -- valid');
+
+      return { status: 'valid' as const };
     },
     retry: false,
-    refetchInterval: 60000, // Check every minute, adjust as needed
+    refetchInterval: 60000,
   });
 };
-

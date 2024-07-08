@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { useAtom, useSetAtom } from 'jotai';
-import { litAccountAtom, accountsErrorAtom } from '@/atoms/atoms';
-import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { litAccountAtom, accountsErrorAtom, authMethodAtom } from '@/atoms/atoms';
+import { IRelayPKP } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '@/utils/lit';
 
-export const useLitAccountQuery = (authMethod: AuthMethod | null | undefined) => {
+export const useLitAccountQuery = () => {
   const [litAccount, setLitAccount] = useAtom(litAccountAtom);
   const setAccountsError = useSetAtom(accountsErrorAtom);
+  const authMethod = useAtomValue(authMethodAtom);
 
   return useQuery<IRelayPKP | null, Error>({
     queryKey: ['fetchLitAccounts', authMethod],

@@ -3,6 +3,9 @@ import { atom } from 'jotai';
 import { AuthMethod, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { atomWithStorage } from 'jotai/utils';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { clone, cloneDeep } from 'lodash';
+import { sessionSigsExpired } from '@/utils/app';
 
 export const renderLoginButtonsAtom = atom<boolean>(false);
 export const selectedLangAtom = atom<string>('');
@@ -18,7 +21,7 @@ export const onboardModeAtom = atom<'Teach' | 'Learn' | null>(null);
 export const pkpWalletAtom = atom<PKPEthersWallet | null>(null);
 export const nonceAtom = atom<string | null>(null);
 export const signatureAtom = atom<string | null>(null);
-// export const supabaseClientAtom = atom<SupabaseClient | null>(null);
+export const supabaseClientAtom = atom<SupabaseClient | null>(null);
 export const supabaseJWTAtom = atom<string | null>(null);
 export const hasBalanceAtom = atom<boolean | null>(null);
 
@@ -34,16 +37,17 @@ export const litNodeClientReadyErrorAtom = atom<Error | null>(null);
 
 export const isLoadingAtom = atom<boolean>(false);
 
-export const isJwtExpiredAtom = atom<boolean>(false);
 export const sessionSigsExpiredAtom = atom<boolean>(false);
-
+export const authSigExpiredAtom = atom<boolean>(false);
 export const isLitLoggedInAtom = atom((get) => {
-  const jwtExpired = get(isJwtExpiredAtom );
-  const sessionSigsExpired = get(sessionSigsExpiredAtom);
   const sessionSigs = get(sessionSigsAtom);
   const litAccount = get(litAccountAtom);
 
-  return !jwtExpired && !sessionSigsExpired && !!sessionSigs && !!litAccount;
+  if (!sessionSigs || !litAccount) {
+    return false;
+  }
+
+  return !sessionSigsExpired(sessionSigs);
 });
 
 

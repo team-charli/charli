@@ -1,10 +1,5 @@
 import { NotificationIface } from '@/types/types';
-import ConfirmedLearningRequest from './NotificationComponents/ConfirmedLearningRequest';
-import ConfirmedTeachingSession from './NotificationComponents/ConfirmedTeachingSession';
-import ReceivedTeachingRequest from './NotificationComponents/ReceivedTeachingRequest';
-import SentLearningRequest from './NotificationComponents/SentLearningRequest';
-import TeacherProposedAlternate from './NotificationComponents/TeacherProposedAlternate';
-import TeacherRejectedRequest from './NotificationComponents/TeacherRejectedRequest';
+import {ConfirmedLearningRequest, ConfirmedTeachingSession,ReceivedTeachingRequest, SentLearningRequest, TeacherProposedAlternate, TeacherRejectedRequest    } from './NotificationComponents';
 
 interface NotificationComponentProps {
   notification: NotificationIface;

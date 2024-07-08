@@ -124,7 +124,7 @@ export function verifyRoleAndAddress(hashed_teacher_address:string | undefined, 
 
 export function sessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
   if (!sessionSigs) {
-    console.log("early return: no sessionsSigs");
+    console.log("sessionSigsExpired: no sessionSigs");
     return true;
   }
   const currentTime = new Date().getTime();
@@ -132,23 +132,15 @@ export function sessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
     if (sessionSigs.hasOwnProperty(key)) {
       const signedMessage = JSON.parse(sessionSigs[key].signedMessage);
       const expirationTime = new Date(signedMessage.expiration).getTime();
-
       const timeUntilExpire = formatTimeUntilExpire(expirationTime - currentTime);
-
-      // console.log(JSON.stringify({
-      //   timeUntilExpire,
-      //   signedMessage_expiration: signedMessage.expiration,
-      //   current_time: new Date()
-      // }));
-
+      // console.log(`sessionSigsExpired check: ${key}, expires in ${timeUntilExpire}`);
       if (currentTime >= expirationTime) {
-        console.log("session sigs expired")
+        console.log(`sessionSigsExpired: ${key} has expired`);
         return true;
       }
     }
   }
-  console.log("not expired")
-
+  console.log("sessionSigsExpired: not expired");
   return false;
 }
 
@@ -177,4 +169,15 @@ function formatTimeUntilExpire(milliseconds: number): string {
   }
   const formattedTime = timeComponents.join(', ');
   return isExpired ? `expired ${formattedTime} ago` : `expires in ${formattedTime}`;
+}
+
+export function getAuthSigFromLocalStorage(): any | null {
+  const authSigString = localStorage.getItem('lit-wallet-sig');
+  if (!authSigString) return null;
+  try {
+    return JSON.parse(authSigString);
+  } catch (error) {
+    console.error('Error parsing AuthSig from local storage:', error);
+    return null;
+  }
 }

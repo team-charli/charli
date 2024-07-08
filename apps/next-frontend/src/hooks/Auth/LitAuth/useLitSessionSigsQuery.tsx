@@ -1,16 +1,19 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { litNodeClientReadyAtom, sessionSigsAtom, sessionSigsErrorAtom } from '@/atoms/atoms';
-import { AuthMethod, IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { authMethodAtom, litAccountAtom, litNodeClientReadyAtom, sessionSigsAtom, sessionSigsErrorAtom } from '@/atoms/atoms';
+import { SessionSigs } from '@lit-protocol/types';
 import { litNodeClient } from '@/utils/litClients';
 import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers';
 import { getProviderByAuthMethod } from '@/utils/lit';
+import { sessionSigsExpired } from '@/utils/app';
 
-export const useLitSessionSigsQuery = (authMethod: AuthMethod | null | undefined, litAccount: IRelayPKP | null | undefined) => {
+export const useLitSessionSigsQuery = () => {
   const queryClient = useQueryClient();
   const [sessionSigs, setSessionSigs] = useAtom(sessionSigsAtom);
   const setSessionSigsError = useSetAtom(sessionSigsErrorAtom);
   const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
+  const authMethod = useAtomValue(authMethodAtom);
+  const litAccount = useAtomValue(litAccountAtom);
 
   const query = useQuery<SessionSigs | null, Error>({
     queryKey: ['litSession', authMethod, litAccount],
@@ -20,8 +23,13 @@ export const useLitSessionSigsQuery = (authMethod: AuthMethod | null | undefined
       if (!authMethod || !litAccount) return null;
 
       if (sessionSigs) {
-        console.log('Using persisted sessionSigs');
-        return sessionSigs;
+        const isExpired = sessionSigsExpired(sessionSigs);
+        if (!isExpired) {
+          console.log('Using valid persisted sessionSigs');
+          return sessionSigs;
+        } else {
+          console.log('Persisted sessionSigs are expired, fetching new ones');
+        }
       }
 
       try {
@@ -40,6 +48,10 @@ export const useLitSessionSigsQuery = (authMethod: AuthMethod | null | undefined
             ability: LitAbility.LitActionExecution,
           },
         ];
+        localStorage.removeItem('lit-wallet-sig');
+        localStorage.removeItem('lit-session-key');
+        localStorage.removeItem('sessionSigs');
+        //DEBUG: weird bug:  when I run this with expired sigs I get SIWE resource Error.  But when I clear localStorage completely this runs fine.  What is not being cleared and interferring here? Only see tokenId in 'litAccount' but don't see that being checked in pkpWallet or getPkpSessionSigs
         const result = await litNodeClient.getPkpSessionSigs({
           pkpPublicKey: litAccount.publicKey,
           authMethods: [authMethod],

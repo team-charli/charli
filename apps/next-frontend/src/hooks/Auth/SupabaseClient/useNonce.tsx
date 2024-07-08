@@ -10,9 +10,9 @@ export const useNonce = () => {
   const setNonce = useSetAtom(nonceAtom);
   const pkpWallet = useAtomValue(pkpWalletAtom);
   const existingJWT = useAtomValue(supabaseJWTAtom);
-
+  const pkpWalletExists = !!pkpWallet;
   return useQuery<string, Error>({
-    queryKey: ['nonce'],
+    queryKey: ['nonce', pkpWalletExists],
     queryFn: async () => {
       console.log("5a: start nonce query");
       const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
