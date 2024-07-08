@@ -26,7 +26,7 @@ export const useSupabaseClient = () => {
 
       return supabaseClient;
     },
-    enabled: !!userJWT && !isJwtExpired(userJWT),
+    enabled: !!userJWT /*&& !isJwtExpired(userJWT)*/,
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,

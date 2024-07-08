@@ -12,11 +12,9 @@ export const useIsOnboarded = () => {
 
   return useSupabaseQuery(
     ['isOnboarded', currentAccount?.ethAddress ] as const,
-    async (context) => {  // Note the context parameter here
+    async (supabaseClient, context) => {  // Note the context parameter here
       const startTime = Date.now();
       console.log("9a: start isOnboarded query");
-
-      const supabaseClient = useAtomValue(supabaseClientAtom);
 
       if (!supabaseClient || !currentAccount) {
         return false;

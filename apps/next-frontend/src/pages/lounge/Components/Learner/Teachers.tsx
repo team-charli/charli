@@ -1,6 +1,5 @@
-// import useLocalStorage from "@rehooks/local-storage";
 import Teacher from "./Teacher";
-import useGetTeachers from "@/hooks/Lounge/useGetTeachers";
+import useGetTeachers from "@/hooks/Lounge/QueriesMutations/useGetTeachers";
 
 interface TeachersProps {
   selectedLang: string;
@@ -8,15 +7,14 @@ interface TeachersProps {
 }
 
 const Teachers = ({modeView, selectedLang }: TeachersProps) => {
-  // const [userId] = useLocalStorage<number>("userID");
-  const teachers = useGetTeachers(selectedLang, modeView);
+  const { data: teachers, isLoading, error } = useGetTeachers(selectedLang, modeView);
 
   return (
     <>
       <ul className="flex items-center space-x-2">
         {teachers && teachers
           .map((user, index) =>
-             <Teacher teacherName={user.name} teacherID={user.id} teachingLang={selectedLang} key={index}/>
+            <Teacher teacherName={user.name} teacherID={user.id} teachingLang={selectedLang} key={index}/>
           )}
       </ul>
     </>

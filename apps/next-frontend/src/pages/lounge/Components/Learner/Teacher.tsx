@@ -1,17 +1,15 @@
 import { useEffect, useState } from "react";
 import { parseInt } from "lodash";
 import useLocalStorage from "@rehooks/local-storage";
-import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
-import signApproveFundController from "@/Lit/SignPKPEthers/signApproveFundController";
-import { learnerSubmitLearningRequest } from "@/Supabase/DbCalls/learnerSubmitLearningRequest";
-
 import { usePreCalculateTimeDate } from "@/hooks/Lounge/usePreCalculateTimeDate";
 import { useComputeControllerAddress } from "@/hooks/LitActions/useComputeControllerAddress";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
-import signSessionDuration from "@/Lit/SignPKPEthers/signSessionDuration";
-import { useAtom, useAtomValue } from "jotai";
-import { supabaseClientAtom } from "@/atoms/supabaseClientAtom";
+import { useSignApproveFundController } from "@/hooks/Lounge/QueriesMutations/useSignApproveFundController";
+import { useSignSessionDuration } from "@/hooks/Lounge/QueriesMutations/useSignSessionDuration";
+import { useQueryClient } from "@tanstack/react-query";
+import { useLearnerSubmitLearningRequest } from "@/hooks/Lounge/QueriesMutations/useLearnerSubmitLearningRequest";
+import { BigNumberish } from "ethers";
 
 interface TeacherProps {
   teacherName: string;
@@ -22,14 +20,10 @@ interface TeacherProps {
 const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string | undefined>(undefined);
   const [sessionDuration, setSessionDuration] = useState<number | null>(null);
-  const [amount, setAmount] = useState<number|null>(null);
-  const [ sessionSigs ] = useLocalStorage<SessionSigs>('sessionSigs')
-  const [ currentAccount ] = useLocalStorage<IRelayPKP>('currentAccount')
+  const [amount, setAmount] = useState<BigNumberish|null>(null);
   const [ toggleDateTimePicker, setToggleDateTimePicker ] = useState(false);
   const [ renderSubmitConfirmation, setRenderSubmitConfirmation ] = useState(false);
   const contractAddress = process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS;
-  const {controller_address, controller_claim_user_id, claim_key_id, controller_public_key} = useComputeControllerAddress();
-
   useEffect(() => {
     if (sessionLengthInputValue?.length) {
       const minutes = parseInt(sessionLengthInputValue)
@@ -39,23 +33,46 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
     }
   }, [sessionLengthInputValue])
   const { dateTime, setDateTime } = usePreCalculateTimeDate();
-  const supabaseClient = useAtomValue(supabaseClientAtom);
   const [userID] = useLocalStorage("userID")
+  const {controller_address} = useComputeControllerAddress();
+  const queryClient = useQueryClient();
+  const { data: requestedSessionDurationLearnerSig, isLoading: isSigningSessionDuration } = useSignSessionDuration(sessionDuration ?? 0);
+  const { data: learningRequestSuccess, isLoading: isSubmittingLearningRequest, refetch: submitLearningRequest } = useLearnerSubmitLearningRequest(
+    dateTime,
+    teacherID,
+    userID,
+    teachingLang,
+    sessionDuration,
+    requestedSessionDurationLearnerSig
+  );
 
+  const { data: signedApprovalTx, isLoading: isApprovingFunds, refetch: signApproveFundController } = useSignApproveFundController(
+    contractAddress,
+    controller_address,
+    amount
+  );
   const handleSubmitLearningRequest = async () => {
-    if (sessionDuration && currentAccount && sessionSigs) {
-     const requestedSessionDurationLearnerSig = await signSessionDuration({sessionDuration, currentAccount, sessionSigs});
-    if (supabaseClient && userID && sessionDuration) {
-      const learningRequestSuccess = await learnerSubmitLearningRequest(supabaseClient, dateTime, teacherID, userID, teachingLang, setRenderSubmitConfirmation, sessionDuration, controller_address, claim_key_id, controller_claim_user_id, controller_public_key, currentAccount, requestedSessionDurationLearnerSig)
+    if (sessionDuration && userID && requestedSessionDurationLearnerSig) {
+      try {
+        await queryClient.fetchQuery({
+          queryKey: ['learnerSubmitLearningRequest', dateTime, teacherID, userID, teachingLang, sessionDuration, requestedSessionDurationLearnerSig],
+          queryFn: () => useLearnerSubmitLearningRequest(dateTime, teacherID, userID, teachingLang, sessionDuration, requestedSessionDurationLearnerSig)
+        });
 
-      if (learningRequestSuccess && amount && contractAddress) {
-        await signApproveFundController(sessionSigs, currentAccount, contractAddress, controller_address, amount )
-      } else {
-        console.log("one of these is undefined", {learningRequestSuccess, amount, contractAddress})
+        setRenderSubmitConfirmation(true);
+
+        if (amount && contractAddress) {
+          await queryClient.fetchQuery({
+            queryKey: ['signApproveFundController', contractAddress, controller_address, amount],
+            queryFn: () => useSignApproveFundController(contractAddress, controller_address, amount)
+          });
+        }
+      } catch (error) {
+        console.error("Error submitting learning request:", error);
       }
     }
-    }
   };
+
 
   return (
     <>
