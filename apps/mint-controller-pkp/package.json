@@ -6,6 +6,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@cloudflare/workers-types": "^4.20240620.0",
     "@lit-protocol/constants": "^3.1.1",
     "@lit-protocol/contracts-sdk": "^3.1.2",
     "bs58": "^5.0.0",
