@@ -6,7 +6,6 @@ import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
 import { useAtom } from 'jotai';
 import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
-import { isLitLoggedInAtom } from '@/atoms/LitAuth/isLitLoggedInAtom';
 import { nativeLangAtom } from '@/atoms/atoms';
 import { fetchLitAccountsAtom } from '@/atoms/LitAuth/litAccountsAtomQuery';
 import { hasBalanceAtom } from '@/atoms/HasBalance/hasBalanceAtomQuery';

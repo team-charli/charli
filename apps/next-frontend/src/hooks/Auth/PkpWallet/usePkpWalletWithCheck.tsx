@@ -1,10 +1,12 @@
 import { useQuery, useQueryClient, QueryKey, UseQueryOptions, QueryFunctionContext } from '@tanstack/react-query';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { usePkpWallet } from './usePkpWallet';
-import { useLitSessionSigsExpirationCheck } from '../LitAuth/useLitSessionSigsExpirationCheck';
 import { useCallback } from 'react';
+import { useAtomValue } from 'jotai';
+import { sessionSigsAtom } from '@/atoms/atoms';
+import { sessionSigsExpired } from '@/utils/app';
 
-export const usePkpWalletWithCheck =<
+export const usePkpWalletWithCheck = <
   TQueryFnData = unknown,
   TError = unknown,
   TData = TQueryFnData,
@@ -16,7 +18,7 @@ export const usePkpWalletWithCheck =<
 ) => {
   const queryClient = useQueryClient();
   const { data: pkpWallet, isLoading: isPkpWalletLoading } = usePkpWallet();
-  const { data: sessionSigsStatus } = useLitSessionSigsExpirationCheck();
+  const sessionSigs = useAtomValue(sessionSigsAtom);
 
   const refreshWalletAndSigs = useCallback(async () => {
     await queryClient.invalidateQueries({queryKey: ['sessionSigs', 'pkpWallet']});
@@ -29,7 +31,7 @@ export const usePkpWalletWithCheck =<
     queryKey,
     queryFn: async (context: QueryFunctionContext<TQueryKey>) => {
       let wallet = pkpWallet;
-      if (sessionSigsStatus?.status !== 'valid' || !wallet) {
+      if (sessionSigsExpired(sessionSigs) || !wallet) {
         wallet = await refreshWalletAndSigs() as PKPEthersWallet | null;
         if (!wallet) {
           throw new Error('Failed to refresh PKP wallet');
@@ -47,7 +49,7 @@ export const usePkpWalletWithCheck =<
         throw error;
       }
     },
-    enabled: !isPkpWalletLoading && sessionSigsStatus?.status === 'valid' && options?.enabled !== false,
+    enabled: !isPkpWalletLoading && !!sessionSigs && !sessionSigsExpired(sessionSigs) && options?.enabled !== false,
     retry: (failureCount) => failureCount < 3,
   });
 };

@@ -1,12 +1,10 @@
-import { useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, usePkpWallet, useNonce, useSignature, useSupabaseJWT, useSupabaseClient, useIsOnboarded, useHasBalance } from '@/hooks/Auth/'
-import { useLitNodeClientReadyQuery } from './LitAuth/useLitNodeClientReadyQuery';
-import { useSetAtom } from 'jotai';
-import { isLoadingAtom } from '@/atoms/atoms';
-import { useEffect } from 'react';
-import { useLitSessionSigsExpirationCheck } from './LitAuth/useLitSessionSigsExpirationCheck';
+import { useQuery } from '@tanstack/react-query';
+import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, usePkpWallet, useNonce, useSignature, useSupabaseJWT, useSupabaseClient } from './index'
+import { useInitQueriesAtoms } from './utils/initQueriesAtoms';
+import { useAuthChainManager } from './useAuthChainManager';
 
 export const useInitQueries = () => {
-  const sessionSigsExpired = useLitSessionSigsExpirationCheck();
+  const {jwt, authMethod, litAccount, sessionSigs, litNodeClientReady} = useInitQueriesAtoms()
   const litNodeClientQuery = useLitNodeClientReadyQuery();
   const authMethodQuery = useLitAuthMethodQuery();
   const litAccountQuery = useLitAccountQuery();
@@ -16,9 +14,16 @@ export const useInitQueries = () => {
   const signatureQuery = useSignature();
   const supabaseJWTQuery = useSupabaseJWT();
   const supabaseClientQuery = useSupabaseClient();
-  const isOnboardedQuery = useIsOnboarded();
-  const hasBalanceQuery = useHasBalance();
-  const setIsLoading = useSetAtom(isLoadingAtom);
+  const { checkAndInvalidate} = useAuthChainManager();
+
+  useQuery({
+    queryKey: ['initQueriesCheck'],
+    queryFn: async () => {
+      await checkAndInvalidate();
+      return null;
+    },
+    refetchInterval: 60000, // Check every minute
+  });
 
   const queries = {
     litNodeClientQuery,
@@ -29,26 +34,11 @@ export const useInitQueries = () => {
     nonceQuery,
     signatureQuery,
     supabaseJWTQuery,
-    supabaseClientQuery,
-    isOnboardedQuery,
-    hasBalanceQuery
+    supabaseClientQuery
   };
 
   const isLoading = Object.values(queries).some(query => query.isLoading);
-  const isSuccess = hasBalanceQuery.isSuccess;
-
-  useEffect(() => {
-    setIsLoading(isLoading);
-  }, [isLoading, setIsLoading]);
-
-  // useEffect(() => {
-  //   if (!isSuccess) {
-  //     const failedQueries = Object.entries(queries)
-  //       .filter(([_, query]) => !query.isSuccess)
-  //       .map(([name, _]) => name);
-  //     console.log('Failed queries:', failedQueries.join(', '));
-  //   }
-  // }, [isSuccess]);
+  const isSuccess = Object.values(queries).every(query => query.isSuccess);
 
   return {
     ...queries,

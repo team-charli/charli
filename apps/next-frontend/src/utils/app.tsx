@@ -122,25 +122,32 @@ export function verifyRoleAndAddress(hashed_teacher_address:string | undefined, 
   } else {throw new Error("you're busted")}
 }
 
-export function sessionSigsExpired(sessionSigs: SessionSigs | null): boolean {
+export function sessionSigsExpired(sessionSigs: SessionSigs | null | undefined): boolean {
+  const caller = new Error().stack?.split('\n')[2].trim().split(' ')[1] || 'unknown';
+  // console.log(`sessionSigsExpired check (caller: ${caller})`);
+
   if (!sessionSigs) {
-    console.log("sessionSigsExpired: no sessionSigs");
+    // console.log(`sessionSigsExpired (${caller}): no sessionSigs`);
     return true;
   }
+
   const currentTime = new Date().getTime();
   for (const key in sessionSigs) {
     if (sessionSigs.hasOwnProperty(key)) {
       const signedMessage = JSON.parse(sessionSigs[key].signedMessage);
       const expirationTime = new Date(signedMessage.expiration).getTime();
       const timeUntilExpire = formatTimeUntilExpire(expirationTime - currentTime);
-      // console.log(`sessionSigsExpired check: ${key}, expires in ${timeUntilExpire}`);
+
+      // console.log(`sessionSigsExpired check (${caller}): ${key}, ${timeUntilExpire}`);
+
       if (currentTime >= expirationTime) {
-        console.log(`sessionSigsExpired: ${key} has expired`);
+        // console.log(`sessionSigsExpired (${caller}): ${key} has expired`);
         return true;
       }
     }
   }
-  console.log("sessionSigsExpired: not expired");
+
+  // console.log(`sessionSigsExpired (${caller}): not expired`);
   return false;
 }
 
@@ -181,3 +188,26 @@ export function getAuthSigFromLocalStorage(): any | null {
     return null;
   }
 }
+
+export function checkAuthSigExpiration(authSig: any): boolean {
+  if (!authSig || !authSig.signedMessage) {
+    console.log('Invalid AuthSig format');
+    return true; // Treat as expired if we don't have a valid AuthSig
+  }
+
+  // Parse the signedMessage to extract the expiration time
+  const expirationMatch = authSig.signedMessage.match(/Expiration Time: (.+)Z/);
+  if (!expirationMatch) {
+    console.log('No expiration time found in AuthSig');
+    return true; // Treat as expired if we can't find the expiration time
+  }
+
+  const expirationTime = new Date(expirationMatch[1]).getTime();
+  const currentTime = Date.now();
+
+  console.log(`AuthSig expires at: ${new Date(expirationTime)}`);
+  console.log(`Current time: ${new Date(currentTime)}`);
+
+  return currentTime >= expirationTime;
+}
+

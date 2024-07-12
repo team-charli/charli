@@ -14,10 +14,10 @@ export const useNonce = () => {
   return useQuery<string, Error>({
     queryKey: ['nonce', pkpWalletExists],
     queryFn: async () => {
-      console.log("5a: start nonce query");
+      // console.log("5a: start nonce query");
       const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
       setNonce(nonceResponse.nonce);
-      console.log(`5b: nonce query finish`);
+      // console.log(`5b: nonce query finish`);
       return nonceResponse.nonce;
     },
     enabled: !!pkpWallet && (!existingJWT || isJwtExpired(existingJWT)),

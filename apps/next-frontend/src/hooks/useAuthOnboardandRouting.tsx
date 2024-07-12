@@ -3,13 +3,15 @@ import { useRouter } from 'next/router';
 import { useAtomValue } from 'jotai';
 import { isOnboardedAtom, isLitLoggedInAtom, isOAuthRedirectAtom } from '@/atoms/atoms';
 import { useInitQueries } from './Auth/useInitQueries';
+import { useAuthChainManager } from './Auth/useAuthChainManager';
 
 export const useAuthOnboardAndRouting = () => {
   const router = useRouter();
-  const { isLoading, isSuccess } = useInitQueries();
+  const { isLoading, isSuccess, authMethodQuery } = useInitQueries();
   const isOnboarded = useAtomValue(isOnboardedAtom);
   const isLitLoggedIn = useAtomValue(isLitLoggedInAtom);
   const isOAuthRedirect = useAtomValue(isOAuthRedirectAtom);
+  const { checkAndInvalidate } = useAuthChainManager();
 
   const getTargetRoute = () => {
     if (typeof window === 'undefined') return { route: null, reason: 'SSR' };
@@ -24,7 +26,15 @@ export const useAuthOnboardAndRouting = () => {
 
   useQuery({
     queryKey: ['authRouting', isLitLoggedIn, isOnboarded, isOAuthRedirect, isLoading, isSuccess],
-    queryFn: () => {
+    queryFn: async () => {
+      const authChainResult = await checkAndInvalidate();
+
+      if (authChainResult === 'redirect_to_login' && router.pathname !== '/login') {
+        console.log('Auth chain check requires reauth, redirecting to login');
+        router.push('/login');
+        return null;
+      }
+
       const { route, reason } = getTargetRoute();
       console.log(`Target Route: ${route}, Reason: ${reason}`);
 
@@ -32,9 +42,10 @@ export const useAuthOnboardAndRouting = () => {
         console.log(`Navigating to: ${route}`);
         router.push(route);
       }
+
       return null;
     },
-    enabled: true, // Always run this query
+    enabled: true,
   });
 
   return null;

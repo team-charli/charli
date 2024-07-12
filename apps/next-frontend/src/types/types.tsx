@@ -372,7 +372,7 @@ export interface NotificationIface {
   confirmed_time_date?: string | null;
   counter_time_date?: string;
   session_rejected_reason?: string;
-  roomId?: string;
+  roomId?: string | undefined;
   teaching_lang: string;
   controller_address?: string;  // Made optional
   controller_claim_user_id?: string;

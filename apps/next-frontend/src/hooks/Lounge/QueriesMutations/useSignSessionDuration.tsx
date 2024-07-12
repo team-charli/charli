@@ -2,9 +2,9 @@ import { usePkpWalletWithCheck } from "@/hooks/Auth"
 import { PKPEthersWallet } from "@lit-protocol/pkp-ethers"
 import { UseQueryResult } from "@tanstack/react-query";
 
-export const useSignSessionDuration = (sessionDuration: number): UseQueryResult<String>  => {
+export const useSignSessionDuration = (sessionDuration: number) => {
   return usePkpWalletWithCheck(
-    [] as const,
+    ['signSessionDuration', sessionDuration] as const,
     async (pkpWallet: PKPEthersWallet): Promise<string> => {
       try {
         return await pkpWallet.signMessage(String(sessionDuration));
@@ -15,3 +15,4 @@ export const useSignSessionDuration = (sessionDuration: number): UseQueryResult<
     }
   )
 }
+

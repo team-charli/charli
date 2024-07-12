@@ -9,3 +9,5 @@ export {useHasBalance} from './HasBalance/useHasBalance'
 export {useLitAuthMethodQuery} from './LitAuth/useLitAuthMethodQuery';
 export {useLitAccountQuery} from './LitAuth/useLitAccountQuery';
 export {useLitSessionSigsQuery} from './LitAuth/useLitSessionSigsQuery';
+export { useLitNodeClientReadyQuery } from './LitAuth/useLitNodeClientReadyQuery';
+

@@ -9,6 +9,8 @@ export const useIsOnboarded = () => {
   const sessionSigs = useAtomValue(sessionSigsAtom);
   const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
   const setIsOnboarded = useSetAtom(isOnboardedAtom);
+  const supabaseClient = useAtomValue(supabaseClientAtom);
+  console.log('run useIsOnboarded');
 
   return useSupabaseQuery(
     ['isOnboarded', currentAccount?.ethAddress ] as const,
@@ -35,7 +37,7 @@ export const useIsOnboarded = () => {
       }
     },
     {
-      enabled: !!currentAccount && !!sessionSigs && litNodeClientReady,
+      enabled: !!supabaseClient && litNodeClientReady,
     }
   );
 };

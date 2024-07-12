@@ -9,19 +9,20 @@ export const supabaseClientAtom = atom<SupabaseClient | null>(null);
 export const supabaseClientWriteAtom = atom(
   null,
   (get, set, jwt: string | null) => {
+    console.log("supabaseClientWriteAtom called with JWT:", jwt ? "valid JWT" : "null");
     if (!jwt) {
+      console.log("Setting supabaseClientAtom to null");
       set(supabaseClientAtom, null);
       return;
     }
-
     const options = {
       global: {
         headers: { Authorization: `Bearer ${jwt}` },
       },
     };
-
     console.log("Creating new Supabase client");
     const newClient = createClient(supabaseUrl, supabaseAnonKey, options);
+    console.log("Setting supabaseClientAtom with new client");
     set(supabaseClientAtom, newClient);
   }
 );

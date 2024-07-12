@@ -11,17 +11,13 @@ export const useLitAuthMethodQuery = () => {
   const setAuthError = useSetAtom(authErrorAtom);
   const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
 
-  return useQuery({
+return useQuery({
     queryKey: ['authMethod'],
     queryFn: async () => {
-      const startTime = Date.now();
-      console.log('1a: start authMethod query');
       const isRedirect = isSignInRedirect(redirectUri);
       setIsOAuthRedirect(isRedirect);
 
-      if (!isRedirect && authMethod) {
-        return authMethod;
-      }
+      if (!isRedirect) return null; // Don't proceed if it's not a redirect
 
       const providerName = getProviderFromUrl();
       if (providerName !== 'google' && providerName !== 'discord') return null;
@@ -33,7 +29,6 @@ export const useLitAuthMethodQuery = () => {
 
       if (result) {
         setAuthMethod(result);
-        console.log(`1b: authMethod finish:`, (Date.now() - startTime) / 1000);
         return result;
       }
       return null;

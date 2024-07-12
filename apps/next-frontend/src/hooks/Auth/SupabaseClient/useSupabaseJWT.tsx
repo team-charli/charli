@@ -13,7 +13,7 @@ export const useSupabaseJWT = () => {
   const query = useQuery<string, Error>({
     queryKey: ['supabaseJWT', signature],
     queryFn: async (): Promise<string> => {
-      console.log('7a: Starting JWT fetch');
+      // console.log('7a: Starting JWT fetch');
 
       const persistedJWT = localStorage.getItem('supabaseJWT');
       if (persistedJWT) {
@@ -48,7 +48,7 @@ export const useSupabaseJWT = () => {
     enabled: !!signature && !!currentAccount?.ethAddress && !!nonce,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    gcTime: 10 * 60 * 1000,
+    gcTime: Infinity,
     staleTime: Infinity,
   });
 

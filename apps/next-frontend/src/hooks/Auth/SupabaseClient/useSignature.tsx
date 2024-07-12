@@ -12,8 +12,7 @@ export const useSignature = () => {
   return usePkpWalletWithCheck(
     ['signature', nonce] as const,
     async (pkpWallet: PKPEthersWallet): Promise<string> => {
-      console.log("6a: start signature query");
-      // console.log("Nonce value:", nonce);
+      // console.log("6a: start signature query");
 
       if (!nonce) throw new Error('Nonce not available');
 
@@ -24,7 +23,7 @@ export const useSignature = () => {
 
         setSignature(signature);
 
-        console.log(`6b: signature query finish`);
+        // console.log(`6b: signature query finish`);
 
         return signature;
 

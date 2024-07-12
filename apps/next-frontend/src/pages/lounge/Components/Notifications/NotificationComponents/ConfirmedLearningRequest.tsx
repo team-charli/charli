@@ -1,4 +1,4 @@
-import { useGenerateHuddleAccessToken } from '@/hooks/Lounge/useGenerateHuddleAccessToken';
+import { useGenerateHuddleAccessToken } from '@/hooks/Lounge/QueriesMutations/useGenerateHuddleAccessToken';
 import { useLocalizeAndFormatDateTime } from '@/hooks/utils/useLocalizeAndFormatDateTime';
 import { ConfirmedLearningRequestProps } from '@/types/types';
 import { formatUtcTimestampToLocalStrings } from '@/utils/app';
@@ -12,7 +12,7 @@ const ConfirmedLearningRequest = ({ notification }: ConfirmedLearningRequestProp
   const { generateAccessToken /*, huddleAccessToken */} = useGenerateHuddleAccessToken();
 
   const handleClick = async (event: React.MouseEvent<HTMLAnchorElement>) => {
-    await generateAccessToken(notification.roomId, event);
+    await generateAccessToken(notification.roomId);
   };
 
   return (
