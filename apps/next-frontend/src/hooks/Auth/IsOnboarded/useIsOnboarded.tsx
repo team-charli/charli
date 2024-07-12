@@ -10,7 +10,6 @@ export const useIsOnboarded = () => {
   const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
   const setIsOnboarded = useSetAtom(isOnboardedAtom);
   const supabaseClient = useAtomValue(supabaseClientAtom);
-  console.log('run useIsOnboarded');
 
   return useSupabaseQuery(
     ['isOnboarded', currentAccount?.ethAddress ] as const,

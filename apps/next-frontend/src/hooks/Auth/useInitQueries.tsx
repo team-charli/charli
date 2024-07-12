@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, usePkpWallet, useNonce, useSignature, useSupabaseJWT, useSupabaseClient } from './index'
+import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, usePkpWallet, useNonce, useSignature, useSupabaseJWT, useSupabaseClient, useIsOnboarded, useHasBalance } from './index'
 import { useInitQueriesAtoms } from './utils/initQueriesAtoms';
 import { useAuthChainManager } from './useAuthChainManager';
 
@@ -15,6 +15,8 @@ export const useInitQueries = () => {
   const supabaseJWTQuery = useSupabaseJWT();
   const supabaseClientQuery = useSupabaseClient();
   const { checkAndInvalidate} = useAuthChainManager();
+  const isOnboardedQuery  = useIsOnboarded()
+  const hasBalance = useHasBalance()
 
   useQuery({
     queryKey: ['initQueriesCheck'],
@@ -34,7 +36,9 @@ export const useInitQueries = () => {
     nonceQuery,
     signatureQuery,
     supabaseJWTQuery,
-    supabaseClientQuery
+    supabaseClientQuery,
+    isOnboardedQuery,
+    hasBalance
   };
 
   const isLoading = Object.values(queries).some(query => query.isLoading);

@@ -141,7 +141,7 @@ export function sessionSigsExpired(sessionSigs: SessionSigs | null | undefined):
       // console.log(`sessionSigsExpired check (${caller}): ${key}, ${timeUntilExpire}`);
 
       if (currentTime >= expirationTime) {
-        // console.log(`sessionSigsExpired (${caller}): ${key} has expired`);
+        console.log(`sessionSigsExpired (${caller}): ${key} has expired`);
         return true;
       }
     }
@@ -205,9 +205,10 @@ export function checkAuthSigExpiration(authSig: any): boolean {
   const expirationTime = new Date(expirationMatch[1]).getTime();
   const currentTime = Date.now();
 
-  console.log(`AuthSig expires at: ${new Date(expirationTime)}`);
-  console.log(`Current time: ${new Date(currentTime)}`);
+  // console.log(`AuthSig expires at: ${new Date(expirationTime)}`);
+  // console.log(`Current time: ${new Date(currentTime)}`);
 
+  if (currentTime >= expirationTime) console.log('authSig expired')
   return currentTime >= expirationTime;
 }
 
