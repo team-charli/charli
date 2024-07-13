@@ -4,7 +4,6 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { litNodeClient } from '@/utils/litClients';
 import { sessionSigsAtom, litAccountAtom, litNodeClientReadyAtom, pkpWalletAtom } from '@/atoms/atoms';
-import { useLitSessionSigsExpirationCheck } from '../LitAuth/useLitSessionSigsExpirationCheck';
 import { sessionSigsExpired } from '@/utils/app';
 
 export const usePkpWallet = () => {

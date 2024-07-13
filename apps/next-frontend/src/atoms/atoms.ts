@@ -22,7 +22,8 @@ export const onboardModeAtom = atom<'Teach' | 'Learn' | null>(null);
 export const pkpWalletAtom = atom<PKPEthersWallet | null>(null);
 export const nonceAtom = atom<string | null>(null);
 export const signatureAtom = atom<string | null>(null);
-export const supabaseJWTAtom = atom<string | null>(null);
+export const supabaseJWTAtom = atomWithStorage<string | null>('supabaseJWT', null);
+
 export const hasBalanceAtom = atom<boolean | null>(null);
 
 export const authLoadingAtom = atom(false);

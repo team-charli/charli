@@ -1,3 +1,4 @@
+//useSupabaseQuery.tsx
 import { QueryKey, UseQueryOptions, useQuery, QueryFunction, QueryFunctionContext } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAtomValue } from 'jotai';

@@ -1,3 +1,4 @@
+//supabaseClientAtom.ts
 import { atom } from 'jotai';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
@@ -12,8 +13,7 @@ export const supabaseClientWriteAtom = atom(
     console.log("supabaseClientWriteAtom called with JWT:", jwt ? "valid JWT" : "null");
     if (!jwt) {
       console.log("Setting supabaseClientAtom to null");
-      set(supabaseClientAtom, null);
-      return;
+      throw new Error('no jwt available')
     }
     const options = {
       global: {

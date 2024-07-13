@@ -6,23 +6,23 @@ export const useAuthChainManager = () => {
   const queryClient = useQueryClient();
   const { jwt, authMethod, litAccount, authSig, sessionSigs, litNodeClientReady, pkpWallet, nonce, signature } = useInitQueriesAtoms()
 
-  const invalidateChain = async (startIndex: number) => {
-    const chain = [
-      'litNodeClientReady',
-      'authMethod',
-      'fetchLitAccounts',
-      'litSession',
-      'pkpWallet',
-      'nonce',
-      'signature',
-      'supabaseJWT',
-      'supabaseClient'
-    ];
+  // const invalidateChain = async (startIndex: number) => {
+  //   const chain = [
+  //     'litNodeClientReady',
+  //     'authMethod',
+  //     'fetchLitAccounts',
+  //     'litSession',
+  //     'pkpWallet',
+  //     'nonce',
+  //     'signature',
+  //     'supabaseJWT',
+  //     'supabaseClient'
+  //   ];
 
-    for (let i = startIndex; i < chain.length; i++) {
-      await queryClient.invalidateQueries({ queryKey: [chain[i]] });
-    }
-  };
+  //   for (let i = startIndex; i < chain.length; i++) {
+  //     await queryClient.invalidateQueries({ queryKey: [chain[i]] });
+  //   }
+  // };
 
   const checkAndInvalidate = async () => {
     if (!litNodeClientReady) {
