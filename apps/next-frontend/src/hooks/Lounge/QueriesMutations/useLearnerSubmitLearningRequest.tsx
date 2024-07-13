@@ -3,7 +3,7 @@ import { useAtomValue } from 'jotai';
 import { litAccountAtom } from '@/atoms/atoms';
 import { convertLocalTimetoUtc } from '@/utils/app';
 import { ethers, SignatureLike } from 'ethers';
-import { useSupabaseQuery } from '@/hooks/Auth/SupabaseClient/useSupabaseQuery';
+import { useSupabaseQuery } from '@/hooks/Supabase/useSupabaseQuery';
 
 export const useLearnerSubmitLearningRequest = (
   dateTime: string,

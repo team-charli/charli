@@ -261,7 +261,7 @@ export type SearchLangComboBoxProps = {
 };
 
 export type LanguageToggleButtonsProps = {
-  languageButtons: LanguageButton[];
+  languageButtons: LanguageButton[] | undefined;
   onToggleLanguage: (languageButton: LanguageButton) => void;
 };
 
@@ -477,29 +477,10 @@ export interface UseSessionManagerOptions {
   sessionSigs: SessionSigs | null;
 }
 
-export type QueryState<T> = {
-  data: T | null;
-  error: Error | undefined;
-  isLoading: boolean;
+
+
+export type SupabaseError = {
+  message: string;
+  // Add other properties if needed
 };
 
-export type QueryAtoms<T> = {
-  state: Atom<QueryState<T>>;
-  value: Atom<T | null>;
-};
-
-export type SetQueryState<T> = (
-  atoms: QueryAtoms<T>,
-  update: SetStateAction<QueryState<T>>
-) => void;
-
-export type QueryCallbacks<T> = {
-  onSuccess: (data: T, helpers: { set: SetQueryState<T> }) => void;
-  onError: (error: Error, helpers: { set: SetQueryState<T> }) => void;
-  onSettled: (data: T | undefined, error: Error | null, helpers: { set: SetQueryState<T> }) => void;
-};
-
-export type SessionSigsCallbacks = QueryCallbacks<SessionSigs>;
-export type LitAccountCallbacks = QueryCallbacks<IRelayPKP>;
-export type AuthMethodCallbacks = QueryCallbacks<AuthMethod>;
-export type PkpWalletCallbacks = QueryCallbacks<PKPEthersWallet>;

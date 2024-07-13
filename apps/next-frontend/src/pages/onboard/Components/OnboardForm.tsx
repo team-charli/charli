@@ -1,40 +1,32 @@
-// OnboardForm.tsx
+import React, { useState, FormEvent } from 'react';
+import { useAtomValue } from 'jotai';
+import { hasBalanceAtom, isOnboardedAtom } from '@/atoms/atoms'; // Adjust import path as needed
+import { LanguageButton } from '@/types/types';
+import { useOnboardLearnMutation } from '@/hooks/Onboard/Mutations/useOnboardLearnMutation';
+import { useOnboardTeachMutation } from '@/hooks/Onboard/Mutations/useOnboardTeachMutation';
 import { useLanguageData } from '@/hooks/Onboard/OnboardForm/useLanguageData';
-import { OnboardFormProps, LanguageButton } from '@/types/types';
-import React, { FormEvent, useState } from 'react';
 import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
-import { useAtom } from 'jotai';
-import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
-import { nativeLangAtom } from '@/atoms/atoms';
-import { fetchLitAccountsAtom } from '@/atoms/LitAuth/litAccountsAtomQuery';
-import { hasBalanceAtom } from '@/atoms/HasBalance/hasBalanceAtomQuery';
-import { isOnboardedAtom } from '@/atoms/IsOnboarded/isOnboardedAtomQuery';
-import { onboardLearnMutationAtom } from '@/atoms/Mutations/Onboard/onboardLearnMutationAtom';
-import { onboardTeachMutationAtom } from '@/atoms/Mutations/Onboard/onboardTeacMutationAtom';
-import { litSessionAtom } from '@/atoms/LitAuth/sessionSigsAtomQuery';
+
+interface OnboardFormProps {
+  onboardMode: 'Learn' | 'Teach';
+}
+
 const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
+  const hasBalance = useAtomValue(hasBalanceAtom);
+  const isOnboarded = useAtomValue(isOnboardedAtom);
+  const { data: languageButtons = [], isLoading, error } = useLanguageData();
+  const [selectedLanguageIds, setSelectedLanguageIds] = useState<number[]>([]);
   const [name, setName] = useState('');
 
-  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
-  const [isLitLoggedIn] = useAtom(isLitLoggedInAtom)
-  const [nativeLang] = useAtom(nativeLangAtom)
-  const [{ data: currentAccount, isLoading: accountsLoading, error: accountsError }] = useAtom(fetchLitAccountsAtom);
-  const [{ data: sessionSigs, isLoading: sessionSigsLoading, error: sessionSigsError }] = useAtom(litSessionAtom);
-  const [{data:hasBalance}] = useAtom(hasBalanceAtom);
-  const [{data: isOnboarded}] = useAtom(isOnboardedAtom)
-  const { languageButtons, setLanguageButtons } = useLanguageData();
-  const [{ mutate: onboardLearn, isError: onboardLearnIsError, error: onboardLearnError }] = useAtom(onboardLearnMutationAtom);
-  const [{ mutate: onboardTeach, isError: onboardTeachIsError, error: onboardTeachError }] = useAtom(onboardTeachMutationAtom);
+  const { mutate: onboardLearn, isError: onboardLearnIsError, error: onboardLearnError } = useOnboardLearnMutation();
+  const { mutate: onboardTeach, isError: onboardTeachIsError, error: onboardTeachError } = useOnboardTeachMutation();
 
-
-  const handleToggleLanguage = (languageButton: LanguageButton) => {
-    setLanguageButtons(prevLanguageButtons =>
-      prevLanguageButtons.map(lang =>
-        lang.language === languageButton.language
-          ? { ...lang, isSelected: !lang.isSelected }
-          : lang
-      )
+  const handleToggleLanguage = (toggledButton: LanguageButton) => {
+    setSelectedLanguageIds(prevIds =>
+      prevIds.includes(toggledButton.id)
+        ? prevIds.filter(id => id !== toggledButton.id)
+        : [...prevIds, toggledButton.id]
     );
   };
 
@@ -42,53 +34,32 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
     setName(event.target.value);
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log('Submit button clicked');
+    const commonData = {
+      selectedLanguageCodes: selectedLanguageIds,
+      name,
+      nativeLang: navigator.language,
+    };
 
-    const selectedLanguageCodes = languageButtons
-    .filter(lang => lang.isSelected)
-    .map(lang => lang.id);
-
-    try {
-      if (onboardMode === 'Learn') {
-        if (!currentAccount || !supabaseClient || !isLitLoggedIn) {
-          throw new Error('Missing required data for onboarding');
-        }
-
-        console.log('Submitting learn onboarding');
-
-        onboardLearn({
-          selectedLanguageCodes,
-          name,
-          currentAccount,
-          nativeLang: navigator.languages[0],
-          supabaseClient
-        });
-      } else {
-        if (!isLitLoggedIn || isOnboarded || !currentAccount || !sessionSigs || !selectedLanguageCodes.length || !name.length || !supabaseClient || supabaseLoading) {
-          throw new Error('Missing required data for onboarding');
-        }
-
-        onboardTeach({
-          selectedLanguageCodes,
-          name,
-          currentAccount,
-          defaultNativeLanguage: navigator.languages[0],
-          supabaseClient,
-          sessionSigs
-        });
-        console.log('Submitting teach onboarding');
-      }
-    } catch (error) {
-      console.error('Error submitting onboarding:', error);
+    if (onboardMode === 'Learn') {
+      onboardLearn(commonData);
+    } else {
+      onboardTeach({
+        ...commonData,
+        defaultNativeLanguage: navigator.language,
+      });
     }
   };
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
 
   return (
     <form onSubmit={handleSubmit}>
       <LanguageToggleButtons
         languageButtons={languageButtons}
+        selectedLanguageIds={selectedLanguageIds}
         onToggleLanguage={handleToggleLanguage}
       />
       <NameInputField name={name} onNameChange={handleNameChange} />
@@ -102,5 +73,3 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
 };
 
 export default OnboardForm;
-
-

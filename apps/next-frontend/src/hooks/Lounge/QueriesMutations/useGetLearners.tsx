@@ -7,9 +7,9 @@ interface FetchLearnersResponse {
 //WIP: mirror  useGetTeachers.tsx
 import { useAtomValue } from 'jotai';
 import { UseQueryResult } from '@tanstack/react-query';
-import { supabaseClientAtom } from '@/atoms/atoms';
-import { useSupabaseQuery } from '@/hooks/Auth/SupabaseClient/useSupabaseQuery';
 import useLocalStorage from '@rehooks/local-storage';
+import { supabaseClientAtom } from '@/atoms/supabaseClientAtom';
+import { useSupabaseQuery } from '@/hooks/Supabase/useSupabaseQuery';
 
 export interface UserData {
   id: number;

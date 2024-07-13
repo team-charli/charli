@@ -1,41 +1,20 @@
-// useLanguageData.ts
-import { useState, useEffect } from 'react';
-import { LanguageButton } from '@/types/types';
-import { supabaseClientAtom } from '@/atoms/SupabaseClient/supabaseClientAtom';
-import { useAtom } from 'jotai';
+import { useSupabaseQuery } from '@/hooks/Supabase/useSupabaseQuery';
+import { LanguageButton, SupabaseError } from '@/types/types';
 
 export const useLanguageData = () => {
-  const [{ data: supabaseClient, isLoading: supabaseLoading }] = useAtom(supabaseClientAtom);
-  const [languageButtons, setLanguageButtons] = useState<LanguageButton[]>([]);
-
-  useEffect(() => {
-    const fetchLanguageData = async () => {
-      // console.log('supabaseClient', Boolean(supabaseClient))
-      if (supabaseClient) {
-        try {
-          const {data, error} = await supabaseClient
-            .from('languages')
-            .select('*');
-          if (data) {
-            const languageData = data.map(langObj => ({id: langObj.id, language: langObj.name, languageCode: langObj.language_code, flag: langObj.emoji, isSelected: false}))
-
-            // console.log('languageData', languageData)
-            setLanguageButtons(languageData);
-
-          } else if (error) {
-            console.log(error)
-          }
-        } catch (error) {
-          console.log(error);
-        }
-      }
-    };
-
-    void (async () => {
-      await fetchLanguageData();
-    })();
-  }, [supabaseClient]);
-
-  return { languageButtons, setLanguageButtons };
+  return useSupabaseQuery<LanguageButton[], SupabaseError>(
+    ['platformLanguages'] as const,
+    async (supabaseClient) => {
+      const { data, error } = await supabaseClient
+        .from('languages')
+        .select('*');
+      if (error) throw error;
+      return data?.map(langObj => ({
+        id: langObj.id,
+        language: langObj.name,
+        languageCode: langObj.language_code,
+        flag: langObj.emoji
+      } as LanguageButton)) || [];
+    }
+  );
 };
-

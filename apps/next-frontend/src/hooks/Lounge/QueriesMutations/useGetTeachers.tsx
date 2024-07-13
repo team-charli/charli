@@ -1,8 +1,8 @@
 import useLocalStorage from "@rehooks/local-storage";
 import { useAtomValue } from "jotai";
 import { supabaseClientAtom } from "@/atoms/supabaseClientAtom";
-import { useSupabaseQuery } from "@/hooks/Auth/SupabaseClient/useSupabaseQuery";
 import { UseQueryResult } from "@tanstack/react-query";
+import { useSupabaseQuery } from "@/hooks/Supabase/useSupabaseQuery";
 
 interface UserData {
   id: number;
@@ -19,7 +19,7 @@ export function useGetTeachers(selectedLang: string, modeView: "Learn" | "Teach"
     ['getTeachers', userId] as const,
     async (supabaseClient) => {
 
-      if (modeView === 'Learn' && supabaseClient) {
+      if (modeView === 'Learn') {
         const {data: user_data, error} =  await supabaseClient
           .from('user_data')
           .select('*')

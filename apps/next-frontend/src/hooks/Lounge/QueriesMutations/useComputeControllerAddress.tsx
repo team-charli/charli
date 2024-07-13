@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
-import { generateUserId } from '../../utils/app';
 import { litNodeClient } from '@/utils/litClients';
 import { useEffect, useState } from 'react';
+import { generateUserId } from '@/utils/app';
 
 export const useComputeControllerAddress = () => {
   const [controllerData, setControllerData] = useState({

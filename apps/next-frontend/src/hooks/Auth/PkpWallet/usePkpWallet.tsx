@@ -3,11 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { litNodeClient } from '@/utils/litClients';
-import { sessionSigsAtom, litAccountAtom, litNodeClientReadyAtom, pkpWalletAtom } from '@/atoms/atoms';
-import { sessionSigsExpired } from '@/utils/app';
+import { sessionSigsAtom, litAccountAtom, litNodeClientReadyAtom, pkpWalletAtom, authSigAtom } from '@/atoms/atoms';
+import { checkAuthSigExpiration, sessionSigsExpired } from '@/utils/app';
 
 export const usePkpWallet = () => {
   const sessionSigs = useAtomValue(sessionSigsAtom);
+  const authSig = useAtomValue(authSigAtom);
   const currentAccount = useAtomValue(litAccountAtom);
   const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
   const setPkpWallet = useSetAtom(pkpWalletAtom);
@@ -32,7 +33,7 @@ export const usePkpWallet = () => {
       }
       return null;
     },
-    enabled: !!sessionSigs && !!currentAccount && !!litNodeClientReady,
+    enabled: !!sessionSigs && !sessionSigsExpired(sessionSigs) && !!authSig && !checkAuthSigExpiration(authSig) && !!currentAccount && !!litNodeClientReady,
     staleTime: Infinity,
     gcTime: Infinity,
   });

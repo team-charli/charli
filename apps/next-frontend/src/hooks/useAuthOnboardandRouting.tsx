@@ -7,7 +7,7 @@ import { useAuthChainManager } from './Auth/useAuthChainManager';
 
 export const useAuthOnboardAndRouting = () => {
   const router = useRouter();
-  const { isLoading, isSuccess, authMethodQuery } = useInitQueries();
+  const { isLoading, isSuccess, loadingQueries, failedQueries, authMethodQuery } = useInitQueries();
   const isOnboarded = useAtomValue(isOnboardedAtom);
   const isLitLoggedIn = useAtomValue(isLitLoggedInAtom);
   const isOAuthRedirect = useAtomValue(isOAuthRedirectAtom);
@@ -15,8 +15,8 @@ export const useAuthOnboardAndRouting = () => {
 
   const getTargetRoute = () => {
     if (typeof window === 'undefined') return { route: null, reason: 'SSR' };
-    if (isLoading) return { route: null, reason: `isLoading: ${isLoading}` };
-    if (!isSuccess) return { route: null, reason: `isSuccess: ${isSuccess}` };
+    if (isLoading) return { route: null, reason: `isLoading: ${isLoading}, Queries: ${loadingQueries.join(', ')}` };
+    if (!isSuccess) return { route: null, reason: `isSuccess: ${isSuccess}, Failed Queries: ${failedQueries.join(', ')}` };
     if (isOAuthRedirect) return { route: null, reason: `isOAuthRedirect: ${isOAuthRedirect}` };
     if (isLitLoggedIn && isOnboarded === false) return { route: '/onboard', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
     if (isLitLoggedIn && isOnboarded) return { route: '/lounge', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
@@ -25,24 +25,20 @@ export const useAuthOnboardAndRouting = () => {
   };
 
   useQuery({
-    queryKey: ['authRouting', isLitLoggedIn, isOnboarded, isOAuthRedirect, isLoading, isSuccess],
+    queryKey: ['authRouting', isLitLoggedIn, isOnboarded, isOAuthRedirect, isLoading, isSuccess, loadingQueries, failedQueries],
     queryFn: async () => {
       const authChainResult = await checkAndInvalidate();
-
       if (authChainResult === 'redirect_to_login' && router.pathname !== '/login') {
         console.log('Auth chain check requires reauth, redirecting to login');
         router.push('/login');
         return null;
       }
-
       const { route, reason } = getTargetRoute();
       console.log(`Target Route: ${route}, Reason: ${reason}`);
-
       if (route && router.pathname !== route) {
         console.log(`Navigating to: ${route}`);
         router.push(route);
       }
-
       return null;
     },
     enabled: true,

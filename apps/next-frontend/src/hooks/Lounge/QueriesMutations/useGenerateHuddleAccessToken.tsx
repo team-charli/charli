@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { useSupabaseQuery } from "../Auth/SupabaseClient/useSupabaseQuery";
 import useLocalStorage from "@rehooks/local-storage";
+import { useSupabaseQuery } from "@/hooks/Supabase/useSupabaseQuery";
 
 interface HuddleAccessTokenResponse {
   accessToken: string | undefined;

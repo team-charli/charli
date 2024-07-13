@@ -5,18 +5,21 @@ import { useAuthChainManager } from './useAuthChainManager';
 
 export const useInitQueries = () => {
   const {jwt, authMethod, litAccount, sessionSigs, litNodeClientReady} = useInitQueriesAtoms()
-  const litNodeClientQuery = useLitNodeClientReadyQuery();
-  const authMethodQuery = useLitAuthMethodQuery();
-  const litAccountQuery = useLitAccountQuery();
-  const sessionSigsQuery = useLitSessionSigsQuery();
-  const pkpWalletQuery = usePkpWallet();
-  const nonceQuery = useNonce();
-  const signatureQuery = useSignature();
-  const supabaseJWTQuery = useSupabaseJWT();
-  const supabaseClientQuery = useSupabaseClient();
-  const { checkAndInvalidate} = useAuthChainManager();
-  const isOnboardedQuery  = useIsOnboarded()
-  const hasBalance = useHasBalance()
+  const { checkAndInvalidate } = useAuthChainManager();
+
+  const queries = {
+    litNodeClientQuery: useLitNodeClientReadyQuery(),
+    authMethodQuery: useLitAuthMethodQuery(),
+    litAccountQuery: useLitAccountQuery(),
+    sessionSigsQuery: useLitSessionSigsQuery(),
+    pkpWalletQuery: usePkpWallet(),
+    nonceQuery: useNonce(),
+    signatureQuery: useSignature(),
+    supabaseJWTQuery: useSupabaseJWT(),
+    supabaseClientQuery: useSupabaseClient(),
+    isOnboardedQuery: useIsOnboarded(),
+    hasBalance: useHasBalance()
+  };
 
   useQuery({
     queryKey: ['initQueriesCheck'],
@@ -27,26 +30,22 @@ export const useInitQueries = () => {
     refetchInterval: 60000, // Check every minute
   });
 
-  const queries = {
-    litNodeClientQuery,
-    authMethodQuery,
-    litAccountQuery,
-    sessionSigsQuery,
-    pkpWalletQuery,
-    nonceQuery,
-    signatureQuery,
-    supabaseJWTQuery,
-    supabaseClientQuery,
-    isOnboardedQuery,
-    hasBalance
-  };
+  const loadingQueries = Object.entries(queries)
+    .filter(([_, query]) => query.isLoading)
+    .map(([name, _]) => name);
 
-  const isLoading = Object.values(queries).some(query => query.isLoading);
-  const isSuccess = Object.values(queries).every(query => query.isSuccess);
+  const failedQueries = Object.entries(queries)
+    .filter(([_, query]) => query.isError)
+    .map(([name, _]) => name);
+
+  const isLoading = loadingQueries.length > 0;
+  const isSuccess = failedQueries.length === 0 && !isLoading;
 
   return {
     ...queries,
     isLoading,
-    isSuccess
+    isSuccess,
+    loadingQueries,
+    failedQueries
   };
 };

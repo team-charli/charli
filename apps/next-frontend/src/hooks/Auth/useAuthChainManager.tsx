@@ -6,23 +6,6 @@ export const useAuthChainManager = () => {
   const queryClient = useQueryClient();
   const { jwt, authMethod, litAccount, authSig, sessionSigs, litNodeClientReady, pkpWallet, nonce, signature } = useInitQueriesAtoms()
 
-  // const invalidateChain = async (startIndex: number) => {
-  //   const chain = [
-  //     'litNodeClientReady',
-  //     'authMethod',
-  //     'fetchLitAccounts',
-  //     'litSession',
-  //     'pkpWallet',
-  //     'nonce',
-  //     'signature',
-  //     'supabaseJWT',
-  //     'supabaseClient'
-  //   ];
-
-  //   for (let i = startIndex; i < chain.length; i++) {
-  //     await queryClient.invalidateQueries({ queryKey: [chain[i]] });
-  //   }
-  // };
 
   const checkAndInvalidate = async () => {
     if (!litNodeClientReady) {
@@ -39,10 +22,13 @@ export const useAuthChainManager = () => {
     }
 
     if (!authSig || checkAuthSigExpiration(authSig) ) {
+      await invalidateQueries()
       return 'redirect_to_login';
     }
 
     if (!sessionSigs || sessionSigsExpired(sessionSigs)) {
+      await invalidateQueries()
+
       return 'redirect_to_login';
     }
 
@@ -52,7 +38,7 @@ export const useAuthChainManager = () => {
     }
 
     if (!jwt || isJwtExpired(jwt)) {
-      return await handleExpiredJWT();
+      return await invalidateQueries();
     }
 
     return 'continue';
@@ -60,11 +46,9 @@ export const useAuthChainManager = () => {
 
   return { checkAndInvalidate };
 
-  async function handleExpiredJWT () {
-    const authSig = getAuthSigFromLocalStorage();
-
-    if (!authSig || checkAuthSigExpiration(authSig) || !sessionSigs || sessionSigsExpired(sessionSigs)) {
+  async function invalidateQueries () {
       // Invalidate the entire auth chain
+    console.log('invalidateQueries')
       await queryClient.invalidateQueries({
         queryKey: [
           'authMethod',
@@ -78,7 +62,6 @@ export const useAuthChainManager = () => {
         ]
       });
       return 'redirect_to_login';
-    }
 
     // If authSig and sessionSigs are still valid, we can just refresh from nonce
     await queryClient.refetchQueries({

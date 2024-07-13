@@ -2,7 +2,7 @@
 import { useAtomValue, useSetAtom } from 'jotai';
 import {  sessionSigsAtom, litAccountAtom, litNodeClientReadyAtom, isOnboardedAtom } from '@/atoms/atoms';
 import { supabaseClientAtom } from '@/atoms/supabaseClientAtom';
-import { useSupabaseQuery } from '../SupabaseClient/useSupabaseQuery';
+import { useSupabaseQuery } from '@/hooks/Supabase/useSupabaseQuery';
 
 export const useIsOnboarded = () => {
   const currentAccount = useAtomValue(litAccountAtom);

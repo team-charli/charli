@@ -1,11 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAtom, useAtomValue } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
-import { signatureAtom, litAccountAtom, nonceAtom } from '@/atoms/atoms';
+import { signatureAtom, litAccountAtom, nonceAtom, supabaseJWTAtom } from '@/atoms/atoms';
 import ky from 'ky';
 import { useAuthChainManager } from '../useAuthChainManager';
 
-export const supabaseJWTAtom = atomWithStorage<string | null>('supabaseJWT', null);
 
 export const useSupabaseJWT = () => {
   const queryClient = useQueryClient();
