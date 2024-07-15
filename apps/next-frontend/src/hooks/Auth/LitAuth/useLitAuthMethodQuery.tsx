@@ -28,6 +28,7 @@ export const useLitAuthMethodQuery = () => {
         : await authenticateWithDiscord(redirectUri);
 
       if (result) {
+        setIsOAuthRedirect(false);
         setAuthMethod(result);
         return result;
       }

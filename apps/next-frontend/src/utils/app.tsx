@@ -124,10 +124,9 @@ export function verifyRoleAndAddress(hashed_teacher_address:string | undefined, 
 
 export function sessionSigsExpired(sessionSigs: SessionSigs | null | undefined): boolean {
   const caller = new Error().stack?.split('\n')[2].trim().split(' ')[1] || 'unknown';
-  // console.log(`sessionSigsExpired check (caller: ${caller})`);
 
   if (!sessionSigs) {
-    // console.log(`sessionSigsExpired (${caller}): no sessionSigs`);
+    console.log(`sessionSigsExpired function: no sessionSigs`);
     return true;
   }
 
@@ -138,7 +137,7 @@ export function sessionSigsExpired(sessionSigs: SessionSigs | null | undefined):
       const expirationTime = new Date(signedMessage.expiration).getTime();
       const timeUntilExpire = formatTimeUntilExpire(expirationTime - currentTime);
 
-      // console.log(`sessionSigsExpired check (${caller}): ${key}, ${timeUntilExpire}`);
+      // console.log(`sessionSigsExpired check: ${timeUntilExpire}`);
 
       if (currentTime >= expirationTime) {
         console.log(`sessionSigsExpired (${caller}): ${key} has expired`);
@@ -147,7 +146,7 @@ export function sessionSigsExpired(sessionSigs: SessionSigs | null | undefined):
     }
   }
 
-  // console.log(`sessionSigsExpired (${caller}): not expired`);
+  // console.log(`sessionSigs not expired`);
   return false;
 }
 
@@ -190,9 +189,13 @@ export function getAuthSigFromLocalStorage(): any | null {
 }
 
 export function checkAuthSigExpiration(authSig: any): boolean {
-  if (!authSig || !authSig.signedMessage) {
-    console.log('Invalid AuthSig format');
-    return true; // Treat as expired if we don't have a valid AuthSig
+  if (!authSig) {
+    console.log('no authSig')
+    // return true; // Treat as expired if we don't have a valid AuthSig
+
+  } else if (!authSig.signedMessage){
+    console.log('no signedMessage in authSig');
+    // return true; // Treat as expired if we don't have a valid AuthSig
   }
 
   // Parse the signedMessage to extract the expiration time

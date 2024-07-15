@@ -5,19 +5,19 @@ import { isOAuthRedirectAtom, litAccountAtom, supabaseJWTAtom } from '@/atoms/at
 import { useAuthChainManager } from './Auth/useAuthChainManager';
 import { useAuthChain } from './Auth/useAuthChain';
 import { useIsLitLoggedIn } from './Auth/LitAuth/useIsLitLoggedIn';
-import { useIsOnboarded, useLitAuthMethodQuery, useLitNodeClientReadyQuery, useSupabaseJWT } from './Auth';
+import { useIsOnboarded, useLitAuthMethodQuery, useLitNodeClientReadyQuery } from './Auth';
 
 export const useAuthOnboardAndRouting = () => {
   const router = useRouter();
   const { queries, isLoading, isSuccess } = useAuthChain();
   const isOAuthRedirect = useAtomValue(isOAuthRedirectAtom);
-  const { checkAndInvalidate } = useAuthChainManager();
   const {data: isLitLoggedIn } = useIsLitLoggedIn();
   const {data: isOnboarded} = useIsOnboarded();
   const {data: litNodeClientReady} = useLitNodeClientReadyQuery();
   const {data: authMethod} = useLitAuthMethodQuery();
   const litAccount = useAtomValue(litAccountAtom);
   const jwt = useAtomValue(supabaseJWTAtom);
+  const { checkAndInvalidate } = useAuthChainManager();
 
   const getTargetRoute = () => {
     if (typeof window === 'undefined') return { route: null, reason: 'SSR' };
@@ -34,9 +34,6 @@ export const useAuthOnboardAndRouting = () => {
     if (isLitLoggedIn && isOnboarded) return { route: '/lounge', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
 
     if (!isLitLoggedIn) return { route: '/login', reason: `isLitLoggedIn: ${isLitLoggedIn}` };
-
-    console.log({isLitLoggedIn, isOnboarded });
-
 
     return { route: null, reason: 'Unexpected state' };
   };

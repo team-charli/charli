@@ -27,11 +27,13 @@ export const useAuthChainManager = () => {
       return 'redirect_to_login';
     }
 
-    if (!authSig || checkAuthSigExpiration(authSig)) {
-      console.log('Auth sig expired or missing');
-      await invalidateQueries();
-      return 'redirect_to_login';
-    }
+    // if (!authSig || checkAuthSigExpiration(authSig)) {
+    //   if (!authSig) console.log('Auth sig missing: do nothing');
+    //   if (checkAuthSigExpiration(authSig)) console.log('Auth sig expired');
+
+    //   // await invalidateQueries();
+    //   // return 'redirect_to_login';
+    // }
 
     if (!sessionSigs || sessionSigsExpired(sessionSigs)) {
       console.log('Session sigs expired');
