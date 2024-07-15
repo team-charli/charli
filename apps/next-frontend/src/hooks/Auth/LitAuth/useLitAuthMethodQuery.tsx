@@ -1,18 +1,18 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { authMethodAtom, isOAuthRedirectAtom, authErrorAtom, litNodeClientReadyAtom} from '@/atoms/atoms';
+import { useQuery } from '@tanstack/react-query';
+import { useSetAtom } from 'jotai';
+import { authMethodAtom, isOAuthRedirectAtom, authErrorAtom } from '@/atoms/atoms';
 import { isSignInRedirect, getProviderFromUrl } from '@lit-protocol/lit-auth-client';
+import { useLitNodeClientReadyQuery } from './useLitNodeClientReadyQuery';
 
 const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useLitAuthMethodQuery = () => {
-  const [authMethod, setAuthMethod] = useAtom(authMethodAtom);
+  const setAuthMethod = useSetAtom(authMethodAtom);
   const setIsOAuthRedirect = useSetAtom(isOAuthRedirectAtom);
   const setAuthError = useSetAtom(authErrorAtom);
-  const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
-
-return useQuery({
-    queryKey: ['authMethod'],
+  const{data: litNodeClientReady, isSuccess: isLitNodeClientReadySuccess } =  useLitNodeClientReadyQuery();
+  return useQuery({
+    queryKey: ['authMethod', isLitNodeClientReadySuccess ],
     queryFn: async () => {
       const isRedirect = isSignInRedirect(redirectUri);
       setIsOAuthRedirect(isRedirect);
@@ -20,7 +20,7 @@ return useQuery({
       if (!isRedirect) return null; // Don't proceed if it's not a redirect
 
       const providerName = getProviderFromUrl();
-      if (providerName !== 'google' && providerName !== 'discord') return null;
+      if (providerName !== 'google' && providerName !== 'discord') return ;
 
       const { authenticateWithDiscord, authenticateWithGoogle } = await import('@/utils/lit');
       const result = providerName === 'google'
@@ -35,7 +35,7 @@ return useQuery({
     },
     staleTime: Infinity,
     gcTime: Infinity,
-    enabled: litNodeClientReady && isSignInRedirect(redirectUri),
+    enabled: litNodeClientReady && isLitNodeClientReadySuccess && isSignInRedirect(redirectUri),
     retry: false,
   });
 };

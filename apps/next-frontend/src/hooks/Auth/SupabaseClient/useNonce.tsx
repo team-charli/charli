@@ -1,26 +1,23 @@
 // useNonce.ts
-import { useQuery } from '@tanstack/react-query';
-import { useSetAtom, useAtomValue } from 'jotai';
+import { UseQueryResult, useQuery } from '@tanstack/react-query';
 import ky from 'ky';
 import { NonceData } from '@/types/types';
-import { nonceAtom, pkpWalletAtom, supabaseJWTAtom } from '@/atoms/atoms';
-import { isJwtExpired } from '@/utils/app';
+import { usePkpWallet } from '../PkpWallet/usePkpWallet';
+import { useLitSessionSigsQuery } from '../LitAuth/useLitSessionSigsQuery';
+import { sessionSigsExpired } from '@/utils/app';
 
-export const useNonce = () => {
-  const setNonce = useSetAtom(nonceAtom);
-  const pkpWallet = useAtomValue(pkpWalletAtom);
-  const existingJWT = useAtomValue(supabaseJWTAtom);
-  const pkpWalletExists = !!pkpWallet;
+export const useNonce = (): UseQueryResult<string | Error> => {
+  const {data: pkpWallet} = usePkpWallet();
+  const {data: sessionSigs} = useLitSessionSigsQuery();
   return useQuery<string, Error>({
-    queryKey: ['nonce', pkpWalletExists],
+    queryKey: ['nonce',],
     queryFn: async () => {
-      // console.log("5a: start nonce query");
+      console.log("5a: start nonce query");
       const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
-      setNonce(nonceResponse.nonce);
-      // console.log(`5b: nonce query finish`);
+      console.log(`5b: nonce query finish`);
       return nonceResponse.nonce;
     },
-    enabled: !!pkpWallet && (!existingJWT || isJwtExpired(existingJWT)),
+    enabled: !!pkpWallet && !!sessionSigs && !sessionSigsExpired(sessionSigs),
     staleTime: Infinity,
     gcTime: 10 * 60 * 1000,
     retry: 3,

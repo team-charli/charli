@@ -1,6 +1,5 @@
 'use client'
-import { isLoadingAtom } from "@/atoms/atoms";
-import { onboardModeAtom } from "@/atoms/userDataAtoms";
+import { isLoadingAtom, onboardModeAtom } from "@/atoms/atoms";
 import ButtonLink from "@/components/elements/ButtonLink";
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";

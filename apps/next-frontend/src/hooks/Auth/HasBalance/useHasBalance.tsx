@@ -2,17 +2,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { ethers } from 'ethers';
-import { isOnboardedAtom, pkpWalletAtom, litAccountAtom, litNodeClientReadyAtom, hasBalanceAtom } from '@/atoms/atoms';
+import { isOnboardedAtom, pkpWalletAtom, litAccountAtom, hasBalanceAtom } from '@/atoms/atoms';
+import { useLitNodeClientReadyQuery } from '../LitAuth/useLitNodeClientReadyQuery';
 
 export const useHasBalance = () => {
   const isOnboarded = useAtomValue(isOnboardedAtom);
   const pkpWallet = useAtomValue(pkpWalletAtom);
   const currentAccount = useAtomValue(litAccountAtom);
-  const litNodeClientReady = useAtomValue(litNodeClientReadyAtom);
   const setHasBalance = useSetAtom(hasBalanceAtom);
-
+  const {data: litNodeClientReady, isSuccess: litNodeClientReadySuccess } = useLitNodeClientReadyQuery();
   return useQuery({
-    queryKey: ['hasBalance'],
+    queryKey: ['hasBalance', litNodeClientReadySuccess ],
     queryFn: async (): Promise<boolean | null> => {
       const startTime = Date.now();
       console.log("10a: start hasBalance query");
@@ -35,7 +35,7 @@ export const useHasBalance = () => {
         return false;
       }
     },
-    enabled: !!isOnboarded && !!pkpWallet && !!currentAccount && !!litNodeClientReady,
+    enabled: !!isOnboarded && !!pkpWallet && !!currentAccount && !!litNodeClientReady && litNodeClientReadySuccess ,
     retry: false,
     staleTime: 30000,
     gcTime: 60000,

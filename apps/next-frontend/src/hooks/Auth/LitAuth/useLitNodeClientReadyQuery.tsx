@@ -1,14 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { useSetAtom } from 'jotai';
 import { litNodeClient } from '@/utils/litClients';
-import { litNodeClientReadyAtom, litNodeClientReadyErrorAtom } from '@/atoms/atoms';
 
 const TIMEOUT_DURATION = 10000; // 10 seconds
 const MAX_RETRIES = 3;
 
 export const useLitNodeClientReadyQuery = () => {
-  const setLitNodeClientReady = useSetAtom(litNodeClientReadyAtom);
-  const setLitNodeClientReadyError = useSetAtom(litNodeClientReadyErrorAtom);
 
   return useQuery<boolean, Error>({
     queryKey: ['litNodeClientReady'],
@@ -33,13 +29,11 @@ export const useLitNodeClientReadyQuery = () => {
           // console.log(`LitNodeClient connected successfully on attempt ${attempt}`);
           console.log(`Connection time for attempt ${attempt}: ${duration} seconds`);
 
-          setLitNodeClientReady(true);
           return true;
         } catch (error) {
           console.error(`Error connecting LitNodeClient (attempt ${attempt}/${MAX_RETRIES}):`, error);
 
           if (attempt === MAX_RETRIES) {
-            setLitNodeClientReadyError(error instanceof Error ? error : new Error('Unknown error connecting LitNodeClient'));
             throw error;
           }
 

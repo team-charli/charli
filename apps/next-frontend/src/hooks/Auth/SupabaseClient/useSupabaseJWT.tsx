@@ -1,25 +1,33 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAtom, useAtomValue } from 'jotai';
-import { atomWithStorage } from 'jotai/utils';
-import { signatureAtom, litAccountAtom, nonceAtom, supabaseJWTAtom } from '@/atoms/atoms';
+import { signatureAtom, litAccountAtom, supabaseJWTAtom } from '@/atoms/atoms';
 import ky from 'ky';
 import { useAuthChainManager } from '../useAuthChainManager';
-
+import { useNonce } from './useNonce';
+import { useLitAccountQuery } from '../LitAuth/useLitAccountQuery';
+import { useSignature } from './useSignature';
+import { useLitAuthMethodQuery } from '../LitAuth/useLitAuthMethodQuery';
+import { useLitNodeClientReadyQuery } from '../LitAuth/useLitNodeClientReadyQuery';
 
 export const useSupabaseJWT = () => {
   const queryClient = useQueryClient();
-  const signature = useAtomValue(signatureAtom);
-  const currentAccount = useAtomValue(litAccountAtom);
-  const nonce = useAtomValue(nonceAtom);
+  const {data: currentAccount} = useLitAccountQuery()
+  const {data: nonce} = useNonce();
+  const {data: signature} = useSignature();
+  const {data: litNodeClientReady} = useLitNodeClientReadyQuery();
+  const {data: authMethod} = useLitAuthMethodQuery();
+  const litAccount = useAtomValue(litAccountAtom);
+
   const [supabaseJWT, setSupabaseJWT] = useAtom(supabaseJWTAtom);
   const { checkAndInvalidate } = useAuthChainManager();
 
   const query = useQuery<string, Error>({
     queryKey: ['supabaseJWT', signature],
     queryFn: async (): Promise<string> => {
-      // Always check the authentication chain, including JWT expiration
-      const authStatus = await checkAndInvalidate();
-      if (authStatus === 'redirect_to_login') {
+      console.log("supabaseJWT query run");
+
+      const result = await checkAndInvalidate(litNodeClientReady, authMethod, litAccount, supabaseJWT);
+      if (result === 'redirect_to_login') {
         throw new Error('Authentication required');
       }
 
@@ -61,6 +69,7 @@ export const useSupabaseJWT = () => {
   });
 
   if (query.isError) {
+    console.log("set jwt to null")
     setSupabaseJWT(null);
     queryClient.setQueryData(['supabaseJWT'], null);
   }

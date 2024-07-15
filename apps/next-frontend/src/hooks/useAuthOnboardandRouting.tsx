@@ -1,33 +1,50 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
 import { useAtomValue } from 'jotai';
-import { isOnboardedAtom, isLitLoggedInAtom, isOAuthRedirectAtom } from '@/atoms/atoms';
-import { useInitQueries } from './Auth/useInitQueries';
+import { isOAuthRedirectAtom, litAccountAtom, supabaseJWTAtom } from '@/atoms/atoms';
 import { useAuthChainManager } from './Auth/useAuthChainManager';
+import { useAuthChain } from './Auth/useAuthChain';
+import { useIsLitLoggedIn } from './Auth/LitAuth/useIsLitLoggedIn';
+import { useIsOnboarded, useLitAuthMethodQuery, useLitNodeClientReadyQuery, useSupabaseJWT } from './Auth';
 
 export const useAuthOnboardAndRouting = () => {
   const router = useRouter();
-  const { isLoading, isSuccess, loadingQueries, failedQueries, authMethodQuery } = useInitQueries();
-  const isOnboarded = useAtomValue(isOnboardedAtom);
-  const isLitLoggedIn = useAtomValue(isLitLoggedInAtom);
+  const { queries, isLoading, isSuccess } = useAuthChain();
   const isOAuthRedirect = useAtomValue(isOAuthRedirectAtom);
   const { checkAndInvalidate } = useAuthChainManager();
+  const {data: isLitLoggedIn } = useIsLitLoggedIn();
+  const {data: isOnboarded} = useIsOnboarded();
+  const {data: litNodeClientReady} = useLitNodeClientReadyQuery();
+  const {data: authMethod} = useLitAuthMethodQuery();
+  const litAccount = useAtomValue(litAccountAtom);
+  const jwt = useAtomValue(supabaseJWTAtom);
 
   const getTargetRoute = () => {
     if (typeof window === 'undefined') return { route: null, reason: 'SSR' };
-    if (isLoading) return { route: null, reason: `isLoading: ${isLoading}, Queries: ${loadingQueries.join(', ')}` };
-    if (!isSuccess) return { route: null, reason: `isSuccess: ${isSuccess}, Failed Queries: ${failedQueries.join(', ')}` };
+
+    if (isLoading) return { route: null, reason: `isLoading: ${isLoading}, Queries: ${queries.filter(q => q.query.isLoading).map(q => q.name).join(', ')}` };
+
+    if (!isSuccess) return { route: null, reason: `isSuccess: ${isSuccess}, Failed Queries: ${queries.filter(q => q.query.isError).map(q => q.name).join(', ')}` };
+
     if (isOAuthRedirect) return { route: null, reason: `isOAuthRedirect: ${isOAuthRedirect}` };
+
+
     if (isLitLoggedIn && isOnboarded === false) return { route: '/onboard', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
+
     if (isLitLoggedIn && isOnboarded) return { route: '/lounge', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
+
     if (!isLitLoggedIn) return { route: '/login', reason: `isLitLoggedIn: ${isLitLoggedIn}` };
+
+    console.log({isLitLoggedIn, isOnboarded });
+
+
     return { route: null, reason: 'Unexpected state' };
   };
 
   useQuery({
-    queryKey: ['authRouting', isLitLoggedIn, isOnboarded, isOAuthRedirect, isLoading, isSuccess, loadingQueries, failedQueries],
+    queryKey: ['authRouting', isLoading, isSuccess, isOAuthRedirect],
     queryFn: async () => {
-      const authChainResult = await checkAndInvalidate();
+      const authChainResult = await checkAndInvalidate(litNodeClientReady, authMethod, litAccount, jwt  );
       if (authChainResult === 'redirect_to_login' && router.pathname !== '/login') {
         console.log('Auth chain check requires reauth, redirecting to login');
         router.push('/login');

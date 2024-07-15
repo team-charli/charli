@@ -1,8 +1,8 @@
 import { useMutation, UseMutationOptions, UseMutationResult, useQueryClient } from '@tanstack/react-query';
 import { useAtomValue } from 'jotai';
-import { supabaseJWTAtom } from '@/atoms/atoms';
+import { litAccountAtom, supabaseJWTAtom } from '@/atoms/atoms';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { useSupabaseClient } from '../Auth';
+import { useLitAuthMethodQuery, useLitNodeClientReadyQuery, useSupabaseClient } from '../Auth';
 import { useAuthChainManager } from '../Auth/useAuthChainManager';
 
 export function useSupabaseMutation<
@@ -15,13 +15,16 @@ export function useSupabaseMutation<
   options?: Omit<UseMutationOptions<TData, TError, TVariables, TContext>, 'mutationFn'>
 ): UseMutationResult<TData, TError, TVariables, TContext> {
   const queryClient = useQueryClient();
+  const {data: litNodeClientReady} = useLitNodeClientReadyQuery();
+  const {data: authMethod} = useLitAuthMethodQuery();
+  const litAccount = useAtomValue(litAccountAtom);
   const jwt = useAtomValue(supabaseJWTAtom);
   const { data: supabaseClient, isLoading: isClientLoading } = useSupabaseClient();
   const { checkAndInvalidate } = useAuthChainManager();
 
   const wrappedMutationFn = async (variables: TVariables) => {
     const checkAuth = async () => {
-      const result = await checkAndInvalidate();
+      const result = await checkAndInvalidate(litNodeClientReady, authMethod, litAccount, jwt);
       if (result === 'redirect_to_login') {
         throw new Error('Authentication required');
       }

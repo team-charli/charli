@@ -3,7 +3,7 @@ import { Database } from '../../../supabaseTypes';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSupabaseMutation } from '@/hooks/Supabase/useSupabaseMutation';
 import { useAtomValue } from 'jotai';
-import { litAccountAtom, sessionSigsAtom } from '@/atoms/atoms';
+import { litAccountAtom } from '@/atoms/atoms';
 
 type OnboardTeachVariables = {
   selectedLanguageCodes: number[];
@@ -14,7 +14,6 @@ type OnboardTeachVariables = {
 export const useOnboardTeachMutation = () => {
   const queryClient = useQueryClient();
   const currentAccount = useAtomValue(litAccountAtom);
-  const sessionSigs = useAtomValue(sessionSigsAtom);
 
   return useSupabaseMutation<Database["public"]["Tables"]["user_data"]["Row"][] | null, Error, OnboardTeachVariables>(
     async (supabaseClient, variables) => {

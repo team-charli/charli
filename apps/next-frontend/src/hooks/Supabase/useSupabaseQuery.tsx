@@ -1,11 +1,12 @@
 import { QueryFunctionContext, QueryKey, UseQueryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabaseJWTAtom } from '@/atoms/atoms';
+import { litAccountAtom, supabaseJWTAtom } from '@/atoms/atoms';
 import { useAtomValue } from 'jotai';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useCallback } from 'react';
-import { useSupabaseClient } from '../Auth';
+import { useLitAuthMethodQuery, useLitNodeClientReadyQuery, useSupabaseClient } from '../Auth';
 import { useAuthChainManager } from '../Auth/useAuthChainManager';
 import { SupabaseError } from '@/types/types';
+import { supabaseClientAtom } from '@/atoms/supabaseClientAtom';
 
 
 export function useSupabaseQuery<
@@ -19,13 +20,17 @@ TQueryKey extends QueryKey = QueryKey
   options?: Omit<UseQueryOptions<TQueryFnData, TError, TData, TQueryKey>, 'queryKey' | 'queryFn'>
 ) {
   const queryClient = useQueryClient();
+  const supabaseClient = useAtomValue(supabaseClientAtom);
+  const {data: litNodeClientReady} = useLitNodeClientReadyQuery();
+  const {data: authMethod} = useLitAuthMethodQuery();
+  const litAccount = useAtomValue(litAccountAtom);
   const jwt = useAtomValue(supabaseJWTAtom);
-  const { data: supabaseClient, isLoading: isClientLoading } = useSupabaseClient();
+
   const { checkAndInvalidate } = useAuthChainManager();
 
   const wrappedQueryFn = useCallback(async (context: QueryFunctionContext<TQueryKey>) => {
     const checkAuth = async () => {
-      const result = await checkAndInvalidate();
+      const result = await checkAndInvalidate(litNodeClientReady, authMethod, litAccount, jwt);
       if (result === 'redirect_to_login') {
         throw new Error('Authentication required');
       }
@@ -57,7 +62,16 @@ TQueryKey extends QueryKey = QueryKey
     ...options,
     queryKey,
     queryFn: wrappedQueryFn,
-    enabled: !isClientLoading && !!supabaseClient && options?.enabled !== false,
+    enabled: (() => {
+      const isEnabled = /*!isClientLoading && */!!supabaseClient && options?.enabled !== false;
+      // console.log('useSupabaseQuery enabled condition:', {
+      //   isClientLoading,
+      //   supabaseClient: !!supabaseClient,
+      //   optionsEnabled: options?.enabled,
+      //   isEnabled
+      // });
+      return isEnabled;
+    })(),
     retry: (failureCount, error) => {
       if (error instanceof Error && (error.message.includes('network') || error.message.includes('JWT expired'))) {
         return failureCount < 3;

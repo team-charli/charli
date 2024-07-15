@@ -18,7 +18,7 @@ export const useLitAccountQuery = () => {
 
       // Check if we already have a litAccount in the persistent atom
       if (litAccount) {
-        console.log('Using persisted litAccount');
+        // console.log('Using persisted litAccount');
         return litAccount;
       }
 
