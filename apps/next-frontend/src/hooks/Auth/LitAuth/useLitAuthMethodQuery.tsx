@@ -1,18 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSetAtom } from 'jotai';
-import { authMethodAtom, isOAuthRedirectAtom, authErrorAtom } from '@/atoms/atoms';
+import { isOAuthRedirectAtom } from '@/atoms/atoms';
 import { isSignInRedirect, getProviderFromUrl } from '@lit-protocol/lit-auth-client';
-import { useLitNodeClientReadyQuery } from './useLitNodeClientReadyQuery';
 
 const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
-export const useLitAuthMethodQuery = () => {
-  const setAuthMethod = useSetAtom(authMethodAtom);
+interface LitAuthMethodQueryParams {
+  queryKey: [string, boolean];
+  enabledDeps: boolean
+};
+
+export const useLitAuthMethodQuery = ({
+  queryKey,
+  enabledDeps
+}: LitAuthMethodQueryParams) => {
   const setIsOAuthRedirect = useSetAtom(isOAuthRedirectAtom);
-  const setAuthError = useSetAtom(authErrorAtom);
-  const{data: litNodeClientReady, isSuccess: isLitNodeClientReadySuccess } =  useLitNodeClientReadyQuery();
   return useQuery({
-    queryKey: ['authMethod', isLitNodeClientReadySuccess ],
+    queryKey,
     queryFn: async () => {
       const isRedirect = isSignInRedirect(redirectUri);
       setIsOAuthRedirect(isRedirect);
@@ -29,14 +33,13 @@ export const useLitAuthMethodQuery = () => {
 
       if (result) {
         setIsOAuthRedirect(false);
-        setAuthMethod(result);
         return result;
       }
       return null;
     },
     staleTime: Infinity,
     gcTime: Infinity,
-    enabled: litNodeClientReady && isLitNodeClientReadySuccess && isSignInRedirect(redirectUri),
+    enabled: enabledDeps,
     retry: false,
   });
 };

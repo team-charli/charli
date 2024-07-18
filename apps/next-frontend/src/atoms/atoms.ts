@@ -3,8 +3,6 @@ import { atom } from 'jotai';
 import { AuthMethod, AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { atomWithStorage } from 'jotai/utils';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { clone, cloneDeep } from 'lodash';
 import { sessionSigsExpired } from '@/utils/app';
 
 export const renderLoginButtonsAtom = atom<boolean>(false);

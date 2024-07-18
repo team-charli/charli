@@ -9,24 +9,42 @@ import React from 'react';
 import SessionProvider from "@/contexts/SessionsContext";
 import { useAuthOnboardAndRouting } from '@/hooks/useAuthOnboardandRouting'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { AuthProvider } from '@/contexts/AuthContext';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours
+    },
+  },
+})
 
+const persister = createSyncStoragePersister({
+  storage: typeof window !== 'undefined' ? window.localStorage : undefined
+})
 function CharliApp({ Component, pageProps }: AppProps) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Provider>
-        <AuthInitializer />
-        <ReactQueryDevtools initialIsOpen={false} />
-        <NotificationProvider>
-          <HuddleProvider client={huddleClient}>
-            <SessionProvider>
-              <Component {...pageProps} />
-            </SessionProvider>
-          </HuddleProvider>
-        </NotificationProvider>
-      </Provider>
-    </QueryClientProvider>
+ <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister }}
+    >
+      <AuthProvider>
+        <Provider>
+          <AuthInitializer />
+          <ReactQueryDevtools initialIsOpen={false} />
+          <NotificationProvider>
+            <HuddleProvider client={huddleClient}>
+              <SessionProvider>
+                <Component {...pageProps} />
+              </SessionProvider>
+            </HuddleProvider>
+          </NotificationProvider>
+        </Provider>
+      </AuthProvider>
+    </PersistQueryClientProvider>
+
   );
 }
 

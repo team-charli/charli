@@ -1,19 +1,23 @@
 // useSupabaseClient hook
-import { supabaseJWTAtom } from '@/atoms/atoms';
 import { supabaseClientAtom, supabaseClientWriteAtom } from '@/atoms/supabaseClientAtom';
-import { isJwtExpired } from '@/utils/app';
 import { useQuery } from '@tanstack/react-query';
 import { useAtomValue, useSetAtom } from 'jotai';
 
-export const useSupabaseClient = () => {
-  const userJWT = useAtomValue(supabaseJWTAtom);
+interface SupabaseClientQueryParams {
+  queryKey: [string, string],
+  enabledDeps: boolean,
+  queryFnData: [string]
+}
+
+export const useSupabaseClientQuery = ({queryKey, enabledDeps, queryFnData}: SupabaseClientQueryParams ) => {
   const supabaseClient = useAtomValue(supabaseClientAtom);
   const setSupabaseClient = useSetAtom(supabaseClientWriteAtom);
+  const [userJWT] = queryFnData;
 
   return useQuery({
-    queryKey: ['supabaseClient', userJWT],
+    queryKey,
     queryFn: () => {
-      if (!userJWT) {
+      if (!userJWT || !!userJWT.length) {
         console.log("No JWT available, returning null");
         setSupabaseClient(null);
         return null;
@@ -25,7 +29,7 @@ export const useSupabaseClient = () => {
 
       return supabaseClient;
     },
-    enabled: !!userJWT && !isJwtExpired(userJWT),
+    enabled: enabledDeps,
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,

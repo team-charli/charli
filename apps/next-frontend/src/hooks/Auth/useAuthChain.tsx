@@ -1,27 +1,76 @@
-import { useHasBalance } from "./HasBalance/useHasBalance";
-import { useIsOnboarded } from "./IsOnboarded/useIsOnboarded";
-import { useLitAccountQuery } from "./LitAuth/useLitAccountQuery";
-import { useLitAuthMethodQuery } from "./LitAuth/useLitAuthMethodQuery";
-import { useLitNodeClientReadyQuery } from "./LitAuth/useLitNodeClientReadyQuery";
-import { useLitSessionSigsQuery } from "./LitAuth/useLitSessionSigsQuery";
-import { usePkpWallet } from "./PkpWallet/usePkpWallet";
-import { useNonce } from "./SupabaseClient/useNonce";
-import { useSignature } from "./SupabaseClient/useSignature";
-import { useSupabaseClient } from "./SupabaseClient/useSupabaseClient";
-import { useSupabaseJWT } from "./SupabaseClient/useSupabaseJWT";
+//useAuthChain.tsx
+import { isSignInRedirect } from "@lit-protocol/lit-auth-client";
+import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useNonceQuery, useSignatureQuery, useSupabaseClientQuery, useSupabaseJWTQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
+import { isJwtExpired } from "@/utils/app";
+import { useMemo } from "react";
+import { useAuthChainManager } from "./useAuthChainManager";
+const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useAuthChain = () => {
   const litNodeClientQuery = useLitNodeClientReadyQuery();
-  const authMethodQuery = useLitAuthMethodQuery();
-  const litAccountQuery = useLitAccountQuery();
-  const sessionSigsQuery = useLitSessionSigsQuery();
-  const pkpWalletQuery = usePkpWallet();
-  const nonceQuery = useNonce();
-  const signatureQuery = useSignature();
-  const supabaseJWTQuery = useSupabaseJWT();
-  const supabaseClientQuery = useSupabaseClient();
-  const isOnboardedQuery = useIsOnboarded();
-  const hasBalanceQuery = useHasBalance();
+  const {checkAndInvalidate} = useAuthChainManager()
+  const authMethodQuery = useLitAuthMethodQuery({
+    queryKey: ['authMethod', litNodeClientQuery.isSuccess],
+    enabledDeps: (litNodeClientQuery.data ?? false) && litNodeClientQuery.isSuccess && isSignInRedirect(redirectUri)
+  });
+
+  const litAccountQuery = useLitAccountQuery({
+    queryKey: ['litAccount', authMethodQuery.isSuccess],
+    enabledDeps: !!authMethodQuery.data ?? false,
+    queryFnData: authMethodQuery.data
+  });
+
+  const sessionSigsQuery = useLitSessionSigsQuery({
+    queryKey: ['litSessionSigs', litAccountQuery.isSuccess],
+    enabledDeps:  (!!litAccountQuery.data ?? false) && (litNodeClientQuery.data ?? false),
+    queryFnData: [authMethodQuery.data, litAccountQuery.data]
+  });
+
+  const isLitLoggedInQuery = useIsLitLoggedInQuery(); //surface deps
+
+  const pkpWalletQuery = usePkpWalletQuery({
+    queryKey:   ['pkpWallet', isLitLoggedInQuery.data ?? false],
+    enabledDeps: sessionSigsQuery.isSuccess && !!sessionSigsQuery.data && !!litAccountQuery.data,
+    queryFnData:  [litAccountQuery.data, sessionSigsQuery.data]
+  });
+
+  const nonceQuery = useNonceQuery({
+    queryKey: ['nonce'],
+    enabledDeps: !!pkpWalletQuery.data && (isLitLoggedInQuery.data ?? false),
+  });
+  const nonceQueryData = nonceQuery.data && typeof nonceQuery.data === 'string'? nonceQuery.data: '';
+
+  const signatureQuery = useSignatureQuery({
+    queryKey: ['signature', nonceQueryData],
+    enabledDeps: !!nonceQuery.data,
+    queryFnData: nonceQuery.data,
+    pkpWallet: pkpWalletQuery.data, // Pass pkpWallet directly
+
+  });
+  const signatureQueryData = signatureQuery.data && typeof signatureQuery.data === 'string'? signatureQuery.data: ''
+
+  const supabaseJWTQuery = useSupabaseJWTQuery({
+    queryKey: ['supabaseJWT', signatureQueryData ],
+    enabledDeps: !!signatureQuery.data && !!litAccountQuery.data && !!nonceQuery.data,
+    queryFnData: [litAccountQuery.data, nonceQueryData , signatureQueryData]
+  });
+
+
+  const jwt = supabaseJWTQuery.data && typeof supabaseJWTQuery.data === 'string'&& supabaseJWTQuery.data.length > 10 ? supabaseJWTQuery.data : '';
+
+  const supabaseClientQuery = useSupabaseClientQuery({
+    queryKey: ['supabaseClient', jwt ],
+    enabledDeps: !!jwt?.length && !isJwtExpired(jwt),
+    queryFnData: [jwt]
+  });
+
+  const isOnboardedQuery = useIsOnboardedQuery({
+    queryKey: ['isOnboarded', litAccountQuery.data],
+    enabledDeps: !!litAccountQuery.data,
+    queryFnData: [litAccountQuery.data],
+    supabaseClient: supabaseClientQuery.data
+  });
+  const hasBalanceQuery = useHasBalanceQuery();
 
   const queries = [
     { name: 'litNodeClient', query: litNodeClientQuery },
@@ -45,6 +94,6 @@ export const useAuthChain = () => {
     queries,
     isLoading,
     isError,
-    isSuccess
+    isSuccess,
   };
 };

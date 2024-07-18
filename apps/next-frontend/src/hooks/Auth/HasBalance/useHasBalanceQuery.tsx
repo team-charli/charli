@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 import { isOnboardedAtom, pkpWalletAtom, litAccountAtom, hasBalanceAtom } from '@/atoms/atoms';
 import { useLitNodeClientReadyQuery } from '../LitAuth/useLitNodeClientReadyQuery';
 
-export const useHasBalance = () => {
+export const useHasBalanceQuery = () => {
   const isOnboarded = useAtomValue(isOnboardedAtom);
   const pkpWallet = useAtomValue(pkpWalletAtom);
   const currentAccount = useAtomValue(litAccountAtom);

@@ -3,20 +3,21 @@ import { useRouter } from 'next/router';
 import { useAtomValue } from 'jotai';
 import { isOAuthRedirectAtom, litAccountAtom, supabaseJWTAtom } from '@/atoms/atoms';
 import { useAuthChainManager } from './Auth/useAuthChainManager';
-import { useAuthChain } from './Auth/useAuthChain';
-import { useIsLitLoggedIn } from './Auth/LitAuth/useIsLitLoggedIn';
-import { useIsOnboarded, useLitAuthMethodQuery, useLitNodeClientReadyQuery } from './Auth';
+import { useAuth, useIsLitLoggedIn, useIsOnboarded, useJwt, useLitAuthMethod, useLitNodeClientReady } from '@/contexts/AuthContext';
 
 export const useAuthOnboardAndRouting = () => {
   const router = useRouter();
-  const { queries, isLoading, isSuccess } = useAuthChain();
+  const { queries, isLoading, isSuccess } = useAuth()
+  const isLitLoggedIn = useIsLitLoggedIn();
+  const  isOnboarded = useIsOnboarded();
+  const litNodeClientReady = useLitNodeClientReady();
+
+  const authMethod = useLitAuthMethod();
+  const jwt = useJwt();
+
   const isOAuthRedirect = useAtomValue(isOAuthRedirectAtom);
-  const {data: isLitLoggedIn } = useIsLitLoggedIn();
-  const {data: isOnboarded} = useIsOnboarded();
-  const {data: litNodeClientReady} = useLitNodeClientReadyQuery();
-  const {data: authMethod} = useLitAuthMethodQuery();
   const litAccount = useAtomValue(litAccountAtom);
-  const jwt = useAtomValue(supabaseJWTAtom);
+
   const { checkAndInvalidate } = useAuthChainManager();
 
   const getTargetRoute = () => {
@@ -41,7 +42,7 @@ export const useAuthOnboardAndRouting = () => {
   useQuery({
     queryKey: ['authRouting', isLoading, isSuccess, isOAuthRedirect],
     queryFn: async () => {
-      const authChainResult = await checkAndInvalidate(litNodeClientReady, authMethod, litAccount, jwt  );
+      const authChainResult = await checkAndInvalidate();
       if (authChainResult === 'redirect_to_login' && router.pathname !== '/login') {
         console.log('Auth chain check requires reauth, redirecting to login');
         router.push('/login');

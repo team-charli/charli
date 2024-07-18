@@ -1,65 +1,51 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useAtomValues } from './utils/useAtomValues';
-import { sessionSigsExpired, isJwtExpired, checkAuthSigExpiration } from '@/utils/app';
 import { useCallback } from 'react';
-import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
+import { sessionSigsExpired, isJwtExpired } from '@/utils/app';
+import { SessionSigs } from '@lit-protocol/types';
 
 export const useAuthChainManager = () => {
   const queryClient = useQueryClient();
-  const { authSig, sessionSigs, pkpWallet } = useAtomValues();
 
-  const checkAndInvalidate = useCallback(async (
-    litNodeClientReady: boolean | undefined,
-    authMethod: AuthMethod | undefined | null ,
-    litAccount: IRelayPKP | undefined | null,
-    jwt: string | undefined | null
-  ) => {
+  const checkAndInvalidate = useCallback(async () => {
+    const litNodeClientReady = queryClient.getQueryData(['litNodeClientReady'])
+    const authMethod = queryClient.getQueryData(['authMethod']);
+    const litAccount = queryClient.getQueryData(['litAccount']);
+    const sessionSigs = queryClient.getQueryData(['litSessionSigs']) as SessionSigs | undefined;
+    const pkpWallet = queryClient.getQueryData(['pkpWallet']);
+    const jwt = queryClient.getQueryData(['supabaseJWT']) as string | undefined;
+
     if (!litNodeClientReady) {
       await queryClient.refetchQueries({ queryKey: ['litNodeClientReady'] });
       return 'continue';
     }
-
     if (!authMethod) {
       return 'redirect_to_login';
     }
-
-    if (!litAccount) {
-      return 'redirect_to_login';
-    }
-
-    // if (!authSig || checkAuthSigExpiration(authSig)) {
-    //   if (!authSig) console.log('Auth sig missing: do nothing');
-    //   if (checkAuthSigExpiration(authSig)) console.log('Auth sig expired');
-
-    //   // await invalidateQueries();
-    //   // return 'redirect_to_login';
+    // if (!litAccount) {
+    //   return 'redirect_to_login';
     // }
-
     if (!sessionSigs || sessionSigsExpired(sessionSigs)) {
       console.log('Session sigs expired');
       await invalidateQueries();
       return 'redirect_to_login';
     }
-
     if (!pkpWallet) {
       await queryClient.refetchQueries({ queryKey: ['pkpWallet'] });
       return 'continue';
     }
-
     if (!jwt || isJwtExpired(jwt)) {
       console.log('JWT expired or missing');
       return await invalidateQueries();
     }
-
     return 'continue';
-  }, [queryClient, authSig, sessionSigs, pkpWallet]);
+  }, [queryClient]);
 
   const invalidateQueries = useCallback(async () => {
     await queryClient.invalidateQueries({
       queryKey: [
         'authMethod',
-        'fetchLitAccounts',
-        'litSession',
+        'litAccount',
+        'litSessionSigs',
         'pkpWallet',
         'nonce',
         'signature',

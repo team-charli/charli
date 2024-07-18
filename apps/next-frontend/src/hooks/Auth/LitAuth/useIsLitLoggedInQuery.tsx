@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAtomValue } from "jotai";
 import { litAccountAtom, sessionSigsAtom } from "@/atoms/atoms";
 
-export const useIsLitLoggedIn = () => {
+export const useIsLitLoggedInQuery = () => {
   const sessionSigs = useAtomValue(sessionSigsAtom);
   const litAccount = useAtomValue(litAccountAtom);
 
