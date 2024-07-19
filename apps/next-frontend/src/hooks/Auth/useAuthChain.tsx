@@ -1,7 +1,7 @@
 //useAuthChain.tsx
 import { isSignInRedirect } from "@lit-protocol/lit-auth-client";
 import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useNonceQuery, useSignatureQuery, useSupabaseClientQuery, useSupabaseJWTQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
-import { isJwtExpired } from "@/utils/app";
+import { isJwtExpired } from "@/utils/app"
 import { useMemo } from "react";
 import { useAuthChainManager } from "./useAuthChainManager";
 const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
@@ -10,27 +10,31 @@ export const useAuthChain = () => {
   const litNodeClientQuery = useLitNodeClientReadyQuery();
   const {checkAndInvalidate} = useAuthChainManager()
   const authMethodQuery = useLitAuthMethodQuery({
-    queryKey: ['authMethod', litNodeClientQuery.isSuccess],
-    enabledDeps: (litNodeClientQuery.data ?? false) && litNodeClientQuery.isSuccess && isSignInRedirect(redirectUri)
+    queryKey: ['authMethod'],
+    enabledDeps: (litNodeClientQuery.data ?? false) && isSignInRedirect(redirectUri)
   });
 
   const litAccountQuery = useLitAccountQuery({
     queryKey: ['litAccount', authMethodQuery.isSuccess],
-    enabledDeps: !!authMethodQuery.data ?? false,
+    enabledDeps: !!authMethodQuery.data,
     queryFnData: authMethodQuery.data
   });
 
   const sessionSigsQuery = useLitSessionSigsQuery({
-    queryKey: ['litSessionSigs', litAccountQuery.isSuccess],
-    enabledDeps:  (!!litAccountQuery.data ?? false) && (litNodeClientQuery.data ?? false),
+    queryKey: ['litSessionSigs'],
+    enabledDeps:  !!litAccountQuery.data && !!litNodeClientQuery.data,
     queryFnData: [authMethodQuery.data, litAccountQuery.data]
   });
 
-  const isLitLoggedInQuery = useIsLitLoggedInQuery(); //surface deps
+  const isLitLoggedInQuery = useIsLitLoggedInQuery({
+    queryKey: ['isLitLoggedIn'],
+    enabledDeps: !!litAccountQuery.data && !!sessionSigsQuery.data,
+    queryFnData: [litAccountQuery.data, sessionSigsQuery.data]
+  });
 
   const pkpWalletQuery = usePkpWalletQuery({
-    queryKey:   ['pkpWallet', isLitLoggedInQuery.data ?? false],
-    enabledDeps: sessionSigsQuery.isSuccess && !!sessionSigsQuery.data && !!litAccountQuery.data,
+    queryKey:   ['pkpWallet'],
+    enabledDeps: !!sessionSigsQuery.data && !!litAccountQuery.data,
     queryFnData:  [litAccountQuery.data, sessionSigsQuery.data]
   });
 
@@ -44,7 +48,7 @@ export const useAuthChain = () => {
     queryKey: ['signature', nonceQueryData],
     enabledDeps: !!nonceQuery.data,
     queryFnData: nonceQuery.data,
-    pkpWallet: pkpWalletQuery.data, // Pass pkpWallet directly
+    pkpWallet: pkpWalletQuery.data,
 
   });
   const signatureQueryData = signatureQuery.data && typeof signatureQuery.data === 'string'? signatureQuery.data: ''
@@ -66,11 +70,15 @@ export const useAuthChain = () => {
 
   const isOnboardedQuery = useIsOnboardedQuery({
     queryKey: ['isOnboarded', litAccountQuery.data],
-    enabledDeps: !!litAccountQuery.data,
+    enabledDeps: !!litAccountQuery.data && !!supabaseClientQuery.data ,
     queryFnData: [litAccountQuery.data],
     supabaseClient: supabaseClientQuery.data
   });
-  const hasBalanceQuery = useHasBalanceQuery();
+  const hasBalanceQuery = useHasBalanceQuery({
+    queryKey: ['hasBalance'],
+    enabledDeps: (isOnboardedQuery.data ?? false) && !!pkpWalletQuery.data && !!litAccountQuery.data && (litNodeClientQuery.data ?? false),
+    queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
+  });
 
   const queries = [
     { name: 'litNodeClient', query: litNodeClientQuery },

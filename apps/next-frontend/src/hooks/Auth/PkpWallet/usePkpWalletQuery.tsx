@@ -7,7 +7,7 @@ import { pkpWalletAtom } from '@/atoms/atoms';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 interface PkpWalletQueryParams {
-  queryKey: [string, boolean],
+  queryKey: [string],
   enabledDeps: boolean,
   queryFnData: [IRelayPKP | null | undefined,  SessionSigs | null | undefined]
 }

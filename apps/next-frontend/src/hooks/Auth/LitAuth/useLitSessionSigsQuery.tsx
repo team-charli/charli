@@ -6,7 +6,7 @@ import { sessionSigsExpired } from '@/utils/app';
 import { useAuthChainManager } from '../useAuthChainManager';
 
 interface SessionSigsQueryParams {
-  queryKey: [string, boolean],
+  queryKey: [string],
   enabledDeps: boolean,
   queryFnData: [AuthMethod | null | undefined, IRelayPKP | null | undefined],
 }

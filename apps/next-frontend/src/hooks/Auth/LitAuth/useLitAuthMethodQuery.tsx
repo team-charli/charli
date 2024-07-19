@@ -6,7 +6,7 @@ import { isSignInRedirect, getProviderFromUrl } from '@lit-protocol/lit-auth-cli
 const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 interface LitAuthMethodQueryParams {
-  queryKey: [string, boolean];
+  queryKey: [string];
   enabledDeps: boolean
 };
 

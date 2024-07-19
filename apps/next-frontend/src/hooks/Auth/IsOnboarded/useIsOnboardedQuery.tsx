@@ -24,11 +24,21 @@ export const useIsOnboardedQuery = ({
   // });
 
   const [currentAccount] = queryFnData;
+  console.log(`[${new Date().toISOString()}] useIsOnboardedQuery called:`, {
+    enabledDeps,
+    hasCurrentAccount: !!currentAccount,
+    hasSupabaseClient: !!supabaseClient,
+    queryKey
+  });
+
   return useQuery({
     queryKey,
     queryFn: async () => {
       const startTime = Date.now();
-      console.log("9a: start isOnboarded query");
+      console.log(`[${new Date().toISOString()}] 9a: start isOnboarded query`, {
+        hasSupabaseClient: !!supabaseClient,
+        hasCurrentAccount: !!currentAccount
+      });
 
       if (!supabaseClient || !currentAccount) {
         return false;

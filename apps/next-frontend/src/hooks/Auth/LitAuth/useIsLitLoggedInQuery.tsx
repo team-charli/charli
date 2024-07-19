@@ -1,14 +1,17 @@
 import { sessionSigsExpired } from "@/utils/app";
 import { useQuery } from "@tanstack/react-query";
-import { useAtomValue } from "jotai";
-import { litAccountAtom, sessionSigsAtom } from "@/atoms/atoms";
+import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 
-export const useIsLitLoggedInQuery = () => {
-  const sessionSigs = useAtomValue(sessionSigsAtom);
-  const litAccount = useAtomValue(litAccountAtom);
+interface IsLitLoggedInQueryParams {
+  queryKey: [string];
+  enabledDeps: boolean;
+  queryFnData: [IRelayPKP | null, SessionSigs | null]
+}
+export const useIsLitLoggedInQuery = ({queryKey, enabledDeps, queryFnData}: IsLitLoggedInQueryParams) => {
 
+  const [litAccount, sessionSigs] = queryFnData;
   return useQuery({
-    queryKey: ['isLitLoggedIn', !!sessionSigs, !!litAccount],
+    queryKey,
     queryFn: () => {
       if (!sessionSigs || !litAccount) {
         console.log("isLitLoggedIn === false: ", {sessionSigs: !!sessionSigs, litAccount: !!litAccount})
@@ -16,6 +19,6 @@ export const useIsLitLoggedInQuery = () => {
       }
       return !sessionSigsExpired(sessionSigs);
     },
-    enabled: !!sessionSigs && !!litAccount,
+    enabled: enabledDeps
   });
 };
