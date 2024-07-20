@@ -1,24 +1,23 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
-import { useAtomValue } from 'jotai';
-import { isOAuthRedirectAtom, litAccountAtom, supabaseJWTAtom } from '@/atoms/atoms';
 import { useAuthChainManager } from './Auth/useAuthChainManager';
 import { useAuth, useIsLitLoggedIn, useIsOnboarded, useJwt, useLitAuthMethod, useLitNodeClientReady } from '@/contexts/AuthContext';
+import { useIsSignInRedirectQuery } from './Auth/LitAuth/useIsSignInRedirectQuery';
 
 export const useAuthOnboardAndRouting = () => {
   const router = useRouter();
   const { queries, isLoading, isSuccess } = useAuth()
-  const isLitLoggedIn = useIsLitLoggedIn();
-  const  isOnboarded = useIsOnboarded();
-  const litNodeClientReady = useLitNodeClientReady();
+  const isOnboardedQuery = useIsOnboarded();
+  const {data: isOnboarded} = isOnboardedQuery;
+  const {data: isLitLoggedIn} = useIsLitLoggedIn();
+  const {data: litNodeClientReady} = useLitNodeClientReady();
+  const areAuthQueriesSettled = queries.every(q => q.query.isSuccess || q.query.isError);
 
-  const authMethod = useLitAuthMethod();
+  const { authChainManagerQuery } = useAuthChainManager();
+
   const jwt = useJwt();
 
-  const isOAuthRedirect = useAtomValue(isOAuthRedirectAtom);
-  const litAccount = useAtomValue(litAccountAtom);
-
-  const { checkAndInvalidate } = useAuthChainManager();
+  const {data: isOAuthRedirect} = useIsSignInRedirectQuery()
 
   const getTargetRoute = () => {
     if (typeof window === 'undefined') return { route: null, reason: 'SSR' };
@@ -28,7 +27,6 @@ export const useAuthOnboardAndRouting = () => {
     if (!isSuccess) return { route: null, reason: `isSuccess: ${isSuccess}, Failed Queries: ${queries.filter(q => q.query.isError).map(q => q.name).join(', ')}` };
 
     if (isOAuthRedirect) return { route: null, reason: `isOAuthRedirect: ${isOAuthRedirect}` };
-
 
     if (isLitLoggedIn && isOnboarded === false) return { route: '/onboard', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
 
@@ -42,8 +40,8 @@ export const useAuthOnboardAndRouting = () => {
   useQuery({
     queryKey: ['authRouting', isLoading, isSuccess, isOAuthRedirect],
     queryFn: async () => {
-      const authChainResult = await checkAndInvalidate();
-      if (authChainResult === 'redirect_to_login' && router.pathname !== '/login') {
+      const authChainResult = await authChainManagerQuery.refetch();
+      if (authChainResult.data === 'redirect_to_login' && router.pathname !== '/login') {
         console.log('Auth chain check requires reauth, redirecting to login');
         router.push('/login');
         return null;
@@ -56,7 +54,7 @@ export const useAuthOnboardAndRouting = () => {
       }
       return null;
     },
-    enabled: true,
+  enabled: !authChainManagerQuery.isFetching && areAuthQueriesSettled,
   });
 
   return null;

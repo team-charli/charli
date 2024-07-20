@@ -17,19 +17,7 @@ export const useIsOnboardedQuery = ({
   supabaseClient,
 }: IsOnboardedParams) => {
 
-  // console.log('useIsOnboarded hook called', {
-  //   supabaseClient: !!supabaseClient,
-  //   litNodeClientReady,
-  //   currentAccount: !!currentAccount
-  // });
-
   const [currentAccount] = queryFnData;
-  console.log(`[${new Date().toISOString()}] useIsOnboardedQuery called:`, {
-    enabledDeps,
-    hasCurrentAccount: !!currentAccount,
-    hasSupabaseClient: !!supabaseClient,
-    queryKey
-  });
 
   return useQuery({
     queryKey,

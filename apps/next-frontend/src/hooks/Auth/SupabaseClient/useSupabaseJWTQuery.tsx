@@ -14,17 +14,11 @@ export const useSupabaseJWTQuery = ({queryKey, enabledDeps, queryFnData}: Supaba
   const [currentAccount, nonce, signature] = queryFnData;
 
   const [supabaseJWT, setSupabaseJWT] = useAtom(supabaseJWTAtom);
-  // const { checkAndInvalidate } = useAuthChainManager();
 
   const query = useQuery<string, Error>({
     queryKey,
     queryFn: async (): Promise<string> => {
       console.log("supabaseJWT query run");
-
-      // const result = await checkAndInvalidate(litNodeClientReady, authMethod, litAccount, supabaseJWT);
-      // if (result === 'redirect_to_login') {
-      //   throw new Error('Authentication required');
-      // }
 
       // If we have a valid JWT after checking, use it
       if (supabaseJWT) {

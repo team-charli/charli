@@ -3,33 +3,45 @@ import { AuthMethod, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { litNodeClient } from '@/utils/litClients';
 import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers';
 import { sessionSigsExpired } from '@/utils/app';
-import { useAuthChainManager } from '../useAuthChainManager';
+import { log } from 'console';
+import React from 'react';
 
 interface SessionSigsQueryParams {
-  queryKey: [string],
-  enabledDeps: boolean,
-  queryFnData: [AuthMethod | null | undefined, IRelayPKP | null | undefined],
+  queryKey: [string];
+  enabledDeps: boolean;
+  queryFnData: [AuthMethod | null | undefined, IRelayPKP | null | undefined];
+  invalidateQueries: () => Promise<string>;
 }
 
-export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData}: SessionSigsQueryParams) => {
+export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, invalidateQueries}: SessionSigsQueryParams) => {
   const queryClient = useQueryClient();
   const [authMethod, litAccount] = queryFnData;
-  const { checkAndInvalidate } = useAuthChainManager();
 
-  return useQuery<SessionSigs | null>({
+  return useQuery<SessionSigs | null, Error>({
     queryKey,
     queryFn: async (): Promise<SessionSigs | null> => {
-      if (!authMethod || !litAccount) throw new Error('missing authMethod or litAccount');
-
+      try {
+        console.log('SessionSigs queryFn called', {
+          authMethod: !!authMethod,
+          litAccount: !!litAccount,
+          litNodeClientReady: litNodeClient.ready
+        });
+        if (!litNodeClient.ready) {
+          throw new Error('LitNodeClient not connected');
+        }
+        if (!authMethod) {
+          throw new Error('Missing authMethod');
+        }
+        if (!litAccount) {
+          throw new Error('Missing litAccount');
+        }
       const cachedSessionSigs = queryClient.getQueryData(queryKey) as SessionSigs | null;
-      if (cachedSessionSigs && sessionSigsExpired(cachedSessionSigs)) {
-        console.log('Cached sessionSigs expired, invalidating auth chain');
-        await checkAndInvalidate();
-        // After invalidation, we still want to try to get new sessionSigs
+      if (cachedSessionSigs && !sessionSigsExpired(cachedSessionSigs)) {
+        console.log('Using valid cached sessionSigs');
+        return cachedSessionSigs;
       }
-
       console.log('Fetching new sessionSigs');
-      const sessionSigs = await litNodeClient.getPkpSessionSigs({
+      const newSessionSigs = await litNodeClient.getPkpSessionSigs({
         pkpPublicKey: litAccount.publicKey,
         authMethods: [authMethod],
         resourceAbilityRequests: [
@@ -42,27 +54,18 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData}: Ses
             ability: LitAbility.LitActionExecution,
           },
         ]
-      });
-
-      if (sessionSigs) {
+  });
         console.log('New sessionSigs obtained');
-        return sessionSigs;
+        return newSessionSigs;
+      } catch (error) {
+        console.error('Failed to fetch new sessionSigs', error);
+        invalidateQueries();
+        return null;
       }
-
-      console.log('Failed to obtain new sessionSigs, invalidating auth chain');
-      await checkAndInvalidate();
-      return null;
     },
-    initialData: () => {
-      const cachedSessionSigs = queryClient.getQueryData(queryKey) as SessionSigs | null;
-      if (cachedSessionSigs && !sessionSigsExpired(cachedSessionSigs)) {
-        console.log('Using valid cached sessionSigs');
-        return cachedSessionSigs;
-      }
-      return null;
-    },
-    enabled: enabledDeps,
-    staleTime: Infinity,
-    gcTime: Infinity,
+    enabled: enabledDeps && typeof window !== 'undefined',
+    staleTime: 0,
+    gcTime: 24 * 60 * 60 * 1000,
+    retry: false,
   });
 };

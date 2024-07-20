@@ -7,7 +7,7 @@ import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 interface HasBalanceQueryParams {
   queryKey: [string];
   enabledDeps: boolean;
-  queryFnData: [ PKPEthersWallet | undefined, IRelayPKP | null];
+  queryFnData: [ PKPEthersWallet | undefined, IRelayPKP | null | undefined];
 }
 
 export const useHasBalanceQuery = ({queryKey, enabledDeps, queryFnData}:HasBalanceQueryParams)  => {

@@ -13,6 +13,7 @@ export const useSupabaseClientQuery = ({queryKey, enabledDeps, queryFnData}: Sup
   const supabaseClient = useAtomValue(supabaseClientAtom);
   const setSupabaseClient = useSetAtom(supabaseClientWriteAtom);
   const [userJWT] = queryFnData;
+  // console.log('enabledDeps', enabledDeps)
 
   return useQuery({
     queryKey,
@@ -30,7 +31,7 @@ export const useSupabaseClientQuery = ({queryKey, enabledDeps, queryFnData}: Sup
       return supabaseClient;
     },
     enabled: enabledDeps,
-    staleTime: Infinity,
+    // staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
   });
