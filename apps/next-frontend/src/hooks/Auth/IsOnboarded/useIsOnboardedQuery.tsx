@@ -33,9 +33,10 @@ export const useIsOnboardedQuery = ({
         .from("user_data")
         .select("id, user_address")
         .eq("user_address", currentAccount.ethAddress)
-        .single();
+        .limit(1);
 
-      const isOnboarded = !error && !!data;
+      // const isOnboarded = !error && !!data;
+      const isOnboarded = data && data.length > 0;
 
       console.log("11b: finish isOnboarded query -- isOnboarded ", isOnboarded);
 

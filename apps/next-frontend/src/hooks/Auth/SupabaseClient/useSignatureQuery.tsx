@@ -5,15 +5,13 @@ import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 interface SignatureQueryParams {
   queryKey: [string, string];
   enabledDeps: boolean;
-  queryFnData: string | undefined | Error;
-  pkpWallet: PKPEthersWallet | null | undefined;
+  queryFnData: [string | undefined | Error, PKPEthersWallet | null | undefined]
 }
 
 export const useSignatureQuery = ({
   queryKey,
   enabledDeps,
   queryFnData,
-  pkpWallet
 }: SignatureQueryParams): UseQueryResult<string, Error> => {
 
   return useQuery({
@@ -21,7 +19,7 @@ export const useSignatureQuery = ({
     queryFn: async (): Promise<string> => {
       console.log("8a: start signature query");
 
-      const nonce = queryFnData;
+      const [nonce, pkpWallet] = queryFnData;
       if (!nonce || typeof nonce !== 'string') {
         throw new Error('8b: finish signature query -- Nonce not available or invalid');
       }
