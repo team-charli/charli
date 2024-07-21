@@ -1,27 +1,12 @@
 //useAuthChain.tsx
 import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useNonceQuery, useSignatureQuery, useSupabaseClientQuery, useSupabaseJWTQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
-import { isJwtExpired } from "@/utils/app"
-import { useAuthChainManager } from "./useAuthChainManager";
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
+import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
 
 export const useAuthChain = () => {
-  const { invalidateQueries } = useAuthChainManager();
   const isLitConnectedQuery = useLitNodeClientReadyQuery();
   const isSigninRedirectQuery = useIsSignInRedirectQuery()
-
-  // console.log('isLitConnectedQuery state:', {
-  //   data: isLitConnectedQuery.data,
-  //   isError: isLitConnectedQuery.isError,
-  //   isSuccess: isLitConnectedQuery.isSuccess,
-  //   isFetching: isLitConnectedQuery.isFetching
-  // });
-
-  // console.log('isSigninRedirectQuery state:', {
-  //   data: isSigninRedirectQuery.data,
-  //   isError: isSigninRedirectQuery.isError,
-  //   isSuccess: isSigninRedirectQuery.isSuccess,
-  //   isFetching: isSigninRedirectQuery.isFetching
-  // });
+  const invalidateQueries = useInvalidateAuthQueries();
 
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
@@ -29,27 +14,11 @@ export const useAuthChain = () => {
     queryFnData: [isSigninRedirectQuery.data]
   });
 
-  // console.log('authMethodQuery state:', {
-  //   data: authMethodQuery.data,
-  //   isError: authMethodQuery.isError,
-  //   isSuccess: authMethodQuery.isSuccess,
-  //   isFetching: authMethodQuery.isFetching,
-  //   enabled: (isLitConnectedQuery.data ?? false) && (isSigninRedirectQuery.data ?? false)
-  // });
-
   const litAccountQuery = useLitAccountQuery({
     queryKey: ['litAccount', authMethodQuery.isSuccess],
     enabledDeps: !!authMethodQuery.data,
     queryFnData: authMethodQuery.data
   });
-
-  // console.log('litAccountQuery state:', {
-  //   data: litAccountQuery.data,
-  //   isError: litAccountQuery.isError,
-  //   isSuccess: litAccountQuery.isSuccess,
-  //   isFetching: litAccountQuery.isFetching,
-  //   enabled: !!authMethodQuery.data
-  // });
 
   const sessionSigsQuery = useLitSessionSigsQuery({
     queryKey: ['litSessionSigs'],
@@ -58,27 +27,11 @@ export const useAuthChain = () => {
     invalidateQueries
   });
 
-  // console.log('sessionSigsQuery state:', {
-  //   data: sessionSigsQuery.data,
-  //   isError: sessionSigsQuery.isError,
-  //   isSuccess: sessionSigsQuery.isSuccess,
-  //   isFetching: sessionSigsQuery.isFetching,
-  //   enabled: !!litAccountQuery.data && (isLitConnectedQuery.data ?? false)
-  // });
-
   const isLitLoggedInQuery = useIsLitLoggedInQuery({
     queryKey: ['isLitLoggedIn'],
     enabledDeps: !!litAccountQuery.data && !!sessionSigsQuery.data,
     queryFnData: [litAccountQuery.data, sessionSigsQuery.data]
   });
-
-  // console.log('isLitLoggedInQuery state:', {
-  //   data: isLitLoggedInQuery.data,
-  //   isError: isLitLoggedInQuery.isError,
-  //   isSuccess: isLitLoggedInQuery.isSuccess,
-  //   isFetching: isLitLoggedInQuery.isFetching,
-  //   enabled: !!litAccountQuery.data && !!sessionSigsQuery.data
-  // });
 
   const pkpWalletQuery = usePkpWalletQuery({
     queryKey: ['pkpWallet'],
@@ -86,26 +39,10 @@ export const useAuthChain = () => {
     queryFnData: [litAccountQuery.data, sessionSigsQuery.data]
   });
 
-  // console.log('pkpWalletQuery state:', {
-  //   data: pkpWalletQuery.data,
-  //   isError: pkpWalletQuery.isError,
-  //   isSuccess: pkpWalletQuery.isSuccess,
-  //   isFetching: pkpWalletQuery.isFetching,
-  //   enabled: !!sessionSigsQuery.data && !!litAccountQuery.data
-  // });
-
   const nonceQuery = useNonceQuery({
     queryKey: ['nonce'],
     enabledDeps: !!pkpWalletQuery.data && (isLitLoggedInQuery.data ?? false),
   });
-
-  // console.log('nonceQuery state:', {
-  //   data: nonceQuery.data,
-  //   isError: nonceQuery.isError,
-  //   isSuccess: nonceQuery.isSuccess,
-  //   isFetching: nonceQuery.isFetching,
-  //   enabled: !!pkpWalletQuery.data && (isLitLoggedInQuery.data ?? false)
-  // });
 
   const nonceQueryData = nonceQuery.data && typeof nonceQuery.data === 'string' ? nonceQuery.data : '';
 
@@ -116,13 +53,6 @@ export const useAuthChain = () => {
     pkpWallet: pkpWalletQuery.data,
   });
 
-  // console.log('signatureQuery state:', {
-  //   data: signatureQuery.data,
-  //   isError: signatureQuery.isError,
-  //   isSuccess: signatureQuery.isSuccess,
-  //   isFetching: signatureQuery.isFetching,
-  //   enabled: !!nonceQuery.data
-  // });
   const signatureQueryData = signatureQuery.data && typeof signatureQuery.data === 'string'? signatureQuery.data: ''
 
   const supabaseJWTQuery = useSupabaseJWTQuery({
