@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { sessionSigsExpired, isJwtExpired } from '@/utils/app';
 import { SessionSigs } from '@lit-protocol/types';
 
-
 export const useAuthChainManager = () => {
   const queryClient = useQueryClient();
 
@@ -26,6 +25,8 @@ export const useAuthChainManager = () => {
   const authChainManagerQuery = useQuery({
     queryKey: ['authChainManager'],
     queryFn: async () => {
+      // console.log("* start authChainManager");
+
       const litNodeClientReady = queryClient.getQueryData(['litNodeClientReady'])
       const authMethod = queryClient.getQueryData(['authMethod']);
       const litAccount = queryClient.getQueryData(['litAccount']);
@@ -53,6 +54,7 @@ export const useAuthChainManager = () => {
         console.log('JWT expired or missing');
         return await invalidateQueries();
       }
+      // console.log('* finish authChainManager')
       return 'continue';
     },
     enabled: false, // We'll manually control when this query runs

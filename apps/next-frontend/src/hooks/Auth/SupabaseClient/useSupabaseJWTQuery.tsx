@@ -7,9 +7,11 @@ import { IRelayPKP } from '@lit-protocol/types';
 interface SupabaseJWTParams {
   queryKey: [string, string],
   enabledDeps: boolean,
-  queryFnData: [IRelayPKP | null | undefined, string, string]
+  queryFnData: [IRelayPKP | null | undefined, string, string],
+  invalidateQueries: () => Promise<string>
 }
-export const useSupabaseJWTQuery = ({queryKey, enabledDeps, queryFnData}: SupabaseJWTParams) => {
+
+export const useSupabaseJWTQuery = ({queryKey, enabledDeps, queryFnData, invalidateQueries}: SupabaseJWTParams) => {
   const queryClient = useQueryClient();
   const [currentAccount, nonce, signature] = queryFnData;
 
@@ -18,16 +20,17 @@ export const useSupabaseJWTQuery = ({queryKey, enabledDeps, queryFnData}: Supaba
   const query = useQuery<string, Error>({
     queryKey,
     queryFn: async (): Promise<string> => {
-      console.log("supabaseJWT query run");
+      console.log("9a: start supabaseJWT query ");
 
       // If we have a valid JWT after checking, use it
       if (supabaseJWT) {
+        console.log("9b: finish supabaseJWT query ");
         return supabaseJWT;
       }
 
       // If we don't have a valid JWT, fetch a new one
       if (!currentAccount?.ethAddress || !signature || !nonce) {
-        throw new Error('Missing required data for JWT fetch');
+        throw new Error('9b: finish supabaseJWT query -- Missing required data for JWT fetch');
       }
 
       const response = await ky.post('https://supabase-auth.zach-greco.workers.dev/jwt', {
@@ -37,17 +40,18 @@ export const useSupabaseJWTQuery = ({queryKey, enabledDeps, queryFnData}: Supaba
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch JWT');
+        throw new Error('9b: finish supabaseJWT query -- Failed to fetch JWT');
       }
 
       const jwtResponse = await response.json<{ token: string }>();
-      console.log('7b: JWT response received');
 
       if (!jwtResponse.token) {
-        throw new Error('JWT token is missing in the response');
+        throw new Error('9b: finish supabaseJWT query -- JWT token is missing in the response');
       }
 
       setSupabaseJWT(jwtResponse.token);
+      console.log("9b: finish supabaseJWT query ");
+
       return jwtResponse.token;
     },
     enabled: enabledDeps,

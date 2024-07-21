@@ -12,9 +12,9 @@ export const useNonceQuery = ({queryKey, enabledDeps}: NonceQueryParams ): UseQu
   return useQuery<string, Error>({
     queryKey,
     queryFn: async () => {
-      console.log("5a: start nonce query");
+      console.log("7a: start nonce query");
       const nonceResponse = await ky('https://supabase-auth.zach-greco.workers.dev/nonce').json<NonceData>();
-      console.log(`5b: nonce query finish`);
+      console.log(`7b: nonce query finish`);
       return nonceResponse.nonce;
     },
     enabled: enabledDeps,

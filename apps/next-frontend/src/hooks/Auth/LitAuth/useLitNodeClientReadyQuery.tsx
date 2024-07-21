@@ -8,8 +8,11 @@ export const useLitNodeClientReadyQuery = () => {
   return useQuery<boolean, Error>({
     queryKey: ['litNodeClientReady'],
     queryFn: async (): Promise<boolean> => {
+      console.log("0a: start litNodeClientReady");
+
       if (litNodeClient.ready) {
-        console.log('LitNodeClient already connected');
+
+        console.log('0b: finish litNodeClientReady -- LitNodeClient already connected');
         return true;
       }
 
@@ -29,19 +32,23 @@ export const useLitNodeClientReadyQuery = () => {
           console.log(`Connection time for attempt ${attempt}: ${duration} seconds`);
 
           if (litNodeClient.ready) {
+            console.log("0b: finish litNodeClientReady");
+
             return true;
           } else {
+            console.log("0b: finish litNodeClientReady");
             throw new Error('LitNodeClient connected but not ready');
           }
         } catch (error) {
           console.error(`Error connecting LitNodeClient (attempt ${attempt}/${MAX_RETRIES}):`, error);
           if (attempt === MAX_RETRIES) {
+            console.log("0b: finish litNodeClientReady");
             throw error;
           }
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
-
+      console.log("0b: finish litNodeClientReady");
       throw new Error('Unexpected error in LitNodeClient connection');
     },
     staleTime: Infinity,

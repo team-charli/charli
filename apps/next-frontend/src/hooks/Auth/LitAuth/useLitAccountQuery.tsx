@@ -15,16 +15,17 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAcco
   return useQuery({
     queryKey,
     queryFn: async (): Promise<IRelayPKP | null> => {
-      console.log('LitAccount queryFn called', { authMethod: !!authMethod });
+
+      console.log('3a: start litAccount query');
 
       if (!authMethod) {
-        console.log('No authMethod available, returning null');
+        console.log('3b: finish litAccount query -- No authMethod available, returning null');
         return null;
       }
 
       const cachedLitAccount = queryClient.getQueryData(queryKey) as IRelayPKP | null;
       if (cachedLitAccount) {
-        console.log('Using cached LitAccount');
+        console.log('3b: finish litAccount query --Using cached LitAccount');
         return cachedLitAccount;
       }
 
@@ -34,12 +35,14 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAcco
         console.log(`PKPs fetched, count:`, myPKPs.length);
 
         if (myPKPs.length) {
-          console.log('Returning existing PKP');
+          console.log('3b: finish litAccount query -- Returning existing PKP');
           return myPKPs[0];
         } else {
           console.log('No PKPs found, minting new PKP');
           const newPKP = await mintPKP(authMethod);
           console.log('New PKP minted:', !!newPKP);
+          console.log('3b: finish litAccount query');
+
           return newPKP;
         }
       } catch (error) {

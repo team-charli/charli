@@ -9,38 +9,48 @@ import React from 'react';
 interface SessionSigsQueryParams {
   queryKey: [string];
   enabledDeps: boolean;
-  queryFnData: [AuthMethod | null | undefined, IRelayPKP | null | undefined];
+  queryFnData: [AuthMethod | null | undefined, IRelayPKP | null | undefined, boolean];
   invalidateQueries: () => Promise<string>;
 }
 
 export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, invalidateQueries}: SessionSigsQueryParams) => {
   const queryClient = useQueryClient();
-  const [authMethod, litAccount] = queryFnData;
+  const [authMethod, litAccount, isConnected] = queryFnData;
 
   return useQuery<SessionSigs | null, Error>({
     queryKey,
     queryFn: async (): Promise<SessionSigs | null> => {
       try {
-        console.log('SessionSigs queryFn called', {
-          authMethod: !!authMethod,
-          litAccount: !!litAccount,
-          litNodeClientReady: litNodeClient.ready
-        });
-        if (!litNodeClient.ready) {
+        console.log("4a: start sessionSigs query")
+        // console.log('SessionSigs queryFn called', {
+        //   authMethod: !!authMethod,
+        //   litAccount: !!litAccount,
+        //   isConnected
+        // });
+        if (!isConnected) {
+          console.log("4b: finish sessionSigs query")
+
           throw new Error('LitNodeClient not connected');
         }
         if (!authMethod) {
+                    console.log("4b: finish sessionSigs query")
+
           throw new Error('Missing authMethod');
         }
         if (!litAccount) {
+                    console.log("4b: finish sessionSigs query")
+
           throw new Error('Missing litAccount');
         }
       const cachedSessionSigs = queryClient.getQueryData(queryKey) as SessionSigs | null;
       if (cachedSessionSigs && !sessionSigsExpired(cachedSessionSigs)) {
         console.log('Using valid cached sessionSigs');
+                  console.log("4b: finish sessionSigs query")
+
         return cachedSessionSigs;
       }
       console.log('Fetching new sessionSigs');
+      await litNodeClient.getLatestBlockhash();
       const newSessionSigs = await litNodeClient.getPkpSessionSigs({
         pkpPublicKey: litAccount.publicKey,
         authMethods: [authMethod],
@@ -55,7 +65,10 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, inva
           },
         ]
   });
+        //TODO: always return new sessionSigs (not getting them from cache?)
         console.log('New sessionSigs obtained');
+                  console.log("4b: finish sessionSigs query")
+
         return newSessionSigs;
       } catch (error) {
         console.error('Failed to fetch new sessionSigs', error);

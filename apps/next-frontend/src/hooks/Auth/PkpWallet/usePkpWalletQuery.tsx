@@ -19,7 +19,9 @@ export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalle
   return useQuery({
     queryKey,
     queryFn: async (): Promise<PKPEthersWallet> => {
-      if (!sessionSigs || !currentAccount) throw new Error('no sessionSigs or currentAccount')
+      console.log("6a: start pkpWallet query");
+
+      if (!sessionSigs || !currentAccount) throw new Error('6b: finish pkpWallet query -- no sessionSigs or currentAccount')
 
       const wallet = new PKPEthersWallet({
         controllerSessionSigs: sessionSigs,
@@ -28,6 +30,8 @@ export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalle
       });
       await wallet.init();
       setPkpWallet(wallet);
+      console.log("6b: finish pkpWallet query");
+
       return wallet;
     },
     enabled: enabledDeps,

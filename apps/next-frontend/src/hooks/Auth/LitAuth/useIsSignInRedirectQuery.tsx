@@ -9,6 +9,8 @@ export const useIsSignInRedirectQuery = () => {
   return useQuery<boolean>({
     queryKey: ['isSignInRedirect', router.asPath],
     queryFn: async (): Promise<boolean> => {
+      console.log("1a: start isSignInRedirect query");
+      console.log("1b: finish isSignInRedirect query");
       return isSignInRedirect(redirectUri);
     },
     enabled: router.isReady,

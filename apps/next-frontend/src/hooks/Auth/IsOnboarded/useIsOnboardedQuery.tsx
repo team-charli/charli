@@ -22,11 +22,8 @@ export const useIsOnboardedQuery = ({
   return useQuery({
     queryKey,
     queryFn: async () => {
-      const startTime = Date.now();
-      console.log(`[${new Date().toISOString()}] 9a: start isOnboarded query`, {
-        hasSupabaseClient: !!supabaseClient,
-        hasCurrentAccount: !!currentAccount
-      });
+      console.log("11a: start isOnboarded query");
+
 
       if (!supabaseClient || !currentAccount) {
         return false;
@@ -40,8 +37,7 @@ export const useIsOnboardedQuery = ({
 
       const isOnboarded = !error && !!data;
 
-      console.log(`9b: isOnboarded query finish:`, (Date.now() - startTime) / 1000, isOnboarded );
-      console.log('from isOnboarded: isOnboarded', isOnboarded);
+      console.log("11b: finish isOnboarded query -- isOnboarded ", isOnboarded);
 
       return isOnboarded;
     },

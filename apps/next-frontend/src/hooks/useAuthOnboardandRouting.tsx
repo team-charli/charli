@@ -14,28 +14,8 @@ export const useAuthOnboardAndRouting = () => {
   const areAuthQueriesSettled = queries.every(q => q.query.isSuccess || q.query.isError);
 
   const { authChainManagerQuery } = useAuthChainManager();
-
   const jwt = useJwt();
-
   const {data: isOAuthRedirect} = useIsSignInRedirectQuery()
-
-  const getTargetRoute = () => {
-    if (typeof window === 'undefined') return { route: null, reason: 'SSR' };
-
-    if (isLoading) return { route: null, reason: `isLoading: ${isLoading}, Queries: ${queries.filter(q => q.query.isLoading).map(q => q.name).join(', ')}` };
-
-    if (!isSuccess) return { route: null, reason: `isSuccess: ${isSuccess}, Failed Queries: ${queries.filter(q => q.query.isError).map(q => q.name).join(', ')}` };
-
-    if (isOAuthRedirect) return { route: null, reason: `isOAuthRedirect: ${isOAuthRedirect}` };
-
-    if (isLitLoggedIn && isOnboarded === false) return { route: '/onboard', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
-
-    if (isLitLoggedIn && isOnboarded) return { route: '/lounge', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
-
-    if (!isLitLoggedIn) return { route: '/login', reason: `isLitLoggedIn: ${isLitLoggedIn}` };
-
-    return { route: null, reason: 'Unexpected state' };
-  };
 
   useQuery({
     queryKey: ['authRouting', isLoading, isSuccess, isOAuthRedirect],
@@ -54,8 +34,27 @@ export const useAuthOnboardAndRouting = () => {
       }
       return null;
     },
-  enabled: !authChainManagerQuery.isFetching && areAuthQueriesSettled,
+    enabled: !authChainManagerQuery.isFetching && areAuthQueriesSettled,
   });
 
   return null;
+
+  function getTargetRoute ()  {
+    if (typeof window === 'undefined') return { route: null, reason: 'SSR' };
+
+    if (isLoading) return { route: null, reason: `isLoading: ${isLoading}, Queries: ${queries.filter(q => q.query.isLoading).map(q => q.name).join(', ')}` };
+
+    if (!isSuccess) return { route: null, reason: `isSuccess: ${isSuccess}, Failed Queries: ${queries.filter(q => q.query.isError).map(q => q.name).join(', ')}` };
+
+    if (isOAuthRedirect) return { route: null, reason: `isOAuthRedirect: ${isOAuthRedirect}` };
+
+    if (isLitLoggedIn && isOnboarded === false) return { route: '/onboard', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
+
+    if (isLitLoggedIn && isOnboarded) return { route: '/lounge', reason: `isLitLoggedIn: ${isLitLoggedIn}, isOnboarded: ${isOnboarded}` };
+
+    if (!isLitLoggedIn) return { route: '/login', reason: `isLitLoggedIn: ${isLitLoggedIn}` };
+
+    return { route: null, reason: 'Unexpected state' };
+  };
 };
+

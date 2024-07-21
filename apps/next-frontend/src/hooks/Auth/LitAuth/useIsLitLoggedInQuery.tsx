@@ -5,7 +5,8 @@ import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 interface IsLitLoggedInQueryParams {
   queryKey: [string];
   enabledDeps: boolean;
-  queryFnData: [IRelayPKP | null | undefined, SessionSigs | null | undefined]
+  queryFnData: [IRelayPKP | null | undefined, SessionSigs | null | undefined],
+
 }
 export const useIsLitLoggedInQuery = ({queryKey, enabledDeps, queryFnData}: IsLitLoggedInQueryParams) => {
 
@@ -14,16 +15,20 @@ export const useIsLitLoggedInQuery = ({queryKey, enabledDeps, queryFnData}: IsLi
   return useQuery({
     queryKey,
     queryFn: async () => {
+      console.log("5a: start isLitLoggedIn query");
+
       if (!sessionSigs) {
-        console.log("no sessionSigs");
+        console.log("5b: finish isLitLoggedIn query -- no sessionSigs");
         return false;
       } else if (!litAccount) {
-        console.log("no lit account");
+        console.log("5b: finish isLitLoggedIn query --no lit account");
         return false;
       } else if (sessionSigsExpired(sessionSigs)) {
-        console.log("sessionSigsExpired -- 'isLitLoggedIn'");
+        console.log("5b: finish isLitLoggedIn query --sessionSigsExpired -- 'isLitLoggedIn'");
         return false
       }
+      console.log("5b: finish isLitLoggedIn query");
+
       return true;
     },
     enabled: enabledDeps
