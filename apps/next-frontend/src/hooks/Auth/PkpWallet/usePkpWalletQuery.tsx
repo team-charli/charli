@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useSetAtom } from 'jotai';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { litNodeClient } from '@/utils/litClients';
-import { pkpWalletAtom } from '@/atoms/atoms';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 
 interface PkpWalletQueryParams {
@@ -14,7 +13,6 @@ interface PkpWalletQueryParams {
 
 export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalletQueryParams ) => {
   const [currentAccount, sessionSigs] = queryFnData;
-  const setPkpWallet = useSetAtom(pkpWalletAtom);
 
   return useQuery({
     queryKey,
@@ -29,7 +27,6 @@ export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalle
         litNodeClient,
       });
       await wallet.init();
-      setPkpWallet(wallet);
       console.log("6b: finish pkpWallet query");
 
       return wallet;

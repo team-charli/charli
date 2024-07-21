@@ -1,13 +1,19 @@
 'use client'
-import { isLoadingAtom, onboardModeAtom } from "@/atoms/atoms";
+import {onboardModeAtom } from "@/atoms/atoms";
 import ButtonLink from "@/components/elements/ButtonLink";
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
-import { useAtom, useAtomValue } from "jotai";
+import { useLitAccount, useLitAuthMethod, useSessionSigs } from "@/contexts/AuthContext";
+import { useAtom} from "jotai";
 
 const Entry = () => {
   const [_, setOnboardMode] = useAtom(onboardModeAtom);
-  const isLoading = useAtomValue(isLoadingAtom);
+  const litAuthMethod = useLitAuthMethod();
+  const litAccount = useLitAccount();
+  const sessionSigs = useSessionSigs();
+
+  const isLoading = litAuthMethod.isLoading || litAccount.isLoading || sessionSigs.isLoading;
+  const error = litAuthMethod.error || litAccount.error || sessionSigs.error;
 
   if (isLoading) {
     return (

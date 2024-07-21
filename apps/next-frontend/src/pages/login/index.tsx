@@ -1,34 +1,32 @@
+//src/pages/login/index.js
 'use client'
-import { accountsErrorAtom, accountsLoadingAtom, authErrorAtom, authLoadingAtom, sessionSigsLoadingAtom } from "@/atoms/atoms";
+'use client'
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
 import AuthMethods from "@/components/Lit/AuthMethods";
-import { useAtomValue } from "jotai";
-
+import { useLitNodeClientReady, useLitAuthMethod, useLitAccount, useSessionSigs } from '@/contexts/AuthContext';
 
 const Login = () => {
-const authLoading = useAtomValue(authLoadingAtom);
-const accountsLoading = useAtomValue(accountsLoadingAtom);
-const sessionSigsLoading = useAtomValue(sessionSigsLoadingAtom);
-const authError = useAtomValue(authErrorAtom);
-const accountsError = useAtomValue(accountsErrorAtom);
-const sessionError = useAtomValue(sessionSigsLoadingAtom);
+  const litNodeClientReady = useLitNodeClientReady();
+  const litAuthMethod = useLitAuthMethod();
+  const litAccount = useLitAccount();
+  const sessionSigs = useSessionSigs();
+
   return (
     <>
       <IconHeader />
       <BannerHeader />
       <div className="loading-container">
-        {authLoading && <p className={`flex justify-center marginTop`}>Authenticating...</p>}
-        {accountsLoading && <p className={`flex justify-center marginTop`}>Loading accounts...</p>}
-        {sessionSigsLoading && <p className={`flex justify-center marginTop`}>Initializing session...</p>}
-        {authError && <p className="error">{authError.message}</p>}
-        {accountsError && <p className="error">{accountsError.message}</p>}
-        {sessionError && <p className="error">{sessionError}</p>}
+        {litAuthMethod.isLoading && <p className={`flex justify-center marginTop`}>Authenticating...</p>}
+        {litAccount.isLoading && <p className={`flex justify-center marginTop`}>Loading accounts...</p>}
+        {sessionSigs.isLoading && <p className={`flex justify-center marginTop`}>Initializing session...</p>}
+        {litAuthMethod.error && <p className="error">{litAuthMethod.error.message}</p>}
+        {litAccount.error && <p className="error">{litAccount.error.message}</p>}
+        {sessionSigs.error && <p className="error">{sessionSigs.error.message}</p>}
         <div className={`_LoginMethods_ flex justify-center mt-64`}>
           <AuthMethods />
         </div>
       </div>
-
     </>
   );
 };

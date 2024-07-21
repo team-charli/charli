@@ -7,51 +7,53 @@ const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 interface LitAuthMethodQueryParams {
   queryKey: [string];
   enabledDeps: boolean;
+  queryFnData: [boolean | undefined];
 }
 
-export const useLitAuthMethodQuery = ({
-  queryKey,
-  enabledDeps
-}: LitAuthMethodQueryParams): UseQueryResult<AuthMethod | null, Error> => {
+export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: LitAuthMethodQueryParams): UseQueryResult<AuthMethod | null, Error> => {
   const queryClient = useQueryClient();
 
   return useQuery<AuthMethod | null, Error>({
     queryKey,
     queryFn: async (): Promise<AuthMethod | null> => {
-      console.log("2a: start authMethod query");
 
+      console.log("2a: start authMethod query");
+      const [isSignInRedirect] = queryFnData;
       const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethod | null;
-      if (cachedAuthMethod) {
+
+      if (isSignInRedirect) {
+        const providerName = getProviderFromUrl();
+        if (providerName !== 'google' && providerName !== 'discord') {
+          console.log("2b: finish authMethod query - No valid provider");
+          return null;
+        }
+
+        try {
+          const { authenticateWithDiscord, authenticateWithGoogle } = await import('@/utils/lit');
+          const result = providerName === 'google'
+            ? await authenticateWithGoogle(redirectUri)
+            : await authenticateWithDiscord(redirectUri);
+
+          if (result) {
+            console.log("2b: finish authMethod query - New AuthMethod obtained");
+            return result;
+          }
+
+          console.log("2b: finish authMethod query - Authentication failed");
+          return null;
+        } catch (error) {
+          console.error('Error in AuthMethod query:', error);
+          throw error;
+        }
+      } else if (cachedAuthMethod) {
         console.log('Using cached AuthMethod');
         console.log("2b: finish authMethod query");
         return cachedAuthMethod;
       }
 
-      const providerName = getProviderFromUrl();
-      if (providerName !== 'google' && providerName !== 'discord') {
-        console.log("2b: finish authMethod query - No valid provider");
-        return null;
-      }
-
-      try {
-        const { authenticateWithDiscord, authenticateWithGoogle } = await import('@/utils/lit');
-        const result = providerName === 'google'
-          ? await authenticateWithGoogle(redirectUri)
-          : await authenticateWithDiscord(redirectUri);
-
-        if (result) {
-          console.log("2b: finish authMethod query - New AuthMethod obtained");
-          return result;
-        }
-
-        console.log("2b: finish authMethod query - Authentication failed");
-        return null;
-      } catch (error) {
-        console.error('Error in AuthMethod query:', error);
-        throw error;
-      }
+      return null;
     },
-    staleTime: 0, // Consider data immediately stale to allow refetching when needed
+    staleTime:  5 * 60 * 1000, // 5 minutes,
     gcTime: 24 * 60 * 60 * 1000, // Keep unused data for 24 hours
     enabled: enabledDeps,
     retry: false,

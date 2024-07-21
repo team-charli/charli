@@ -25,7 +25,8 @@ export const useAuthChain = () => {
 
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
-    enabledDeps: (isLitConnectedQuery.data ?? false) && (isSigninRedirectQuery.data ?? false)
+    enabledDeps: isLitConnectedQuery.data ?? false,
+    queryFnData: [isSigninRedirectQuery.data]
   });
 
   // console.log('authMethodQuery state:', {
@@ -129,7 +130,6 @@ export const useAuthChain = () => {
     enabledDeps: !!signatureQuery.data && !!litAccountQuery.data && !!nonceQuery.data,
     queryFnData: [litAccountQuery.data, nonceQueryData , signatureQueryData],
     invalidateQueries
-
   });
 
 
