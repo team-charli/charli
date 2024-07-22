@@ -8,7 +8,7 @@ export const useLitNodeClientReadyQuery = () => {
   return useQuery<boolean, Error>({
     queryKey: ['litNodeClientReady'],
     queryFn: async (): Promise<boolean> => {
-      console.log("0a: start litNodeClientReady");
+      // console.log("0a: start litNodeClientReady");
 
       if (litNodeClient.ready) {
 
@@ -36,7 +36,7 @@ export const useLitNodeClientReadyQuery = () => {
 
             return true;
           } else {
-            console.log("0b: finish litNodeClientReady");
+            // console.log("0b: finish litNodeClientReady");
             throw new Error('LitNodeClient connected but not ready');
           }
         } catch (error) {
@@ -53,8 +53,8 @@ export const useLitNodeClientReadyQuery = () => {
     },
     staleTime: 0, // Always consider the data stale
     gcTime: 0, // Don't cache the result
-    refetchOnMount: true, // Refetch on every mount
-    refetchOnWindowFocus: true, // Refetch when window regains focus
+    // refetchOnMount: true, // Refetch on every mount
+    // refetchOnWindowFocus: true, // Refetch when window regains focus
     retry: false, // Keep this as is if you don't want retries on failure
   });
 };

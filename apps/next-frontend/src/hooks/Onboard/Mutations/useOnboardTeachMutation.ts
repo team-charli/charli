@@ -1,9 +1,6 @@
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Database } from '../../../supabaseTypes';
-import { useQueryClient } from '@tanstack/react-query';
-import { useSupabaseMutation } from '@/hooks/Supabase/useSupabaseMutation';
-import { useAtomValue } from 'jotai';
-import { litAccountAtom } from '@/atoms/atoms';
+import { useLitAccount, useSupabaseClient } from '@/contexts/AuthContext';
 
 type OnboardTeachVariables = {
   selectedLanguageCodes: number[];
@@ -13,12 +10,15 @@ type OnboardTeachVariables = {
 
 export const useOnboardTeachMutation = () => {
   const queryClient = useQueryClient();
-  const currentAccount = useAtomValue(litAccountAtom);
+  const { data: currentAccount } = useLitAccount();
+  const { data: supabaseClient } = useSupabaseClient();
 
-  return useSupabaseMutation<Database["public"]["Tables"]["user_data"]["Row"][] | null, Error, OnboardTeachVariables>(
-    async (supabaseClient, variables) => {
-      const { selectedLanguageCodes, name, defaultNativeLanguage } = variables;
+  return useMutation<Database["public"]["Tables"]["user_data"]["Row"][] | null, Error, OnboardTeachVariables>({
+    mutationFn: async (variables) => {
       if (!currentAccount) throw new Error('missing currentAccount');
+      if (!supabaseClient) throw new Error('missing supabaseClient');
+
+      const { selectedLanguageCodes, name, defaultNativeLanguage } = variables;
 
       const insertData: Database["public"]["Tables"]["user_data"]["Insert"] = {
         name: name,
@@ -35,16 +35,21 @@ export const useOnboardTeachMutation = () => {
       if (error) {
         throw error;
       }
+
       return user_data;
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['isOnboarded'] });
-      },
-      onError: (error) => {
-        console.error("onboard submission error", error);
-        throw new Error("submitOnboardTeachAPI error");
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['isOnboarded'] });
+    },
+    onError: (error) => {
+      console.error("onboard submission error", error);
+      throw new Error("submitOnboardTeachAPI error");
+    },
+    retry: (failureCount, error) => {
+      if (error instanceof Error && (error.message.includes('network') || error.message.includes('JWT expired'))) {
+        return failureCount < 3;
+      }
+      return false;
+    },
+  });
 };

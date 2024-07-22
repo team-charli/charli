@@ -1,6 +1,6 @@
 //useAuthChain.tsx
-import { useEffect } from "react";
 import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useNonceQuery, useSignatureQuery, useSupabaseClientQuery, useSupabaseJWTQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
+
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
 
@@ -8,11 +8,6 @@ export const useAuthChain = () => {
   const isLitConnectedQuery = useLitNodeClientReadyQuery();
   const isSigninRedirectQuery = useIsSignInRedirectQuery()
   const invalidateQueries = useInvalidateAuthQueries();
-
-  useEffect(() => {
-    //debug authMethod query
-    console.log("isSigninRedirectQuery.data", isSigninRedirectQuery.data)
-  },[isSigninRedirectQuery.data])
 
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
@@ -82,9 +77,10 @@ export const useAuthChain = () => {
     queryFnData: [litAccountQuery.data],
     supabaseClient: supabaseClientQuery.data
   });
+
   const hasBalanceQuery = useHasBalanceQuery({
     queryKey: ['hasBalance'],
-    enabledDeps: (isOnboardedQuery.data ?? false) && !!pkpWalletQuery.data && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
+    enabledDeps: isOnboardedQuery.isSuccess && !!pkpWalletQuery.data && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
   });
 

@@ -1,6 +1,5 @@
 // usePkpWalletQuery.ts
 import { useQuery } from '@tanstack/react-query';
-import { useSetAtom } from 'jotai';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { litNodeClient } from '@/utils/litClients';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
@@ -18,17 +17,29 @@ export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalle
     queryKey,
     queryFn: async (): Promise<PKPEthersWallet> => {
       console.log("6a: start pkpWallet query");
+      if (!sessionSigs || !currentAccount) {
+        throw new Error('6b: finish pkpWallet query -- no sessionSigs or currentAccount');
+      }
 
-      if (!sessionSigs || !currentAccount) throw new Error('6b: finish pkpWallet query -- no sessionSigs or currentAccount')
+      let wallet: PKPEthersWallet;
+      try {
+        wallet = new PKPEthersWallet({
+          controllerSessionSigs: sessionSigs,
+          pkpPubKey: currentAccount.publicKey,
+          litNodeClient,
+        });
+        await wallet.init();
+      } catch (error) {
+        console.error("Failed to initialize wallet:", error);
+        throw new Error('Failed to initialize wallet: ' + (error as Error).message);
+      }
 
-      const wallet = new PKPEthersWallet({
-        controllerSessionSigs: sessionSigs,
-        pkpPubKey: currentAccount.publicKey,
-        litNodeClient,
-      });
-      await wallet.init();
+      // Verify wallet state
+      if (typeof wallet.signMessage !== 'function') {
+        throw new Error('Wallet initialization incomplete: signMessage not available');
+      }
+
       console.log("6b: finish pkpWallet query");
-
       return wallet;
     },
     enabled: enabledDeps,
