@@ -7,7 +7,7 @@ import { sessionSigsExpired, isJwtExpired } from '@/utils/app';
 import { AuthMethod, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { useInvalidateAuthQueries } from './Auth/useInvalidateAuthQueries';
-import { useEffect } from 'react';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export const useAuthOnboardAndRouting = () => {
   const router = useRouter();
@@ -26,72 +26,63 @@ export const useAuthOnboardAndRouting = () => {
   const authChainManagerQuery = useQuery({
     queryKey: ['authChainManager'],
     queryFn: async () => {
-      console.log(`Current URL: ${router.asPath} -- from authChainManager`);
+      console.log(`AuthChainManager running. Current URL: ${router.asPath}`);
 
-      const litNodeClientReady = queryClient.getQueryData(['litNodeClientReady']) as boolean | undefined;
-      const authMethod = queryClient.getQueryData(['authMethod']) as AuthMethod | undefined;
-      const litAccount = queryClient.getQueryData(['litAccount']) as IRelayPKP | undefined;
-      const sessionSigs = queryClient.getQueryData(['litSessionSigs']) as SessionSigs | undefined;
-      const pkpWallet = queryClient.getQueryData(['pkpWallet']) as PKPEthersWallet | undefined;
-      const jwt = queryClient.getQueryData(['supabaseJWT']) as string | undefined;
+      const querySequence = [ 'litNodeClient', 'authMethod', 'litAccount', 'sessionSigs', 'isLitLoggedIn', 'pkpWallet', 'nonce', 'signature', 'supabaseJWT', 'supabaseClient', 'isOnboarded', 'hasBalance' ];
 
-      if (!litNodeClientReady) {
-        await queryClient.refetchQueries({ queryKey: ['litNodeClientReady'] });
-        return 'continue';
-      }
+      for (const queryName of querySequence) {
+        const queryData = queryClient.getQueryData([queryName]);
 
-      if (!authMethod) {
-        return 'redirect_to_login';
-      }
+        if (!queryData) {
+          console.log(`${queryName} data missing. Fetching...`);
+          await queryClient.refetchQueries({ queryKey: [queryName] });
+        } else if (queryName === 'sessionSigs' && sessionSigsExpired(queryData as SessionSigs)) {
+          console.log('Session sigs expired. Refetching...');
+          await queryClient.refetchQueries({ queryKey: [queryName] });
+        } else if (queryName === 'supabaseJWT' && isJwtExpired(queryData as string)) {
+          console.log('JWT expired. Refetching...');
+          await queryClient.refetchQueries({ queryKey: [queryName] });
+        }
 
-      if (!litAccount) {
-        return 'redirect_to_login'
-      }
-
-      if (!sessionSigs || sessionSigsExpired(sessionSigs)) {
-        console.log('Session sigs expired');
-        await invalidateQueries();
-        return 'redirect_to_login';
-      }
-
-      if (!pkpWallet) {
-        await queryClient.refetchQueries({ queryKey: ['pkpWallet'] });
-        return 'continue';
-      }
-
-      if (!jwt || isJwtExpired(jwt)) {
-        console.log('JWT expired or missing');
-        return await invalidateQueries();
+        // Recheck after potential refetch
+        const updatedData = queryClient.getQueryData([queryName]);
+        if (!updatedData) {
+          if (['litNodeClient', 'authMethod', 'litAccount', 'sessionSigs', 'isLitLoggedIn'].includes(queryName)) {
+            console.log(`Critical data (${queryName}) still missing after refetch. Redirecting to login.`);
+            return 'redirect_to_login';
+          } else {
+            console.log(`Non-critical data (${queryName}) still missing after refetch. Continuing...`);
+          }
+        }
       }
 
       return 'continue';
     },
-    refetchInterval: 30000 * 10, // Refetch every 30 seconds
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
     refetchIntervalInBackground: true,
     enabled: true,
     staleTime: 0,
   });
 
   useQuery({
-    queryKey: ['authRouting', isLoading, isSuccess, isOAuthRedirect, authChainManagerQuery.data, isLitLoggedIn, isOnboarded],
+    queryKey: ['authRouting', router.asPath, authChainManagerQuery.data, isLoading, isSuccess, isOAuthRedirect, isLitLoggedIn, isOnboarded],
     queryFn: async () => {
-      // console.log('authRouting query executing');
-      // console.log('Current pathname:', router.pathname);
-      // console.log('authRouting query executing');
-      // console.log('isLoading:', isLoading);
-      // console.log('isSuccess:', isSuccess);
-      // console.log('isOAuthRedirect:', isOAuthRedirect);
-      // console.log('authChainManagerQuery.data:', authChainManagerQuery.data);
-      // console.log(`Current URL: ${router.asPath} -- from authRouting`);
-      // console.log({isLitLoggedIn, isOnboarded});
+      console.log('authRouting query executing');
+
+      // Ensure authChainManager is up-to-date
+      if (authChainManagerQuery.isStale) {
+        await authChainManagerQuery.refetch();
+      }
 
       if (authChainManagerQuery.data === 'redirect_to_login' && router.pathname !== '/login') {
         console.log('Routing-- Auth chain check requires reauth, redirecting to login');
         router.push('/login');
         return null;
       }
+
       const { route, reason } = getTargetRoute();
       console.log(`Routing-- Target Route: ${route}, Reason: ${reason}`);
+
       if (route && router.pathname !== route) {
         console.log(`Attempting to navigate from ${router.pathname} to ${route}`);
         try {
@@ -103,6 +94,7 @@ export const useAuthOnboardAndRouting = () => {
       } else {
         console.log(`No navigation needed. Current route: ${router.pathname}`);
       }
+
       return null;
     },
     enabled: !authChainManagerQuery.isFetching && areAuthQueriesSettled && !isOnboardedQuery.isLoading,
@@ -129,42 +121,6 @@ export const useAuthOnboardAndRouting = () => {
 
     return { route: null, reason: 'Unexpected state' };
   }
-  // console.log('authRouting query enabled:', !authChainManagerQuery.isFetching && areAuthQueriesSettled && !isOnboardedQuery.isLoading);
-  // useEffect(() => {
-  //   console.log('Auth routing conditions:');
-  //   console.log('- authChainManager not fetching:', !authChainManagerQuery.isFetching);
-  //   console.log('- areAuthQueriesSettled:', areAuthQueriesSettled);
-  //   console.log('- isOnboardedQuery not loading:', !isOnboardedQuery.isLoading);
-  // }, [authChainManagerQuery.isFetching, areAuthQueriesSettled, isOnboardedQuery.isLoading]);
-  // useEffect(() => {
-  //   console.log('Auth queries status:');
-  //   queries.forEach(q => {
-  //     console.log(`- ${q.name}: isSuccess=${q.query.isSuccess}, isError=${q.query.isError}, isLoading=${q.query.isLoading}`);
-  //   });
-  //   console.log('areAuthQueriesSettled:', areAuthQueriesSettled);
-  // }, [queries, areAuthQueriesSettled]);
-    // useEffect(() => {
-  //   console.log('isOnboarded updated:', isOnboarded);
-  // useEffect(() => {
-  //   const logCurrentUrl = () => {
-  //     console.log(`Current URL: ${window.location.href} (pathname: ${router.pathname}, asPath: ${router.asPath})`);
-  //   };
-
-  //   // Log initial URL
-  //   logCurrentUrl();
-
-  //   // Log URL on each route change
-  //   const handleRouteChange = (url: string) => {
-  //     console.log(`Route changed to: ${url}`);
-  //     logCurrentUrl();
-  //   };
-
-  //   router.events.on('routeChangeComplete', handleRouteChange);
-
-  //   return () => {
-  //     router.events.off('routeChangeComplete', handleRouteChange);
-  //   };
-  // }, [router]);
 
   return { invalidateQueries };
 };

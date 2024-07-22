@@ -7,7 +7,9 @@ export const useLanguageData = () => {
   return useQuery({
     queryKey: ['platformLanguages'],
     queryFn: async () => {
-      const { data, error } = await supabaseClient
+      if (!supabaseClient) throw new Error('no supabaseClient')
+      const { data, error } =
+        await supabaseClient
         .from('languages')
         .select('*');
       if (error) throw error;

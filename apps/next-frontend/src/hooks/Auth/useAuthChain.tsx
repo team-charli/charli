@@ -73,14 +73,14 @@ export const useAuthChain = () => {
 
   const isOnboardedQuery = useIsOnboardedQuery({
     queryKey: ['isOnboarded', litAccountQuery.data],
-    enabledDeps: !!litAccountQuery.data && !!supabaseClientQuery.data ,
+    enabledDeps: !!litAccountQuery.data && !!supabaseClientQuery.data,
     queryFnData: [litAccountQuery.data],
     supabaseClient: supabaseClientQuery.data
   });
 
   const hasBalanceQuery = useHasBalanceQuery({
     queryKey: ['hasBalance'],
-    enabledDeps: isOnboardedQuery.isSuccess && !!pkpWalletQuery.data && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
+    enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
   });
 

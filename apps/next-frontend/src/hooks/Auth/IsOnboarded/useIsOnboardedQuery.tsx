@@ -43,6 +43,6 @@ export const useIsOnboardedQuery = ({
       return isOnboarded;
     },
 
-      enabled: enabledDeps
+    enabled: enabledDeps
   });
 };
