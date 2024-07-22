@@ -14,3 +14,4 @@ export const useAuthOnboardAndRouting = () => {
     invalidateQueries,
     refreshAuthChain: () => refreshAuthChain.refetch(),
   };
+};
