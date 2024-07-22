@@ -1,30 +1,30 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Database } from '../../../supabaseTypes';
 import { useLitAccount, useSupabaseClient } from '@/contexts/AuthContext';
+import { Database } from '@/supabaseTypes';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-type OnboardTeachVariables = {
+type OnboardLearnVariables = {
   selectedLanguageCodes: number[];
   name: string;
-  defaultNativeLanguage: string;
+  nativeLang: string;
 };
 
-export const useOnboardTeachMutation = () => {
+export const useOnboardLearnMutation = () => {
   const queryClient = useQueryClient();
   const { data: currentAccount } = useLitAccount();
   const { data: supabaseClient } = useSupabaseClient();
 
-  return useMutation<Database["public"]["Tables"]["user_data"]["Row"][] | null, Error, OnboardTeachVariables>({
+  return useMutation<any[], Error, OnboardLearnVariables>({
     mutationFn: async (variables) => {
       if (!currentAccount) throw new Error('missing currentAccount');
       if (!supabaseClient) throw new Error('missing supabaseClient');
 
-      const { selectedLanguageCodes, name, defaultNativeLanguage } = variables;
+      const { selectedLanguageCodes, name, nativeLang } = variables;
 
       const insertData: Database["public"]["Tables"]["user_data"]["Insert"] = {
         name: name,
-        wants_to_teach_langs: selectedLanguageCodes,
+        wants_to_learn_langs: selectedLanguageCodes,
         user_address: currentAccount.ethAddress,
-        default_native_language: defaultNativeLanguage,
+        default_native_language: nativeLang,
       };
 
       const { data: user_data, error } = await supabaseClient
@@ -36,14 +36,10 @@ export const useOnboardTeachMutation = () => {
         throw error;
       }
 
-      return user_data;
+      return user_data || [];
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['isOnboarded'] });
-    },
-    onError: (error) => {
-      console.error("onboard submission error", error);
-      throw new Error("submitOnboardTeachAPI error");
     },
     retry: (failureCount, error) => {
       if (error instanceof Error && (error.message.includes('network') || error.message.includes('JWT expired'))) {

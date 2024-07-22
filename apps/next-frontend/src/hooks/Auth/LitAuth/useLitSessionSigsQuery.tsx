@@ -1,3 +1,4 @@
+//useLitSessionSigsQuery.tsx
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthMethod, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { litNodeClient } from '@/utils/litClients';
