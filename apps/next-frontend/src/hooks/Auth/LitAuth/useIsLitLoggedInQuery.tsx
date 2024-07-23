@@ -27,7 +27,7 @@ export const useIsLitLoggedInQuery = ({queryKey, enabledDeps, queryFnData}: IsLi
         console.log("5b: finish isLitLoggedIn query --sessionSigsExpired -- 'isLitLoggedIn'");
         return false
       }
-      console.log("5b: finish isLitLoggedIn query");
+      console.log("5b: finish isLitLoggedIn query -- true ");
 
       return true;
     },

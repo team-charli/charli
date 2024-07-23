@@ -3,8 +3,6 @@ import { useAuthChain } from '@/hooks/Auth/useAuthChain';
 import { UseQueryResult } from '@tanstack/react-query';
 import React, { createContext, useContext } from 'react';
 
-
-
 const AuthContext = createContext<ReturnType<typeof useAuthChain> | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -29,3 +27,5 @@ export const useIsLitLoggedIn = () => useAuth().queries.find(q => q.name === 'is
 export const useIsOnboarded = () => useAuth().queries.find(q => q.name === 'isOnboarded')?.query as UseQueryResult<any, any>;
 export const useJwt = () => useAuth().queries.find(q => q.name === 'supabaseJWT')?.query as UseQueryResult<any, any>;
 export const usePkpWallet = () => useAuth().queries.find(q => q.name === 'pkpWallet')?.query as UseQueryResult<any, any>;
+export const useSupabaseClient = () => useAuth().queries.find(q => q.name === 'supabaseClient')?.query as UseQueryResult<any, any>;
+

@@ -16,9 +16,9 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
   return useQuery<AuthMethod | null, Error>({
     queryKey,
     queryFn: async (): Promise<AuthMethod | null> => {
-
       console.log("2a: start authMethod query");
       const [isSignInRedirect] = queryFnData;
+      console.log('isSignInRedirect', isSignInRedirect)
       const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethod | null;
 
       if (isSignInRedirect) {
@@ -46,14 +46,15 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
           throw error;
         }
       } else if (cachedAuthMethod) {
-        console.log('Using cached AuthMethod');
-        console.log("2b: finish authMethod query");
+        console.log("2b: finish authMethod query -- Using cached AuthMethod");
         return cachedAuthMethod;
       }
 
+      console.log('2b: finish authMethod query')
+
       return null;
     },
-    staleTime:  5 * 60 * 1000, // 5 minutes,
+    staleTime:  5 * 60 * 1000 * 5,
     gcTime: 24 * 60 * 60 * 1000, // Keep unused data for 24 hours
     enabled: enabledDeps,
     retry: false,

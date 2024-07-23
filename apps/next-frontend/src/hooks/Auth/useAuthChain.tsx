@@ -1,5 +1,6 @@
 //useAuthChain.tsx
 import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useNonceQuery, useSignatureQuery, useSupabaseClientQuery, useSupabaseJWTQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
+
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
 
@@ -10,7 +11,7 @@ export const useAuthChain = () => {
 
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
-    enabledDeps: isLitConnectedQuery.data ?? false,
+    enabledDeps: isSigninRedirectQuery.data ?? false,
     queryFnData: [isSigninRedirectQuery.data]
   });
 
@@ -48,9 +49,8 @@ export const useAuthChain = () => {
 
   const signatureQuery = useSignatureQuery({
     queryKey: ['signature', nonceQueryData],
-    enabledDeps: !!nonceQuery.data && (isLitLoggedInQuery.data ?? false) && (isLitConnectedQuery.data ?? false),
-    queryFnData: nonceQuery.data,
-    pkpWallet: pkpWalletQuery.data,
+    enabledDeps: !!nonceQuery.data && (isLitLoggedInQuery.data ?? false) && (isLitConnectedQuery.data ?? false) && (!!pkpWalletQuery.data ?? false),
+    queryFnData: [nonceQuery.data, pkpWalletQuery.data],
   });
 
   const signatureQueryData = signatureQuery.data && typeof signatureQuery.data === 'string'? signatureQuery.data: ''
@@ -77,9 +77,10 @@ export const useAuthChain = () => {
     queryFnData: [litAccountQuery.data],
     supabaseClient: supabaseClientQuery.data
   });
+
   const hasBalanceQuery = useHasBalanceQuery({
     queryKey: ['hasBalance'],
-    enabledDeps: (isOnboardedQuery.data ?? false) && !!pkpWalletQuery.data && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
+    enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
   });
 

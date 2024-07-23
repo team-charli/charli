@@ -8,7 +8,7 @@ export const useLitNodeClientReadyQuery = () => {
   return useQuery<boolean, Error>({
     queryKey: ['litNodeClientReady'],
     queryFn: async (): Promise<boolean> => {
-      console.log("0a: start litNodeClientReady");
+      // console.log("0a: start litNodeClientReady");
 
       if (litNodeClient.ready) {
 
@@ -32,27 +32,28 @@ export const useLitNodeClientReadyQuery = () => {
           console.log(`Connection time for attempt ${attempt}: ${duration} seconds`);
 
           if (litNodeClient.ready) {
-            console.log("0b: finish litNodeClientReady");
+            console.log("0b: finish litNodeClientReady -- Success");
 
             return true;
           } else {
-            console.log("0b: finish litNodeClientReady");
+            // console.log("0b: finish litNodeClientReady");
             throw new Error('LitNodeClient connected but not ready');
           }
         } catch (error) {
           console.error(`Error connecting LitNodeClient (attempt ${attempt}/${MAX_RETRIES}):`, error);
           if (attempt === MAX_RETRIES) {
-            console.log("0b: finish litNodeClientReady");
+            console.log("Error -- 0b: finish litNodeClientReady --- max retries exceeded");
             throw error;
           }
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
-      console.log("0b: finish litNodeClientReady");
-      throw new Error('Unexpected error in LitNodeClient connection');
+      throw new Error('Error-- 0b: finish litNodeClientReady -- Unexpected error in LitNodeClient connection');
     },
-    staleTime: Infinity,
-    gcTime: Infinity,
-    retry: false,
+    staleTime: 0, // Always consider the data stale
+    gcTime: 0, // Don't cache the result
+    // refetchOnMount: true, // Refetch on every mount
+    // refetchOnWindowFocus: true, // Refetch when window regains focus
+    retry: false, // Keep this as is if you don't want retries on failure
   });
 };
