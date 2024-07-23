@@ -46,10 +46,11 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
           throw error;
         }
       } else if (cachedAuthMethod) {
-        console.log('Using cached AuthMethod');
-        console.log("2b: finish authMethod query");
+        console.log("2b: finish authMethod query -- Using cached AuthMethod");
         return cachedAuthMethod;
       }
+
+      console.log('2b: finish authMethod query')
 
       return null;
     },

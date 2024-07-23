@@ -11,7 +11,7 @@ export const useAuthChain = () => {
 
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
-    enabledDeps: isLitConnectedQuery.data ?? false,
+    enabledDeps: isSigninRedirectQuery.data ?? false,
     queryFnData: [isSigninRedirectQuery.data]
   });
 
@@ -80,7 +80,7 @@ export const useAuthChain = () => {
 
   const hasBalanceQuery = useHasBalanceQuery({
     queryKey: ['hasBalance'],
-    enabledDeps: isOnboardedQuery.isSuccess && !!pkpWalletQuery.data && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
+    enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
   });
 

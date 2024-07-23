@@ -32,7 +32,7 @@ export const useLitNodeClientReadyQuery = () => {
           console.log(`Connection time for attempt ${attempt}: ${duration} seconds`);
 
           if (litNodeClient.ready) {
-            console.log("0b: finish litNodeClientReady");
+            console.log("0b: finish litNodeClientReady -- Success");
 
             return true;
           } else {
@@ -42,14 +42,13 @@ export const useLitNodeClientReadyQuery = () => {
         } catch (error) {
           console.error(`Error connecting LitNodeClient (attempt ${attempt}/${MAX_RETRIES}):`, error);
           if (attempt === MAX_RETRIES) {
-            console.log("0b: finish litNodeClientReady");
+            console.log("Error -- 0b: finish litNodeClientReady --- max retries exceeded");
             throw error;
           }
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
-      console.log("0b: finish litNodeClientReady");
-      throw new Error('Unexpected error in LitNodeClient connection');
+      throw new Error('Error-- 0b: finish litNodeClientReady -- Unexpected error in LitNodeClient connection');
     },
     staleTime: 0, // Always consider the data stale
     gcTime: 0, // Don't cache the result
