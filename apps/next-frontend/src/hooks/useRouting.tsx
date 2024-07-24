@@ -31,11 +31,6 @@ export function useRouting() {
         return { action: 'waiting', reason: 'authChainIncomplete' };
       }
 
-      if (isOAuthRedirect) {
-        console.log('OAuth redirect detected, waiting for auth chain to complete');
-        return { action: 'waiting', reason: 'isOAuthRedirect' };
-      }
-
       if (checkAndRefreshAuthChain.data?.status === 'incomplete') {
         console.log(`Auth chain status: ${checkAndRefreshAuthChain.data?.status}`);
         if (checkAndRefreshAuthChain.data.requiresOAuth && router.pathname !== '/login') {
@@ -49,7 +44,7 @@ export function useRouting() {
         }
       }
 
-      if (isLitLoggedIn && isOnboarded === false && router.pathname !== '/onboard') {
+      if (isLitLoggedIn && isOnboarded === false && (router.pathname !== '/onboard' || isOAuthRedirect)) {
         console.log('Conditions met for routing to /onboard');
         await router.push('/onboard');
         return { action: 'redirected', to: '/onboard' };
