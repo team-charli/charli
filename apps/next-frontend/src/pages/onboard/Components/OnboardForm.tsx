@@ -1,20 +1,21 @@
 import React, { useState, FormEvent } from 'react';
 import { useAtomValue } from 'jotai';
-import { hasBalanceAtom, isOnboardedAtom } from '@/atoms/atoms'; // Adjust import path as needed
 import { LanguageButton } from '@/types/types';
 import { useOnboardLearnMutation } from '@/hooks/Onboard/Mutations/useOnboardLearnMutation';
 import { useOnboardTeachMutation } from '@/hooks/Onboard/Mutations/useOnboardTeachMutation';
 import { useLanguageData } from '@/hooks/Onboard/OnboardForm/useLanguageData';
 import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
+import { /*useHasBalance, */useIsOnboarded } from '@/contexts/AuthContext';
 
 interface OnboardFormProps {
-  onboardMode: 'Learn' | 'Teach';
+  onboardMode: 'Learn' | 'Teach' | null;
 }
 
 const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
-  const hasBalance = useAtomValue(hasBalanceAtom);
-  const isOnboarded = useAtomValue(isOnboardedAtom);
+  const {data: isOnboarded}  = useIsOnboarded();
+  // const {data: hasBalance}  = useHasBalance();
+
   const { data: languageButtons = [], isLoading, error } = useLanguageData();
   const [selectedLanguageIds, setSelectedLanguageIds] = useState<number[]>([]);
   const [name, setName] = useState('');
@@ -53,7 +54,7 @@ const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
   };
 
   if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  if (error) console.error(error);
 
   return (
     <form onSubmit={handleSubmit}>

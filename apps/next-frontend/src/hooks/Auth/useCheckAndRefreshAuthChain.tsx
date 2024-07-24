@@ -63,6 +63,9 @@ export function useCheckAndRefreshAuthChain() {
     },
     refetchInterval: 5 * 60 * 1000,
     staleTime: 5 * 60 * 1000,
-    enabled: auth.isSuccess && !auth.isLoading, // Only enable when useAuthChain is complete
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    enabled: auth.isSuccess && !auth.isLoading,
   });
 }

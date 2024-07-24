@@ -78,11 +78,11 @@ export const useAuthChain = () => {
     supabaseClient: supabaseClientQuery.data
   });
 
-  const hasBalanceQuery = useHasBalanceQuery({
-    queryKey: ['hasBalance'],
-    enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
-    queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
-  });
+  // const hasBalanceQuery = useHasBalanceQuery({
+  //   queryKey: ['hasBalance'],
+  //   enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
+  //   queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
+  // });
 
   const queries = [
     { name: 'litNodeClient', query: isLitConnectedQuery },
@@ -96,7 +96,7 @@ export const useAuthChain = () => {
     { name: 'supabaseJWT', query: supabaseJWTQuery },
     { name: 'supabaseClient', query: supabaseClientQuery },
     { name: 'isOnboarded', query: isOnboardedQuery },
-    { name: 'hasBalance', query: hasBalanceQuery },
+    // { name: 'hasBalance', query: hasBalanceQuery },
   ];
 
   const isLoading = queries.some(q => q.query.isLoading);

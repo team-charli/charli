@@ -17,7 +17,9 @@ export const useLanguageData = () => {
         languageCode: langObj.language_code,
         flag: langObj.emoji
       } as LanguageButton)) || [];
-    }
+    },
+    enabled: supabaseClient
   }
+
   );
 };
