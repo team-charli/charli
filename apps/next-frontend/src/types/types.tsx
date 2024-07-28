@@ -483,4 +483,9 @@ export type SupabaseError = {
   message: string;
   // Add other properties if needed
 };
+export interface AuthTokens {
+  idToken: string;
+  accessToken: string;
+  provider: string;
+}
 

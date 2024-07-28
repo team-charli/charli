@@ -1,18 +1,28 @@
 //useAuthChain.tsx
-import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useNonceQuery, useSignatureQuery, useSupabaseClientQuery, useSupabaseJWTQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
+import { useRouter } from 'next/router';
+
+import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useSupabaseClientQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
 
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
+const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useAuthChain = () => {
+  const router = useRouter();
+
   const isLitConnectedQuery = useLitNodeClientReadyQuery();
-  const isSigninRedirectQuery = useIsSignInRedirectQuery()
+
+  const signinRedirectQuery = useIsSignInRedirectQuery({
+    queryKey: ['isSignInRedirect', router?.asPath],
+    enabledDeps: router.isReady,
+    queryFnData: [redirectUri]
+  })
   const invalidateQueries = useInvalidateAuthQueries();
 
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
-    enabledDeps: isSigninRedirectQuery.data ?? false,
-    queryFnData: [isSigninRedirectQuery.data]
+    enabledDeps: !!signinRedirectQuery.data ?? false,
+    queryFnData: [!!signinRedirectQuery.data ?? false]
   });
 
   const litAccountQuery = useLitAccountQuery({
@@ -40,35 +50,11 @@ export const useAuthChain = () => {
     queryFnData: [litAccountQuery.data, sessionSigsQuery.data]
   });
 
-  const nonceQuery = useNonceQuery({
-    queryKey: ['nonce'],
-    enabledDeps: !!pkpWalletQuery.data && (isLitLoggedInQuery.data ?? false),
-  });
-
-  const nonceQueryData = nonceQuery.data && typeof nonceQuery.data === 'string' ? nonceQuery.data : '';
-
-  const signatureQuery = useSignatureQuery({
-    queryKey: ['signature', nonceQueryData],
-    enabledDeps: !!nonceQuery.data && (isLitLoggedInQuery.data ?? false) && (isLitConnectedQuery.data ?? false) && (!!pkpWalletQuery.data ?? false),
-    queryFnData: [nonceQuery.data, pkpWalletQuery.data],
-  });
-
-  const signatureQueryData = signatureQuery.data && typeof signatureQuery.data === 'string'? signatureQuery.data: ''
-
-  const supabaseJWTQuery = useSupabaseJWTQuery({
-    queryKey: ['supabaseJWT', signatureQueryData ],
-    enabledDeps: !!signatureQuery.data && !!litAccountQuery.data && !!nonceQuery.data,
-    queryFnData: [litAccountQuery.data, nonceQueryData , signatureQueryData],
-    invalidateQueries
-  });
-
-
-  const jwt = supabaseJWTQuery.data && typeof supabaseJWTQuery.data === 'string'&& supabaseJWTQuery.data.length > 10 ? supabaseJWTQuery.data : '';
 
   const supabaseClientQuery = useSupabaseClientQuery({
-    queryKey: ['supabaseClient', jwt ],
-    enabledDeps:  !!jwt.length /* catch expired jwt elsewhere..  && !isJwtExpired(jwt)*/,
-    queryFnData: [jwt]
+    queryKey: ['supabaseClient', signinRedirectQuery.data?.idToken],
+    enabledDeps: !!signinRedirectQuery.data ?? false,
+    queryFnData: [signinRedirectQuery.data]
   });
 
   const isOnboardedQuery = useIsOnboardedQuery({
@@ -91,9 +77,6 @@ export const useAuthChain = () => {
     { name: 'sessionSigs', query: sessionSigsQuery },
     { name: 'isLitLoggedIn', query: isLitLoggedInQuery},
     { name: 'pkpWallet', query: pkpWalletQuery },
-    { name: 'nonce', query: nonceQuery },
-    { name: 'signature', query: signatureQuery },
-    { name: 'supabaseJWT', query: supabaseJWTQuery },
     { name: 'supabaseClient', query: supabaseClientQuery },
     { name: 'isOnboarded', query: isOnboardedQuery },
     // { name: 'hasBalance', query: hasBalanceQuery },

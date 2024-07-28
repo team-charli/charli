@@ -35,7 +35,7 @@ export async function authenticateWithGoogle(
 ): Promise<AuthMethod | undefined> {
   const googleProvider = litAuthClient.initProvider<GoogleProvider>(
     ProviderType.Google,
-    { redirectUri }
+    { redirectUri, clientId: process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID }
   );
   const authMethod = await googleProvider.authenticate();
   return authMethod;

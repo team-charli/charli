@@ -31,6 +31,7 @@ export const useOAuthRedirectAuthMethodQuery = (isSignInRedirect: boolean | unde
           : await authenticateWithDiscord(redirectUri);
         if (result) {
           console.log("2b: finish oAuthRedirectAuthMethod query - New AuthMethod obtained");
+          console.log('authMethod result', result)
           return result;
         }
         console.log("2b: finish oAuthRedirectAuthMethod query - Authentication failed");

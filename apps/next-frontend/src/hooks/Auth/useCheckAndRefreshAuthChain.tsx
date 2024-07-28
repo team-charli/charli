@@ -13,7 +13,7 @@ export function useCheckAndRefreshAuthChain() {
   return useQuery({
     queryKey: ['checkAndRefreshAuthChain'],
     queryFn: async () => {
-      const querySequence = ['litNodeClient', 'authMethod', 'litAccount', 'sessionSigs', 'isLitLoggedIn', 'pkpWallet', 'nonce', 'signature', 'supabaseJWT', 'supabaseClient', 'isOnboarded'];
+      const querySequence = ['litNodeClient', 'authMethod', 'litAccount', 'sessionSigs', 'isLitLoggedIn', 'pkpWallet', 'supabaseClient', 'isOnboarded'];
 
       for (const queryName of querySequence) {
         const queryData = queryClient.getQueryData([queryName]);
@@ -36,26 +36,6 @@ export function useCheckAndRefreshAuthChain() {
           console.log('Session sigs expired, OAuth login required');
           await invalidateQueries();
           return { status: 'incomplete', missingStep: queryName, requiresOAuth: true };
-        }
-        else if (queryName === 'supabaseJWT' && isJwtExpired(queryData as string)) {
-          console.log('JWT expired or missing');
-          const sessionSigs = queryClient.getQueryData(['sessionSigs']) as SessionSigs | undefined;
-
-          if (!sessionSigs || sessionSigsExpired(sessionSigs)) {
-            console.log('Session sigs also expired or missing, OAuth login required');
-            await invalidateQueries();
-            return { status: 'incomplete', missingStep: queryName, requiresOAuth: true };
-          } else {
-            console.log('Session sigs valid, refreshing from nonce onwards');
-            for (const refreshQuery of ['nonce', 'signature', 'supabaseJWT', 'supabaseClient']) {
-              await queryClient.refetchQueries({ queryKey: [refreshQuery] });
-            }
-            // Check if supabaseJWT was successfully refreshed
-            const newJwt = queryClient.getQueryData(['supabaseJWT']);
-            if (!newJwt) {
-              return { status: 'incomplete', missingStep: 'supabaseJWT' };
-            }
-          }
         }
       }
 
