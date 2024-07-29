@@ -1,65 +1,63 @@
 //useIsSignInRedirectQuery.tsx
 import { useQuery } from '@tanstack/react-query';
-import { isSignInRedirect } from "@lit-protocol/lit-auth-client";
-import { NextRouter, useRouter } from 'next/router';
 import { AuthTokens } from '@/types/types';
-
-
-function extractTokensFromUrl(url: string): AuthTokens | null {
-  const parsedUrl = new URL(url);
-  const params = new URLSearchParams(parsedUrl.search);
-
-  const idToken = params.get('id_token');
-  const accessToken = params.get('access_token');
-  const provider = params.get('provider');
-
-  if (!idToken || !accessToken || !provider) {
-    return null;
-  }
-
-  return {
-    idToken,
-    accessToken,
-    provider,
-  };
-}
+import { useRouter } from 'next/router';
 
 interface IsSignInRedirectParams {
   queryKey?: [string];
   enabledDeps?: boolean;
-  queryFnData?: [string];
 }
+const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useIsSignInRedirectQuery = (params?: IsSignInRedirectParams) => {
   const router = useRouter();
   const {
     queryKey = ['isSignInRedirect'],
     enabledDeps = true,
-    queryFnData = ['']
   } = params || {};
 
   return useQuery<AuthTokens | null>({
-    queryKey: ['isSignInRedirect', router.asPath],
+    queryKey,
     queryFn: async (): Promise<AuthTokens | null> => {
-      const [redirectUri] = queryFnData;
       console.log("1a: start isSignInRedirect query");
-      const isRedirect = isSignInRedirect(redirectUri);
+      console.log("Redirect URI:", redirectUri);
+      console.log("Current URL:", window.location.href);
+      console.log("Hash:", window.location.hash);
 
-      if (isRedirect) {
-        const tokens = extractTokensFromUrl(window.location.href);
+      // Check if we have tokens in the hash
+      const hasTokens = window.location.hash.includes('access_token') && window.location.hash.includes('id_token');
+      console.log("Has tokens in hash:", hasTokens);
+
+      if (hasTokens) {
+        const tokens = extractTokensFromHash(window.location.hash);
+        console.log("Extracted tokens:", tokens);
+
         if (tokens) {
-          // Clear the tokens from the URL
+          // Clear the hash from the URL
           window.history.replaceState({}, document.title, window.location.pathname);
+          console.log("1b: finish isSignInRedirect query - Tokens extracted");
+          return tokens;
         }
-        console.log("1b: finish isSignInRedirect query - Tokens extracted");
-        return tokens;
       }
 
       console.log("1b: finish isSignInRedirect query - No redirect detected");
       return null;
     },
     enabled: router.isReady && enabledDeps,
-    staleTime: Infinity,  // The result won't change during the lifetime of a page
-    gcTime: 0,  // Don't cache between page loads
+    staleTime: Infinity,
+    gcTime: 0,
   });
 };
+
+function extractTokensFromHash(hash: string): AuthTokens | null {
+  const params = new URLSearchParams(hash.substring(1));
+
+  const idToken = params.get('id_token');
+  const accessToken = params.get('access_token');
+
+  if (!idToken || !accessToken) {
+    return null;
+  }
+
+  return { idToken, accessToken, provider: 'google' };
+}

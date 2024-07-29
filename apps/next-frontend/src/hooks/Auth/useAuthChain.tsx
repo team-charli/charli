@@ -13,7 +13,7 @@ export const useAuthChain = () => {
   const isLitConnectedQuery = useLitNodeClientReadyQuery();
 
   const signinRedirectQuery = useIsSignInRedirectQuery({
-    queryKey: ['isSignInRedirect', router?.asPath],
+    queryKey: ['isSignInRedirect'],
     enabledDeps: router.isReady,
     queryFnData: [redirectUri]
   })
@@ -53,7 +53,7 @@ export const useAuthChain = () => {
 
   const supabaseClientQuery = useSupabaseClientQuery({
     queryKey: ['supabaseClient', signinRedirectQuery.data?.idToken],
-    enabledDeps: !!signinRedirectQuery.data ?? false,
+    enabledDeps: !!signinRedirectQuery.data?.idToken ?? false,
     queryFnData: [signinRedirectQuery.data]
   });
 

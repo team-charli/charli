@@ -10,6 +10,37 @@ interface LitAuthMethodQueryParams {
   queryFnData: [boolean | undefined];
 }
 
+export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: LitAuthMethodQueryParams): UseQueryResult<AuthMethod | null, Error> => {
+  const queryClient = useQueryClient();
+  const [isSignInRedirect] = queryFnData;
+  const oAuthRedirectQuery = useOAuthRedirectAuthMethodQuery(isSignInRedirect);
+
+  return useQuery<AuthMethod | null, Error>({
+    queryKey,
+    queryFn: async (): Promise<AuthMethod | null> => {
+      console.log("2a: start authMethod query");
+
+      if (oAuthRedirectQuery.data) {
+        console.log("2b: finish authMethod query - Using AuthMethod from OAuth redirect");
+        return oAuthRedirectQuery.data;
+      }
+
+      // Check for cached AuthMethod
+      const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethod | null;
+      if (cachedAuthMethod) {
+        console.log("2b: finish authMethod query - Using cached AuthMethod");
+        return cachedAuthMethod;
+      }
+
+      console.log('2b: finish authMethod query - No AuthMethod available');
+      return null;
+    },
+    enabled: enabledDeps && oAuthRedirectQuery.isSuccess,
+    staleTime: 5 * 60 * 1000 * 5,
+    gcTime: Infinity,
+    retry: false,
+  });
+};
 export const useOAuthRedirectAuthMethodQuery = (isSignInRedirect: boolean | undefined) => {
   return useQuery<AuthMethod | null, Error>({
     queryKey: ['oAuthRedirectAuthMethod'],
@@ -47,34 +78,3 @@ export const useOAuthRedirectAuthMethodQuery = (isSignInRedirect: boolean | unde
   });
 };
 
-export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: LitAuthMethodQueryParams): UseQueryResult<AuthMethod | null, Error> => {
-  const queryClient = useQueryClient();
-  const [isSignInRedirect] = queryFnData;
-  const oAuthRedirectQuery = useOAuthRedirectAuthMethodQuery(isSignInRedirect);
-
-  return useQuery<AuthMethod | null, Error>({
-    queryKey,
-    queryFn: async (): Promise<AuthMethod | null> => {
-      console.log("2a: start authMethod query");
-
-      if (oAuthRedirectQuery.data) {
-        console.log("2b: finish authMethod query - Using AuthMethod from OAuth redirect");
-        return oAuthRedirectQuery.data;
-      }
-
-      // Check for cached AuthMethod
-      const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethod | null;
-      if (cachedAuthMethod) {
-        console.log("2b: finish authMethod query - Using cached AuthMethod");
-        return cachedAuthMethod;
-      }
-
-      console.log('2b: finish authMethod query - No AuthMethod available');
-      return null;
-    },
-    enabled: enabledDeps && oAuthRedirectQuery.isSuccess,
-    staleTime: 5 * 60 * 1000 * 5,
-    gcTime: Infinity,
-    retry: false,
-  });
-};

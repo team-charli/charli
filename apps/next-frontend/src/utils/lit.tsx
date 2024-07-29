@@ -8,9 +8,12 @@ import {
   WebAuthnProvider,
 } from '@lit-protocol/lit-auth-client';
 import { litAuthClient } from './litClients';
+import { base64url } from 'jose';
+import crypto from 'crypto';
 
 import { AuthMethodType, ProviderType } from '@lit-protocol/constants';
 import {isDefined} from './app'
+import { encode } from '@lit-protocol/lit-auth-client/src/lib/utils';
 export const DOMAIN = process.env.NEXT_PUBLIC_PUBLIC_PROD_URL || 'localhost';
 export const PORT = 3000;
 export const ORIGIN = process.env.NEXT_PUBLIC_PUBLIC_ENV === 'production'
@@ -21,13 +24,55 @@ export function isSocialLoginSupported(provider: string): boolean {
   return ['google', 'discord'].includes(provider);
 }
 
+// export async function signInWithGoogle(redirectUri: string): Promise<void> {
+//   console.log('signInWithGoogle fired')
+//   const googleProvider = litAuthClient.initProvider<GoogleProvider>(
+//     ProviderType.Google,
+//     { redirectUri, clientId: process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID }
+//   );
+
+//   await googleProvider.signIn();
+// }
+
+
+
+const LIT_LOGIN_GATEWAY = 'https://accounts.google.com/o/oauth2/v2/auth';
+
+const GOOGLE_OAUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
+
 export async function signInWithGoogle(redirectUri: string): Promise<void> {
-  console.log('signInWithGoogle fired')
-  const googleProvider = litAuthClient.initProvider<GoogleProvider>(
-    ProviderType.Google,
-    { redirectUri }
-  );
-  await googleProvider.signIn();
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID!;
+  const state = await setStateParam();
+
+  const authParams = {
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'id_token token',
+    response_mode: 'query',
+    scope: 'openid email profile',
+    state: state,
+    nonce: generateNonce(),
+    prompt: 'select_account',
+    provider: 'google',
+  };
+
+  const loginUrl = `${GOOGLE_OAUTH_ENDPOINT}?${createQueryParams(authParams)}`;
+
+  window.location.assign(loginUrl);
+}
+
+async function setStateParam(): Promise<string> {
+  const state = Math.random().toString(36).substring(2, 17);
+  sessionStorage.setItem('oauth_state', encode(state));
+  return state;
+}
+
+function generateNonce(): string {
+  return Math.random().toString(36).substring(2, 15);
+}
+
+function createQueryParams(params: Record<string, string>): string {
+  return new URLSearchParams(params).toString();
 }
 
 export async function authenticateWithGoogle(
