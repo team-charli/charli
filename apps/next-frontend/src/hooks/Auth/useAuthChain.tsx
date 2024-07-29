@@ -5,7 +5,6 @@ import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, 
 
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
-const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useAuthChain = () => {
   const router = useRouter();
@@ -15,7 +14,6 @@ export const useAuthChain = () => {
   const signinRedirectQuery = useIsSignInRedirectQuery({
     queryKey: ['isSignInRedirect'],
     enabledDeps: router.isReady,
-    queryFnData: [redirectUri]
   })
   const invalidateQueries = useInvalidateAuthQueries();
 

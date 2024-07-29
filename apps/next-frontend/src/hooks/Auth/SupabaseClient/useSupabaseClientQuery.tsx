@@ -2,15 +2,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { useRef } from 'react';
+import { AuthTokens } from '@/types/types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLIC_API_KEY!;
 
-interface AuthTokens {
-  idToken: string;
-  accessToken: string;
-  provider: string;
-}
 
 interface SupabaseClientQueryParams {
   queryKey: [string, string | undefined];
@@ -45,8 +41,9 @@ export const useSupabaseClientQuery = ({ queryKey, enabledDeps, queryFnData }: S
         const { data, error } = await newClient.auth.signInWithIdToken({
           provider: authTokens.provider as 'google' | 'discord',
           token: authTokens.idToken,
+          access_token: authTokens.accessToken, // Include the access token
         });
-
+        console.log("Sending to Supabase - provider:", authTokens.provider);
         if (error) {
           throw error;
         }

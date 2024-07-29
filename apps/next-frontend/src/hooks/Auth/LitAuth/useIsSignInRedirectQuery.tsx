@@ -20,13 +20,9 @@ export const useIsSignInRedirectQuery = (params?: IsSignInRedirectParams) => {
     queryKey,
     queryFn: async (): Promise<AuthTokens | null> => {
       console.log("1a: start isSignInRedirect query");
-      console.log("Redirect URI:", redirectUri);
-      console.log("Current URL:", window.location.href);
-      console.log("Hash:", window.location.hash);
 
       // Check if we have tokens in the hash
       const hasTokens = window.location.hash.includes('access_token') && window.location.hash.includes('id_token');
-      console.log("Has tokens in hash:", hasTokens);
 
       if (hasTokens) {
         const tokens = extractTokensFromHash(window.location.hash);
@@ -55,7 +51,8 @@ function extractTokensFromHash(hash: string): AuthTokens | null {
   const idToken = params.get('id_token');
   const accessToken = params.get('access_token');
 
-  if (!idToken || !accessToken) {
+
+  if (!idToken || !accessToken ) {
     return null;
   }
 

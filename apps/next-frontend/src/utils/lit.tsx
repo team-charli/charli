@@ -41,8 +41,11 @@ const LIT_LOGIN_GATEWAY = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_OAUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 
 export async function signInWithGoogle(redirectUri: string): Promise<void> {
+  console.log("call signInWithGoogle");
+
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID!;
   const state = await setStateParam();
+  const nonce = generateNonce();
 
   const authParams = {
     client_id: clientId,
@@ -51,7 +54,7 @@ export async function signInWithGoogle(redirectUri: string): Promise<void> {
     response_mode: 'query',
     scope: 'openid email profile',
     state: state,
-    nonce: generateNonce(),
+    nonce: nonce,
     prompt: 'select_account',
     provider: 'google',
   };
