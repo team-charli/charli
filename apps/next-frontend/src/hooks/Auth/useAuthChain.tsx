@@ -1,12 +1,12 @@
 //useAuthChain.tsx
 import { useRouter } from 'next/router';
-
 import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useSupabaseClientQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
-
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
+import { useEffect } from 'react';
 
 export const useAuthChain = () => {
+  const invalidateQueries = useInvalidateAuthQueries();
   const router = useRouter();
 
   const isLitConnectedQuery = useLitNodeClientReadyQuery();
@@ -15,12 +15,11 @@ export const useAuthChain = () => {
     queryKey: ['isSignInRedirect'],
     enabledDeps: router.isReady,
   })
-  const invalidateQueries = useInvalidateAuthQueries();
 
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
     enabledDeps: !!signinRedirectQuery.data ?? false,
-    queryFnData: [!!signinRedirectQuery.data ?? false]
+    queryFnData: [signinRedirectQuery.data]
   });
 
   const litAccountQuery = useLitAccountQuery({
@@ -28,6 +27,7 @@ export const useAuthChain = () => {
     enabledDeps: !!authMethodQuery.data,
     queryFnData: authMethodQuery.data
   });
+
 
   const sessionSigsQuery = useLitSessionSigsQuery({
     queryKey: ['litSessionSigs'],

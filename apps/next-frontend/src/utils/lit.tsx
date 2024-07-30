@@ -34,8 +34,6 @@ export function isSocialLoginSupported(provider: string): boolean {
 //   await googleProvider.signIn();
 // }
 
-
-
 const LIT_LOGIN_GATEWAY = 'https://accounts.google.com/o/oauth2/v2/auth';
 
 const GOOGLE_OAUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -46,6 +44,9 @@ export async function signInWithGoogle(redirectUri: string): Promise<void> {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID!;
   const state = await setStateParam();
   const nonce = generateNonce();
+
+  sessionStorage.setItem('oauth_state', state);
+  sessionStorage.setItem('oauth_nonce', nonce);
 
   const authParams = {
     client_id: clientId,
@@ -110,8 +111,11 @@ export async function authenticateWithDiscord(redirectUri: string
 
 /** Fetch PKPs associated with given auth method */
 export async function getPKPs(authMethod: AuthMethod): Promise<IRelayPKP[]> {
+  console.log('authMethod', authMethod)
   const provider = getProviderByAuthMethod(authMethod);
+
   if (!isDefined(provider)) throw new Error('provider not defined')
+  console.log('authMethod.accessToken', authMethod.accessToken)
   const allPKPs = await provider.fetchPKPsThroughRelayer(authMethod);
   return allPKPs;
 }
@@ -157,25 +161,28 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
 
 /** Get provider for given auth method */
 export function getProviderByAuthMethod(authMethod: AuthMethod) {
+  console.log('authMethod.authMethodType', authMethod.authMethodType)
   switch (authMethod.authMethodType) {
-    case AuthMethodType.GoogleJwt:
+    case AuthMethodType.Google:
       return litAuthClient.getProvider(ProviderType.Google);
     case AuthMethodType.Discord:
       return litAuthClient.getProvider(ProviderType.Discord);
-    case AuthMethodType.EthWallet:
-      return litAuthClient.getProvider(ProviderType.EthWallet);
-    case AuthMethodType.WebAuthn:
-      return litAuthClient.getProvider(ProviderType.WebAuthn);
-    case AuthMethodType.StytchOtp:
-      return litAuthClient.getProvider(ProviderType.StytchOtp);
-    case AuthMethodType.StytchOtp:
-      return litAuthClient.getProvider(ProviderType.StytchOtp);
     default:
       return;
   }
 }
 
-
+export function getAuthMethodByProvider(provider: string): AuthMethodType {
+  switch (provider.toLowerCase()) {
+    case 'google':
+      return AuthMethodType.Google;
+    case 'discord':
+      return AuthMethodType.Discord;
+    // Add more cases as needed
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
+  }
+}
 
 
 

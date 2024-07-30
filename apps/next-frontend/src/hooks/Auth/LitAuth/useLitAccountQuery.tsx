@@ -10,11 +10,13 @@ interface LitAccountQueryParams {
 
 export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAccountQueryParams): UseQueryResult<IRelayPKP | null, Error> => {
   const queryClient = useQueryClient();
-  const authMethod = queryFnData;
+
 
   return useQuery({
     queryKey,
     queryFn: async (): Promise<IRelayPKP | null> => {
+      console.log('queryFnData', queryFnData)
+      const authMethod = queryFnData;
 
       console.log('3a: start litAccount query');
 
@@ -45,7 +47,8 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAcco
 
           return newPKP;
         }
-      } catch (error) {
+      }
+      catch (error) {
         console.error('Error in LitAccount query:', error);
         throw error;
       }

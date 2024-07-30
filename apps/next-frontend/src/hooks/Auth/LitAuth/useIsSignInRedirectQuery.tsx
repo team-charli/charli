@@ -11,10 +11,7 @@ const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useIsSignInRedirectQuery = (params?: IsSignInRedirectParams) => {
   const router = useRouter();
-  const {
-    queryKey = ['isSignInRedirect'],
-    enabledDeps = true,
-  } = params || {};
+  const { queryKey = ['isSignInRedirect'], enabledDeps = true } = params || {};
 
   return useQuery<AuthTokens | null>({
     queryKey,
@@ -25,6 +22,8 @@ export const useIsSignInRedirectQuery = (params?: IsSignInRedirectParams) => {
       const hasTokens = window.location.hash.includes('access_token') && window.location.hash.includes('id_token');
 
       if (hasTokens) {
+        console.log('window.location.hash', JSON.stringify(window.location.hash))
+
         const tokens = extractTokensFromHash(window.location.hash);
         console.log("Extracted tokens:", tokens);
 

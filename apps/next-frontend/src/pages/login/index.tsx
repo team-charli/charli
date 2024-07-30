@@ -20,9 +20,6 @@ const Login = () => {
         {litAuthMethod.isLoading && <p className={`flex justify-center marginTop`}>Authenticating...</p>}
         {litAccount.isLoading && <p className={`flex justify-center marginTop`}>Loading accounts...</p>}
         {sessionSigs.isLoading && <p className={`flex justify-center marginTop`}>Initializing session...</p>}
-        {litAuthMethod.error && <p className="error">{litAuthMethod.error.message}</p>}
-        {litAccount.error && <p className="error">{litAccount.error.message}</p>}
-        {sessionSigs.error && <p className="error">{sessionSigs.error.message}</p>}
         <div className={`_LoginMethods_ flex justify-center mt-64`}>
           <AuthMethods />
         </div>
