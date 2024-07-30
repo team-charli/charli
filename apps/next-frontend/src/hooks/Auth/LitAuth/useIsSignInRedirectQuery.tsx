@@ -62,5 +62,5 @@ function extractTokensFromHash(hash: string): AuthTokens | null {
     return null;
   }
 
-  return { idToken, accessToken, provider: 'google' };
+  return { idToken, accessToken, provider: 'googleJwt' };
 }

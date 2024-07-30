@@ -151,7 +151,7 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
 /** Get provider for given auth method */
 export function getProviderByAuthMethod(authMethod: AuthMethod) {
   switch (authMethod.authMethodType) {
-    case AuthMethodType.Google:
+    case AuthMethodType.GoogleJwt:
       return litAuthClient.getProvider(ProviderType.Google);
     case AuthMethodType.Discord:
       return litAuthClient.getProvider(ProviderType.Discord);
@@ -163,7 +163,7 @@ export function getProviderByAuthMethod(authMethod: AuthMethod) {
 export function getAuthMethodByProvider(provider: string): AuthMethodType {
   switch (provider.toLowerCase()) {
     case 'google':
-      return AuthMethodType.Google;
+      return AuthMethodType.GoogleJwt;
     case 'discord':
       return AuthMethodType.Discord;
     // Add more cases as needed

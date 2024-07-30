@@ -1,7 +1,6 @@
 import { UseQueryResult, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthMethod } from '@lit-protocol/types';
 import { AuthTokens } from '@/types/types';
-import { getAuthMethodByProvider } from '@/utils/lit';
 import { litAuthClient } from '@/utils/litClients';
 import { GoogleProvider } from '@lit-protocol/lit-auth-client';
 import { ProviderType } from '@lit-protocol/constants';
@@ -23,12 +22,20 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
       if (authTokens) {
         console.log("2b: finish authMethod query - Using AuthMethod from OAuth redirect");
         const {provider, idToken, accessToken} = authTokens;
-        const authMethodType = getAuthMethodByProvider(provider);
+        let authMethodType
+        if (provider === 'googleJwt'){
+          authMethodType = 6
+        } else if (provider === 'discord') {
+          authMethodType = 4
+        } else {
+          throw new Error('unknown provider type')
+        }
+
         window.history.replaceState({}, document.title, window.location.pathname);
 
         const authMethod:AuthMethod = {authMethodType, accessToken/*accessToken: idToken*/ }
         if (Object.values(authMethod).every(value => value !== undefined)){
-          if (authMethod.authMethodType === 5 ) {
+          if (authMethod.authMethodType === 6 ) {
            litAuthClient.initProvider<GoogleProvider>(
             ProviderType.Google
           );
