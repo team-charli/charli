@@ -38,8 +38,14 @@ export const useSupabaseClientQuery = ({ queryKey, enabledDeps, queryFnData }: S
         const newClient = createClient(supabaseUrl, supabaseAnonKey);
 
         // Sign in with ID Token
+        let provider;
+        if (authTokens.provider === 'googleJwt'){
+          provider = 'google'
+        } else {
+          provider = authTokens.provider
+        }
         const { data, error } = await newClient.auth.signInWithIdToken({
-          provider: authTokens.provider as 'google' | 'discord',
+          provider,
           token: authTokens.idToken,
           access_token: authTokens.accessToken, // Include the access token
         });

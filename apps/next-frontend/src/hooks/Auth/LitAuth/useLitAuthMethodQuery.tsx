@@ -33,7 +33,7 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
 
         window.history.replaceState({}, document.title, window.location.pathname);
 
-        const authMethod:AuthMethod = {authMethodType, accessToken/*accessToken: idToken*/ }
+        const authMethod:AuthMethod = {authMethodType, accessToken: idToken }
         if (Object.values(authMethod).every(value => value !== undefined)){
           if (authMethod.authMethodType === 6 ) {
            litAuthClient.initProvider<GoogleProvider>(
