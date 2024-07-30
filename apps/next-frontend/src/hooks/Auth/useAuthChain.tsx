@@ -8,7 +8,6 @@ import { useEffect } from 'react';
 export const useAuthChain = () => {
   const invalidateQueries = useInvalidateAuthQueries();
   const router = useRouter();
-
   const isLitConnectedQuery = useLitNodeClientReadyQuery();
 
   const signinRedirectQuery = useIsSignInRedirectQuery({
@@ -31,7 +30,7 @@ export const useAuthChain = () => {
 
   const sessionSigsQuery = useLitSessionSigsQuery({
     queryKey: ['litSessionSigs'],
-    enabledDeps: !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
+    enabledDeps: !!litAccountQuery.data && !!authMethodQuery && (isLitConnectedQuery.data ?? false),
     queryFnData: [authMethodQuery.data, litAccountQuery.data, isLitConnectedQuery.data ?? false ],
     invalidateQueries
   });

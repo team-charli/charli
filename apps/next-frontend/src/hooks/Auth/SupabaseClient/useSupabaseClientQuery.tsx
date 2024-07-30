@@ -34,7 +34,7 @@ export const useSupabaseClientQuery = ({ queryKey, enabledDeps, queryFnData }: S
           return supabaseClientRef.current;
         }
 
-        console.log("Creating new Supabase client");
+        // console.log("Creating new Supabase client");
         const newClient = createClient(supabaseUrl, supabaseAnonKey);
 
         // Sign in with ID Token
@@ -43,7 +43,7 @@ export const useSupabaseClientQuery = ({ queryKey, enabledDeps, queryFnData }: S
           token: authTokens.idToken,
           access_token: authTokens.accessToken, // Include the access token
         });
-        console.log("Sending to Supabase - provider:", authTokens.provider);
+        // console.log("Sending to Supabase - provider:", authTokens.provider);
         if (error) {
           throw error;
         }

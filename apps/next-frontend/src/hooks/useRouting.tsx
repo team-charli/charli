@@ -17,7 +17,7 @@ export function useRouting() {
   return useQuery({
     queryKey: ['authRouting', router.asPath, checkAndRefreshAuthChain.data, isOnboarded, isLitLoggedIn, isOAuthRedirect],
     queryFn: async () => {
-      console.log('--- Start of routing logic ---');
+      // console.log('--- Start of routing logic ---');
       // console.log(`Current URL: ${router.asPath}`);
       // console.log(`auth.isSuccess: ${auth.isSuccess}`);
       // console.log(`isOAuthRedirect: ${!!isOAuthRedirect}`);

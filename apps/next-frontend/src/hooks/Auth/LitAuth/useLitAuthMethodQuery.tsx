@@ -22,11 +22,11 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
 
       if (authTokens) {
         console.log("2b: finish authMethod query - Using AuthMethod from OAuth redirect");
-        const {provider, idToken} = authTokens;
+        const {provider, idToken, accessToken} = authTokens;
         const authMethodType = getAuthMethodByProvider(provider);
         window.history.replaceState({}, document.title, window.location.pathname);
 
-        const authMethod:AuthMethod = {authMethodType, accessToken: idToken }
+        const authMethod:AuthMethod = {authMethodType, accessToken/*accessToken: idToken*/ }
         if (Object.values(authMethod).every(value => value !== undefined)){
           if (authMethod.authMethodType === 5 ) {
            litAuthClient.initProvider<GoogleProvider>(

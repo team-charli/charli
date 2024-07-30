@@ -15,7 +15,7 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAcco
   return useQuery({
     queryKey,
     queryFn: async (): Promise<IRelayPKP | null> => {
-      console.log('queryFnData', queryFnData)
+      // console.log('queryFnData', queryFnData)
       const authMethod = queryFnData;
 
       console.log('3a: start litAccount query');
@@ -34,11 +34,14 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAcco
       try {
         console.log('Fetching PKPs');
         const myPKPs = await getPKPs(authMethod);
-        console.log(`PKPs fetched, count:`, myPKPs.length);
+        // console.log(`PKPs fetched, count:`, myPKPs.length);
 
-        if (myPKPs.length) {
-          console.log('3b: finish litAccount query -- Returning existing PKP');
-          return myPKPs[0];
+        if (myPKPs.length >= 2) {
+          // if (myPKPs.length ) {
+          // console.log('3b: finish litAccount query -- Returning existing PKP');
+          console.log('3b: finish litAccount query -- Returning PKP[1]', myPKPs[1].tokenId);
+
+          return myPKPs[1];
         } else {
           console.log('No PKPs found, minting new PKP');
           const newPKP = await mintPKP(authMethod);

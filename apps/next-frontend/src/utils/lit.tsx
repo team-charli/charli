@@ -79,16 +79,16 @@ function createQueryParams(params: Record<string, string>): string {
   return new URLSearchParams(params).toString();
 }
 
-export async function authenticateWithGoogle(
-  redirectUri: string
-): Promise<AuthMethod | undefined> {
-  const googleProvider = litAuthClient.initProvider<GoogleProvider>(
-    ProviderType.Google,
-    { redirectUri, clientId: process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID }
-  );
-  const authMethod = await googleProvider.authenticate();
-  return authMethod;
-}
+// export async function authenticateWithGoogle(
+//   redirectUri: string
+// ): Promise<AuthMethod | undefined> {
+//   const googleProvider = litAuthClient.initProvider<GoogleProvider>(
+//     ProviderType.Google,
+//     { redirectUri, clientId: process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID }
+//   );
+//   const authMethod = await googleProvider.authenticate();
+//   return authMethod;
+// }
 
 export async function signInWithDiscord(redirectUri: string): Promise<void> {
   const discordProvider = litAuthClient.initProvider<DiscordProvider>(
@@ -111,11 +111,9 @@ export async function authenticateWithDiscord(redirectUri: string
 
 /** Fetch PKPs associated with given auth method */
 export async function getPKPs(authMethod: AuthMethod): Promise<IRelayPKP[]> {
-  console.log('authMethod', authMethod)
   const provider = getProviderByAuthMethod(authMethod);
 
   if (!isDefined(provider)) throw new Error('provider not defined')
-  console.log('authMethod.accessToken', authMethod.accessToken)
   const allPKPs = await provider.fetchPKPsThroughRelayer(authMethod);
   return allPKPs;
 }
@@ -124,14 +122,6 @@ export async function getPKPs(authMethod: AuthMethod): Promise<IRelayPKP[]> {
 export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
   const provider = getProviderByAuthMethod(authMethod);
   let txHash: string;
-  if (authMethod.authMethodType === AuthMethodType.WebAuthn) {
-    // Register new WebAuthn credential
-    const options = await (provider as WebAuthnProvider).register();
-    // Verify registration and mint PKP through relay server
-    txHash = await (
-      provider as WebAuthnProvider
-    ).verifyAndMintPKPThroughRelayer(options);
-  } else {
     // Mint PKP through relay server
     const options = {
       permittedAuthMethodScopes: [[1]],
@@ -139,7 +129,6 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
 
     if (!isDefined(provider)) throw new Error('provider not defined')
     txHash = await provider.mintPKPThroughRelayer(authMethod, options);
-  }
 
   if (!isDefined(provider)) throw new Error('provider not defined')
   const response = await provider.relay.pollRequestUntilTerminalState(txHash);
@@ -161,7 +150,6 @@ export async function mintPKP(authMethod: AuthMethod): Promise<IRelayPKP> {
 
 /** Get provider for given auth method */
 export function getProviderByAuthMethod(authMethod: AuthMethod) {
-  console.log('authMethod.authMethodType', authMethod.authMethodType)
   switch (authMethod.authMethodType) {
     case AuthMethodType.Google:
       return litAuthClient.getProvider(ProviderType.Google);

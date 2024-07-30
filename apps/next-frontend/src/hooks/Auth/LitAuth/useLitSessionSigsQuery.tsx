@@ -46,6 +46,12 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, inva
 
         console.log('Fetching new sessionSigs');
         await litNodeClient.getLatestBlockhash();
+        console.log({litAccount, authMethod});
+
+        //POST https://15.235.83.220:7472/web/sign_session_key/v1 500 (Internal Server Error) is the authenticate method calling the contracts (because contracts are stateful, nodes are not) -- if so may need to implement a version of https://github.com/LIT-Protocol/lit-login-server/blob/main/README.md
+
+        console.log("public key", litAccount.tokenId)
+
         const newSessionSigs = await litNodeClient.getPkpSessionSigs({
           pkpPublicKey: litAccount.publicKey,
           authMethods: [authMethod],
