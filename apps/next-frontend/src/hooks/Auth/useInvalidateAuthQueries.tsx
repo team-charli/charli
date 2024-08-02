@@ -12,9 +12,6 @@ export const useInvalidateAuthQueries = () => {
         'litAccount',
         'litSessionSigs',
         'pkpWallet',
-        'nonce',
-        'signature',
-        'supabaseJWT',
         'supabaseClient'
       ]
     });

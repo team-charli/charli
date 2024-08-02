@@ -8,7 +8,6 @@ interface IsSignInRedirectParams {
   queryKey?: [string];
   enabledDeps?: boolean;
 }
-const redirectUri = process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI!;
 
 export const useIsSignInRedirectQuery = (params?: IsSignInRedirectParams) => {
   const router = useRouter();
@@ -17,33 +16,19 @@ export const useIsSignInRedirectQuery = (params?: IsSignInRedirectParams) => {
   return useQuery<AuthTokens | null>({
     queryKey,
     queryFn: async (): Promise<AuthTokens | null> => {
-      console.log("1a: start isSignInRedirect query");
+      // console.log("1a: start isSignInRedirect query");
 
       // Check if we have tokens in the hash
       const hasTokens = window.location.hash.includes('access_token') && window.location.hash.includes('id_token');
-
       if (hasTokens) {
-        // console.log('window.location.hash', JSON.stringify(window.location.hash))
-
         const tokens = extractTokensFromHash(window.location.hash);
-        // console.log("Extracted tokens:", tokens);
-
         if (tokens) {
-          // Clear the hash from the URL
-          const {idToken, accessToken} = tokens;
-
-          // const validateIdTokenResponse = await ky.get(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${idToken}`)
-          const validateAccessTokenResponse = await ky.get(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
-          const responseData = await validateAccessTokenResponse.json();
-          console.log('Response Data:', responseData);
-
           console.log("1b: finish isSignInRedirect query - Tokens extracted");
           return tokens;
         }
       }
-
       console.log("1b: finish isSignInRedirect query - No redirect detected");
-      return null;
+      return null; // This will still be a "success" state, just with null data
     },
     enabled: router.isReady && enabledDeps,
     staleTime: Infinity,

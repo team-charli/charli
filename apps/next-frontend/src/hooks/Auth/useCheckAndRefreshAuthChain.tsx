@@ -13,13 +13,15 @@ export function useCheckAndRefreshAuthChain() {
   return useQuery({
     queryKey: ['checkAndRefreshAuthChain'],
     queryFn: async () => {
+      console.log('checkAndRefreshAuthChain called');
+
       const querySequence = ['litNodeClient', 'authMethod', 'litAccount', 'sessionSigs', 'isLitLoggedIn', 'pkpWallet', 'supabaseClient', 'isOnboarded'];
 
       for (const queryName of querySequence) {
         const queryData = queryClient.getQueryData([queryName]);
 
         if (!queryData) {
-          if (queryName === 'authMethod' || queryName === 'sessionSigs') {
+          if (queryName === 'authMethod' || queryName === 'litAccount' || queryName === 'sessionSigs') {
             console.log(`${queryName} missing, OAuth login required`);
             return { status: 'incomplete', missingStep: queryName, requiresOAuth: true };
           }
@@ -31,14 +33,12 @@ export function useCheckAndRefreshAuthChain() {
           if (!refetchedData) {
             return { status: 'incomplete', missingStep: queryName };
           }
-        }
-        else if (queryName === 'sessionSigs' && sessionSigsExpired(queryData as SessionSigs)) {
+        } else if (queryName === 'sessionSigs' && sessionSigsExpired(queryData as SessionSigs)) {
           console.log('Session sigs expired, OAuth login required');
           await invalidateQueries();
           return { status: 'incomplete', missingStep: queryName, requiresOAuth: true };
         }
       }
-
       return { status: 'complete' };
     },
     refetchInterval: 5 * 60 * 1000,

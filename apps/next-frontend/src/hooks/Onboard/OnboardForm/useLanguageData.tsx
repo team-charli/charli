@@ -7,10 +7,14 @@ export const useLanguageData = () => {
   return useQuery({
     queryKey: ['platformLanguages'],
     queryFn: async () => {
+      console.log('run platformLanguages query');
+
       const { data, error } = await supabaseClient
         .from('languages')
         .select('*');
       if (error) throw error;
+      console.log('data', data);
+
       return data?.map((langObj: any) => ({
         id: langObj.id,
         language: langObj.name,
@@ -18,7 +22,7 @@ export const useLanguageData = () => {
         flag: langObj.emoji
       } as LanguageButton)) || [];
     },
-    enabled: supabaseClient
+    enabled: !!supabaseClient
   }
 
   );

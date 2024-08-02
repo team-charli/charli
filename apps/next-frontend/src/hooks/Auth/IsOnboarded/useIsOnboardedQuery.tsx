@@ -24,9 +24,9 @@ export const useIsOnboardedQuery = ({
     queryFn: async () => {
       console.log("11a: start isOnboarded query");
 
-
       if (!supabaseClient || !currentAccount) {
-        return false;
+        console.error({supabaseClient: !!supabaseClient, currentAccount: !!currentAccount });
+        throw Error(`need supabase client or currentAccount`)
       }
 
       const { data, error } = await supabaseClient
@@ -35,10 +35,10 @@ export const useIsOnboardedQuery = ({
         .eq("user_address", currentAccount.ethAddress)
         .limit(1);
 
-      // const isOnboarded = !error && !!data;
       const isOnboarded = data && data.length > 0;
 
       console.log("11b: finish isOnboarded query -- isOnboarded ", isOnboarded);
+      console.log("source isOnboarded", isOnboarded)
 
       return isOnboarded;
     },

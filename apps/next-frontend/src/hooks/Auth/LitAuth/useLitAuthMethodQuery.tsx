@@ -6,7 +6,7 @@ import { GoogleProvider } from '@lit-protocol/lit-auth-client';
 import { ProviderType } from '@lit-protocol/constants';
 
 interface LitAuthMethodQueryParams {
-  queryKey: [string];
+  queryKey: [string, AuthTokens | undefined | null];
   enabledDeps: boolean;
   queryFnData: [AuthTokens | null | undefined];
 }
@@ -19,6 +19,12 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
     queryFn: async (): Promise<AuthMethod | null> => {
       console.log("2a: start authMethod query");
 
+      const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethod | null;
+      if (cachedAuthMethod) {
+        console.log("2b: finish authMethod query - Using cached AuthMethod");
+        return cachedAuthMethod;
+      }
+
       if (authTokens) {
         console.log("2b: finish authMethod query - Using AuthMethod from OAuth redirect");
         const {provider, idToken, accessToken} = authTokens;
@@ -30,16 +36,16 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
         } else {
           throw new Error('unknown provider type')
         }
-
         window.history.replaceState({}, document.title, window.location.pathname);
 
         const authMethod:AuthMethod = {authMethodType, accessToken: idToken }
         if (Object.values(authMethod).every(value => value !== undefined)){
           if (authMethod.authMethodType === 6 ) {
-           litAuthClient.initProvider<GoogleProvider>(
-            ProviderType.Google
-          );
+            litAuthClient.initProvider<GoogleProvider>(
+              ProviderType.Google
+            );
           }
+          console.log('2b: finish authMethod query - new AuthMethod from query params');
 
           return authMethod;
         } else {
@@ -47,23 +53,14 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
           throw new Error('authMethod values undefined')
         }
       }
-
-      // Check for cached AuthMethod
-      const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethod | null;
-      if (cachedAuthMethod) {
-        console.log("2b: finish authMethod query - Using cached AuthMethod");
-        return cachedAuthMethod;
-      }
-
-      // console.log('2b: finish authMethod query - No AuthMethod available');
+      console.log('2b: finish authMethod query - No AuthMethod available from cache or query params. authTokens:', authTokens);
       return null;
     },
-    enabled: enabledDeps /*&& oAuthRedirectQuery.isSuccess*/,
+    enabled: enabledDeps,
     staleTime: 5 * 60 * 1000 * 5,
     gcTime: Infinity,
     retry: false,
   });
 };
-
 
 

@@ -11,7 +11,7 @@ export const nativeLangAtom = atom<string>('');
 
 export const authMethodAtom = atomWithStorage<AuthMethod | null | undefined>('authMethod', null);
 export const litAccountAtom = atomWithStorage<IRelayPKP | null | undefined>('litAccount', null);
-export const onboardModeAtom = atom<'Teach' | 'Learn' | null>(null);
+export const onboardModeAtom = atomWithStorage<'Teach' | 'Learn' | null>('onboardMode', null);
 
 export const userIdAtom = atom<string | null>(null);
 

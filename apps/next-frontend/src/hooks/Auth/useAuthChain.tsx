@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 export const useAuthChain = () => {
   const invalidateQueries = useInvalidateAuthQueries();
   const router = useRouter();
+
   const isLitConnectedQuery = useLitNodeClientReadyQuery();
 
   const signinRedirectQuery = useIsSignInRedirectQuery({
@@ -16,17 +17,16 @@ export const useAuthChain = () => {
   })
 
   const authMethodQuery = useLitAuthMethodQuery({
-    queryKey: ['authMethod'],
-    enabledDeps: !!signinRedirectQuery.data ?? false,
+    queryKey: ['authMethod', signinRedirectQuery.data],
+    enabledDeps:  router.isReady && signinRedirectQuery.isSuccess,
     queryFnData: [signinRedirectQuery.data]
   });
 
   const litAccountQuery = useLitAccountQuery({
-    queryKey: ['litAccount', authMethodQuery.isSuccess],
+    queryKey: ['litAccount'],
     enabledDeps: !!authMethodQuery.data,
     queryFnData: authMethodQuery.data
   });
-
 
   const sessionSigsQuery = useLitSessionSigsQuery({
     queryKey: ['litSessionSigs'],
@@ -73,7 +73,7 @@ export const useAuthChain = () => {
     { name: 'litAccount', query: litAccountQuery },
     { name: 'sessionSigs', query: sessionSigsQuery },
     { name: 'isLitLoggedIn', query: isLitLoggedInQuery},
-    { name: 'pkpWallet', query: pkpWalletQuery },
+    // { name: 'pkpWallet', query: pkpWalletQuery },
     { name: 'supabaseClient', query: supabaseClientQuery },
     { name: 'isOnboarded', query: isOnboardedQuery },
     // { name: 'hasBalance', query: hasBalanceQuery },
@@ -81,8 +81,8 @@ export const useAuthChain = () => {
 
   const isLoading = queries.some(q => q.query.isLoading);
   const isError = queries.some(q => q.query.isError);
-  const isSuccess = !isLoading && !isError;
-
+  const isAllDataAvailable = queries.every(q => q.query.data !== undefined);
+  const isSuccess = !isLoading && !isError && isAllDataAvailable;
 
   return {
     queries,

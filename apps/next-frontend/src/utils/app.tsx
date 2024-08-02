@@ -215,3 +215,13 @@ export function checkAuthSigExpiration(authSig: any): boolean {
   return currentTime >= expirationTime;
 }
 
+
+export function hasSessionKey(): boolean {
+  // Check if window and localStorage are available
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const sessionKey = localStorage.getItem('lit-session-key');
+    return sessionKey !== null && sessionKey.length > 100;
+  }
+  // Return false if localStorage is not available (i.e., during SSR)
+  return false;
+}

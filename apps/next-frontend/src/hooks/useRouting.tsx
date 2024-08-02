@@ -1,48 +1,29 @@
 // useRouting.tsx
-import { useIsOnboarded, useIsLitLoggedIn } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/router";
-import { useIsSignInRedirectQuery } from './Auth/LitAuth/useIsSignInRedirectQuery';
-import { useCheckAndRefreshAuthChain } from "./Auth/useCheckAndRefreshAuthChain";
 import { useAuth } from '@/contexts/AuthContext';
 
 export function useRouting() {
   const router = useRouter();
-  const auth = useAuth();
-  const checkAndRefreshAuthChain = useCheckAndRefreshAuthChain();
-  const { data: isOnboarded } = useIsOnboarded();
-  const { data: isLitLoggedIn } = useIsLitLoggedIn();
-  const { data: isOAuthRedirect } = useIsSignInRedirectQuery();
+  const initialAuthChain = useAuth();
+  const queryClient = useQueryClient();
 
   return useQuery({
-    queryKey: ['authRouting', router.asPath, checkAndRefreshAuthChain.data, isOnboarded, isLitLoggedIn, isOAuthRedirect],
+    queryKey: ['authRouting', router.asPath],
     queryFn: async () => {
-      // console.log('--- Start of routing logic ---');
-      // console.log(`Current URL: ${router.asPath}`);
-      // console.log(`auth.isSuccess: ${auth.isSuccess}`);
-      // console.log(`isOAuthRedirect: ${!!isOAuthRedirect}`);
-      // console.log(`checkAndRefreshAuthChain status: ${checkAndRefreshAuthChain.data?.status}`);
-      // console.log(`isLitLoggedIn: ${isLitLoggedIn}`);
-      // console.log(`isOnboarded: ${isOnboarded}`);
-      // console.log(`Current pathname: ${router.pathname}`);
+      const litAccount = queryClient.getQueryData(['litAccount'])
+      const isOnboarded = queryClient.getQueryData(['isOnboarded', litAccount]);
+      const isLitLoggedIn = queryClient.getQueryData(['isLitLoggedIn']);
+      const isOAuthRedirect = queryClient.getQueryData(['isSignInRedirect']);
 
-      if (!auth.isSuccess) {
-        // console.log('Waiting for initial auth chain to complete');
-        return { action: 'waiting', reason: 'authChainIncomplete' };
-      }
-
-      if (checkAndRefreshAuthChain.data?.status === 'incomplete') {
-        // console.log(`Auth chain status: ${checkAndRefreshAuthChain.data?.status}`);
-        if (checkAndRefreshAuthChain.data.requiresOAuth && router.pathname !== '/login') {
-          console.log('OAuth login required, redirecting to login');
-          await router.push('/login');
-          return { action: 'redirected', to: '/login', reason: 'requiresOAuth' };
-        } else if (router.pathname !== '/login') {
-          console.log(`Auth chain incomplete at step: ${checkAndRefreshAuthChain.data.missingStep}, redirecting to login`);
-          await router.push('/login');
-          return { action: 'redirected', to: '/login', reason: 'incompleteAuth' };
-        }
-      }
+      console.log('--- Start of routing logic ---');
+      console.log(`Current URL: ${router.asPath}`);
+      console.log(`initialAuthChain.isSuccess: ${initialAuthChain.isSuccess}`);
+      console.log(`isOAuthRedirect: ${!!isOAuthRedirect}`);
+      console.log(`isLitLoggedIn: ${isLitLoggedIn}`);
+      console.log(`Current pathname: ${router.pathname}`);
+      console.log(`isOnboarded: ${isOnboarded}`);
 
       if (isLitLoggedIn && isOnboarded === false && (router.pathname !== '/onboard' || isOAuthRedirect)) {
         console.log('Conditions met for routing to /onboard');
@@ -66,6 +47,6 @@ export function useRouting() {
       console.log('--- End of routing logic ---');
       return { action: 'none' };
     },
-    enabled: !checkAndRefreshAuthChain.isLoading && checkAndRefreshAuthChain.isSuccess,
+    enabled: initialAuthChain.isSuccess
   });
 }

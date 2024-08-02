@@ -3,7 +3,7 @@ import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '@/utils/lit';
 
 interface LitAccountQueryParams {
-  queryKey: [string, boolean],
+  queryKey: [string],
   enabledDeps: boolean,
   queryFnData: AuthMethod | null | undefined
 }

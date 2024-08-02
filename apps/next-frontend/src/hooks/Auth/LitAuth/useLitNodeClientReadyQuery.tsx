@@ -29,10 +29,10 @@ export const useLitNodeClientReadyQuery = () => {
 
           const endTime = Date.now();
           const duration = (endTime - startTime) / 1000;
-          console.log(`Connection time for attempt ${attempt}: ${duration} seconds`);
+          // console.log(`Connection time for attempt ${attempt}: ${duration} seconds`);
 
           if (litNodeClient.ready) {
-            console.log("0b: finish litNodeClientReady -- Success");
+            console.log("0b: finish litNodeClientReady -- ready");
 
             return true;
           } else {
