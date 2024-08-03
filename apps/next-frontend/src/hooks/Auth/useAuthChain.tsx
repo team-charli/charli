@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useSupabaseClientQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
-import { useEffect } from 'react';
+import { useSignInSupabaseQuery } from './SupabaseClient/useSignInSupabaseQuery';
 
 export const useAuthChain = () => {
   const invalidateQueries = useInvalidateAuthQueries();
@@ -49,10 +49,16 @@ export const useAuthChain = () => {
 
 
   const supabaseClientQuery = useSupabaseClientQuery({
-    queryKey: ['supabaseClient', signinRedirectQuery.data?.idToken],
+    queryKey: ['supabaseClient', ],
     enabledDeps: !!signinRedirectQuery.data?.idToken ?? false,
-    queryFnData: [signinRedirectQuery.data]
   });
+
+  const signInSupabaseQuery = useSignInSupabaseQuery({
+    queryKey: ['signInSupabase', signinRedirectQuery.data?.idToken],
+    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) && (!!supabaseClientQuery.data ?? false),
+    queryFnData: [signinRedirectQuery.data],
+    supabaseClient: supabaseClientQuery.data
+  })
 
   const isOnboardedQuery = useIsOnboardedQuery({
     queryKey: ['isOnboarded', litAccountQuery.data],
@@ -61,11 +67,11 @@ export const useAuthChain = () => {
     supabaseClient: supabaseClientQuery.data
   });
 
-  // const hasBalanceQuery = useHasBalanceQuery({
-  //   queryKey: ['hasBalance'],
-  //   enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
-  //   queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
-  // });
+  const hasBalanceQuery = useHasBalanceQuery({
+    queryKey: ['hasBalance'],
+    enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
+    queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
+  });
 
   const queries = [
     { name: 'litNodeClient', query: isLitConnectedQuery },
@@ -73,15 +79,28 @@ export const useAuthChain = () => {
     { name: 'litAccount', query: litAccountQuery },
     { name: 'sessionSigs', query: sessionSigsQuery },
     { name: 'isLitLoggedIn', query: isLitLoggedInQuery},
-    // { name: 'pkpWallet', query: pkpWalletQuery },
+    { name: 'pkpWallet', query: pkpWalletQuery },
     { name: 'supabaseClient', query: supabaseClientQuery },
+    { name: 'signInSupabase', query: signInSupabaseQuery},
     { name: 'isOnboarded', query: isOnboardedQuery },
-    // { name: 'hasBalance', query: hasBalanceQuery },
+    { name: 'hasBalance', query: hasBalanceQuery },
   ];
 
-  const isLoading = queries.some(q => q.query.isLoading);
-  const isError = queries.some(q => q.query.isError);
-  const isAllDataAvailable = queries.every(q => q.query.data !== undefined);
+  const essentialQueries = [
+    'litNodeClient',
+    'authMethod',
+    'litAccount',
+    'sessionSigs',
+    'isLitLoggedIn',
+    'supabaseClient',
+    'signInSupabase'
+  ];
+
+  const isLoading = queries.some(q => essentialQueries.includes(q.name) && q.query.isLoading);
+  const isError = queries.some(q => essentialQueries.includes(q.name) && q.query.isError);
+  const isAllDataAvailable = queries
+  .filter(q => essentialQueries.includes(q.name))
+  .every(q => q.query.data !== undefined);
   const isSuccess = !isLoading && !isError && isAllDataAvailable;
 
   return {
@@ -90,4 +109,4 @@ export const useAuthChain = () => {
     isError,
     isSuccess,
   };
-};
+}

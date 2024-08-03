@@ -9,13 +9,11 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLIC_API_KEY!;
 
 
 interface SupabaseClientQueryParams {
-  queryKey: [string, string | undefined];
+  queryKey: [string];
   enabledDeps: boolean;
-  queryFnData: [AuthTokens | null | undefined];
 }
 
-export const useSupabaseClientQuery = ({ queryKey, enabledDeps, queryFnData }: SupabaseClientQueryParams) => {
-  const [authTokens] = queryFnData;
+export const useSupabaseClientQuery = ({ queryKey, enabledDeps }: SupabaseClientQueryParams) => {
   const supabaseClientRef = useRef<SupabaseClient | null>(null);
 
   return useQuery({
@@ -23,11 +21,6 @@ export const useSupabaseClientQuery = ({ queryKey, enabledDeps, queryFnData }: S
     queryFn: async () => {
       console.log("10a: start supabaseClient query");
       try {
-        if (!authTokens) {
-          console.log("10b: finish supabaseClient query -- No AuthTokens available, returning null");
-          supabaseClientRef.current = null;
-          return null;
-        }
 
         if (supabaseClientRef.current) {
           console.log("10b: finish supabaseClient query -- Returning existing client");
@@ -36,27 +29,6 @@ export const useSupabaseClientQuery = ({ queryKey, enabledDeps, queryFnData }: S
 
         // console.log("Creating new Supabase client");
         const newClient = createClient(supabaseUrl, supabaseAnonKey);
-
-        // Sign in with ID Token
-        let provider;
-        if (authTokens.provider === 'googleJwt'){
-          provider = 'google'
-        } else {
-          provider = authTokens.provider
-        }
-        const { data, error } = await newClient.auth.signInWithIdToken({
-          provider,
-          token: authTokens.idToken,
-          access_token: authTokens.accessToken, // Include the access token
-        });
-        // console.log("Sending to Supabase - provider:", authTokens.provider);
-        if (error) {
-          throw error;
-        }
-
-        if (!data.session) {
-          throw new Error('Failed to create session');
-        }
 
         // The session is automatically set on the client after a successful sign-in
         supabaseClientRef.current = newClient;

@@ -189,6 +189,7 @@ export type Database = {
       }
       user_data: {
         Row: {
+          auth_provider_id: string | null
           created_at: string
           default_native_language: string
           id: number
@@ -198,6 +199,7 @@ export type Database = {
           wants_to_teach_langs: number[] | null
         }
         Insert: {
+          auth_provider_id?: string | null
           created_at?: string
           default_native_language: string
           id?: number
@@ -207,6 +209,7 @@ export type Database = {
           wants_to_teach_langs?: number[] | null
         }
         Update: {
+          auth_provider_id?: string | null
           created_at?: string
           default_native_language?: string
           id?: number

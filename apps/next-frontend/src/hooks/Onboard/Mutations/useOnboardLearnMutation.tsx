@@ -1,4 +1,4 @@
-import { useLitAccount, useSupabaseClient } from '@/contexts/AuthContext';
+import { useLitAccount, useSignInSupabase, useSupabaseClient } from '@/contexts/AuthContext';
 import { Database } from '@/supabaseTypes';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -12,19 +12,22 @@ export const useOnboardLearnMutation = () => {
   const queryClient = useQueryClient();
   const { data: currentAccount } = useLitAccount();
   const { data: supabaseClient } = useSupabaseClient();
+  const {data: signInSupabase } = useSignInSupabase()
 
   return useMutation<any[], Error, OnboardLearnVariables>({
     mutationFn: async (variables) => {
       if (!currentAccount) throw new Error('missing currentAccount');
       if (!supabaseClient) throw new Error('missing supabaseClient');
+      if (!signInSupabase) throw new Error('missing signInSupabase');
 
       const { selectedLanguageCodes, name, nativeLang } = variables;
-
+      const { authProviderId } = signInSupabase;
       const insertData: Database["public"]["Tables"]["user_data"]["Insert"] = {
         name: name,
         wants_to_learn_langs: selectedLanguageCodes,
         user_address: currentAccount.ethAddress,
         default_native_language: nativeLang,
+        auth_provider_id: authProviderId,
       };
 
       const { data: user_data, error } = await supabaseClient

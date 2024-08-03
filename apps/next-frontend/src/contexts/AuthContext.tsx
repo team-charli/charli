@@ -26,5 +26,7 @@ export const useIsOnboarded = () => useAuth().queries.find(q => q.name === 'isOn
 export const useJwt = () => useAuth().queries.find(q => q.name === 'supabaseJWT')?.query as UseQueryResult<any, any>;
 export const usePkpWallet = () => useAuth().queries.find(q => q.name === 'pkpWallet')?.query as UseQueryResult<any, any>;
 export const useSupabaseClient = () => useAuth().queries.find(q => q.name === 'supabaseClient')?.query as UseQueryResult<any, any>;
-// export const useHasBalance = () => useAuth().queries.find(q => q.name === 'hasBalance')?.query as UseQueryResult<any, any>;
+export const useSignInSupabase = () => useAuth().queries.find(q => q.name === 'signInSupabase')?.query as UseQueryResult<any, any>;
+
+export const useHasBalance = () => useAuth().queries.find(q => q.name === 'hasBalance')?.query as UseQueryResult<any, any>;
 
