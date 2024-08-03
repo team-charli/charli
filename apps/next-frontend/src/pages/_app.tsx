@@ -12,6 +12,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { AuthProvider } from '@/contexts/AuthContext';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
+import { useWatchAuthChanges } from '@/hooks/Auth/useWatchChanges';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +53,8 @@ function CharliApp({ Component, pageProps }: AppProps) {
 
 function AuthInitializer() {
   useAuthOnboardAndRouting();
+  useWatchAuthChanges();
+
   return null;
 }
 

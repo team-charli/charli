@@ -30,7 +30,7 @@ export const useAuthChain = () => {
 
   const sessionSigsQuery = useLitSessionSigsQuery({
     queryKey: ['litSessionSigs'],
-    enabledDeps: !!litAccountQuery.data && !!authMethodQuery && (isLitConnectedQuery.data ?? false),
+    enabledDeps: !!litAccountQuery.data && !!authMethodQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [authMethodQuery.data, litAccountQuery.data, isLitConnectedQuery.data ?? false ],
     invalidateQueries
   });
