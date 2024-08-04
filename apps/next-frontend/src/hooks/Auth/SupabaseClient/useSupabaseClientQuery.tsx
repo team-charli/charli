@@ -1,5 +1,5 @@
 // useSupabaseClient hook
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { useRef } from 'react';
 import { AuthTokens } from '@/types/types';
@@ -13,10 +13,10 @@ interface SupabaseClientQueryParams {
   enabledDeps: boolean;
 }
 
-export const useSupabaseClientQuery = ({ queryKey, enabledDeps }: SupabaseClientQueryParams) => {
+export const useSupabaseClientQuery = ({ queryKey, enabledDeps }: SupabaseClientQueryParams): UseQueryResult<SupabaseClient, Error> => {
   const supabaseClientRef = useRef<SupabaseClient | null>(null);
 
-  return useQuery({
+  return useQuery<SupabaseClient, Error>({
     queryKey,
     queryFn: async () => {
       console.log("10a: start supabaseClient query");

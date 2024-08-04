@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import DropDownButton from './Components/Interactions/DropDownButton'
-import useLangNavData from '../../hooks/Lounge/useLangNavData'
 import LangNav from './Components/Interactions/LangNav'
 import LearnerView from './Components/Learner/LearnerView'
 import TeacherView from './Components/Teacher/TeacherView'
 import IconHeader from '@/components/IconHeader'
+import { useLangNavData } from '@/hooks/Lounge/useLangNavData'
 
 export const Lounge = () => {
   const [modeView, setModeView] = useState<"Learn" | "Teach">("Learn")

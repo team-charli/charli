@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { parseInt } from "lodash";
 import useLocalStorage from "@rehooks/local-storage";
 import { usePreCalculateTimeDate } from "@/hooks/Lounge/usePreCalculateTimeDate";
-import { useComputeControllerAddress } from "@/hooks/LitActions/useComputeControllerAddress";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
 import { useSignApproveFundController } from "@/hooks/Lounge/QueriesMutations/useSignApproveFundController";
@@ -10,6 +9,7 @@ import { useSignSessionDuration } from "@/hooks/Lounge/QueriesMutations/useSignS
 import { useQueryClient } from "@tanstack/react-query";
 import { useLearnerSubmitLearningRequest } from "@/hooks/Lounge/QueriesMutations/useLearnerSubmitLearningRequest";
 import { BigNumberish } from "ethers";
+import { useComputeControllerAddress } from "@/hooks/Lounge/QueriesMutations/useComputeControllerAddress";
 
 interface TeacherProps {
   teacherName: string;
@@ -24,6 +24,8 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   const [ toggleDateTimePicker, setToggleDateTimePicker ] = useState(false);
   const [ renderSubmitConfirmation, setRenderSubmitConfirmation ] = useState(false);
   const contractAddress = process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS;
+  const submitLearningRequestMutation = useLearnerSubmitLearningRequest();
+
   useEffect(() => {
     if (sessionLengthInputValue?.length) {
       const minutes = parseInt(sessionLengthInputValue)
@@ -35,41 +37,31 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   const { dateTime, setDateTime } = usePreCalculateTimeDate();
   const [userID] = useLocalStorage("userID")
   const {controller_address} = useComputeControllerAddress();
-  const queryClient = useQueryClient();
   const { data: requestedSessionDurationLearnerSig, isLoading: isSigningSessionDuration } = useSignSessionDuration(sessionDuration ?? 0);
-  const { data: learningRequestSuccess, isLoading: isSubmittingLearningRequest, refetch: submitLearningRequest } = useLearnerSubmitLearningRequest(
-    dateTime,
-    teacherID,
-    userID,
-    teachingLang,
-    sessionDuration,
-    requestedSessionDurationLearnerSig
-  );
 
   const { data: signedApprovalTx, isLoading: isApprovingFunds, refetch: signApproveFundController } = useSignApproveFundController(
     contractAddress,
     controller_address,
     amount
   );
-  const handleSubmitLearningRequest = async () => {
+  const handleSubmitLearningRequest = () => {
     if (sessionDuration && userID && requestedSessionDurationLearnerSig) {
-      try {
-        await queryClient.fetchQuery({
-          queryKey: ['learnerSubmitLearningRequest', dateTime, teacherID, userID, teachingLang, sessionDuration, requestedSessionDurationLearnerSig],
-          queryFn: () => useLearnerSubmitLearningRequest(dateTime, teacherID, userID, teachingLang, sessionDuration, requestedSessionDurationLearnerSig)
+      submitLearningRequestMutation.mutate({
+        dateTime,
+        teacherID,
+        userID,
+        teachingLang,
+        sessionDuration,
+        requestedSessionDurationLearnerSig
+      }, {
+          onSuccess: () => {
+            setRenderSubmitConfirmation(true);
+            // Handle any post-mutation logic here
+          },
+          onError: (error) => {
+            console.error("Error submitting learning request:", error);
+          }
         });
-
-        setRenderSubmitConfirmation(true);
-
-        if (amount && contractAddress) {
-          await queryClient.fetchQuery({
-            queryKey: ['signApproveFundController', contractAddress, controller_address, amount],
-            queryFn: () => useSignApproveFundController(contractAddress, controller_address, amount)
-          });
-        }
-      } catch (error) {
-        console.error("Error submitting learning request:", error);
-      }
     }
   };
 

@@ -53,7 +53,7 @@ function CharliApp({ Component, pageProps }: AppProps) {
 
 function AuthInitializer() {
   useAuthOnboardAndRouting();
-  useWatchAuthChanges();
+  // useWatchAuthChanges();
 
   return null;
 }

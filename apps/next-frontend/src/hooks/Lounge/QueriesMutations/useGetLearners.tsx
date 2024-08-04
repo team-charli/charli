@@ -1,15 +1,13 @@
-
+//useGetLearners.tsx
 interface FetchLearnersResponse {
   name: string;
   wants_to_learn_langs: string[];
   id: number;
 }
 //WIP: mirror  useGetTeachers.tsx
-import { useAtomValue } from 'jotai';
-import { UseQueryResult } from '@tanstack/react-query';
+import { UseQueryResult, useQuery } from '@tanstack/react-query';
 import useLocalStorage from '@rehooks/local-storage';
-import { supabaseClientAtom } from '@/atoms/supabaseClientAtom';
-import { useSupabaseQuery } from '@/hooks/Supabase/useSupabaseQuery';
+import { useSupabaseClient } from '@/contexts/AuthContext';
 
 export interface UserData {
   id: number;
@@ -19,11 +17,11 @@ export interface UserData {
 
 export function useGetLearners(selectedLang: string, modeView: "Learn" | "Teach"): UseQueryResult<UserData[], Error> {
   const [userId] = useLocalStorage<number>("userID");
-  const supabaseClient = useAtomValue(supabaseClientAtom);
+  const {data: supabaseClient} = useSupabaseClient();
 
-  return useSupabaseQuery(
-    ['getLearners', userId] as const,
-    async (supabaseClient) => {
+  return useQuery({
+    queryKey:  ['getLearners', userId] as const,
+    queryFn: async () => {
       if (modeView === 'Teach' && supabaseClient) {
         const { data: user_data, error } = await supabaseClient
           .from('user_data')
@@ -42,10 +40,8 @@ export function useGetLearners(selectedLang: string, modeView: "Learn" | "Teach"
       }
       return [];
     },
-    {
-      enabled: modeView === 'Teach' && !!supabaseClient,
-    }
-  );
+    enabled: modeView === 'Teach' && !!supabaseClient,
+  })
 }
 
 export default useGetLearners;

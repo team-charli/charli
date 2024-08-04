@@ -1,4 +1,5 @@
-import useGetLearners from '@/hooks/Lounge/useGetLearners';
+//Learners.tsx
+import useGetLearners from '@/hooks/Lounge/QueriesMutations/useGetLearners';
 import Learner from './Learner';
 
 interface LearnersProps {
@@ -6,7 +7,7 @@ interface LearnersProps {
   modeView: "Learn" | "Teach";
 }
 const Learners = ({ selectedLang, modeView }: LearnersProps) => {
-  const learners = useGetLearners(selectedLang, modeView)
+  const {data: learners} = useGetLearners(selectedLang, modeView)
 
 return (
   <div className="grid grid-cols-3">

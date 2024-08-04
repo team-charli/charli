@@ -1,6 +1,5 @@
 import { Dispatch, SetStateAction } from 'react'
 interface LangNavProps {
-  setSelectedLang: Dispatch<SetStateAction<string>>,
   selectedLang: string;
   languagesToShow: string[];
 }

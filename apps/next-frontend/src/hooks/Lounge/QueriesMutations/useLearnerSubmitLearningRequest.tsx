@@ -1,30 +1,35 @@
-import { UseQueryResult } from '@tanstack/react-query';
+import { useMutation, UseMutationResult } from '@tanstack/react-query';
 import { useAtomValue } from 'jotai';
 import { litAccountAtom } from '@/atoms/atoms';
 import { convertLocalTimetoUtc } from '@/utils/app';
 import { ethers, SignatureLike } from 'ethers';
-import { useSupabaseQuery } from '@/hooks/Supabase/useSupabaseQuery';
+import { useSupabaseClient } from '@/contexts/AuthContext';
 
-export const useLearnerSubmitLearningRequest = (
-  dateTime: string,
-  teacherID: number,
-  userID: string | null,
-  teachingLang: string,
-  sessionDuration: number | null,
-  requestedSessionDurationLearnerSig: SignatureLike | undefined
-): UseQueryResult<boolean, Error> => {
+export const useLearnerSubmitLearningRequest = () => {
   const currentAccount = useAtomValue(litAccountAtom);
-  const utcDateTime = convertLocalTimetoUtc(dateTime);
+  const {data: supabaseClient} = useSupabaseClient();
 
-  return useSupabaseQuery<boolean, Error>(
-    ['learnerSubmitLearningRequest', dateTime, teacherID, userID, teachingLang, sessionDuration, requestedSessionDurationLearnerSig],
-    async (supabaseClient) => {
+  return useMutation({
+    mutationFn: async ({
+      dateTime,
+      teacherID,
+      userID,
+      teachingLang,
+      sessionDuration,
+      requestedSessionDurationLearnerSig
+    }: {
+      dateTime: string;
+      teacherID: number;
+      userID: string;
+      teachingLang: string;
+      sessionDuration: number;
+      requestedSessionDurationLearnerSig: SignatureLike;
+    }) => {
       if (!supabaseClient || !currentAccount) {
         throw new Error('Supabase client or current account not available');
       }
-
+      const utcDateTime = convertLocalTimetoUtc(dateTime);
       let hashed_learner_address = ethers.keccak256(currentAccount.ethAddress);
-
       const { data, error } = await supabaseClient
         .from('sessions')
         .insert([
@@ -41,18 +46,12 @@ export const useLearnerSubmitLearningRequest = (
           },
         ])
         .select();
-
       if (error) {
         console.error('Submission failed', error);
         throw error;
       }
-
       console.log('Submission successful', data);
       return true;
     },
-    {
-      enabled: !!currentAccount && !!userID && !!sessionDuration && !!requestedSessionDurationLearnerSig,
-    }
-  );
+  });
 };
-

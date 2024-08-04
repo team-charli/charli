@@ -1,53 +1,50 @@
-import { useState, useCallback } from "react";
-import useLocalStorage from "@rehooks/local-storage";
-import { useSupabaseQuery } from "@/hooks/Supabase/useSupabaseQuery";
+// useGenerateHuddleAccessToken.tsx
+import { useCallback } from "react";
+import { useLocalStorage } from "@rehooks/local-storage";
+import { useSupabaseClient } from "@/contexts/AuthContext";
+import { useMutation, UseMutationResult } from "@tanstack/react-query";
 
 interface HuddleAccessTokenResponse {
-  accessToken: string | undefined;
+  accessToken: string;
 }
 
-export const useGenerateHuddleAccessToken = (): {
-  generateAccessToken: (roomId: string) => Promise<void>;
-  huddleAccessToken: string | null | undefined ;
+type GenerateAccessTokenFn = (roomId: string) => Promise<void>;
+
+interface UseGenerateHuddleAccessTokenResult {
+  generateAccessToken: GenerateAccessTokenFn;
+  huddleAccessToken: string | null;
   isLoading: boolean;
   error: Error | null;
-} => {
+}
+
+export const useGenerateHuddleAccessToken = (): UseGenerateHuddleAccessTokenResult => {
+  const { data: supabaseClient } = useSupabaseClient();
   const [huddleAccessToken, setHuddleAccessToken] = useLocalStorage<string | null>('huddle-access-token', null);
-  const [roomId, setRoomId] = useState<string | null>(null);
 
-  const { refetch, isLoading, error } = useSupabaseQuery<HuddleAccessTokenResponse, Error>(
-    ['generateHuddleAccessToken', roomId],
-
-    async (supabaseClient) => {
-      if (!roomId) throw new Error("Room ID is required");
-
-      const { data, error } = await supabaseClient.functions.invoke('create-huddle-access-tokens', {
-        body: roomId
+  const mutation = useMutation<HuddleAccessTokenResponse, Error, string>({
+    mutationFn: async (roomId: string) => {
+      if (!supabaseClient) throw new Error('supabaseClient undefined')
+      const { data, error } = await supabaseClient.functions.invoke<HuddleAccessTokenResponse>('create-huddle-access-tokens', {
+        body: { roomId }
       });
 
       if (error) throw error;
+      if (!data) throw new Error("No data received from the server");
 
-      // Set the huddleAccessToken here
-      const accessToken = data.accessToken;
-      setHuddleAccessToken(accessToken);
+      setHuddleAccessToken(data.accessToken);
       console.log('Generated Huddle AccessToken');
-
-      return data as HuddleAccessTokenResponse;
+      return data;
     },
-    {
-      enabled: false, // Don't run the query automatically
-    }
-  );
+  });
 
-  const generateAccessToken = useCallback(async (newRoomId: string) => {
-    setRoomId(newRoomId);
-    await refetch();
-  }, [refetch]);
+  const generateAccessToken: GenerateAccessTokenFn = useCallback(async (roomId: string) => {
+    await mutation.mutateAsync(roomId);
+  }, [mutation]);
 
   return {
     generateAccessToken,
     huddleAccessToken,
-    isLoading,
-    error: error || null
+    isLoading: mutation.status === 'pending',
+    error: mutation.error
   };
 };

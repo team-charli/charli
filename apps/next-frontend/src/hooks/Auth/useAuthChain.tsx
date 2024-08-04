@@ -69,7 +69,7 @@ export const useAuthChain = () => {
 
   const hasBalanceQuery = useHasBalanceQuery({
     queryKey: ['hasBalance'],
-    enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
+    enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && typeof pkpWalletQuery.data?.getBalance === 'function' && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
   });
 

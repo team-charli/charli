@@ -7,6 +7,7 @@ import { useLitAccount, useLitAuthMethod, useSessionSigs } from "@/contexts/Auth
 import { useAtom} from "jotai";
 
 const Entry = () => {
+
   const [_, setOnboardMode] = useAtom(onboardModeAtom);
   const litAuthMethod = useLitAuthMethod();
   const litAccount = useLitAccount();
