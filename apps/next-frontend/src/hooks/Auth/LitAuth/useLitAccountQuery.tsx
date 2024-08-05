@@ -1,6 +1,7 @@
 import { UseQueryResult, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '@/utils/lit';
+import { authChainLogger } from '@/pages/_app';
 
 interface LitAccountQueryParams {
   queryKey: [string],
@@ -15,38 +16,38 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAcco
   return useQuery({
     queryKey,
     queryFn: async (): Promise<IRelayPKP | null> => {
-      // console.log('queryFnData', queryFnData)
+      // authChainLogger.info('queryFnData', queryFnData)
       const authMethod = queryFnData;
 
-      console.log('3a: start litAccount query');
+      authChainLogger.info('3a: start litAccount query');
 
       if (!authMethod) {
-        console.log('3b: finish litAccount query -- No authMethod available, returning null');
+        authChainLogger.info('3b: finish litAccount query -- No authMethod available, returning null');
         return null;
       }
 
       const cachedLitAccount = queryClient.getQueryData(queryKey) as IRelayPKP | null;
       if (cachedLitAccount) {
-        console.log('3b: finish litAccount query --Using cached LitAccount');
+        authChainLogger.info('3b: finish litAccount query --Using cached LitAccount');
         return cachedLitAccount;
       }
 
       try {
-        console.log('Fetching PKPs');
+        authChainLogger.info('Fetching PKPs');
         const myPKPs = await getPKPs(authMethod);
-        // console.log(`PKPs fetched, count:`, myPKPs.length);
+        // authChainLogger.info(`PKPs fetched, count:`, myPKPs.length);
 
         if (myPKPs.length >= 2) {
           // if (myPKPs.length ) {
-          // console.log('3b: finish litAccount query -- Returning existing PKP');
-          console.log('3b: finish litAccount query -- Returning PKP[1]', myPKPs[1].tokenId);
+          // authChainLogger.info('3b: finish litAccount query -- Returning existing PKP');
+          authChainLogger.info('3b: finish litAccount query -- Returning PKP[1]', myPKPs[1].tokenId);
 
           return myPKPs[1];
         } else {
-          console.log('No PKPs found, minting new PKP');
+          authChainLogger.info('No PKPs found, minting new PKP');
           const newPKP = await mintPKP(authMethod);
-          console.log('New PKP minted:', !!newPKP);
-          console.log('3b: finish litAccount query');
+          authChainLogger.info('New PKP minted:', !!newPKP);
+          authChainLogger.info('3b: finish litAccount query');
 
           return newPKP;
         }

@@ -1,6 +1,7 @@
 import { sessionSigsExpired } from "@/utils/app";
 import { useQuery } from "@tanstack/react-query";
 import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
+import { authChainLogger } from "@/pages/_app";
 
 interface IsLitLoggedInQueryParams {
   queryKey: [string];
@@ -15,19 +16,19 @@ export const useIsLitLoggedInQuery = ({queryKey, enabledDeps, queryFnData}: IsLi
   return useQuery({
     queryKey,
     queryFn: async () => {
-      console.log("5a: start isLitLoggedIn query");
+      authChainLogger.info("5a: start isLitLoggedIn query");
 
       if (!sessionSigs) {
-        console.log("5b: finish isLitLoggedIn query -- no sessionSigs");
+        authChainLogger.info("5b: finish isLitLoggedIn query -- no sessionSigs");
         return false;
       } else if (!litAccount) {
-        console.log("5b: finish isLitLoggedIn query --no lit account");
+        authChainLogger.info("5b: finish isLitLoggedIn query --no lit account");
         return false;
       } else if (sessionSigsExpired(sessionSigs)) {
-        console.log("5b: finish isLitLoggedIn query --sessionSigsExpired -- 'isLitLoggedIn'");
+        authChainLogger.info("5b: finish isLitLoggedIn query --sessionSigsExpired -- 'isLitLoggedIn'");
         return false
       }
-      console.log("5b: finish isLitLoggedIn query -- true ");
+      authChainLogger.info("5b: finish isLitLoggedIn query -- true ");
 
       return true;
     },

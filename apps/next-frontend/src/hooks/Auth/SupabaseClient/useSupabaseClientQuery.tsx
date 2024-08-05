@@ -3,6 +3,7 @@ import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { useRef } from 'react';
 import { AuthTokens } from '@/types/types';
+import { authChainLogger } from '@/pages/_app';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLIC_API_KEY!;
@@ -19,20 +20,22 @@ export const useSupabaseClientQuery = ({ queryKey, enabledDeps }: SupabaseClient
   return useQuery<SupabaseClient, Error>({
     queryKey,
     queryFn: async () => {
-      console.log("10a: start supabaseClient query");
+      authChainLogger.info("10a: start supabaseClient query");
       try {
 
         if (supabaseClientRef.current) {
-          console.log("10b: finish supabaseClient query -- Returning existing client");
+          authChainLogger.info("10b: finish supabaseClient query -- Returning existing client");
           return supabaseClientRef.current;
         }
 
-        // console.log("Creating new Supabase client");
+         authChainLogger.info("Creating new Supabase client");
         const newClient = createClient(supabaseUrl, supabaseAnonKey);
-
+        if (typeof newClient.from !== 'function') {
+          throw new Error('Supabase client does not have the expected structure');
+        }
         // The session is automatically set on the client after a successful sign-in
         supabaseClientRef.current = newClient;
-        console.log("10b: finish supabaseClient query -- success");
+        authChainLogger.info("10b: finish supabaseClient query -- success");
         return newClient;
       } catch (error) {
         console.error("Error in supabaseClient query:", error);

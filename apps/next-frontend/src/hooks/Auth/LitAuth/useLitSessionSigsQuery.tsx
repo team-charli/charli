@@ -3,6 +3,7 @@ import { AuthMethod, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { litNodeClient } from '@/utils/litClients';
 import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers';
 import { sessionSigsExpired } from '@/utils/app';
+import { authChainLogger } from '@/pages/_app';
 
 interface SessionSigsQueryParams {
   queryKey: [string];
@@ -19,38 +20,38 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, inva
     queryKey,
     queryFn: async (): Promise<SessionSigs | null> => {
       try {
-        console.log("4a: start sessionSigs query")
+        authChainLogger.info("4a: start sessionSigs query")
         if (!isConnected) {
-          console.log("4b: finish sessionSigs query")
+          authChainLogger.info("4b: finish sessionSigs query")
           throw new Error('LitNodeClient not connected');
         }
         if (!authMethod) {
-          console.log("4b: finish sessionSigs query")
+          authChainLogger.info("4b: finish sessionSigs query")
           throw new Error('Missing authMethod');
         }
         if (!litAccount) {
-          console.log("4b: finish sessionSigs query")
+          authChainLogger.info("4b: finish sessionSigs query")
           throw new Error('Missing litAccount');
         }
         const cachedSessionSigs = queryClient.getQueryData(queryKey) as SessionSigs | null;
         if (cachedSessionSigs && !sessionSigsExpired(cachedSessionSigs)) {
-          console.log('Using valid cached sessionSigs');
-          console.log("4b: finish sessionSigs query")
+          authChainLogger.info('Using valid cached sessionSigs');
+          authChainLogger.info("4b: finish sessionSigs query")
 
           return cachedSessionSigs;
         } else if (cachedSessionSigs && sessionSigsExpired(cachedSessionSigs)){
-          console.log("4b: finish sessionSigs query -- expired sessionSigs invalidating authchain")
+          authChainLogger.info("4b: finish sessionSigs query -- expired sessionSigs invalidating authchain")
           invalidateQueries();
           return null;
         }
 
-        console.log('Fetching new sessionSigs');
+        authChainLogger.info('Fetching new sessionSigs');
         await litNodeClient.getLatestBlockhash();
-        console.log({litAccount, authMethod});
+        authChainLogger.info({litAccount, authMethod});
 
         //POST https://15.235.83.220:7472/web/sign_session_key/v1 500 (Internal Server Error) is the authenticate method calling the contracts (because contracts are stateful, nodes are not) -- if so may need to implement a version of https://github.com/LIT-Protocol/lit-login-server/blob/main/README.md
 
-        console.log("public key", litAccount.tokenId)
+        authChainLogger.info("public key", litAccount.tokenId)
 
         const newSessionSigs = await litNodeClient.getPkpSessionSigs({
           pkpPublicKey: litAccount.publicKey,
@@ -66,8 +67,8 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, inva
             },
           ]
         });
-        console.log('New sessionSigs obtained');
-        console.log("4b: finish sessionSigs query")
+        authChainLogger.info('New sessionSigs obtained');
+        authChainLogger.info("4b: finish sessionSigs query")
 
         return newSessionSigs;
       } catch (error) {

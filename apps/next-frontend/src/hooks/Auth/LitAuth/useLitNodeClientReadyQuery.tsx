@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { litNodeClient } from '@/utils/litClients';
+import { authChainLogger } from '@/pages/_app';
 
 const TIMEOUT_DURATION = 10000; // 10 seconds
 const MAX_RETRIES = 3;
@@ -8,11 +9,11 @@ export const useLitNodeClientReadyQuery = () => {
   return useQuery<boolean, Error>({
     queryKey: ['litNodeClientReady'],
     queryFn: async (): Promise<boolean> => {
-      // console.log("0a: start litNodeClientReady");
+      // authChainLogger.info("0a: start litNodeClientReady");
 
       if (litNodeClient.ready) {
 
-        console.log('0b: finish litNodeClientReady -- LitNodeClient already connected');
+        authChainLogger.info('0b: finish litNodeClientReady -- LitNodeClient already connected');
         return true;
       }
 
@@ -29,20 +30,20 @@ export const useLitNodeClientReadyQuery = () => {
 
           const endTime = Date.now();
           const duration = (endTime - startTime) / 1000;
-          // console.log(`Connection time for attempt ${attempt}: ${duration} seconds`);
+          // authChainLogger.info(`Connection time for attempt ${attempt}: ${duration} seconds`);
 
           if (litNodeClient.ready) {
-            console.log("0b: finish litNodeClientReady -- ready");
+            authChainLogger.info("0b: finish litNodeClientReady -- ready");
 
             return true;
           } else {
-            // console.log("0b: finish litNodeClientReady");
+            // authChainLogger.info("0b: finish litNodeClientReady");
             throw new Error('LitNodeClient connected but not ready');
           }
         } catch (error) {
           console.error(`Error connecting LitNodeClient (attempt ${attempt}/${MAX_RETRIES}):`, error);
           if (attempt === MAX_RETRIES) {
-            console.log("Error -- 0b: finish litNodeClientReady --- max retries exceeded");
+            authChainLogger.info("Error -- 0b: finish litNodeClientReady --- max retries exceeded");
             throw error;
           }
           await new Promise(resolve => setTimeout(resolve, 2000));

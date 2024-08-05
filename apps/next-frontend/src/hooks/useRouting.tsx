@@ -3,6 +3,7 @@ import { QueryClient, QueryObserver, useQuery, useQueryClient} from "@tanstack/r
 import { useRouter } from "next/router";
 import { useAuth, useLitAccount } from '@/contexts/AuthContext';
 import React from "react";
+import { routingLogger } from "@/pages/_app";
 
 export function useRouting() {
   const router = useRouter();
@@ -57,34 +58,34 @@ React.useEffect(() => {
     const isLitLoggedIn = queryClient.getQueryData(['isLitLoggedIn']);
     const isOAuthRedirect = queryClient.getQueryData(['isSignInRedirect']);
 
-    console.log('--- Start of routing logic ---');
-    console.log(`Current URL: ${router.asPath}`);
-    console.log(`initialAuthChain.isSuccess: ${initialAuthChain.isSuccess}`);
-    console.log(`isOAuthRedirect: ${!!isOAuthRedirect}`);
-    console.log(`isLitLoggedIn: ${isLitLoggedIn}`);
-    console.log(`Current pathname: ${router.pathname}`);
-    console.log(`isOnboarded: ${isOnboarded}`);
+    // routingLogger.info('--- Start of routing logic ---');
+    // routingLogger.info(`Current URL: ${router.asPath}`);
+    // routingLogger.info(`initialAuthChain.isSuccess: ${initialAuthChain.isSuccess}`);
+    // routingLogger.info(`isOAuthRedirect: ${!!isOAuthRedirect}`);
+    // routingLogger.info(`isLitLoggedIn: ${isLitLoggedIn}`);
+    // routingLogger.info(`Current pathname: ${router.pathname}`);
+    // routingLogger.info(`isOnboarded: ${isOnboarded}`);
 
     if (isLitLoggedIn && isOnboarded === false && (router.pathname !== '/onboard' || isOAuthRedirect)) {
-      console.log('Conditions met for routing to /onboard');
+      routingLogger.info('Conditions met for routing to /onboard');
       await router.push('/onboard');
       return { action: 'redirected', to: '/onboard' };
     }
 
     if (isLitLoggedIn && isOnboarded && router.pathname !== '/lounge') {
-      console.log('Conditions met for routing to /lounge');
+      routingLogger.info('Conditions met for routing to /lounge');
       await router.push('/lounge');
       return { action: 'redirected', to: '/lounge' };
     }
 
     if (!isLitLoggedIn && router.pathname !== '/login') {
-      console.log('Not logged in, redirecting to /login');
+      routingLogger.info('Not logged in, redirecting to /login');
       await router.push('/login');
       return { action: 'redirected', to: '/login', reason: 'notLoggedIn' };
     }
 
-    console.log(`No navigation needed. Current route: ${router.pathname}`);
-    console.log('--- End of routing logic ---');
+    routingLogger.info(`No navigation needed. Current route: ${router.pathname}`);
+    routingLogger.info('--- End of routing logic ---');
     return { action: 'none' };
   }
 }

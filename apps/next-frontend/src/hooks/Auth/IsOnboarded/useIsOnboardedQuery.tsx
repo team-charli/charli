@@ -1,4 +1,5 @@
 // useIsOnboarded.ts
+import { authChainLogger } from '@/pages/_app';
 import { IRelayPKP } from '@lit-protocol/types';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
@@ -22,10 +23,9 @@ export const useIsOnboardedQuery = ({
   return useQuery({
     queryKey,
     queryFn: async () => {
-      console.log("11a: start isOnboarded query");
+      authChainLogger.info("11a: start isOnboarded query");
 
       if (!supabaseClient || !currentAccount) {
-        console.error({supabaseClient: !!supabaseClient, currentAccount: !!currentAccount });
         throw Error(`need supabase client or currentAccount`)
       }
 
@@ -37,12 +37,11 @@ export const useIsOnboardedQuery = ({
 
       const isOnboarded = data && data.length > 0;
 
-      console.log("11b: finish isOnboarded query -- isOnboarded ", isOnboarded);
-      console.log("source isOnboarded", isOnboarded)
+      authChainLogger.info("11b: finish isOnboarded query -- isOnboarded ", isOnboarded);
+      authChainLogger.info("source isOnboarded", isOnboarded)
 
       return isOnboarded;
     },
-
       enabled: enabledDeps
   });
 };

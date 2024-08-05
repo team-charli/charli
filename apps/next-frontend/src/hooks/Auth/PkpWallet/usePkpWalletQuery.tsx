@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { litNodeClient } from '@/utils/litClients';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { authChainLogger } from '@/pages/_app';
 
 interface PkpWalletQueryParams {
   queryKey: [string],
@@ -16,7 +17,7 @@ export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalle
   return useQuery({
     queryKey,
     queryFn: async (): Promise<PKPEthersWallet> => {
-      console.log("6a: start pkpWallet query");
+      authChainLogger.info("6a: start pkpWallet query");
       if (!sessionSigs || !currentAccount) {
         throw new Error('6b: finish pkpWallet query -- no sessionSigs or currentAccount');
       }
@@ -39,7 +40,7 @@ export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalle
         throw new Error('Wallet initialization incomplete: signMessage not available');
       }
 
-      console.log("6b: finish pkpWallet query");
+      authChainLogger.info("6b: finish pkpWallet query");
       return wallet;
     },
     enabled: enabledDeps,

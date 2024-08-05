@@ -55,7 +55,7 @@ export const useAuthChain = () => {
 
   const signInSupabaseQuery = useSignInSupabaseQuery({
     queryKey: ['signInSupabase', signinRedirectQuery.data?.idToken],
-    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) && (!!supabaseClientQuery.data ?? false),
+    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) && (!!supabaseClientQuery.data ?? false) && typeof supabaseClientQuery.data?.auth.signInWithIdToken === 'function',
     queryFnData: [signinRedirectQuery.data],
     supabaseClient: supabaseClientQuery.data
   })

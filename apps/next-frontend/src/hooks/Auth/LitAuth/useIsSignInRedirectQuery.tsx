@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AuthTokens } from '@/types/types';
 import { useRouter } from 'next/router';
 import ky from 'ky';
+import { authChainLogger } from '@/pages/_app';
 
 interface IsSignInRedirectParams {
   queryKey?: [string];
@@ -16,18 +17,18 @@ export const useIsSignInRedirectQuery = (params?: IsSignInRedirectParams) => {
   return useQuery<AuthTokens | null>({
     queryKey,
     queryFn: async (): Promise<AuthTokens | null> => {
-      // console.log("1a: start isSignInRedirect query");
+      // authChainLogger.info("1a: start isSignInRedirect query");
 
       // Check if we have tokens in the hash
       const hasTokens = window.location.hash.includes('access_token') && window.location.hash.includes('id_token');
       if (hasTokens) {
         const tokens = extractTokensFromHash(window.location.hash);
         if (tokens) {
-          console.log("1b: finish isSignInRedirect query - Tokens extracted");
+          authChainLogger.info("1b: finish isSignInRedirect query - Tokens extracted");
           return tokens;
         }
       }
-      console.log("1b: finish isSignInRedirect query - No redirect detected");
+      authChainLogger.info("1b: finish isSignInRedirect query - No redirect detected");
       return null; // This will still be a "success" state, just with null data
     },
     enabled: router.isReady && enabledDeps,

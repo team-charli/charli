@@ -4,6 +4,7 @@ import { AuthTokens } from '@/types/types';
 import { litAuthClient } from '@/utils/litClients';
 import { GoogleProvider } from '@lit-protocol/lit-auth-client';
 import { ProviderType } from '@lit-protocol/constants';
+import { authChainLogger } from '@/pages/_app';
 
 interface LitAuthMethodQueryParams {
   queryKey: [string, AuthTokens | undefined | null];
@@ -17,16 +18,16 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
   return useQuery<AuthMethod | null, Error>({
     queryKey,
     queryFn: async (): Promise<AuthMethod | null> => {
-      console.log("2a: start authMethod query");
+      authChainLogger.info("2a: start authMethod query");
 
       const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethod | null;
       if (cachedAuthMethod) {
-        console.log("2b: finish authMethod query - Using cached AuthMethod");
+        authChainLogger.info("2b: finish authMethod query - Using cached AuthMethod");
         return cachedAuthMethod;
       }
 
       if (authTokens) {
-        console.log("2b: finish authMethod query - Using AuthMethod from OAuth redirect");
+        authChainLogger.info("2b: finish authMethod query - Using AuthMethod from OAuth redirect");
         const {provider, idToken, accessToken} = authTokens;
         let authMethodType
         if (provider === 'googleJwt'){
@@ -45,15 +46,15 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
               ProviderType.Google
             );
           }
-          console.log('2b: finish authMethod query - new AuthMethod from query params');
+          authChainLogger.info('2b: finish authMethod query - new AuthMethod from query params');
 
           return authMethod;
         } else {
-          console.log(authMethod);
+          authChainLogger.info(authMethod);
           throw new Error('authMethod values undefined')
         }
       }
-      console.log('2b: finish authMethod query - No AuthMethod available from cache or query params. authTokens:', authTokens);
+      authChainLogger.info('2b: finish authMethod query - No AuthMethod available from cache or query params. authTokens:', authTokens);
       return null;
     },
     enabled: enabledDeps,

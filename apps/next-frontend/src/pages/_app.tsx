@@ -1,3 +1,12 @@
+import log from 'loglevel';
+export const authChainLogger = log.getLogger('authChainLogger')
+authChainLogger.setLevel('info')
+export const routingLogger = log.getLogger('routingLogger')
+routingLogger.setLevel('info')
+
+authChainLogger.setLevel('silent')
+routingLogger.setLevel('silent')
+
 import { Provider } from 'jotai/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/styles/globals.css';
@@ -53,7 +62,6 @@ function CharliApp({ Component, pageProps }: AppProps) {
 
 function AuthInitializer() {
   useAuthOnboardAndRouting();
-  // useWatchAuthChanges();
 
   return null;
 }
