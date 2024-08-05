@@ -1,12 +1,10 @@
-import { useMutation, UseMutationResult } from '@tanstack/react-query';
-import { useAtomValue } from 'jotai';
-import { litAccountAtom } from '@/atoms/atoms';
+import { useMutation } from '@tanstack/react-query';
 import { convertLocalTimetoUtc } from '@/utils/app';
 import { ethers, SignatureLike } from 'ethers';
-import { useSupabaseClient } from '@/contexts/AuthContext';
+import { useLitAccount, useSupabaseClient } from '@/contexts/AuthContext';
 
 export const useLearnerSubmitLearningRequest = () => {
-  const currentAccount = useAtomValue(litAccountAtom);
+  const {data: currentAccount} = useLitAccount();
   const {data: supabaseClient} = useSupabaseClient();
 
   return useMutation({
@@ -16,14 +14,14 @@ export const useLearnerSubmitLearningRequest = () => {
       userID,
       teachingLang,
       sessionDuration,
-      requestedSessionDurationLearnerSig
+      learnerSignedSessionDuration
     }: {
       dateTime: string;
       teacherID: number;
       userID: string;
       teachingLang: string;
       sessionDuration: number;
-      requestedSessionDurationLearnerSig: SignatureLike;
+      learnerSignedSessionDuration: SignatureLike;
     }) => {
       if (!supabaseClient || !currentAccount) {
         throw new Error('Supabase client or current account not available');
@@ -42,7 +40,7 @@ export const useLearnerSubmitLearningRequest = () => {
             teaching_lang: teachingLang,
             requested_session_duration: sessionDuration,
             hashed_learner_address,
-            requested_session_duration_learner_sig: requestedSessionDurationLearnerSig,
+            requested_session_duration_learner_sig: learnerSignedSessionDuration,
           },
         ])
         .select();

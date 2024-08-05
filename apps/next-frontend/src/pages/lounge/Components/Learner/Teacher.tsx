@@ -1,5 +1,4 @@
-//Teacher.tsx
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import useLocalStorage from "@rehooks/local-storage";
 import { usePreCalculateTimeDate } from "@/hooks/Lounge/usePreCalculateTimeDate";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
@@ -17,52 +16,74 @@ interface TeacherProps {
 }
 
 const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
+  console.log('Teacher component rendering');
+
   const [userID] = useLocalStorage("userID");
   const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string>("");
-  const [ toggleDateTimePicker, setToggleDateTimePicker ] = useState(false);
-  const [ renderSubmitConfirmation, setRenderSubmitConfirmation ] = useState(false);
+  const [toggleDateTimePicker, setToggleDateTimePicker] = useState(false);
+  const [renderSubmitConfirmation, setRenderSubmitConfirmation] = useState(false);
+
   const contractAddress = process.env.NEXT_PUBLIC_USDC_CONTRACT_ADDRESS;
   const { dateTime, setDateTime } = usePreCalculateTimeDate();
   const { controller_address } = useComputeControllerAddress();
 
-  const sessionDuration = sessionLengthInputValue ? parseInt(sessionLengthInputValue) : 0;
-  const amount: BigNumberish = sessionDuration * 0.3;
+  const sessionDuration = useMemo(() =>
+    sessionLengthInputValue ? parseInt(sessionLengthInputValue) : 0,
+    [sessionLengthInputValue]
+  );
 
-  const { data: requestedSessionDurationLearnerSig, isLoading: isSigningSessionDuration } = useSignSessionDuration(sessionDuration);
+  const amount = useMemo(() => sessionDuration * 0.3 as BigNumberish, [sessionDuration]);
+
+  const { signSessionDuration, isLoading: isSigningSessionDuration, error: sessionDurationSignError } = useSignSessionDuration();
   const signApproveFundControllerMutation = useSignApproveFundController();
   const submitLearningRequestMutation = useLearnerSubmitLearningRequest();
 
-  const handleSubmitLearningRequest = async () => {
-    if (sessionDuration && userID && requestedSessionDurationLearnerSig) {
-      // First, approve the fund controller
-      await signApproveFundControllerMutation.mutateAsync({
-        contractAddress,
-        spenderAddress: controller_address,
-        amount
-      });
+  const handleSubmitLearningRequest = useCallback(async () => {
+    if (sessionDuration && userID) {
+      try {
+        const learnerSignedSessionDuration = await signSessionDuration(sessionDuration);
 
-      // Then, submit the learning request
-      submitLearningRequestMutation.mutate({
-        dateTime,
-        teacherID,
-        userID,
-        teachingLang,
-        sessionDuration,
-        requestedSessionDurationLearnerSig
-      }, {
-        onSuccess: () => {
-          setRenderSubmitConfirmation(true);
-        },
-        onError: (error) => {
-          console.error("Error submitting learning request:", error);
-        }
-      });
+        await signApproveFundControllerMutation.mutateAsync({
+          contractAddress,
+          spenderAddress: controller_address,
+          amount
+        });
+
+        submitLearningRequestMutation.mutate({
+          dateTime,
+          teacherID,
+          userID,
+          teachingLang,
+          sessionDuration,
+          learnerSignedSessionDuration
+        }, {
+          onSuccess: () => setRenderSubmitConfirmation(true),
+          onError: (error) => console.error("Error submitting learning request:", error),
+        });
+      } catch (error) {
+        console.error("Error in submit process:", error);
+      }
     }
-  };
+  }, [sessionDuration, userID, signSessionDuration, signApproveFundControllerMutation, submitLearningRequestMutation, contractAddress, controller_address, amount, dateTime, teacherID, teachingLang]);
+
+  useEffect(() => {
+    console.log('Current state:', {
+      userID,
+      sessionLengthInputValue,
+      toggleDateTimePicker,
+      renderSubmitConfirmation,
+      dateTime,
+      controller_address,
+      sessionDuration,
+      amount,
+      isSigningSessionDuration,
+      sessionDurationSignError
+    });
+  });
 
   return (
     <>
-      <li onClick={() => !renderSubmitConfirmation && setToggleDateTimePicker(prevState => !prevState)} className="cursor-pointer">
+      <li onClick={() => !renderSubmitConfirmation && setToggleDateTimePicker(prev => !prev)} className="cursor-pointer">
         <u>{teacherName}</u>
       </li>
       {toggleDateTimePicker && !renderSubmitConfirmation && (
@@ -71,7 +92,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
           <DateTimeLocalInput dateTime={dateTime} setDateTime={setDateTime} />
           <SessionLengthInput sessionLength={sessionLengthInputValue} setSessionLength={setSessionLengthInputValue} />
           <button
-            onClick={() => void handleSubmitLearningRequest()}
+            onClick={handleSubmitLearningRequest}
             className="p-1 rounded"
             disabled={isSigningSessionDuration || signApproveFundControllerMutation.isPending || submitLearningRequestMutation.isPending}
           >

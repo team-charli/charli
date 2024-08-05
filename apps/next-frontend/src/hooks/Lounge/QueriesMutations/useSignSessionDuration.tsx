@@ -1,18 +1,28 @@
+// useSignSessionDuration.tsx
 import { usePkpWallet } from "@/contexts/AuthContext";
-import {  useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 
-export const useSignSessionDuration = (sessionDuration: number) => {
-  const {data: pkpWallet} = usePkpWallet();
-  return useQuery({
-    queryKey: ['signSessionDuration', sessionDuration],
-    queryFn: async () => {
+export const useSignSessionDuration = () => {
+  const { data: pkpWallet } = usePkpWallet();
+
+  const mutation = useMutation({
+    mutationFn: async (duration: number) => {
+      if (!pkpWallet) {
+        throw new Error('Wallet not initialized');
+      }
       try {
-        return await pkpWallet.signMessage(String(sessionDuration));
+        return await pkpWallet.signMessage(String(duration));
       } catch (e) {
         console.error(e);
-        throw new Error('failed to sign session duration')
+        throw new Error('Failed to sign session duration');
       }
     }
-  })
-}
+  });
 
+  return {
+    signSessionDuration: mutation.mutateAsync,
+    signature: mutation.data,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
+};
