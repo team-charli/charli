@@ -49,7 +49,7 @@ export const useAuthChain = () => {
 
 
   const supabaseClientQuery = useSupabaseClientQuery({
-    queryKey: ['supabaseClient', ],
+    queryKey: ['supabaseClient', signinRedirectQuery.data?.idToken],
     enabledDeps: !!signinRedirectQuery.data?.idToken ?? false,
   });
 
@@ -62,13 +62,13 @@ export const useAuthChain = () => {
 
   const isOnboardedQuery = useIsOnboardedQuery({
     queryKey: ['isOnboarded', litAccountQuery.data],
-    enabledDeps: !!litAccountQuery.data && !!supabaseClientQuery.data ,
+    enabledDeps: !!litAccountQuery.data && !!supabaseClientQuery.data,
     queryFnData: [litAccountQuery.data],
     supabaseClient: supabaseClientQuery.data
   });
 
   const hasBalanceQuery = useHasBalanceQuery({
-    queryKey: ['hasBalance'],
+    queryKey: ['hasBalance', litAccountQuery.data?.ethAddress],
     enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && typeof pkpWalletQuery.data?.getBalance === 'function' && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
   });
@@ -93,6 +93,7 @@ export const useAuthChain = () => {
     'sessionSigs',
     'isLitLoggedIn',
     'supabaseClient',
+    'isOnboarded',
     'signInSupabase'
   ];
 

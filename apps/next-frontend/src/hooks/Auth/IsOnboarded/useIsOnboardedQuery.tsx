@@ -13,35 +13,38 @@ interface IsOnboardedParams {
 
 export const useIsOnboardedQuery = ({
   queryKey,
-  enabledDeps,
+  enabledDeps, //!!litAccountQuery.data && !!supabaseClientQuery.data,
   queryFnData,
   supabaseClient,
 }: IsOnboardedParams) => {
-
   const [currentAccount] = queryFnData;
-
   return useQuery({
     queryKey,
     queryFn: async () => {
-      authChainLogger.info("11a: start isOnboarded query");
+      try {
+        authChainLogger.info("11a: start isOnboarded query");
+        if (!supabaseClient || !currentAccount) {
+          console.log("no supabaseClient or currentAccount");
+          throw Error(`need supabase client or currentAccount`)
+        }
+        console.log('currentAccount', currentAccount.ethAddress)
 
-      if (!supabaseClient || !currentAccount) {
-        throw Error(`need supabase client or currentAccount`)
+        const { data, error } = await supabaseClient
+          .from("user_data")
+          .select("id, user_address")
+          .eq("user_address", currentAccount.ethAddress)
+          .limit(1);
+
+        const isOnboarded = data && data.length > 0;
+        authChainLogger.info("11b: finish isOnboarded query -- isOnboarded ", isOnboarded);
+        authChainLogger.info("source isOnboarded", isOnboarded)
+        console.log('isOnboarded', isOnboarded)
+        return isOnboarded;
+      } catch (error) {
+        console.error("Error in isOnboarded query:", error);
+        throw error; // Re-throw the error to be handled by React Query
       }
-
-      const { data, error } = await supabaseClient
-        .from("user_data")
-        .select("id, user_address")
-        .eq("user_address", currentAccount.ethAddress)
-        .limit(1);
-
-      const isOnboarded = data && data.length > 0;
-
-      authChainLogger.info("11b: finish isOnboarded query -- isOnboarded ", isOnboarded);
-      authChainLogger.info("source isOnboarded", isOnboarded)
-
-      return isOnboarded;
     },
-      enabled: enabledDeps
+    enabled: enabledDeps
   });
 };

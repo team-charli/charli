@@ -20,9 +20,6 @@ export const Lounge = () => {
   const [selectedLang, setSelectedLang] = useState<string>("");
   const { data: languageData, isLoading, error } = useLangNavDataQuery();
 
-  useEffect(() => {
-    console.log('languageData', languageData)
-  }, [languageData])
 
 const languagesToShow = useMemo(() => {
   if (!languageData) return [];
@@ -44,7 +41,6 @@ const languagesToShow = useMemo(() => {
 
   if (isLoading) return <div>Loading...</div>;
 
-  if (error) {console.error(error)};
 
   return (
     <>

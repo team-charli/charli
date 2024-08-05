@@ -12,7 +12,7 @@ const Learners = ({ selectedLang, modeView }: LearnersProps) => {
 return (
   <div className="grid grid-cols-3">
     <div className="col-start-2 col-span-2">
-      <h3>Teachers</h3>
+      <h3>Learners</h3>
       <ul>
         {learners && learners.map((user, index) => (
           <Learner learnerName={user.name} key={index} learnerId={user.id} />

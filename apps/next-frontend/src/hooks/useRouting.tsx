@@ -24,13 +24,17 @@ export function useRouting() {
     enabled: false, // We'll manually control when this runs
   });
 
+  React.useEffect(() => {
+    if (initialAuthChain.isSuccess) {
+    routingLogger.info("initialAuthChain.isSuccess")
+    }
+  }, [initialAuthChain.isSuccess])
+
 React.useEffect(() => {
     if (authRoutingQuery.isSuccess) {
       const refetchReactiveRouting = () => {
         reactiveRoutingQuery.refetch();
       };
-
-
       const isLitLoggedInObserver = new QueryObserver(queryClient, { queryKey: ['isLitLoggedIn'] });
       const isOnboardedObserver = new QueryObserver(queryClient, { queryKey: ['isOnboarded', litAccount] });
 
@@ -46,6 +50,8 @@ React.useEffect(() => {
         unsubscribeIsLitLoggedIn();
         unsubscribeIsOnboarded();
       };
+    } else if (authRoutingQuery.isError) {
+      console.error(authRoutingQuery.error)
     }
   }, [authRoutingQuery.isSuccess, queryClient, reactiveRoutingQuery, litAccount]);
 

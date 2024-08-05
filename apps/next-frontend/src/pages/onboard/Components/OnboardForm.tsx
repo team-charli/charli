@@ -6,14 +6,13 @@ import { useOnboardTeachMutation } from '@/hooks/Onboard/Mutations/useOnboardTea
 import { useLanguageData } from '@/hooks/Onboard/OnboardForm/useLanguageData';
 import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
-import { /*useHasBalance, */useIsOnboarded } from '@/contexts/AuthContext';
+import { /*useHasBalance */} from '@/contexts/AuthContext';
 
 interface OnboardFormProps {
   onboardMode: 'Learn' | 'Teach' | null;
 }
 
 const OnboardForm = ({ onboardMode }: OnboardFormProps) => {
-  const {data: isOnboarded}  = useIsOnboarded();
   // const {data: hasBalance}  = useHasBalance();
 
   const { data: languageButtons = [], isLoading, error } = useLanguageData();

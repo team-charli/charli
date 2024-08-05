@@ -1,16 +1,18 @@
-import { usePkpWalletWithCheck } from "@/hooks/Auth"
-import { PKPEthersWallet } from "@lit-protocol/pkp-ethers"
-import { UseQueryResult } from "@tanstack/react-query";
+//useSignApproveFundController.tsx
+import { usePkpWallet } from "@/contexts/AuthContext";
+import { useMutation } from "@tanstack/react-query";
 import { ethers } from "ethers";
 
-export const useSignApproveFundController = (
+type UseSignApproveFundControllerArgs = {
   contractAddress: string | undefined,
   spenderAddress: string,
   amount: ethers.BigNumberish | null
-): UseQueryResult<string, Error> => {
-  return usePkpWalletWithCheck<string, Error>(
-    ['signApproveFundController', contractAddress, spenderAddress, amount],
-    async (pkpWallet: PKPEthersWallet): Promise<string> => {
+}
+
+export const useSignApproveFundController = (/*{ contractAddress, spenderAddress, amount}:UseSignApproveFundControllerArgs*/) => {
+  const {data: pkpWallet} = usePkpWallet();
+  return useMutation({
+    mutationFn: async ({contractAddress, spenderAddress, amount}: UseSignApproveFundControllerArgs ) => {
       const erc20AbiFragment = ["function approve(address spender, uint256 amount) returns (bool)"];
       const iface = new ethers.Interface(erc20AbiFragment);
       const data = iface.encodeFunctionData("approve", [spenderAddress, amount]);
@@ -27,9 +29,7 @@ export const useSignApproveFundController = (
         console.error("Problem signing transaction", e);
         throw new Error(`Problem signing transaction: ${e}`);
       }
-    },
-    {
-      enabled: !!contractAddress && !!spenderAddress && !!amount,
     }
+  }
   );
 };

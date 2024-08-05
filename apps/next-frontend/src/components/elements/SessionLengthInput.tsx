@@ -1,6 +1,6 @@
 import { Dispatch, SetStateAction } from "react";
 
-type Props = {setSessionLength: Dispatch<SetStateAction<string | undefined>>; sessionLength: string | undefined}
+type Props = {setSessionLength: Dispatch<SetStateAction<string>>; sessionLength: string | undefined}
 
 const SessionLengthInput = ({setSessionLength, sessionLength}: Props) => {
   const handleSessionLengthChange = (event:React.ChangeEvent<HTMLInputElement>) => {

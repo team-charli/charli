@@ -1,11 +1,11 @@
-import { usePkpWalletWithCheck } from "@/hooks/Auth"
-import { PKPEthersWallet } from "@lit-protocol/pkp-ethers"
-import { UseQueryResult } from "@tanstack/react-query";
+import { usePkpWallet } from "@/contexts/AuthContext";
+import {  useQuery } from "@tanstack/react-query";
 
 export const useSignSessionDuration = (sessionDuration: number) => {
-  return usePkpWalletWithCheck(
-    ['signSessionDuration', sessionDuration] as const,
-    async (pkpWallet: PKPEthersWallet): Promise<string> => {
+  const {data: pkpWallet} = usePkpWallet();
+  return useQuery({
+    queryKey: ['signSessionDuration', sessionDuration],
+    queryFn: async () => {
       try {
         return await pkpWallet.signMessage(String(sessionDuration));
       } catch (e) {
@@ -13,6 +13,6 @@ export const useSignSessionDuration = (sessionDuration: number) => {
         throw new Error('failed to sign session duration')
       }
     }
-  )
+  })
 }
 

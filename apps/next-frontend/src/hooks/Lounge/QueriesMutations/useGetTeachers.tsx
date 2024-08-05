@@ -6,7 +6,6 @@ interface UserData {
   id: number;
   name: string;
   wants_to_teach_langs: string[];
-  // Add other fields as needed
 }
 
 export function useGetTeachers(selectedLang: string, modeView: "Learn" | "Teach"):  UseQueryResult<UserData[], Error> {
@@ -16,6 +15,8 @@ export function useGetTeachers(selectedLang: string, modeView: "Learn" | "Teach"
   return  useQuery({
     queryKey: ['getTeachers', userId] as const,
     queryFn: async () => {
+      console.log("getTeachers query");
+
       if (!supabaseClient) throw new Error(`supabaseClient is undefined`)
       if (modeView === 'Learn') {
         const {data: user_data, error} =  await supabaseClient

@@ -8,15 +8,20 @@ interface TeachersProps {
 
 const Teachers = ({modeView, selectedLang }: TeachersProps) => {
   const { data: teachers, isLoading, error } = useGetTeachers(selectedLang, modeView);
-
+  console.log('teachers', teachers)
   return (
     <>
-      <ul className="flex items-center space-x-2">
-        {teachers && teachers
-          .map((user, index) =>
-            <Teacher teacherName={user.name} teacherID={user.id} teachingLang={selectedLang} key={index}/>
-          )}
-      </ul>
+  <div className="grid grid-cols-3">
+    <div className="col-start-2 col-span-2">
+        <h3>Teachers</h3>
+        <ul className="flex items-center space-x-2">
+          {teachers && teachers
+            .map((user, index) =>
+              <Teacher teacherName={user.name} teacherID={user.id} teachingLang={selectedLang} key={index}/>
+            )}
+        </ul>
+      </div>
+    </div>
     </>
   );
 }

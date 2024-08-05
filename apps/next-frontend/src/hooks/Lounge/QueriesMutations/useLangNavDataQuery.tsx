@@ -26,6 +26,7 @@ export const useLangNavDataQuery = () => {
   const {data: supabaseClient} = useSupabaseClient();
   const {data: litAccount} = useLitAccount();
   const {data: isOnboarded} = useIsOnboarded();
+  console.log('call useIsOnboarded -- useLangNavDataQuery')
 
   const fetchLanguages = async (): Promise<UserLanguages> => {
     if (!supabaseClient) throw new Error('supabaseClient undefined');

@@ -10,7 +10,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLIC_API_KEY!;
 
 
 interface SupabaseClientQueryParams {
-  queryKey: [string];
+  queryKey: [string, string | undefined];
   enabledDeps: boolean;
 }
 
@@ -28,7 +28,7 @@ export const useSupabaseClientQuery = ({ queryKey, enabledDeps }: SupabaseClient
           return supabaseClientRef.current;
         }
 
-         authChainLogger.info("Creating new Supabase client");
+        authChainLogger.info("Creating new Supabase client");
         const newClient = createClient(supabaseUrl, supabaseAnonKey);
         if (typeof newClient.from !== 'function') {
           throw new Error('Supabase client does not have the expected structure');
