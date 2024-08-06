@@ -4,6 +4,13 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { UseQueryResult } from '@tanstack/react-query';
 import React, { createContext, useContext } from 'react';
 
+export type AuthContextType = {
+  queries: AuthQuery[];
+  isLoading: boolean;
+  isError: boolean;
+  isSuccess: boolean;
+};
+
 interface AuthQuery {
   name: string;
   query: UseQueryResult<any, any>;
@@ -15,9 +22,12 @@ const AuthContext = createContext<{
   isSuccess: boolean;
 } | null>(null);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+// AuthContext.tsx
+export const AuthProvider = ({ children }: { children: (authContext: AuthContextType) => React.ReactNode }) => {
   const authChainResult = useAuthChain();
-  return <AuthContext.Provider value={authChainResult}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={authChainResult}>
+    {children(authChainResult)}
+  </AuthContext.Provider>;
 };
 
 export const useAuth = (): {

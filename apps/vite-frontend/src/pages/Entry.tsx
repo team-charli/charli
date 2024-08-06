@@ -1,13 +1,12 @@
-'use client'
-import {onboardModeAtom } from "@/atoms/atoms";
+import { onboardModeAtom } from "@/atoms/atoms";
 import ButtonLink from "@/components/elements/ButtonLink";
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
 import { useLitAccount, useLitAuthMethod, useSessionSigs } from "@/contexts/AuthContext";
-import { useAtom} from "jotai";
+import { useAtom } from "jotai";
+import React from 'react';
 
 const Entry = () => {
-
   const [_, setOnboardMode] = useAtom(onboardModeAtom);
   const litAuthMethod = useLitAuthMethod();
   const litAccount = useLitAccount();
@@ -15,6 +14,16 @@ const Entry = () => {
 
   const isLoading = litAuthMethod.isLoading || litAccount.isLoading || sessionSigs.isLoading;
   const error = litAuthMethod.error || litAccount.error || sessionSigs.error;
+
+  const handleLearnClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+    console.log("Learn button clicked");
+    setOnboardMode("Learn");
+  };
+
+  const handleTeachClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+    console.log("Teach button clicked");
+    setOnboardMode("Teach");
+  };
 
   if (isLoading) {
     return (
@@ -24,7 +33,6 @@ const Entry = () => {
     );
   }
 
-  // Your existing component logic here
   return (
     <>
       <IconHeader />
@@ -32,13 +40,13 @@ const Entry = () => {
       <div className="flex justify-center gap-x-8 mt-64">
         <ButtonLink
           path="/login"
-          onButtonClick={() => setOnboardMode("Learn")}
+          onButtonClick={handleLearnClick}
         >
           Learn 🎓
         </ButtonLink>
         <ButtonLink
           path="/login"
-          onButtonClick={() => setOnboardMode("Teach")}
+          onButtonClick={handleTeachClick}
         >
           Teach 🤑
         </ButtonLink>

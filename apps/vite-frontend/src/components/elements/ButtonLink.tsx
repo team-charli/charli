@@ -1,22 +1,36 @@
-import {Link} from '@tanstack/react-router';
-import { ButtonLinkPropTypes } from '../../types/types'
+import { Link } from '@tanstack/react-router';
+import React from 'react';
 
-const ButtonLink = ({ path, children, onButtonClick }: ButtonLinkPropTypes) => {
-  const handleClick = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    // for internal button logic
+type ButtonLinkPropTypes = {
+  path: string;
+  children: React.ReactNode | ((state: { isActive: boolean; isTransitioning: boolean }) => React.ReactNode);
+  onButtonClick?: React.MouseEventHandler<"a">;
+} & Omit<React.AnchorHTMLAttributes<"a">, 'href'>;
+
+const ButtonLink = ({ path, children, onButtonClick, ...rest }: ButtonLinkPropTypes) => {
+  const handleClick: React.MouseEventHandler<"a"> = (e) => {
+    console.log("ButtonLink clicked");
+    console.log("Path:", path);
+
     if (onButtonClick) {
+      console.log("Calling onButtonClick");
       onButtonClick(e);
     }
+
+    console.log("After onButtonClick");
   };
 
   return (
-    <div className="w-44 p-3 rounded-lg bg-gray-300 text-center" onClick={handleClick}>
-      <Link href={path}>
-        <div className="text-2xl">
-          {children}
-        </div>
-      </Link>
-    </div>
+    <Link
+      to={path}
+      onClick={handleClick}
+      className="w-44 p-3 rounded-lg bg-gray-300 text-center block"
+      {...rest}
+    >
+      {typeof children === 'function'
+        ? (state) => children(state)
+        : children}
+    </Link>
   );
 }
 
