@@ -32,10 +32,9 @@ const persister = createSyncStoragePersister({
   storage: typeof window !== 'undefined' ? window.localStorage : undefined,
 });
 
-
 function CharliApp() {
-   const { routeTree } = useTanStackRouter();
-  const tanstackRouter = createRouter({ routeTree });
+  // const { routeTree } = useTanStackRouter();
+  // const tanstackRouter = createRouter({ routeTree });
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }} >
       <AuthProvider>
@@ -44,9 +43,7 @@ function CharliApp() {
           <NotificationProvider>
             <HuddleProvider client={huddleClient}>
               <SessionProvider>
-                <RouterProvider router={tanstackRouter}>
-                  <Entry />
-                </RouterProvider>
+                <AppWithRouter />
               </SessionProvider>
             </HuddleProvider>
           </NotificationProvider>
@@ -54,6 +51,13 @@ function CharliApp() {
       </AuthProvider>
     </PersistQueryClientProvider>
   );
+}
+
+function AppWithRouter() {
+  const { routeTree } = useTanStackRouter(); // Now safe to call useQueryClient
+  const tanstackRouter = createRouter({ routeTree });
+
+  return <RouterProvider router={tanstackRouter} />;
 }
 export default CharliApp;
 

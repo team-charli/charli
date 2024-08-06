@@ -19,8 +19,20 @@ export const useTanStackRouter = () => {
   const litAccountQuery = useLitAccount();
 
   const rootRoute = createRootRoute({
-    component: Entry, // Set Entry as the component for the root route
-    beforeLoad: async ({ location }) => {
+    component: Entry,
+  });
+
+  const loginRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/login',
+    component: LoginPage,
+  });
+
+  const onboardRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/onboard',
+    component: OnboardPage,
+      beforeLoad: async ({ location }) => {
       routingLogger.info(`Checking auth state for path: ${location.pathname}`);
 
       if (!auth.isSuccess) {
@@ -56,24 +68,50 @@ export const useTanStackRouter = () => {
 
       routingLogger.info(`No navigation needed. Current route: ${location.pathname}`);
     },
-  });
 
-  const loginRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/login',
-    component: LoginPage,
-  });
-
-  const onboardRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/onboard',
-    component: OnboardPage,
   });
 
   const loungeRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/lounge',
     component: LoungePage,
+      beforeLoad: async ({ location }) => {
+      routingLogger.info(`Checking auth state for path: ${location.pathname}`);
+
+      if (!auth.isSuccess) {
+        routingLogger.info('Auth chain not successful, waiting...');
+        return; // Wait for auth chain to complete
+      }
+
+      const isLitLoggedIn = isLitLoggedInQuery.data;
+      const isOnboarded = isOnboardedQuery.data;
+      const isOAuthRedirect = queryClient.getQueryData(['isSignInRedirect']);
+
+      if (isLitLoggedIn && !isOnboarded && (location.pathname !== '/onboard' || isOAuthRedirect)) {
+        routingLogger.info('Redirecting to /onboard');
+        throw redirect({ to: '/onboard' });
+      }
+
+      if (isLitLoggedIn && isOnboarded && location.pathname !== '/lounge') {
+        routingLogger.info('Redirecting to /lounge');
+        throw redirect({ to: '/lounge' });
+      }
+
+      if (!isLitLoggedIn && location.pathname !== '/login') {
+        routingLogger.info('Not logged in, redirecting to /login');
+        throw redirect({ to: '/login' });
+      }
+
+      // Check for session expiration
+      if (sessionSigsQuery.data && sessionSigsExpired(sessionSigsQuery.data)) {
+        routingLogger.info('Session expired, invalidating queries and redirecting to /login');
+        queryClient.invalidateQueries({queryKey:['authChain']});
+        throw redirect({ to: '/login' });
+      }
+
+      routingLogger.info(`No navigation needed. Current route: ${location.pathname}`);
+    },
+
   });
 
   const routeTree = rootRoute.addChildren([loginRoute, onboardRoute, loungeRoute]);
