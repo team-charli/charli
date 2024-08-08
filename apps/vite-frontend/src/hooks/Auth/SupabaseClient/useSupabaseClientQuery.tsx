@@ -2,7 +2,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { useRef } from 'react';
-import { AuthTokens } from '@/types/types';
 import { authChainLogger } from '@/App';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;

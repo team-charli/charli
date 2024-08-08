@@ -1,7 +1,6 @@
 // router.ts
 import { createRouter } from '@tanstack/react-router';
 import { routeTree } from './routes';
-import { queryClient } from '../TanstackQuery/queryClient';
 import { AuthContextType } from '@/contexts/AuthContext';
 import { QueryClient } from '@tanstack/query-core';
 
