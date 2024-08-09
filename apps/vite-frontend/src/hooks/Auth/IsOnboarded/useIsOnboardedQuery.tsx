@@ -24,10 +24,10 @@ export const useIsOnboardedQuery = ({
       try {
         authChainLogger.info("11a: start isOnboarded query");
         if (!supabaseClient || !currentAccount) {
-          console.log("no supabaseClient or currentAccount");
+          authChainLogger.info ("no supabaseClient or currentAccount");
           throw Error(`need supabase client or currentAccount`)
         }
-        console.log('currentAccount', currentAccount.ethAddress)
+        authChainLogger.info('currentAccount', currentAccount.ethAddress)
 
         const { data, error } = await supabaseClient
           .from("user_data")
@@ -38,7 +38,7 @@ export const useIsOnboardedQuery = ({
         const isOnboarded = data && data.length > 0;
         authChainLogger.info("11b: finish isOnboarded query -- isOnboarded ", isOnboarded);
         authChainLogger.info("source isOnboarded", isOnboarded)
-        console.log('isOnboarded', isOnboarded)
+        authChainLogger.info('isOnboarded', isOnboarded)
         return isOnboarded;
       } catch (error) {
         console.error("Error in isOnboarded query:", error);

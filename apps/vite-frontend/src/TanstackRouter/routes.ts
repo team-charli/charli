@@ -1,8 +1,6 @@
 //routes.ts
 import Login from '@/pages/login'
-import OnboardPage from '@/pages/onboard'
-import LoungePage from '@/pages/lounge'
-import { createRootRouteWithContext, createRoute, Outlet, redirect } from '@tanstack/react-router'
+import { createRootRouteWithContext, createRoute, ErrorComponent, Outlet, redirect } from '@tanstack/react-router'
 import Entry from '@/pages/Entry'
 import { RouterContext } from './router'
 import { routingLogger } from "@/App";
@@ -10,47 +8,34 @@ import { entryRouteQueries } from './RouteQueries/entryRouteQueries'
 import { loginRouteQueries } from './RouteQueries/loginRouteQueries'
 import { onboardRouteQueries } from './RouteQueries/onboardRouteQueries'
 import { loungeRouteQueries } from './RouteQueries/loungeRouteQueries'
+import LoungeRoute from '@/pages/lounge/LoungeRoute'
+import OnboardRoute from '@/pages/onboard/OnboardRoute'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
-  // shouldReload: (match) => {
-  //   console.log('shouldReload called with match:', match.context.auth);
-  //   // Always return true to force a reload on every change
-  //   return true;
-  // },
+  onError: ({ error }) => {console.error(error)},
+  errorComponent: ErrorComponent ,
   beforeLoad: ({ context }) => {
-    const { auth } = context;
-    console.log('Loader called:', {
-      route: 'rootRoute',
-      auth,
-    });
+    const { auth, queryClient } = context;
+    routingLogger.info('Loader called:', { route: 'rootRoute', auth });
+    if (!auth.isConnected)
     if (!auth.isSuccess) {
       routingLogger.info('root route: auth state', auth );
-      // Instead of returning, we can throw a redirect to a loading page if needed throw redirect({ to: '/loading' });
-      // Or, we can simply return and let the child routes handle their own logic
       return;
     }
     routingLogger.info("entry route", auth)
-
-    // If auth is ready, we don't need to return anything
   }
 })
 
 export const entry = createRoute({
-  // shouldReload: (match) => {
-  //   console.log('shouldReload called with match:', match.context.auth);
-  //   // Always return true to force a reload on every change
-  //   return true;
-  // },
   getParentRoute: () => rootRoute,
   path: '/',
   component: Entry,
+  onError: ({ error }) => { console.error(error) },
+
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    console.log('Loader called:', {
-      route: 'entry', // change this for each route
-    });
-
+    routingLogger.info('Loader called:', { route: 'entry'});
     if (!auth.isSuccess) {
       routingLogger.info('entry route: authState', auth);
       return;
@@ -78,17 +63,19 @@ export const entry = createRoute({
 })
 
 export const loginRoute = createRoute({
-  // shouldReload: (match) => {
-  //   console.log('shouldReload called with match:', match.context.auth);
-  //   // Always return true to force a reload on every change
-  //   return true;
-  // },
   getParentRoute: () => rootRoute,
   path: '/login',
+
   component: Login,
+  onError: ({ error }) => {
+    // Log the error
+    console.error(error)
+  },
+
+
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    console.log('Loader called:', {
+    routingLogger.info('Loader called:', {
       route: 'login', // change this for each route
       auth,
     });
@@ -118,22 +105,17 @@ export const loginRoute = createRoute({
       routingLogger.info('!isOnbaorded (but is logged in): redirecting to /');
       throw redirect({ to: '/' });
     }
-
   }
 })
 
 export const onboardRoute = createRoute({
-  // shouldReload: (match) => {
-  //   console.log('shouldReload called with match:', match.context.auth);
-  //   // Always return true to force a reload on every change
-  //   return true;
-  // },
   getParentRoute: () => rootRoute,
   path: '/onboard',
-  component: OnboardPage,
+  component: OnboardRoute,
+  onError: ({ error }) => {console.error(error) },
   beforeLoad: ({ context, }) => {
     const { queryClient, auth } = context;
-    console.log('Loader called:', {
+    routingLogger.info('Loader called:', {
       route: 'onboard',
       auth,
     });
@@ -168,20 +150,14 @@ export const onboardRoute = createRoute({
 })
 
 export const loungeRoute = createRoute({
-  // shouldReload: (match) => {
-  //   console.log('shouldReload called with match:', match.context.auth);
-  //   // Always return true to force a reload on every change
-  //   return true;
-  // },
   getParentRoute: () => rootRoute,
   path: '/lounge',
-  component: LoungePage,
+  component: LoungeRoute,
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    console.log('Loader called:', {
-      route: 'lounge', // change this for each route
-      auth,
-    });
+    // console.log("auth.isSuccess --- lounge route", auth.isSuccess);
+    routingLogger.info('Loader called:', { route: 'lounge'});
+
     if (!auth.isSuccess) {
       routingLogger.info('lounge route: auth state', auth);
       return;

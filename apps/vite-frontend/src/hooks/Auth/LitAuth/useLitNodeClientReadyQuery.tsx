@@ -1,3 +1,4 @@
+//useLitNodeClientReadyQuery.tsx
 import { useQuery } from '@tanstack/react-query';
 import { litNodeClient } from '@/utils/litClients';
 import { authChainLogger } from '@/App';

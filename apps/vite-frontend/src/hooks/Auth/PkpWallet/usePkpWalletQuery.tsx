@@ -4,6 +4,7 @@ import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { litNodeClient } from '@/utils/litClients';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { authChainLogger } from '@/App';
+import { PersisterFunction } from '@/types/types';
 
 interface PkpWalletQueryParams {
   queryKey: [string],

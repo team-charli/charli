@@ -26,13 +26,13 @@ export const useLangNavDataQuery = () => {
   const {data: supabaseClient} = useSupabaseClient();
   const {data: litAccount} = useLitAccount();
   const {data: isOnboarded} = useIsOnboarded();
-  console.log('call useIsOnboarded -- useLangNavDataQuery')
+  // console.log('call useIsOnboarded -- useLangNavDataQuery')
 
   const fetchLanguages = async (): Promise<UserLanguages> => {
     if (!supabaseClient) throw new Error('supabaseClient undefined');
     if (!litAccount) throw new Error('litAccount not available');
     if (supabaseClient && typeof supabaseClient.from !== 'function') {
-      console.log("supabaseClient without the from method???", supabaseClient)
+      // console.log("supabaseClient without the from method???", supabaseClient)
     }
 
     const { data, error } = await supabaseClient

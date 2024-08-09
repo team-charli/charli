@@ -8,7 +8,7 @@ interface TeachersProps {
 
 const Teachers = ({modeView, selectedLang }: TeachersProps) => {
   const { data: teachers, isLoading, error } = useGetTeachers(selectedLang, modeView);
-  console.log('teachers', teachers)
+  // console.log('teachers', teachers)
   return (
     <>
   <div className="grid grid-cols-3">

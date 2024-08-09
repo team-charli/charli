@@ -19,10 +19,9 @@ export const useHasBalanceQuery = ({queryKey, enabledDeps, queryFnData}:HasBalan
       const [pkpWallet, currentAccount] = queryFnData;
       const startTime = Date.now();
       authChainLogger.info("12a: start hasBalance query");
-      console.log("12a: start hasBalance query")
       if ( !pkpWallet || !currentAccount ) {
         authChainLogger.info('12b: hasBalance query finish -- Dependencies not ready for balance check');
-        console.log('12b: hasBalance query finish -- Dependencies not ready for balance check')
+        authChainLogger.info('12b: hasBalance query finish -- Dependencies not ready for balance check')
 
         return null;
       }
@@ -31,7 +30,7 @@ export const useHasBalanceQuery = ({queryKey, enabledDeps, queryFnData}:HasBalan
         const minBalanceWei = ethers.parseEther('0.003259948275487362');
         const hasBalance = balance.gt(minBalanceWei);
         authChainLogger.info(`12b: hasBalance query finish:`, (Date.now() - startTime) / 1000);
-        console.log(`12b: hasBalance query finish:`, (Date.now() - startTime) / 1000);
+        authChainLogger.info(`12b: hasBalance query finish:`, (Date.now() - startTime) / 1000);
 
         return hasBalance
 

@@ -1,24 +1,38 @@
+//useLitSessionSigsQuery.tsx
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthMethod, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { litNodeClient } from '@/utils/litClients';
 import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers';
 import { sessionSigsExpired } from '@/utils/app';
 import { authChainLogger } from '@/App';
+import { AuthMethodPlus } from '@/types/types';
 
 interface SessionSigsQueryParams {
   queryKey: [string];
   enabledDeps: boolean;
-  queryFnData: [AuthMethod | null | undefined, IRelayPKP | null | undefined, boolean];
+  queryFnData: [AuthMethodPlus | null | undefined, IRelayPKP | null | undefined, boolean];
   invalidateQueries: () => Promise<string>;
+  persister: any;
 }
 
-export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, invalidateQueries}: SessionSigsQueryParams) => {
+export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, invalidateQueries, persister}: SessionSigsQueryParams) => {
   const queryClient = useQueryClient();
-  const [authMethod, litAccount, isConnected] = queryFnData;
+  // const [{idToken, authMethodType}, litAccount, isConnected] = queryFnData;
+  let authMethod: AuthMethod;
+  let litAccount: IRelayPKP;
+  let isConnected: boolean;
+  if (queryFnData[0]) {
+    const accessToken = queryFnData[0].idToken;
+    const authMethodType = queryFnData[0].authMethodType;
+    authMethod = {accessToken, authMethodType};
+  }
+  if (queryFnData[1]) litAccount = queryFnData[1];
 
+  if (typeof queryFnData[2] == 'boolean') isConnected = queryFnData[2];
   return useQuery<SessionSigs | null, Error>({
     queryKey,
     queryFn: async (): Promise<SessionSigs | null> => {
+      console.log({isConnected})
       try {
         authChainLogger.info("4a: start sessionSigs query")
         if (!isConnected) {
@@ -48,8 +62,6 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, inva
         authChainLogger.info('Fetching new sessionSigs');
         await litNodeClient.getLatestBlockhash();
         authChainLogger.info({litAccount, authMethod});
-
-        //POST https://15.235.83.220:7472/web/sign_session_key/v1 500 (Internal Server Error) is the authenticate method calling the contracts (because contracts are stateful, nodes are not) -- if so may need to implement a version of https://github.com/LIT-Protocol/lit-login-server/blob/main/README.md
 
         authChainLogger.info("public key", litAccount.tokenId)
 
@@ -81,5 +93,6 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, inva
     staleTime:  5 * 60 * 1000, // 5 minutes,
     gcTime: 24 * 60 * 60 * 1000,
     retry: false,
+    persister
   });
 };

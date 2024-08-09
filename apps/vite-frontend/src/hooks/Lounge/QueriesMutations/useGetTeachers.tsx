@@ -15,7 +15,7 @@ export function useGetTeachers(selectedLang: string, modeView: "Learn" | "Teach"
   return  useQuery({
     queryKey: ['getTeachers', userId] as const,
     queryFn: async () => {
-      console.log("getTeachers query");
+      // console.log("getTeachers query");
 
       if (!supabaseClient) throw new Error(`supabaseClient is undefined`)
       if (modeView === 'Learn') {

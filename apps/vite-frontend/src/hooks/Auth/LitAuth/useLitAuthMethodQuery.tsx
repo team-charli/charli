@@ -1,36 +1,37 @@
+//useLitAuthMethodQuery.tsx
 import { UseQueryResult, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AuthMethod } from '@lit-protocol/types';
-import { AuthTokens } from '@/types/types';
+import { AuthData, AuthMethodPlus, PersisterFunction } from '@/types/types';
 import { litAuthClient } from '@/utils/litClients';
 import { GoogleProvider } from '@lit-protocol/lit-auth-client';
 import { ProviderType } from '@lit-protocol/constants';
-import { authChainLogger } from '@/App';
+import { authChainLogger  } from '@/App';
 
 interface LitAuthMethodQueryParams {
-  queryKey: [string, AuthTokens | undefined | null];
+  queryKey: [string, /*AuthTokens | undefined | null*/];
   enabledDeps: boolean;
-  queryFnData: [AuthTokens | null | undefined];
+  queryFnData: [AuthData | null | undefined];
+  persister: any;
 }
 
-export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: LitAuthMethodQueryParams): UseQueryResult<AuthMethod | null, Error> => {
+export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData, persister }: LitAuthMethodQueryParams): UseQueryResult<AuthMethodPlus | null, Error> => {
   const queryClient = useQueryClient();
-  const [authTokens] = queryFnData;
-  return useQuery<AuthMethod | null, Error>({
+  const [authData] = queryFnData;
+  return useQuery<AuthMethodPlus | null, Error>({
     queryKey,
-    queryFn: async (): Promise<AuthMethod | null> => {
+    queryFn: async (): Promise<AuthMethodPlus | null> => {
       authChainLogger.info("2a: start authMethod query");
 
-      const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethod | null;
+      const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethodPlus| null;
       if (cachedAuthMethod) {
         authChainLogger.info("2b: finish authMethod query - Using cached AuthMethod");
         return cachedAuthMethod;
       }
 
-      if (authTokens) {
+      if (authData) {
         authChainLogger.info("2b: finish authMethod query - Using AuthMethod from OAuth redirect");
-        const {provider, idToken, accessToken} = authTokens;
+        const {provider, idToken, accessToken } = authData;
         let authMethodType
-        if (provider === 'googleJwt'){
+        if (provider === 'googleJwt') {
           authMethodType = 6
         } else if (provider === 'discord') {
           authMethodType = 4
@@ -39,7 +40,7 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
         }
         window.history.replaceState({}, document.title, window.location.pathname);
 
-        const authMethod:AuthMethod = {authMethodType, accessToken: idToken }
+        const authMethod: AuthMethodPlus = {authMethodType, idToken, accessToken }
         if (Object.values(authMethod).every(value => value !== undefined)){
           if (authMethod.authMethodType === 6 ) {
             litAuthClient.initProvider<GoogleProvider>(
@@ -54,13 +55,14 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData }: Li
           throw new Error('authMethod values undefined')
         }
       }
-      authChainLogger.info('2b: finish authMethod query - No AuthMethod available from cache or query params. authTokens:', authTokens);
+      authChainLogger.info('2b: finish authMethod query - No AuthMethod available from cache or query params. authTokens:', authData);
       return null;
     },
     enabled: enabledDeps,
-    staleTime: 5 * 60 * 1000 * 5,
+    staleTime: 0,
     gcTime: Infinity,
     retry: false,
+    persister,
   });
 };
 

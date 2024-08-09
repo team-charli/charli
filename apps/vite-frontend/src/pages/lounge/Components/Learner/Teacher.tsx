@@ -16,7 +16,7 @@ interface TeacherProps {
 }
 
 const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
-  console.log('Teacher component rendering');
+  // console.log('Teacher component rendering');
 
   const [userID] = useLocalStorage("userID");
   const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string>("");
@@ -65,21 +65,6 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
       }
     }
   }, [sessionDuration, userID, signSessionDuration, signApproveFundControllerMutation, submitLearningRequestMutation, contractAddress, controller_address, amount, dateTime, teacherID, teachingLang]);
-
-  useEffect(() => {
-    console.log('Current state:', {
-      userID,
-      sessionLengthInputValue,
-      toggleDateTimePicker,
-      renderSubmitConfirmation,
-      dateTime,
-      controller_address,
-      sessionDuration,
-      amount,
-      isSigningSessionDuration,
-      sessionDurationSignError
-    });
-  });
 
   return (
     <>

@@ -3,42 +3,51 @@ import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, 
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
 import { useSignInSupabaseQuery } from './SupabaseClient/useSignInSupabaseQuery';
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useReducer } from "react";
 import {router} from "@/TanstackRouter/router"
+import {queryClient, persister } from "@/App"
+import { usePersistedAuthDataQuery } from "./LitAuth/usePersistedAuthDataQuery";
+import { UseQueryResult } from "@tanstack/react-query";
 
 export const useAuthChain = () => {
+
   const invalidateQueries = useInvalidateAuthQueries();
 
   const isLitConnectedQuery = useLitNodeClientReadyQuery();
 
   const signinRedirectQuery = useIsSignInRedirectQuery({
-    queryKey: ['isSignInRedirect'],
+    queryKey: ['signInRedirect'],
     enabledDeps: true
   })
+  const persistedAuthData = usePersistedAuthDataQuery()
 
   const authMethodQuery = useLitAuthMethodQuery({
-    queryKey: ['authMethod', signinRedirectQuery.data],
-    enabledDeps:  signinRedirectQuery.isSuccess,
-    queryFnData: [signinRedirectQuery.data]
+    queryKey: ['authMethod'],
+    enabledDeps:  signinRedirectQuery.isSuccess && !!signinRedirectQuery.data ||persistedAuthData.isSuccess && !!persistedAuthData.data,
+    queryFnData: [signinRedirectQuery.data || persistedAuthData.data],
+    persister
   });
 
   const litAccountQuery = useLitAccountQuery({
     queryKey: ['litAccount'],
     enabledDeps: !!authMethodQuery.data,
-    queryFnData: authMethodQuery.data
+    queryFnData: authMethodQuery.data,
+    persister
   });
 
   const sessionSigsQuery = useLitSessionSigsQuery({
     queryKey: ['litSessionSigs'],
     enabledDeps: !!litAccountQuery.data && !!authMethodQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [authMethodQuery.data, litAccountQuery.data, isLitConnectedQuery.data ?? false ],
-    invalidateQueries
+    invalidateQueries,
+    persister,
   });
 
   const isLitLoggedInQuery = useIsLitLoggedInQuery({
     queryKey: ['isLitLoggedIn'],
-    enabledDeps: !!litAccountQuery.data && !!sessionSigsQuery.data,
-    queryFnData: [litAccountQuery.data, sessionSigsQuery.data]
+    enabledDeps: !!litAccountQuery.data && !!sessionSigsQuery.data && (isLitConnectedQuery.data ?? false),
+    queryFnData: [litAccountQuery.data, sessionSigsQuery.data],
+    persister
   });
 
   const pkpWalletQuery = usePkpWalletQuery({
@@ -49,14 +58,18 @@ export const useAuthChain = () => {
 
 
   const supabaseClientQuery = useSupabaseClientQuery({
-    queryKey: ['supabaseClient', signinRedirectQuery.data?.idToken],
-    enabledDeps: !!signinRedirectQuery.data?.idToken ?? false,
+    queryKey: ['supabaseClient', signinRedirectQuery.data?.idToken || persistedAuthData.data?.idToken],
+    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) || (!!persistedAuthData.data?.idToken ?? false),
   });
+
+  // useEffect(() => {
+  //   console.log('signInSupabas condition',(!!signinRedirectQuery.data?.idToken ?? false) ||  (!!authMethodQuery.data ?? false) && (!!supabaseClientQuery.data ?? false) && typeof supabaseClientQuery.data?.auth.signInWithIdToken === 'function')
+  // }, [signinRedirectQuery.data, authMethodQuery.data, supabaseClientQuery.data, ] )
 
   const signInSupabaseQuery = useSignInSupabaseQuery({
     queryKey: ['signInSupabase', signinRedirectQuery.data?.idToken],
-    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) && (!!supabaseClientQuery.data ?? false) && typeof supabaseClientQuery.data?.auth.signInWithIdToken === 'function',
-    queryFnData: [signinRedirectQuery.data],
+    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) ||  (!!authMethodQuery.data ?? false) && (!!supabaseClientQuery.data ?? false) && typeof supabaseClientQuery.data?.auth.signInWithIdToken === 'function',
+    queryFnData: signinRedirectQuery.data || authMethodQuery.data,
     supabaseClient: supabaseClientQuery.data
   })
 
@@ -73,7 +86,7 @@ export const useAuthChain = () => {
     queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
   });
 
-  const queries = [
+ const queries = useMemo(() => [
     { name: 'litNodeClient', query: isLitConnectedQuery },
     { name: 'authMethod', query: authMethodQuery },
     { name: 'litAccount', query: litAccountQuery },
@@ -84,36 +97,51 @@ export const useAuthChain = () => {
     { name: 'signInSupabase', query: signInSupabaseQuery},
     { name: 'isOnboarded', query: isOnboardedQuery },
     { name: 'hasBalance', query: hasBalanceQuery },
-  ];
+  ], [
+    isLitConnectedQuery, authMethodQuery, litAccountQuery, sessionSigsQuery,
+    isLitLoggedInQuery, pkpWalletQuery, supabaseClientQuery, signInSupabaseQuery,
+    isOnboardedQuery, hasBalanceQuery
+  ]);
 
-  const essentialQueries = [
-    'litNodeClient',
-    'authMethod',
-    'litAccount',
-    'sessionSigs',
-    'isLitLoggedIn',
-    'supabaseClient',
-    'isOnboarded',
-    'signInSupabase'
-  ];
+  const essentialQueries = useMemo(() => [
+    'litNodeClient', 'authMethod', 'litAccount', 'sessionSigs',
+    'isLitLoggedIn', 'supabaseClient', 'isOnboarded', 'signInSupabase'
+  ], []);
 
-  const isLoading = queries.some(q => essentialQueries.includes(q.name) && q.query.isLoading);
-  const isError = queries.some(q => essentialQueries.includes(q.name) && q.query.isError);
-  const isAllDataAvailable = queries
-  .filter(q => essentialQueries.includes(q.name))
-  .every(q => q.query.data !== undefined);
+  const isQuerySuccessful = useCallback((query: UseQueryResult) =>
+    (!query.isLoading && !query.isError && query.data !== undefined) || query.isSuccess,
+    []
+  );
 
-  const isSuccess = !isLoading && !isError && isAllDataAvailable;
+  const { isSuccess, isLoading, isError } = useMemo(() => {
+    const essentialQueryObjects = queries.filter(q => essentialQueries.includes(q.name as typeof essentialQueries[number]));
+    return {
+      isSuccess: essentialQueryObjects.every(q => isQuerySuccessful(q.query)),
+      isLoading: essentialQueryObjects.some(q => q.query.isLoading),
+      isError: essentialQueryObjects.some(q => q.query.isError)
+    };
+  }, [queries, essentialQueries, isQuerySuccessful]);
 
+  useEffect(() => {
+    console.log('Auth Chain State:', { isLoading, isError, isSuccess });
+    console.log('Detailed query states:');
+    queries
+      .filter(q => essentialQueries.includes(q.name as typeof essentialQueries[number]))
+      .forEach(({name, query}) => {
+        console.log(`${name}:`, {
+          isLoading: query.isLoading,
+          isError: query.isError,
+          hasData: query.data !== undefined,
+          isSuccess: query.isSuccess,
+          isFetching: query.isFetching,
+        });
+      });
 
-useEffect(() => {
-  if (isError) console.log("from useAuthHook", { isError })
-  if (isSuccess) {
-    console.log("from useAuthHook", {isSuccess})
-    router.invalidate()
-  }
-}, [isError, isSuccess])
-
+    if (isSuccess) {
+      console.log("Auth chain completed successfully");
+      router.invalidate();
+    }
+  }, [isLoading, isError, isSuccess, queries, essentialQueries]);
 
   return {
     queries,
@@ -121,4 +149,4 @@ useEffect(() => {
     isError,
     isSuccess,
   };
-}
+};

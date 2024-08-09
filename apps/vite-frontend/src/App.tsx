@@ -4,6 +4,8 @@ authChainLogger.setLevel('info');
 export const routingLogger = log.getLogger('routingLogger');
 routingLogger.setLevel('info');
 // authChainLogger.setLevel('silent');
+routingLogger.setLevel('silent');
+
 import { Provider } from 'jotai/react';
 import '@/styles/globals.css';
 import { HuddleProvider } from "@huddle01/react";
@@ -13,14 +15,35 @@ import NotificationProvider from './contexts/NotificationContext';
 import SessionProvider from "./contexts/SessionsContext";
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider } from './contexts/AuthContext';
-import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { experimental_createPersister } from '@tanstack/react-query-persist-client';
 import { router, RouterContext } from './TanstackRouter/router';
-import { queryClient, persister } from './TanstackQuery/queryClient';
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+export const persister = experimental_createPersister({
+  storage: window.localStorage,
+  deserialize: (cachedString) => {
+    // console.log('Deserializing cached string:', JSON.stringify(cachedString));
+    return JSON.parse(cachedString);
+  },
+  serialize: (client) => {
+    // console.log('Serializing full client data:', JSON.parse(JSON.stringify(client)));
+    return JSON.stringify(client);
+  },
+});
 
 
 function CharliApp() {
   return (
-    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
+    <QueryClientProvider client={queryClient} >
       <AuthProvider>
         {(authContext) => (
           <Provider>
@@ -41,9 +64,10 @@ function CharliApp() {
           </Provider>
         )}
       </AuthProvider>
-    </PersistQueryClientProvider>
+    </QueryClientProvider>
   );
 }
+
 
 
 export default CharliApp;

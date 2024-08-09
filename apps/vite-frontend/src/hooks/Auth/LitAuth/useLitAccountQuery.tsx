@@ -1,15 +1,18 @@
+//useLitAccountQuery.tsx
 import { UseQueryResult, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AuthMethod, IRelayPKP } from '@lit-protocol/types';
+import {  IRelayPKP } from '@lit-protocol/types';
 import { getPKPs, mintPKP } from '@/utils/lit';
 import { authChainLogger } from '@/App';
+import { AuthMethodPlus } from '@/types/types';
 
 interface LitAccountQueryParams {
   queryKey:    [string],
   enabledDeps: boolean,
-  queryFnData: AuthMethod | null | undefined
+  queryFnData: AuthMethodPlus | null | undefined,
+  persister: any
 }
 
-export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAccountQueryParams): UseQueryResult<IRelayPKP | null, Error> => {
+export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData, persister}: LitAccountQueryParams): UseQueryResult<IRelayPKP | null, Error> => {
   const queryClient = useQueryClient();
 
 
@@ -17,7 +20,9 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAcco
     queryKey,
     queryFn: async (): Promise<IRelayPKP | null> => {
       // authChainLogger.info('queryFnData', queryFnData)
-      const authMethod = queryFnData;
+      if (!queryFnData) throw new Error('no queryFnData')
+      const {authMethodType, idToken: accessToken} = queryFnData;
+      const authMethod = {authMethodType, accessToken};
 
       authChainLogger.info('3a: start litAccount query');
 
@@ -60,5 +65,6 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData}: LitAcco
     enabled: enabledDeps,
     staleTime: 5 * 60 * 1000, // 5 minutes,
     gcTime: 24 * 60 * 60 * 1000,  // Keep unused data for 24 hours
+    persister
   });
 };

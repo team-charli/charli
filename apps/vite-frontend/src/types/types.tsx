@@ -477,15 +477,18 @@ export interface UseSessionManagerOptions {
   sessionSigs: SessionSigs | null;
 }
 
-
-
 export type SupabaseError = {
   message: string;
   // Add other properties if needed
 };
-export interface AuthTokens {
+export interface AuthData {
   idToken: string;
   accessToken: string;
   provider: string;
 }
 
+export type AuthMethodPlus = {
+  authMethodType: number;
+  accessToken: string;
+  idToken: string;
+}
