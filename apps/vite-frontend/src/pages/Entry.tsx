@@ -16,7 +16,7 @@ const Entry = () => {
   const error = litAuthMethod.error || litAccount.error || sessionSigs.error;
 
   const handleLearnClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
-    console.log("Learn button clicked");
+    // console.log("Learn button clicked");
     setOnboardMode("Learn");
   };
 

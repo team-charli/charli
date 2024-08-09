@@ -3,6 +3,8 @@ import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, 
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
 import { useSignInSupabaseQuery } from './SupabaseClient/useSignInSupabaseQuery';
+import { useEffect, useMemo } from "react";
+import {router} from "@/TanstackRouter/router"
 
 export const useAuthChain = () => {
   const invalidateQueries = useInvalidateAuthQueries();
@@ -100,7 +102,18 @@ export const useAuthChain = () => {
   const isAllDataAvailable = queries
   .filter(q => essentialQueries.includes(q.name))
   .every(q => q.query.data !== undefined);
+
   const isSuccess = !isLoading && !isError && isAllDataAvailable;
+
+
+useEffect(() => {
+  if (isError) console.log("from useAuthHook", { isError })
+  if (isSuccess) {
+    console.log("from useAuthHook", {isSuccess})
+    router.invalidate()
+  }
+}, [isError, isSuccess])
+
 
   return {
     queries,

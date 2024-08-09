@@ -9,15 +9,9 @@ type ButtonLinkPropTypes = {
 
 const ButtonLink = ({ path, children, onButtonClick, ...rest }: ButtonLinkPropTypes) => {
   const handleClick: React.MouseEventHandler<"a"> = (e) => {
-    console.log("ButtonLink clicked");
-    console.log("Path:", path);
-
     if (onButtonClick) {
-      console.log("Calling onButtonClick");
       onButtonClick(e);
     }
-
-    console.log("After onButtonClick");
   };
 
   return (

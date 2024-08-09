@@ -3,7 +3,7 @@ export const authChainLogger = log.getLogger('authChainLogger');
 authChainLogger.setLevel('info');
 export const routingLogger = log.getLogger('routingLogger');
 routingLogger.setLevel('info');
-authChainLogger.setLevel('silent');
+// authChainLogger.setLevel('silent');
 import { Provider } from 'jotai/react';
 import '@/styles/globals.css';
 import { HuddleProvider } from "@huddle01/react";

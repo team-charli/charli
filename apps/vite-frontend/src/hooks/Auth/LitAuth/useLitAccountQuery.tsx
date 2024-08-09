@@ -4,7 +4,7 @@ import { getPKPs, mintPKP } from '@/utils/lit';
 import { authChainLogger } from '@/App';
 
 interface LitAccountQueryParams {
-  queryKey: [string],
+  queryKey:    [string],
   enabledDeps: boolean,
   queryFnData: AuthMethod | null | undefined
 }
