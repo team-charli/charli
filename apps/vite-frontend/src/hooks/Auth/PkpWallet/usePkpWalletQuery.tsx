@@ -4,7 +4,6 @@ import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { litNodeClient } from '@/utils/litClients';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { authChainLogger } from '@/App';
-import { PersisterFunction } from '@/types/types';
 
 interface PkpWalletQueryParams {
   queryKey: [string],
@@ -14,7 +13,7 @@ interface PkpWalletQueryParams {
 
 export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalletQueryParams ) => {
   const [currentAccount, sessionSigs] = queryFnData;
-
+ const rpc =  import.meta.env.VITE_SEPOLIA_RPC_URL;
   return useQuery({
     queryKey,
     queryFn: async (): Promise<PKPEthersWallet> => {
@@ -29,6 +28,7 @@ export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalle
           controllerSessionSigs: sessionSigs,
           pkpPubKey: currentAccount.publicKey,
           litNodeClient,
+          rpc
         });
         await wallet.init();
       } catch (error) {

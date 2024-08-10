@@ -8,6 +8,7 @@ import { useSignSessionDuration } from "@/hooks/Lounge/QueriesMutations/useSignS
 import { useLearnerSubmitLearningRequest } from "@/hooks/Lounge/QueriesMutations/useLearnerSubmitLearningRequest";
 import { useComputeControllerAddress } from "@/hooks/Lounge/QueriesMutations/useComputeControllerAddress";
 import { BigNumberish } from "ethers";
+import { mutationLogger } from "@/App";
 
 interface TeacherProps {
   teacherName: string;
@@ -41,6 +42,7 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
   const handleSubmitLearningRequest = useCallback(async () => {
     if (sessionDuration && userID) {
       try {
+        mutationLogger.info("called submit")
         const learnerSignedSessionDuration = await signSessionDuration(sessionDuration);
 
         await signApproveFundControllerMutation.mutateAsync({

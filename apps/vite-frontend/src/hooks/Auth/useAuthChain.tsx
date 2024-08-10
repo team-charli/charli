@@ -5,7 +5,7 @@ import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
 import { useSignInSupabaseQuery } from './SupabaseClient/useSignInSupabaseQuery';
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 import {router} from "@/TanstackRouter/router"
-import {queryClient, persister } from "@/App"
+import {queryClient, persister, authChainLogger } from "@/App"
 import { usePersistedAuthDataQuery } from "./LitAuth/usePersistedAuthDataQuery";
 import { UseQueryResult } from "@tanstack/react-query";
 
@@ -62,9 +62,6 @@ export const useAuthChain = () => {
     enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) || (!!persistedAuthData.data?.idToken ?? false),
   });
 
-  // useEffect(() => {
-  //   console.log('signInSupabas condition',(!!signinRedirectQuery.data?.idToken ?? false) ||  (!!authMethodQuery.data ?? false) && (!!supabaseClientQuery.data ?? false) && typeof supabaseClientQuery.data?.auth.signInWithIdToken === 'function')
-  // }, [signinRedirectQuery.data, authMethodQuery.data, supabaseClientQuery.data, ] )
 
   const signInSupabaseQuery = useSignInSupabaseQuery({
     queryKey: ['signInSupabase', signinRedirectQuery.data?.idToken],
@@ -82,8 +79,8 @@ export const useAuthChain = () => {
 
   const hasBalanceQuery = useHasBalanceQuery({
     queryKey: ['hasBalance', litAccountQuery.data?.ethAddress],
-    enabledDeps: isOnboardedQuery.isSuccess && (!!pkpWalletQuery.data ?? false) && typeof pkpWalletQuery.data?.getBalance === 'function' && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
-    queryFnData: [pkpWalletQuery.data, litAccountQuery.data]
+    enabledDeps: isOnboardedQuery.isSuccess && !!litAccountQuery.data && (isLitConnectedQuery.data ?? false),
+    queryFnData: litAccountQuery.data
   });
 
  const queries = useMemo(() => [
@@ -123,12 +120,12 @@ export const useAuthChain = () => {
   }, [queries, essentialQueries, isQuerySuccessful]);
 
   useEffect(() => {
-    console.log('Auth Chain State:', { isLoading, isError, isSuccess });
-    console.log('Detailed query states:');
+    authChainLogger.info('Auth Chain State:', { isLoading, isError, isSuccess });
+    authChainLogger.info('Detailed query states:');
     queries
       .filter(q => essentialQueries.includes(q.name as typeof essentialQueries[number]))
       .forEach(({name, query}) => {
-        console.log(`${name}:`, {
+        authChainLogger.info(`${name}:`, {
           isLoading: query.isLoading,
           isError: query.isError,
           hasData: query.data !== undefined,
@@ -138,7 +135,7 @@ export const useAuthChain = () => {
       });
 
     if (isSuccess) {
-      console.log("Auth chain completed successfully");
+      authChainLogger.info("Auth chain completed successfully");
       router.invalidate();
     }
   }, [isLoading, isError, isSuccess, queries, essentialQueries]);

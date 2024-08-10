@@ -3,6 +3,8 @@ export const authChainLogger = log.getLogger('authChainLogger');
 authChainLogger.setLevel('info');
 export const routingLogger = log.getLogger('routingLogger');
 routingLogger.setLevel('info');
+export const mutationLogger = log.getLogger('mutationLogger')
+mutationLogger.setLevel('info')
 // authChainLogger.setLevel('silent');
 routingLogger.setLevel('silent');
 
