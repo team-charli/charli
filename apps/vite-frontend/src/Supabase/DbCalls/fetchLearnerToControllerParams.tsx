@@ -8,7 +8,7 @@ export const fetchLearnerToControllerParams = async (supabaseClient: SupabaseCli
     controllerAddress: null,
     learnerAddress: null,
     requestedSessionDuration: null,
-    requestedSessionDurationLearnerSig: null,
+    requestedSessionDurationLearnerSig: undefined,
     keyId: null,
     hashedLearnerAddress: null
   };

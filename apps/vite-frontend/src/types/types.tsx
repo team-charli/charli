@@ -108,6 +108,11 @@ export interface LoginViewProps {
   parentIsRoute: boolean;
 }
 
+export type ReceivedTeachingRequestProps = {
+  notification: NotificationIface;
+};
+
+
 export interface ConfirmedLearningRequestProps {
   notification: NotificationIface;
 }
@@ -481,7 +486,7 @@ export type SupabaseError = {
   message: string;
   // Add other properties if needed
 };
-export interface AuthData {
+export type AuthData = {
   idToken: string;
   accessToken: string;
   provider: string;

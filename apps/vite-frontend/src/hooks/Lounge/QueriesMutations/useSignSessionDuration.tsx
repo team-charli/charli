@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 export const useSignSessionDuration = () => {
   const { data: pkpWallet } = usePkpWallet();
 
-  const mutation = useMutation({
+  return useMutation({
     mutationFn: async (duration: number) => {
       if (!pkpWallet) {
         throw new Error('Wallet not initialized');
@@ -18,11 +18,4 @@ export const useSignSessionDuration = () => {
       }
     }
   });
-
-  return {
-    signSessionDuration: mutation.mutateAsync,
-    signature: mutation.data,
-    isLoading: mutation.isPending,
-    error: mutation.error,
-  };
 };

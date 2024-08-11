@@ -5,6 +5,7 @@ export const onboardRouteQueries = (queryClient: QueryClient) => {
     const isOnboarded = queryClient.getQueryData(['isOnboarded', litAccount]);
     const isLitLoggedIn = queryClient.getQueryData(['isLitLoggedIn']);
     const isOAuthRedirect = queryClient.getQueryData(['isSignInRedirect']);
+    const hasBalance = queryClient.getQueryData(['hasBalance'])
 
-    return {litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect}
+    return {litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, hasBalance}
 }

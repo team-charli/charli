@@ -1,6 +1,6 @@
 // useHasBalance.ts
 import { useQuery } from '@tanstack/react-query';
-import { JsonRpcProvider, Contract, InterfaceAbi, parseEther } from 'ethers';
+import { JsonRpcProvider, Contract, InterfaceAbi, parseEther, parseUnits } from 'ethers';
 import { authChainLogger } from '@/App';
 import { usdcABI } from '@/abis/usdcABI';
 import { IRelayPKP } from '@lit-protocol/types';
@@ -32,10 +32,10 @@ export const useHasBalanceQuery = ({queryKey, enabledDeps, queryFnData}:HasBalan
         const provider = new JsonRpcProvider(url);
         const usdcContract = new Contract(usdcAddress, abi, provider)
         const balance = await usdcContract.balanceOf(currentAccount.ethAddress);
-        const minBalanceWei = parseEther('0.003259948275487362');
-        const hasBalance = balance.gt(minBalanceWei);
+        const minBalanceUSDC = parseUnits('9', 6);
+        const hasBalance = balance >= minBalanceUSDC;
         authChainLogger.info(`12b: hasBalance query finish:`, (Date.now() - startTime) / 1000);
-        authChainLogger.info(`12b: hasBalance query finish:`, (Date.now() - startTime) / 1000);
+
 
         return hasBalance
 

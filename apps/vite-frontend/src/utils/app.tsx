@@ -225,3 +225,14 @@ export function hasSessionKey(): boolean {
   // Return false if localStorage is not available (i.e., during SSR)
   return false;
 }
+
+export function hasTanstackQueryStorage() {
+    const prefix = "tanstack-query-";
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+            return true; // A key with the prefix exists
+        }
+    }
+    return false; // No matching keys found
+}

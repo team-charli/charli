@@ -5,7 +5,7 @@ export const routingLogger = log.getLogger('routingLogger');
 routingLogger.setLevel('info');
 export const mutationLogger = log.getLogger('mutationLogger')
 mutationLogger.setLevel('info')
-// authChainLogger.setLevel('silent');
+authChainLogger.setLevel('silent');
 routingLogger.setLevel('silent');
 
 import { Provider } from 'jotai/react';

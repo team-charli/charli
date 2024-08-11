@@ -26,30 +26,28 @@ export const useSignInSupabaseQuery = ({
   let authData: AuthData | undefined;
   let authMethod: AuthMethodPlus | undefined;
 
-  // Use 'in' operator as a type guard to differentiate between AuthData and AuthMethod
-  if (queryFnData && 'idToken' in queryFnData) {
+  if (queryFnData && 'provider' in queryFnData) {
     // If queryFnData has a 'token' property, it's treated as AuthData
     authData = queryFnData as AuthData;
-  } else if (queryFnData && 'accessToken' in queryFnData) {
+  } else if (queryFnData && 'authMethodType' in queryFnData) {
     // If queryFnData has a 'method' property, it's treated as AuthMethod
     authMethod = queryFnData as AuthMethodPlus;
   }
   return useQuery<SignInResult, Error>({
     queryKey,
     queryFn: async (): Promise<SignInResult> => {
-      console.log('called');
 
       if (supabaseClient && (authData && Object.keys(authData).length > 0)) {
         try {
-          let provider;
+          console.log('authData', authData)
+          let provider: string;
           if (authData.provider === 'googleJwt') {
             provider = 'google';
           } else {
-            provider = authData.provider;
+            provider = authData.provider
           }
-
           const { data, error } = await supabaseClient.auth.signInWithIdToken({
-            provider,
+            provider: provider,
             token: authData.idToken,
             access_token: authData.accessToken,
           });
@@ -75,7 +73,7 @@ export const useSignInSupabaseQuery = ({
         try {
           let provider;
           if (authMethod.authMethodType === 6) {
-            provider = 'googleJwt'
+            provider = 'google'
           } else if (authMethod.authMethodType === 4) {
             provider = 'discord'
           } else {
@@ -86,7 +84,6 @@ export const useSignInSupabaseQuery = ({
             token: authMethod.idToken,
             access_token: authMethod?.accessToken,
           })
-          console.log('useSignInSupabaseQuery', data);
 
           if (error) {
             console.error(error);
