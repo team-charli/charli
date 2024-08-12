@@ -21,9 +21,7 @@ export const useHandleTeacherRequest = (notification: NotificationIface, dateTim
   const handleTeacherChoice = async (action: string) => {
     switch (action) {
       case 'accept':
-
         const { controllerPublicKey, controllerAddress, learnerAddress, requestedSessionDuration, keyId, requestedSessionDurationLearnerSig, hashedLearnerAddress } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
-
         const {requestedSessionDurationTeacherSig} = useTeacherSignRequestedSessionDuration(requestedSessionDurationLearnerSig, requestedSessionDuration, hashedLearnerAddress)
 
         try {
@@ -39,10 +37,8 @@ export const useHandleTeacherRequest = (notification: NotificationIface, dateTim
           setHashedTeacherAddress(ethers.keccak256(currentAccount?.ethAddress))
 
           try {
-            //TODO: send to relayer
-            /* eslint-disable @typescript-eslint/no-unused-vars */
             const actionResult = await executeTransferFromLearnerToController(learnerAddress, controllerAddress, controllerPublicKey, paymentAmount, requestedSessionDurationLearnerSig, requestedSessionDurationTeacherSig, hashedLearnerAddress, hashedTeacherAddress, requestedSessionDuration);
-
+            console.log('actionResult', actionResult)
           } catch (error) {
             console.error(error);
             throw new Error(`error: executeTransferFromLearnerToController`)
