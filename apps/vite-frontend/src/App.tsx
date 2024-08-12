@@ -57,7 +57,7 @@ function CharliApp() {
                     router={router}
                     context={{
                       auth: authContext,
-                      queryClient
+                      queryClient,
                     } as RouterContext}
                   />
                 </SessionProvider>

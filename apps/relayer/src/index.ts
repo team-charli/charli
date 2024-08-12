@@ -1,4 +1,3 @@
-import { Request, Response } from '@cloudflare/workers-types';
 import { ethers } from 'ethers';
 export interface Env {
   RPC_URL: string;
@@ -7,6 +6,9 @@ export interface Env {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === "GET" || request.url.endsWith('/favicon.ico')) {
+      return new Response("This endpoint expects a POST request with a JSON body.", { status: 405 });
+    }
     const provider = new ethers.JsonRpcProvider(env.RPC_URL);
     const wallet = new ethers.Wallet(env.PRIVATE_KEY, provider);
 

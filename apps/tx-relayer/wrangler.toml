@@ -5,7 +5,7 @@ kv_namespaces = [
   { binding = "TRANSACTIONS", id = "832db4e875384c9ea76394f536fc7a5c" }
 ]
 [vars]
-RPC_URl="https://rpc.ankr.com/base_sepolia"
-LIT_NETWORK="cayenne"
+RPC_URL="https://rpc.ankr.com/eth_sepolia"
+LIT_NETWORK="datil-dev"
 DOMAIN="localhost"
 ORIGIN="https://localhost/login"

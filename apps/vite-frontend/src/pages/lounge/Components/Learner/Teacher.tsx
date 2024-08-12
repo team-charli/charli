@@ -7,8 +7,10 @@ import { useSignApproveFundController } from "@/hooks/Lounge/QueriesMutations/us
 import { useSignSessionDuration } from "@/hooks/Lounge/QueriesMutations/useSignSessionDuration";
 import { useLearnerSubmitLearningRequest } from "@/hooks/Lounge/QueriesMutations/useLearnerSubmitLearningRequest";
 import { useComputeControllerAddress } from "@/hooks/Lounge/QueriesMutations/useComputeControllerAddress";
+const contractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
 import { BigNumberish } from "ethers";
 import { mutationLogger } from "@/App";
+import { useLearningRequestState } from "@/hooks/Lounge/useLearningRequestState";
 
 interface TeacherProps {
   teacherName: string;
@@ -17,23 +19,12 @@ interface TeacherProps {
 }
 
 const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
-  // console.log('Teacher component rendering');
-
   const [userID] = useLocalStorage("userID");
-  const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string>("");
-  const [toggleDateTimePicker, setToggleDateTimePicker] = useState(false);
-  const [renderSubmitConfirmation, setRenderSubmitConfirmation] = useState(false);
 
-  const contractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
-  const { dateTime, setDateTime } = usePreCalculateTimeDate();
+  const {sessionLengthInputValue, setSessionLengthInputValue, toggleDateTimePicker, setToggleDateTimePicker, renderSubmitConfirmation, setRenderSubmitConfirmation,  dateTime, setDateTime, sessionDuration, amount } = useLearningRequestState();
+
+
   const { controller_address } = useComputeControllerAddress();
-
-  const sessionDuration = useMemo(() =>
-    sessionLengthInputValue ? parseInt(sessionLengthInputValue) : 0,
-    [sessionLengthInputValue]
-  );
-
-  const amount = useMemo(() => sessionDuration * 0.3 as BigNumberish, [sessionDuration]);
 
   const { signSessionDuration, isLoading: isSigningSessionDuration, error: sessionDurationSignError } = useSignSessionDuration();
   const signApproveFundControllerMutation = useSignApproveFundController();
@@ -59,9 +50,9 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
           sessionDuration,
           learnerSignedSessionDuration
         }, {
-          onSuccess: () => setRenderSubmitConfirmation(true),
-          onError: (error) => console.error("Error submitting learning request:", error),
-        });
+            onSuccess: () => setRenderSubmitConfirmation(true),
+            onError: (error) => console.error("Error submitting learning request:", error),
+          });
       } catch (error) {
         console.error("Error in submit process:", error);
       }

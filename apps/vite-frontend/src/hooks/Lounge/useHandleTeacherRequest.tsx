@@ -9,7 +9,7 @@ import { Dispatch, SetStateAction, useState } from "react";
 import { NotificationIface } from "@/types/types";
 import { useExecuteTransferFromLearnerToController } from '../LitActions/useExecuteTransferFromLearnerToController';
 
-export const useHandleTeacherRequest = (notification: NotificationIface, dateTime: string, setUiCondition: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>>) => {
+export const useHandleTeacherRequest = (notification: NotificationIface, dateTime: string, setUiCondition: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>> ) => {
   const executeTransferFromLearnerToController = useExecuteTransferFromLearnerToController();
 
   const [hashedTeacherAddress, setHashedTeacherAddress] = useState<string>();
@@ -41,7 +41,7 @@ export const useHandleTeacherRequest = (notification: NotificationIface, dateTim
           try {
             //TODO: send to relayer
             /* eslint-disable @typescript-eslint/no-unused-vars */
-            const actionResult = await executeTransferFromLearnerToController(learnerAddress, controllerAddress, controllerPublicKey, paymentAmount, requestedSessionDurationLearnerSig, requestedSessionDurationTeacherSig, hashedLearnerAddress, hashedTeacherAddress);
+            const actionResult = await executeTransferFromLearnerToController(learnerAddress, controllerAddress, controllerPublicKey, paymentAmount, requestedSessionDurationLearnerSig, requestedSessionDurationTeacherSig, hashedLearnerAddress, hashedTeacherAddress, requestedSessionDuration);
 
           } catch (error) {
             console.error(error);
