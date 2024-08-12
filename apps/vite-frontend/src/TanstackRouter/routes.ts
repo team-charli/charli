@@ -14,7 +14,7 @@ import BolsaRoute from '@/pages/bolsa/BolsaRoute';
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
-  onError: ({ error }) => {console.error(error)},
+  onError: error  => {console.error(error)},
   errorComponent: ErrorComponent ,
   beforeLoad: ({ context }) => {
     const { auth, queryClient } = context;
@@ -29,7 +29,7 @@ export const entry = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: Entry,
-  onError: ({ error }) => { console.error(error) },
+  onError: error  => { console.error(error)},
 
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
@@ -37,7 +37,7 @@ export const entry = createRoute({
       return;
     }
 
-    const {litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, hasBalance} = entryRouteQueries(queryClient);
+    const {isOnboarded, isLitLoggedIn} = entryRouteQueries(queryClient);
 
     routingLogger.info("entry route")
 
@@ -45,15 +45,6 @@ export const entry = createRoute({
       routingLogger.info('Conditions met for routing to /onboard');
       throw redirect({ to: '/onboard' });
     }
-    if (!auth.isSuccess) {
-      routingLogger.info('entry route: authState', auth);
-      return;
-    }
-
-    // if (!hasBalance) {
-    //   routingLogger.info('!hasBalance: routing to /bolsa')
-    //   throw redirect({to: '/bolsa'})
-    // }
 
     if (isLitLoggedIn && isOnboarded) {
       routingLogger.info('Conditions met for routing to /lounge');
@@ -121,14 +112,9 @@ export const onboardRoute = createRoute({
     if (!auth.isSuccess) {
       return;
     }
-    const {litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, hasBalance} = onboardRouteQueries(queryClient);
+    const {isOnboarded, isLitLoggedIn} = onboardRouteQueries(queryClient);
 
     routingLogger.info("onboard route")
-
-    // if (!hasBalance) {
-    //   routingLogger.info('!hasBalance: routing to /bolsa')
-    //   throw redirect({to: '/bolsa'})
-    // }
 
     if (isLitLoggedIn && isOnboarded) {
       routingLogger.info('isLitLoggedIn && isOnboarded: routing to /lounge');
@@ -143,11 +129,6 @@ export const onboardRoute = createRoute({
       routingLogger.info('!isLitLoggedIn: redirecting to /login');
       throw redirect({ to: '/login' });
     }
-
-    // if (isOnboarded === false) {
-    //   routingLogger.info('!isOnbaorded (but is logged in): redirecting to /');
-    //   throw redirect({ to: '/' });
-    // }
   }
 })
 
@@ -158,20 +139,13 @@ export const loungeRoute = createRoute({
   onError: ({ error }) => {console.error(error) },
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    // console.log("auth.isSuccess --- lounge route", auth.isSuccess);
-
-    const {litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect} = loungeRouteQueries(queryClient);
+    const {isOnboarded, isLitLoggedIn} = loungeRouteQueries(queryClient);
 
     if (!auth.isSuccess) {
       return;
     }
 
     routingLogger.info("lounge route")
-
-    // if (!auth.isSuccess && !hasTanstackQueryStorage()) {
-    //   // routingLogger.info('lounge route: auth state', auth);
-    //   throw redirect({to: '/login'})  /*  no storage, no query */
-    // }
 
     if (isLitLoggedIn && isOnboarded === false) { /* -------------------- */
       routingLogger.info('isLitLoggedIn && isOnboarded === false: routing to /onboard');

@@ -1,4 +1,3 @@
-'use client'
 // litClients.ts
 import { LitNodeClient } from '@lit-protocol/lit-node-client';
 import { LitAuthClient } from '@lit-protocol/lit-auth-client';
