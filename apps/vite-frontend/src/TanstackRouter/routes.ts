@@ -11,7 +11,6 @@ import { loungeRouteQueries } from './RouteQueries/loungeRouteQueries'
 import LoungeRoute from '@/pages/lounge/LoungeRoute'
 import OnboardRoute from '@/pages/onboard/OnboardRoute'
 import BolsaRoute from '@/pages/bolsa/BolsaRoute';
-import { hasTanstackQueryStorage } from '@/utils/app';
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
@@ -19,12 +18,10 @@ export const rootRoute = createRootRouteWithContext<RouterContext>()({
   errorComponent: ErrorComponent ,
   beforeLoad: ({ context }) => {
     const { auth, queryClient } = context;
-    routingLogger.info('Loader called:', { route: 'rootRoute', auth });
     if (!auth.isSuccess) {
-      routingLogger.info('root route: auth state', auth );
       return;
     }
-    routingLogger.info("entry route", auth)
+    routingLogger.info("root route")
   }
 })
 
@@ -36,21 +33,21 @@ export const entry = createRoute({
 
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    routingLogger.info('Loader called:', { route: 'entry'});
     if (!auth.isSuccess) {
-      routingLogger.info('entry route: authState', auth);
       return;
     }
 
     const {litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, hasBalance} = entryRouteQueries(queryClient);
 
-    routingLogger.info("entry route", {litAccount: !!litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, authState:auth})
-
-    if (isOAuthRedirect) routingLogger.info({isOAuthRedirect})
+    routingLogger.info("entry route")
 
     if (isLitLoggedIn && isOnboarded === false) {
       routingLogger.info('Conditions met for routing to /onboard');
       throw redirect({ to: '/onboard' });
+    }
+    if (!auth.isSuccess) {
+      routingLogger.info('entry route: authState', auth);
+      return;
     }
 
     // if (!hasBalance) {
@@ -80,18 +77,13 @@ export const loginRoute = createRoute({
   },
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    routingLogger.info('Loader called:', {
-      route: 'login', // change this for each route
-      auth,
-    });
     if (!auth.isSuccess) {
-      routingLogger.info('login route: authState', auth);
       return;
     }
 
     const {litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, hasBalance } = loginRouteQueries(queryClient);
 
-    routingLogger.info("loginRoute", {litAccount: !!litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, authState: auth })
+    routingLogger.info("loginRoute")
 
 
     if (isLitLoggedIn && isOnboarded === false) {
@@ -126,17 +118,12 @@ export const onboardRoute = createRoute({
   onError: ({ error }) => {console.error(error) },
   beforeLoad: ({ context, }) => {
     const { queryClient, auth } = context;
-    routingLogger.info('Loader called:', {
-      route: 'onboard',
-      auth,
-    });
     if (!auth.isSuccess) {
-      routingLogger.info('onboard route: auth state', auth);
       return;
     }
     const {litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, hasBalance} = onboardRouteQueries(queryClient);
 
-    routingLogger.info("onboard route", {litAccount: !!litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, authState: auth})
+    routingLogger.info("onboard route")
 
     // if (!hasBalance) {
     //   routingLogger.info('!hasBalance: routing to /bolsa')
@@ -157,10 +144,10 @@ export const onboardRoute = createRoute({
       throw redirect({ to: '/login' });
     }
 
-    if (isOnboarded === false) {
-      routingLogger.info('!isOnbaorded (but is logged in): redirecting to /');
-      throw redirect({ to: '/' });
-    }
+    // if (isOnboarded === false) {
+    //   routingLogger.info('!isOnbaorded (but is logged in): redirecting to /');
+    //   throw redirect({ to: '/' });
+    // }
   }
 })
 
@@ -168,14 +155,18 @@ export const loungeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/lounge',
   component: LoungeRoute,
+  onError: ({ error }) => {console.error(error) },
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
     // console.log("auth.isSuccess --- lounge route", auth.isSuccess);
-    routingLogger.info('Loader called:', { route: 'lounge'});
 
     const {litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect} = loungeRouteQueries(queryClient);
 
-    routingLogger.info("lounge route", {litAccount: !!litAccount, isOnboarded, isLitLoggedIn, isOAuthRedirect, authState: auth})
+    if (!auth.isSuccess) {
+      return;
+    }
+
+    routingLogger.info("lounge route")
 
     // if (!auth.isSuccess && !hasTanstackQueryStorage()) {
     //   // routingLogger.info('lounge route: auth state', auth);

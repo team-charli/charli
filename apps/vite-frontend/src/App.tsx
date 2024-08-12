@@ -6,7 +6,7 @@ routingLogger.setLevel('info');
 export const mutationLogger = log.getLogger('mutationLogger')
 mutationLogger.setLevel('info')
 authChainLogger.setLevel('silent');
-routingLogger.setLevel('silent');
+// routingLogger.setLevel('silent');
 
 import { Provider } from 'jotai/react';
 import '@/styles/globals.css';

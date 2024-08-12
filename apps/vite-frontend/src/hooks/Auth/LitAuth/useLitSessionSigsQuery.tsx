@@ -32,7 +32,6 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, inva
   return useQuery<SessionSigs | null, Error>({
     queryKey,
     queryFn: async (): Promise<SessionSigs | null> => {
-      console.log({isConnected})
       try {
         authChainLogger.info("4a: start sessionSigs query")
         if (!isConnected) {

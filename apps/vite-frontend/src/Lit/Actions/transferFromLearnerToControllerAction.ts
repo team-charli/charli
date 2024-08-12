@@ -1,24 +1,22 @@
-declare const ethers: any
-let learnerAddress='0x'
-let controllerAddress='0x'
-let controllerPubKey='0x'
-let paymentAmount=0
-let usdcContractAddress="0x"
-let chainId=84532;
-let chain = "sepolia";
-let authSig="string";
-let requestedSessionDurationLearnerSig:string;
-let requestedSessionDurationTeacherSig: string;
-let sessionDuration: string;
-let hashedLearnerAddress: string;
-let hashedTeacherAddress: string;
-declare const LitActions: any;
+// declare const ethers: any
+// let learnerAddress='0x'
+// let controllerAddress='0x'
+// let controllerPubKey='0x'
+// let paymentAmount=0
+// let usdcContractAddress="0x"
+// let chainId=84532;
+// let chain = "sepolia";
+// let authSig="string";
+// let requestedSessionDurationLearnerSig:string;
+// let requestedSessionDurationTeacherSig: string;
+// let sessionDuration: string;
+// let hashedLearnerAddress: string;
+// let hashedTeacherAddress: string;
+// declare const LitActions: any;
 
 // Above  values should be dynamically passed to the Lit Action through executeJs they are included here to avoid triggering ide diagnostics
 
-// export const transferFromLearnerToControllerAction = `
-
-
+export const transferFromLearnerToControllerAction = `
 (async () => {
   const verifyDuration = () => {
     const teacherAddress = ethers.verifyMessage(String(sessionDuration), requestedSessionDurationTeacherSig);
@@ -118,7 +116,7 @@ declare const LitActions: any;
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error("HTTP error! status: , response.status");
         }
 
         return await response.json();
@@ -129,5 +127,5 @@ declare const LitActions: any;
     LitActions.setResponse({ response: JSON.stringify({ error: "ACC failed: Insufficient allowance" }) });
   }
 })();
-// `
+`
 
