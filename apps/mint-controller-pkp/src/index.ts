@@ -1,13 +1,13 @@
 import ethers from 'ethers'
-import siwe from 'siwe'
 import { LitContracts } from '@lit-protocol/contracts-sdk';
 import { LitNodeClientNodeJs as LitNodeClient } from "@lit-protocol/lit-node-client-nodejs";
-import { AuthSig } from '@lit-protocol/types';
+import { AuthCallback, LIT_NETWORKS_KEYS, LitAbility } from '@lit-protocol/types';
+import { LitActionResource, createSiweMessageWithRecaps } from '@lit-protocol/auth-helpers';
 
 export interface Env {
   MINT_PKP_PRIVATE_KEY: string;
   IPFS_CID_PAY_TEACHER_FROM_CONTROLLER: string;
-  LIT_NETWORK: "cayenne" | "custom" | "localhost" | "manzano" | "habanero" | undefined;
+  LIT_NETWORK: LIT_NETWORKS_KEYS;
   CHRONICLE_RPC: string;
   DOMAIN: string;
   ORIGIN: string;
@@ -25,12 +25,64 @@ export default {
     const provider = new ethers.JsonRpcProvider("https://chain-rpc.litprotocol.com/http");
     const privKey = env.MINT_PKP_PRIVATE_KEY;
     const wallet = new ethers.Wallet(privKey, provider);
-    const NETWORK = env.LIT_NETWORK;
-    const litNodeClient = new LitNodeClient({ network: NETWORK });
+    const NETWORK = env.LIT_NETWORK   ;
+    const litNodeClient = new LitNodeClient({ litNetwork: NETWORK });
     await litNodeClient.connect();
 
-    const authSig = await generateSig()
+    const sessionSigsFunction = async() => {
+      const authNeededCallback: AuthCallback = async ({
+        uri,
+        expiration,
+        resourceAbilityRequests,
+      }) => {
+
+        // Prepare the SIWE message for signing
+        if (!uri) throw new Error('no uri')
+        if (!expiration) throw new Error('no expiration')
+        if (!resourceAbilityRequests) throw new Error('no resourceAbilityRequests')
+        const toSign = await createSiweMessageWithRecaps({
+          uri: uri,
+          expiration: expiration,
+          resources: resourceAbilityRequests,
+          walletAddress: wallet.address,
+          nonce: await litNodeClient.getLatestBlockhash(),
+          litNodeClient: litNodeClient,
+        });
+        // Use Ethereum wallet to sign message. return signature
+        const signature = await wallet.signMessage(toSign);
+
+        // Create AuthSig using derived signature, message, and wallet address
+
+        const authSig = {
+          sig: signature,
+          derivedVia: "web3.eth.personal.sign",
+          signedMessage: toSign,
+          address: wallet.address,
+        };
+
+        return authSig;
+      };
+
+      // Create a session key and sign it using the authNeededCallback defined above
+      const sessionSigs = await litNodeClient.getSessionSigs({
+        chain: "ethereum",
+        resourceAbilityRequests: [
+          {
+            resource: new LitActionResource("*"),
+            ability: LitAbility.LitActionExecution,
+          },
+        ],
+        authNeededCallback,
+      });
+
+      return sessionSigs;
+    };
+
+    const sessionSigs = await sessionSigsFunction();
+
+
     const mintAndBurnResult = await mintAndBurnPKP();
+
     return mintAndBurnResult || new Response("Mint and Burn Failed", { status: 500 });
 
     async function mintAndBurnPKP () {
@@ -42,7 +94,7 @@ export default {
       let claimActionRes;
       try {
         claimActionRes = await litNodeClient.executeJs({
-          authSig,
+          sessionSigs,
           code: `(async () => {
 Lit.Actions.claimKey({keyId});
 })();`,
@@ -80,47 +132,6 @@ Lit.Actions.claimKey({keyId});
           },
         });
       }
-    }
-    async function generateSig (): Promise<AuthSig> {
-      const domain = env.DOMAIN;
-      const origin = env.ORIGIN;
-      const statement = "This is a test statement.  You can put anything you want here.";
-      const expirationTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-
-      let nonce = litNodeClient.getLatestBlockhash();
-      if (typeof nonce !== "string") {
-        throw new Error(`retrieved nonce from blockhash not a string`)
-      }
-      const siweMessage = new siwe.SiweMessage({
-        domain,
-        address: wallet.address,
-        statement,
-        uri: origin,
-        version: "1",
-        chainId: 1,
-        nonce,
-        expirationTime,
-      });
-
-      const messageToSign = siweMessage.prepareMessage();
-
-      const signature = await wallet.signMessage(messageToSign);
-
-      const recoveredAddress = ethers.verifyMessage(messageToSign, signature);
-
-      if (recoveredAddress !== wallet.address) {
-        throw new Error("Recovered address does not match wallet address");
-      }
-
-      const authSig = {
-        sig: signature,
-        derivedVia: "web3.eth.personal.sign",
-        signedMessage: messageToSign,
-        address: recoveredAddress,
-      };
-
-      console.log("authSig", authSig);
-      return authSig;
     }
   }
 }
