@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useCallback } from "react";
 import useLocalStorage from "@rehooks/local-storage";
-import { usePreCalculateTimeDate } from "@/hooks/Lounge/usePreCalculateTimeDate";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
 import { useSignApproveFundController } from "@/hooks/Lounge/QueriesMutations/useSignApproveFundController";
@@ -8,7 +7,6 @@ import { useSignSessionDuration } from "@/hooks/Lounge/QueriesMutations/useSignS
 import { useLearnerSubmitLearningRequest } from "@/hooks/Lounge/QueriesMutations/useLearnerSubmitLearningRequest";
 import { useComputeControllerAddress } from "@/hooks/Lounge/QueriesMutations/useComputeControllerAddress";
 const contractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
-import { BigNumberish } from "ethers";
 import { mutationLogger } from "@/App";
 import { useLearningRequestState } from "@/hooks/Lounge/useLearningRequestState";
 

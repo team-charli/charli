@@ -15,7 +15,7 @@ const TeacherView = ({modeView, selectedLang}: TeacherViewProps) => {
     if (sessionRow.isProposed) {
       //ReceivedTeachingRequest
       acc.push({
-        type: 'teach',
+        type: 'Teach',
         subType: "receivedTeachingRequest",
         session_id: sessionRow.session_id,
         request_time_date: sessionRow.request_time_date,
@@ -28,7 +28,7 @@ const TeacherView = ({modeView, selectedLang}: TeacherViewProps) => {
     } else if (sessionRow.isAccepted) {
       //ConfirmedTeachingSession
       acc.push({
-        type: 'teach',
+        type: 'Teach',
         subType: "confirmedTeachingSession",
         session_id: sessionRow.session_id,
         request_time_date: sessionRow.request_time_date,

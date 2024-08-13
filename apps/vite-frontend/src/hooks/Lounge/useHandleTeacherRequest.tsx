@@ -1,13 +1,14 @@
 import {ethers} from 'ethers'
 import { fetchLearnerToControllerParams } from "@/Supabase/DbCalls/fetchLearnerToControllerParams";
 import { useTeacherSignRequestedSessionDuration } from "./Confirm/useTeacherSignRequestedSessionDuration";
-import { useLitAccount, useSupabaseClient } from "@/contexts/AuthContext";
+import { useLitAccount, useSessionSigs, useSupabaseClient } from "@/contexts/AuthContext";
 import { teacherChangeDateTime, teacherConfirmRequestDb, teacherRejectRequest } from "@/Supabase/DbCalls/teacherConfirmRejectReschedule";
 import ky from "ky";
 import { calculateSessionCost } from "@/utils/app";
 import { Dispatch, SetStateAction, useState } from "react";
 import { NotificationIface } from "@/types/types";
 import { useExecuteTransferFromLearnerToController } from '../LitActions/useExecuteTransferFromLearnerToController';
+import { litNodeClient } from '@/utils/litClients';
 
 export const useHandleTeacherRequest = (notification: NotificationIface, dateTime: string, setUiCondition: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>> ) => {
   const executeTransferFromLearnerToController = useExecuteTransferFromLearnerToController();
@@ -15,18 +16,26 @@ export const useHandleTeacherRequest = (notification: NotificationIface, dateTim
   const [hashedTeacherAddress, setHashedTeacherAddress] = useState<string>();
   const {data: supabaseClient} = useSupabaseClient();
   const {data: currentAccount} = useLitAccount();
-  if (! currentAccount) throw new Error('no currentAccount')
+  const {data: sessionSigs} = useSessionSigs();
   if (!supabaseClient) throw new Error(`no supabaseClient`)
-
+  if (! currentAccount) throw new Error('no currentAccount')
+  if (!sessionSigs) throw new Error(`no sessionSigs`)
   const handleTeacherChoice = async (action: string) => {
     switch (action) {
       case 'accept':
+        const ipfsId = import.meta.env.MINT_AND_BURN_CONTROLLER_PKP_IPFS_ID;
+        const userId = import.meta.env.MINT_AND_BURN_CONTROLLER_PKP_USER_ID
         const { controllerPublicKey, controllerAddress, learnerAddress, requestedSessionDuration, keyId, requestedSessionDurationLearnerSig, hashedLearnerAddress } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
         const {requestedSessionDurationTeacherSig} = useTeacherSignRequestedSessionDuration(requestedSessionDurationLearnerSig, requestedSessionDuration, hashedLearnerAddress)
 
         try {
-          await ky.post('https://mint-controller-pkp.zach-greco.workers.dev', {
-            json: { keyId },
+          const res = await litNodeClient.executeJs({
+            sessionSigs,
+            ipfsId,
+            authMethods: [],
+            jsParams: {
+              userId
+            }
           })
         } catch (error) {
           console.error(error);

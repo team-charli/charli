@@ -16,7 +16,7 @@ export const useSessionContext = () => useContext(SessionContext);
 const SessionProvider = ({ children }: { children: React.ReactNode}) => {
   const [sessionData, setSessionData] = useState<Session | null>(null);
   const {data: supabaseClient} = useSupabaseClient();
-
+  if (!supabaseClient) throw new Error('no supabaseClient')
   useEffect(() => {
     if (supabaseClient) {
       const mySubscription = supabaseClient
