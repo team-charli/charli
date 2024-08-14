@@ -1,3 +1,4 @@
+//ConfirmedTeachingSession.tsx
 import { NotificationIface } from '@/types/types';
 import { formatUtcTimestampToLocalStrings } from '@/utils/app';
 import {Link} from '@tanstack/react-router';

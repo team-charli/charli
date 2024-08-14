@@ -1,3 +1,4 @@
+//index.tsx
 export { default as ConfirmedLearningRequest } from './ConfirmedLearningRequest';
 export { default as ConfirmedTeachingSession } from './ConfirmedTeachingSession';
 export { default as ReceivedTeachingRequest } from './ReceivedTeachingRequest';

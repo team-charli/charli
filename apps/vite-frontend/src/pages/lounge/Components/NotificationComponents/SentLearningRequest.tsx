@@ -1,3 +1,4 @@
+//SentLearningRequest.tsx
 import { NotificationIface } from "@/types/types";
 
 interface NotificationComponentProps {

@@ -1,3 +1,4 @@
+//LoungeRoute.tsx
 import { useAuth } from "@/contexts/AuthContext"
 import Lounge from "./Lounge"
 

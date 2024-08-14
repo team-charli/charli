@@ -1,3 +1,4 @@
+//TeacherProposedAlternate.tsx
 import { NotificationIface } from "@/types/types";
 
 interface TeacherProposedAlternateProps {
