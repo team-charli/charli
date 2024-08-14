@@ -11,11 +11,8 @@ export const useNotificationContext = () => useContext(NotificationContext);
 
 const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const {data: supabaseClient} = useSupabaseClient();
-  if (!supabaseClient) throw new Error('no supabaseClient')
 
   const [showIndicator, setShowIndicator] = useState<boolean>(false);
-  const [userId] = useLocalStorage<number>("userID");
-  if (!userId) throw new Error('no userId')
   const [notifications, setNotifications] = useState<ExtendedSession[]>([]);
 
   useEffect(() => {
@@ -40,36 +37,38 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    const mySubscription = supabaseClient
-    .channel('realtime:public.sessions')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'sessions',
-    }, (async (payload: any) => {
-        console.log("payload", payload);
-        const baseSession: Session = payload.new;
+    if (supabaseClient) {
+      const mySubscription = supabaseClient
+      .channel('realtime:public.sessions')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'sessions',
+      }, (async (payload: any) => {
+          console.log("payload", payload);
+          const baseSession: Session = payload.new;
 
-        const { teacherName, learnerName } = await fetchLearnersAndTeachers(supabaseClient, baseSession.teacher_id, baseSession.learner_id);
+          const { teacherName, learnerName } = await fetchLearnersAndTeachers(supabaseClient, baseSession.teacher_id, baseSession.learner_id);
 
-        const extendedSession: ExtendedSession = {
-          ...baseSession,
-          teacherName,
-          learnerName,
-          ...classifySession(baseSession),
-        };
+          const extendedSession: ExtendedSession = {
+            ...baseSession,
+            teacherName,
+            learnerName,
+            ...classifySession(baseSession),
+          };
 
-        setNotifications(notifications => [...notifications, extendedSession]);
-      }) as unknown as (payload: any) => void)
-    .subscribe();
+          setNotifications(notifications => [...notifications, extendedSession]);
+        }) as unknown as (payload: any) => void)
+      .subscribe();
 
-    return () => {
-      void (async () => {
-        await  mySubscription.unsubscribe();
-      })();
-    };
+      return () => {
+        void (async () => {
+          await  mySubscription.unsubscribe();
+        })();
+      };
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabaseClient, userId]);
+  }, [supabaseClient]);
 
   return (
     <NotificationContext.Provider value={{ notificationsContextValue: notifications, showIndicator, setShowIndicator }}>

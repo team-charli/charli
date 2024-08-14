@@ -1,6 +1,7 @@
 // useIsOnboarded.ts
 import { authChainLogger } from '@/App';
 import { IRelayPKP } from '@lit-protocol/types';
+import useLocalStorage from '@rehooks/local-storage';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 
@@ -17,6 +18,8 @@ export const useIsOnboardedQuery = ({
   queryFnData,
   supabaseClient,
 }: IsOnboardedParams) => {
+  const [userID, setUserID] = useLocalStorage("userID");
+
   const [currentAccount] = queryFnData;
   return useQuery({
     queryKey,
@@ -36,6 +39,7 @@ export const useIsOnboardedQuery = ({
           .limit(1);
 
         const isOnboarded = data && data.length > 0;
+        if (isOnboarded) setUserID(data[0].id)
         authChainLogger.info("11b: finish isOnboarded query -- isOnboarded ", isOnboarded);
         authChainLogger.info("source isOnboarded", isOnboarded)
         authChainLogger.info('isOnboarded', isOnboarded)

@@ -1,8 +1,9 @@
 import {useState, useMemo} from 'react'
 import { usePreCalculateTimeDate } from './usePreCalculateTimeDate';
+import { BigNumberish } from 'ethers';
 
   export const useLearningRequestState = () => {
-    const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string>("");
+  const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string>("20");
     const [toggleDateTimePicker, setToggleDateTimePicker] = useState(false);
     const [renderSubmitConfirmation, setRenderSubmitConfirmation] = useState(false);
     const { dateTime, setDateTime } = usePreCalculateTimeDate();

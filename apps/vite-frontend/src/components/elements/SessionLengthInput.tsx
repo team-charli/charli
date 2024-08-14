@@ -7,10 +7,11 @@ const SessionLengthInput = ({setSessionLength, sessionLength}: Props) => {
     event.preventDefault();
     setSessionLength(event.target.value)
   }
+  const label = `call length: ${sessionLength} mins `
   return (
     <>
-      <label htmlFor="session-length">Charli duration</label>
-      <input type="range" id="points" step="15" name="session-length" min="20" max="90" value={sessionLength} onChange={handleSessionLengthChange} />
+      <label htmlFor="session-length">{label}</label>
+      <input type="range" id="points" step="10" name="session-length" min="20" max="90" value={sessionLength} onChange={handleSessionLengthChange} />
     </>
   )
 }

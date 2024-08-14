@@ -8,7 +8,6 @@ import { calculateSessionCost } from "@/utils/app";
 import { Dispatch, SetStateAction, useState } from "react";
 import { NotificationIface } from "@/types/types";
 import { useExecuteTransferFromLearnerToController } from '../LitActions/useExecuteTransferFromLearnerToController';
-import { litNodeClient } from '@/utils/litClients';
 
 export const useHandleTeacherRequest = (notification: NotificationIface, dateTime: string, setUiCondition: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>> ) => {
   const executeTransferFromLearnerToController = useExecuteTransferFromLearnerToController();
@@ -20,27 +19,21 @@ export const useHandleTeacherRequest = (notification: NotificationIface, dateTim
   if (!supabaseClient) throw new Error(`no supabaseClient`)
   if (! currentAccount) throw new Error('no currentAccount')
   if (!sessionSigs) throw new Error(`no sessionSigs`)
+
   const handleTeacherChoice = async (action: string) => {
     switch (action) {
       case 'accept':
-        const ipfsId = import.meta.env.MINT_AND_BURN_CONTROLLER_PKP_IPFS_ID;
-        const userId = import.meta.env.MINT_AND_BURN_CONTROLLER_PKP_USER_ID
+
         const { controllerPublicKey, controllerAddress, learnerAddress, requestedSessionDuration, keyId, requestedSessionDurationLearnerSig, hashedLearnerAddress } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
-        const {requestedSessionDurationTeacherSig} = useTeacherSignRequestedSessionDuration(requestedSessionDurationLearnerSig, requestedSessionDuration, hashedLearnerAddress)
 
         try {
-          const res = await litNodeClient.executeJs({
-            sessionSigs,
-            ipfsId,
-            authMethods: [],
-            jsParams: {
-              userId
-            }
-          })
+          await ky.post('https://mint-controller-pkp.zach-greco.workers.dev', { json: { keyId }})
         } catch (error) {
           console.error(error);
           throw new Error(`error: mint controller pkp`)
         }
+        const {requestedSessionDurationTeacherSig} = useTeacherSignRequestedSessionDuration(requestedSessionDurationLearnerSig, requestedSessionDuration, hashedLearnerAddress)
+
         if ( controllerPublicKey && controllerAddress && learnerAddress && requestedSessionDuration && currentAccount && requestedSessionDurationTeacherSig && hashedLearnerAddress){
           const paymentAmount = BigInt(calculateSessionCost(parseInt(requestedSessionDuration)));
           setHashedTeacherAddress(ethers.keccak256(currentAccount?.ethAddress))

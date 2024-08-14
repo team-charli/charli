@@ -1,5 +1,5 @@
 //routes.ts
-import Login from '@/pages/login'
+import LoginRoute from '@/pages/login'
 import { createRootRouteWithContext, createRoute, ErrorComponent, Outlet, redirect } from '@tanstack/react-router'
 import Entry from '@/pages/Entry'
 import { RouterContext } from './router'
@@ -61,7 +61,7 @@ export const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
 
-  component: Login,
+  component: LoginRoute,
   onError: ({ error }) => {
     // Log the error
     console.error(error)
@@ -82,11 +82,6 @@ export const loginRoute = createRoute({
       throw redirect({ to: '/onboard' });
     }
 
-    // if (!hasBalance) {
-    //   routingLogger.info('!hasBalance: routing to /bolsa')
-    //   throw redirect({to: '/bolsa'})
-    // }
-
     if (isLitLoggedIn && isOnboarded) {
       routingLogger.info('isLitLoggedIn && isOnboarded: routing to /lounge');
       throw redirect({ to: '/lounge' });
@@ -94,10 +89,6 @@ export const loginRoute = createRoute({
     if (!isLitLoggedIn) {
       routingLogger.info('!isLitLoggedIn: redirecting to /login');
       throw redirect({ to: '/login' });
-    }
-    if (isOnboarded === false) {
-      routingLogger.info('!isOnbaorded (but is logged in): redirecting to /');
-      throw redirect({ to: '/' });
     }
   }
 })

@@ -8,6 +8,7 @@ import {router} from "@/TanstackRouter/router"
 import {queryClient, persister, authChainLogger } from "@/App"
 import { usePersistedAuthDataQuery } from "./LitAuth/usePersistedAuthDataQuery";
 import { UseQueryResult } from "@tanstack/react-query";
+import { PKPEthersWallet } from "@lit-protocol/pkp-ethers";
 
 export const useAuthChain = () => {
 
@@ -89,7 +90,7 @@ export const useAuthChain = () => {
     { name: 'litAccount', query: litAccountQuery },
     { name: 'sessionSigs', query: sessionSigsQuery },
     { name: 'isLitLoggedIn', query: isLitLoggedInQuery},
-    { name: 'pkpWallet', query: pkpWalletQuery },
+    { name: 'pkpWallet', query: pkpWalletQuery as UseQueryResult<PKPEthersWallet, Error> },
     { name: 'supabaseClient', query: supabaseClientQuery },
     { name: 'signInSupabase', query: signInSupabaseQuery},
     { name: 'isOnboarded', query: isOnboardedQuery },

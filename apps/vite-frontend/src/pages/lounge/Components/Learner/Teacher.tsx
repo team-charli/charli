@@ -6,7 +6,7 @@ import { useSignApproveFundController } from "@/hooks/Lounge/QueriesMutations/us
 import { useSignSessionDuration } from "@/hooks/Lounge/QueriesMutations/useSignSessionDuration";
 import { useLearnerSubmitLearningRequest } from "@/hooks/Lounge/QueriesMutations/useLearnerSubmitLearningRequest";
 import { useComputeControllerAddress } from "@/hooks/Lounge/QueriesMutations/useComputeControllerAddress";
-const contractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
+const contractAddress = import.meta.env.VITE_USDC_SEPOLIA_CONTRACT_ADDRESS;
 import { mutationLogger } from "@/App";
 import { useLearningRequestState } from "@/hooks/Lounge/useLearningRequestState";
 
@@ -24,14 +24,16 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
 
   const { controller_address } = useComputeControllerAddress();
 
-  const { signSessionDuration, isLoading: isSigningSessionDuration, error: sessionDurationSignError } = useSignSessionDuration();
+  const { mutateAsync: signSessionDuration, isPending: isSigningSessionDuration, error: sessionDurationSignError } = useSignSessionDuration();
   const signApproveFundControllerMutation = useSignApproveFundController();
   const submitLearningRequestMutation = useLearnerSubmitLearningRequest();
 
   const handleSubmitLearningRequest = useCallback(async () => {
+
+   console.log({sessionDuration, userID});
+
     if (sessionDuration && userID) {
-      try {
-        mutationLogger.info("called submit")
+      // try {
         const learnerSignedSessionDuration = await signSessionDuration(sessionDuration);
 
         await signApproveFundControllerMutation.mutateAsync({
@@ -51,9 +53,10 @@ const Teacher = ({ teacherName, teacherID, teachingLang}: TeacherProps) => {
             onSuccess: () => setRenderSubmitConfirmation(true),
             onError: (error) => console.error("Error submitting learning request:", error),
           });
-      } catch (error) {
-        console.error("Error in submit process:", error);
-      }
+      // } catch (error) {
+        // console.error("Error in submit process:", error);
+      //   throw error; // Re-throw to let React Query handle it
+      // }
     }
   }, [sessionDuration, userID, signSessionDuration, signApproveFundControllerMutation, submitLearningRequestMutation, contractAddress, controller_address, amount, dateTime, teacherID, teachingLang]);
 

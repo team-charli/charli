@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useIsOnboarded } from './useIsOnboarded'; // Assume this hook exists
-import { useSupabaseClient } from './useSupabaseClient'; // Assume this hook exists
+import { useIsOnboarded, useSupabaseClient } from '@/contexts/AuthContext';
 
 const useLanguageData = (modeView: 'Learn' | 'Teach' | 'Schedule') => {
   const { data: isOnboarded } = useIsOnboarded();

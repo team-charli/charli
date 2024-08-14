@@ -1,5 +1,5 @@
 // usePkpWalletQuery.ts
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { litNodeClient } from '@/utils/litClients';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
@@ -11,7 +11,7 @@ interface PkpWalletQueryParams {
   queryFnData: [IRelayPKP | null | undefined,  SessionSigs | null | undefined]
 }
 
-export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalletQueryParams ) => {
+export const usePkpWalletQuery = ({queryKey, enabledDeps, queryFnData}: PkpWalletQueryParams): UseQueryResult<PKPEthersWallet, Error> => {
   const [currentAccount, sessionSigs] = queryFnData;
  const rpc =  import.meta.env.VITE_SEPOLIA_RPC_URL;
   return useQuery({

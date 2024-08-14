@@ -1,35 +1,39 @@
 //useSignApproveFundController.tsx
 import { usePkpWallet } from "@/contexts/AuthContext";
 import { useMutation } from "@tanstack/react-query";
-import { ethers } from "ethers";
+import { BigNumberish, ethers } from "ethers";
 
 type UseSignApproveFundControllerArgs = {
   contractAddress: string | undefined,
   spenderAddress: string,
-  amount: ethers.BigNumberish | null
+  amount: BigNumberish | null
 }
 
-export const useSignApproveFundController = (/*{ contractAddress, spenderAddress, amount}:UseSignApproveFundControllerArgs*/) => {
+export const useSignApproveFundController = () => {
   const {data: pkpWallet} = usePkpWallet();
+
   return useMutation({
     mutationFn: async ({contractAddress, spenderAddress, amount}: UseSignApproveFundControllerArgs ) => {
+      if (!pkpWallet) throw new Error('pkpWallet undefined');
+      if (!contractAddress) throw new Error('contractAddress undefined');
+      if (!amount) throw new Error('amount undefined');
+      console.log(typeof amount);
+
       const erc20AbiFragment = ["function approve(address spender, uint256 amount) returns (bool)"];
       const iface = new ethers.Interface(erc20AbiFragment);
-      const data = iface.encodeFunctionData("approve", [spenderAddress, amount]);
-      const tx = {
-        to: contractAddress,
-        data: data,
-      };
+        const data = iface.encodeFunctionData("approve", [spenderAddress, amount]);
+        const tx = {
+          to: contractAddress,
+          data: data,
+        };
 
-      try {
         const signedTx = await pkpWallet.signTransaction(tx);
         console.log("Signed Approve transaction:", signedTx);
         return signedTx;
-      } catch (e) {
-        console.error("Problem signing transaction", e);
-        throw new Error(`Problem signing transaction: ${e}`);
-      }
+      // } catch (error) {
+      //   console.error("Error in useSignApproveFundController:", error);
+      //   throw error; // Re-throw the original error
+      // }
     }
-  }
-  );
+  });
 };

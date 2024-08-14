@@ -1,56 +1,52 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SessionParamsResult } from "../../types/types";
 
-export const fetchLearnerToControllerParams = async (supabaseClient: SupabaseClient, sessionId: number): Promise<SessionParamsResult> => {
-
-  const defaultReturn: SessionParamsResult = {
-    controllerPublicKey: null,
-    controllerAddress: null,
-    learnerAddress: null,
-    requestedSessionDuration: null,
-    requestedSessionDurationLearnerSig: null,
-    keyId: null,
-    hashedLearnerAddress: null
-  };
+export const fetchLearnerToControllerParams = async (
+  supabaseClient: SupabaseClient,
+  sessionId: number
+): Promise<SessionParamsResult> => {
   if (!supabaseClient) {
-    console.error("Supabase client is not available or is loading.");
-    return defaultReturn;
+    throw new Error("Supabase client is not available or is loading.");
   }
 
   try {
-    const { data: session, error } = await supabaseClient
+    const { data: session, error: sessionError } = await supabaseClient
       .from("sessions")
-      .select("controller_public_key, controller_address, learner_id, requested_session_duration, requested_session_duration_learner_sig, controller_claim_keyid, hashed_learner_address")
+      .select(`
+        controller_public_key,
+        controller_address,
+        learner_id,
+        requested_session_duration,
+        requested_session_duration_learner_sig,
+        controller_claim_keyid,
+        hashed_learner_address
+      `)
       .eq('id', sessionId)
       .single();
 
-    if (error) {
-      console.error(error);
-      return defaultReturn;
-    }
+    if (sessionError) throw sessionError;
+    if (!session) throw new Error("Session not found");
 
-    if (session) {
-      const { controller_public_key, controller_address, learner_id, requested_session_duration, controller_claim_keyid, requested_session_duration_learner_sig, hashed_learner_address } = session;
-      let learner_address;
-      try {
-        const {data: userData, error: learnerAddressError} = await supabaseClient
-          .from('user_data')
-          .select("user_address")
-          .eq('id', learner_id)
-          .single();
-        if (learnerAddressError || !userData) console.error(learnerAddressError);
-        if (!userData) throw new Error(`userData.learner_address not returned`)
-        learner_address = userData.user_address;
-      } catch (learnerAddressError) {
-        console.error(error);
-        throw new Error(`Error fetching learner_address`)
-      }
-      return { controllerPublicKey: controller_public_key, controllerAddress: controller_address, learnerAddress: learner_address, requestedSessionDuration: requested_session_duration, requestedSessionDurationLearnerSig: requested_session_duration_learner_sig, keyId: controller_claim_keyid, hashedLearnerAddress: hashed_learner_address};
+    const { data: userData, error: userError } = await supabaseClient
+      .from('user_data')
+      .select("user_address")
+      .eq('id', session.learner_id)
+      .single();
 
-    }
+    if (userError) throw userError;
+    if (!userData) throw new Error("User data not found");
+
+    return {
+      controllerPublicKey: session.controller_public_key,
+      controllerAddress: session.controller_address,
+      learnerAddress: userData.user_address,
+      requestedSessionDuration: session.requested_session_duration,
+      requestedSessionDurationLearnerSig: session.requested_session_duration_learner_sig,
+      keyId: session.controller_claim_keyid,
+      hashedLearnerAddress: session.hashed_learner_address
+    };
   } catch (error) {
-    console.error(error)
-    return defaultReturn;
+    console.error("Error fetching learner to controller params:", error);
+    throw error;
   }
-  return defaultReturn;
-}
+};
