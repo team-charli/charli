@@ -19,6 +19,10 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
     if (showIndicator) alert("Notification Alert Triggered!")
   }, [showIndicator])
 
+  useEffect(() => {
+    console.log('notifications', notifications)
+  }, [notifications])
+
 
   const classifySession = (session: Session): Omit<ExtendedSession, keyof Session> => {
     const isProposed = !!session.request_time_date && !session.confirmed_time_date && !session.counter_time_date && !session.session_rejected_reason;

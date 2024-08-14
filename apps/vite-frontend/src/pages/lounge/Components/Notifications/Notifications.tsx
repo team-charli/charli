@@ -1,4 +1,3 @@
-import { toLower } from 'lodash';
 import useLocalStorage from '@rehooks/local-storage';
 import NotificationComponent from './NotificationComponent';
 import { NotificationIface } from '@/types/types';

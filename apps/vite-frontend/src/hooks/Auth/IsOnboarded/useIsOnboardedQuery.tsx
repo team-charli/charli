@@ -30,7 +30,7 @@ export const useIsOnboardedQuery = ({
           authChainLogger.info ("no supabaseClient or currentAccount");
           throw Error(`need supabase client or currentAccount`)
         }
-        authChainLogger.info('currentAccount', currentAccount.ethAddress)
+        // authChainLogger.info('currentAccount', currentAccount.ethAddress)
 
         const { data, error } = await supabaseClient
           .from("user_data")
