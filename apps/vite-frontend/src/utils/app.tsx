@@ -1,3 +1,4 @@
+import { NotificationIface } from '@/types/types';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import bs58 from 'bs58';
 import {ethers} from 'ethers';
@@ -44,11 +45,6 @@ export const formatDateTimeLocal = (date: Date): string => {
 };
 
 
-export const checkIfNotificationExpired = (dateStr: string): boolean => {
-  const now = new Date();
-  const targetDate = new Date(dateStr);
-  return targetDate < now; // Returns true if the targetDate is in the past compared to now
-}
 
 export const convertUtcToLocalTime = (utcTime: string) => {
   const localDateTime = new Date(utcTime);
@@ -236,3 +232,13 @@ export function hasTanstackQueryStorage() {
     }
     return false; // No matching keys found
 }
+
+export const getSignificantDate = (notification: NotificationIface): Date => {
+  if (notification.confirmed_time_date) {
+    return new Date(notification.confirmed_time_date);
+  } else if (notification.counter_time_date) {
+    return new Date(notification.counter_time_date);
+  } else {
+    return new Date(notification.request_time_date);
+  }
+};

@@ -1,6 +1,8 @@
 // useLangNavDataQuery.ts
 import { useQuery } from '@tanstack/react-query';
 import { useIsOnboarded, useLitAccount, useSupabaseClient } from '@/contexts/AuthContext';
+import { Dispatch, useEffect, useMemo } from 'react';
+import { SetStateAction } from 'jotai';
 
 interface Language {
   id: number;
@@ -11,10 +13,8 @@ interface Language {
 }
 
 interface UserLanguages {
-  wantsToTeachLangs: (Language | null)[]
-;
+  wantsToTeachLangs: (Language | null)[];
   wantsToLearnLangs: (Language | null)[];
-
 }
 
 interface UserDataResponse {
@@ -22,49 +22,75 @@ interface UserDataResponse {
   wants_to_learn_langs: number[];
 }
 
-export const useLangNavDataQuery = () => {
+export const useLangNavDataQuery = (modeView: "Learn" | "Teach", setSelectedLang: Dispatch<SetStateAction<string>>, selectedLang: string) => {
   const {data: supabaseClient} = useSupabaseClient();
   const {data: litAccount} = useLitAccount();
   const {data: isOnboarded} = useIsOnboarded();
-  // console.log('call useIsOnboarded -- useLangNavDataQuery')
 
   const fetchLanguages = async (): Promise<UserLanguages> => {
     if (!supabaseClient) throw new Error('supabaseClient undefined');
     if (!litAccount) throw new Error('litAccount not available');
-    if (supabaseClient && typeof supabaseClient.from !== 'function') {
-      // console.log("supabaseClient without the from method???", supabaseClient)
-    }
 
-    const { data, error } = await supabaseClient
+    if (supabaseClient && litAccount) {
+      const { data, error } = await supabaseClient
       .from('user_data')
       .select(`wants_to_teach_langs, wants_to_learn_langs`)
       .eq('user_address', litAccount.ethAddress)
       .single<UserDataResponse>();
+      if (error) throw error;
 
-    if (error) throw error;
 
-    const fetchLanguageDetails = async (languageIds: number[]) => {
-      return Promise.all(
-        languageIds.map(async (languageId: number) => {
-          const { data: languageData } = await supabaseClient
+      const fetchLanguageDetails = async (languageIds: number[]) => {
+        return Promise.all(
+          languageIds.map(async (languageId: number) => {
+            const { data: languageData } = await supabaseClient
             .from('languages')
             .select('*')
             .eq('id', languageId)
             .single<Language>();
-          return languageData;
-        })
-      );
-    };
+            return languageData;
+          })
+        );
+      };
 
-    const wantsToTeachLangs = await fetchLanguageDetails(data?.wants_to_teach_langs || []);
-    const wantsToLearnLangs = await fetchLanguageDetails(data?.wants_to_learn_langs || []);
+      const wantsToTeachLangs = await fetchLanguageDetails(data?.wants_to_teach_langs || []);
+      const wantsToLearnLangs = await fetchLanguageDetails(data?.wants_to_learn_langs || []);
 
-    return { wantsToTeachLangs, wantsToLearnLangs };
+      return { wantsToTeachLangs, wantsToLearnLangs };
+    }
+    return null;
   };
 
-  return useQuery<UserLanguages, Error>({
+  const langNavDataQuery = useQuery<UserLanguages, Error>({
     queryKey: ['langNavData'],
     queryFn: fetchLanguages,
     enabled: !!supabaseClient && !!isOnboarded
   });
+
+  const {data: languageData} = langNavDataQuery;
+
+  const languagesToShow = useMemo(() => {
+    if (!languageData) return [];
+
+    return (modeView === 'Learn'
+      ? languageData.wantsToLearnLangs
+      : languageData.wantsToTeachLangs
+    ).filter((lang): lang is Language => lang !== null)
+      .map(lang => ({ name: lang.name, display: `${lang.name} ${lang.emoji || ''}` }));
+  }, [modeView, languageData]);
+
+  useEffect(() => {
+    if (languagesToShow.length > 0) {
+      const currentLangExists = languagesToShow.some(lang => lang.name === selectedLang);
+      if (!currentLangExists) {
+        setSelectedLang(languagesToShow[0].name);
+      }
+    }
+  }, [languagesToShow, selectedLang, setSelectedLang]);
+
+  return {
+    languagesToShow,
+    isLoading: langNavDataQuery.isLoading,
+    error: langNavDataQuery.error
+  };
 };

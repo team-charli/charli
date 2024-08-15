@@ -58,16 +58,7 @@ export interface HydrateAtomsIface {
   children: ReactNode;
 }
 
-interface Notification {
- unread: boolean;
- text: string;
-}
 
-export interface UIContextObj {
-  firedLogin: boolean;
-  setFiredLogin: Dispatch<SetStateAction<true | false>>;
-  notification: Notification;
-}
 
 export interface OnboardStateProviderProps  {
   children: ReactNode;
@@ -89,8 +80,6 @@ export interface HuddleProviderProps {
   children: ReactNode;
 }
 
-export interface NotificationProviderProps {
-  children: ReactNode;
 }
 
 export interface UseIsOnboardedParam {
@@ -108,139 +97,8 @@ export interface LoginViewProps {
   parentIsRoute: boolean;
 }
 
-export type ReceivedTeachingRequestProps = {
-  notification: NotificationIface;
-};
 
 
-export interface ConfirmedLearningRequestProps {
-  notification: NotificationIface;
-}
-
-export interface UIProviderProps  {
-  children: ReactNode;
-}
-
-export type LocationState = {
-  countryCode: string;
-  countryName: string;
-};
-
-export type GeolocationApiResponse = {
-  status: string;
-  country: string;
-  countryCode: string;
-  region: string;
-  regionName: string;
-  city: string;
-  zip: string;
-  lat: number;
-  lon: number;
-  timezone: string;
-  isp: string;
-  org: string;
-  as: string;
-  query: string;
-};
-
-export interface Country {
-  'name': string;
-  'alpha-2': string;
-  'alpha-3': string;
-  'country-code': string;
-  'iso_3166-2': string;
-  'region': string;
-  'sub-region': string;
-  'intermediate-region': string;
-  'region-code': string;
-  'sub-region-code': string;
-  'intermediate-region-code': string;
-}
-
-
-export interface ifaceLanguageCountryMap  {
-  country_code: string;
-  country_name: string;
-  lang_iso3: string;
-}
-
-export type CountryInfo = {
-  country_code: string;
-  country_name: string;
-  lang_iso3: string;
-};
-
-export type LanguageEntry = {
-  [key: string]: CountryInfo[];
-};
-
-export type ifaceLanguages = LanguageEntry[];
-
-export interface LanguageInfo {
-  language: string;
-  langA3: string;
-  primaryFlag: string;
-  secondaryFlag: string;
-  omitSecondaryFlag: boolean;
-}
-
-interface RegionToCountryMap  {
-  [region: string]: string | 'geolocation';
-}
-
-export interface FlagRules {
-  [languageCode: string]: RegionToCountryMap;
-}
-
-export interface FlagCodes {
-  [language: string]: {
-    primary: string;
-    secondary: string;
-  };
-}
-
-export interface EmojiFlags {
-  [language: string]: {
-    primary: string;
-    secondary: string;
-  };
-}
-
-export interface SubRegionInfo {
-  subRegion: string;
-  intermediateRegion: string;
-}
-
-export interface CountryDataset {
-  [key: string]: {
-    name: string;
-    alpha2: string;
-    alpha3: string;
-    region: string;
-    subRegion: string;
-    intermediateRegion: string;
-    flag: string;
-  };
-}
-
-export interface LanguageDataset {
-  [language: string]: {
-    countries: string[];
-    flags: string[];
-  };
-}
-
-export interface PopFlags {
-   [language: string] : {
-    country: string;
-    population?: number;
-    flag: string;
-  }
-}
-
-export interface LangIso2NameMap {
-  [key: string]: string;
-}
 
 export interface LanguageButton {
   id: number;
@@ -351,12 +209,19 @@ type PreSessionStateFlags = {
 };
 
 type PostSessionStateFlags = {
-  // isStarted: boolean;
-  // isEnded: boolean;
   isExpired: boolean;
 }
 
-export type ExtendedSession = Session /*&& SessionCategoryFlags */& PreSessionStateFlags & PostSessionStateFlags ;
+export type ExtendedSession = Session & PreSessionStateFlags & PostSessionStateFlags ;
+
+
+export type ReceivedTeachingRequestProps = {
+  notification: NotificationIface;
+};
+
+export interface ConfirmedLearningRequestProps {
+  notification: NotificationIface;
+}
 
 export type NotificationContextType = {
   notificationsContextValue: ExtendedSession[];
@@ -365,7 +230,6 @@ export type NotificationContextType = {
 };
 
 export interface NotificationIface {
-  type: 'Learn' | 'Teach';
   subType: string;
   session_id: number;
   request_origin_type?: 'learner' | 'teacher';
@@ -497,3 +361,19 @@ export type AuthMethodPlus = {
   accessToken: string;
   idToken: string;
 }
+
+export interface Language {
+  id: number;
+  name: string;
+  language_code: string;
+  country_code: string | null;
+  emoji: string | null;
+}
+
+export interface UserItemIface {
+ userName: string,
+  userID: number,
+  lang: string,
+  modeView: "Learn" | "Teach"
+}
+

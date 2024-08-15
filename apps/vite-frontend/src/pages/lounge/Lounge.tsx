@@ -1,11 +1,10 @@
 // Lounge.tsx
-import { useEffect, useState, useMemo } from 'react'
+import { useState } from 'react'
 import IconHeader from '@/components/IconHeader'
 import DropDownButton from './Components/Interactions/DropDownButton'
 import LangNav from './Components/Interactions/LangNav'
-import LearnerView from './Components/LearnerMode/LearnerView'
-import TeacherView from './Components/TeacherMode/TeacherView'
 import { useLangNavDataQuery } from '@/hooks/Lounge/QueriesMutations/useLangNavDataQuery'
+import { UserView } from './Components/UserView'
 
 interface Language {
   id: number;
@@ -29,11 +28,7 @@ export const Lounge = () => {
         languagesToShow={languagesToShow}
       />
       <DropDownButton modeView={modeView} setModeView={setModeView} />
-      {modeView === "Learn" ? (
-        <LearnerView modeView={modeView} selectedLang={selectedLang} />
-      ) : (
-          <TeacherView modeView={modeView} selectedLang={selectedLang} />
-        )}
+      <UserView modeView={modeView} selectedLang={selectedLang} />
     </>
   )
 }

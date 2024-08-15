@@ -1,5 +1,6 @@
 //routes.ts
 import LoginRoute from '@/pages/login'
+import RoomRoute from '@/pages/room[id]/Room'
 import { createRootRouteWithContext, createRoute, ErrorComponent, Outlet, redirect } from '@tanstack/react-router'
 import Entry from '@/pages/Entry'
 import { RouterContext } from './router'
@@ -166,10 +167,23 @@ export const bolsaRoute = createRoute({
   component: BolsaRoute
 })
 
+export const roomRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/room/$id',
+  component: RoomRoute,
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      roomRole: search.roomRole as string,
+      sessionId: search.sessionId as string,
+    }
+  },
+})
+
 export const routeTree = rootRoute.addChildren([
   entry,
   loginRoute,
   onboardRoute,
   loungeRoute,
+  roomRoute,
   bolsaRoute,
 ])

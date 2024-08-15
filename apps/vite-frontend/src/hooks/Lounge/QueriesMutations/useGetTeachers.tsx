@@ -1,3 +1,4 @@
+//useGetTeachers.tsx
 import { useSupabaseClient } from "@/contexts/AuthContext";
 import useLocalStorage from "@rehooks/local-storage";
 import { UseQueryResult, useQuery } from "@tanstack/react-query";

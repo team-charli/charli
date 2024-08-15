@@ -7,7 +7,7 @@ import {
   SentLearningRequest,
   TeacherProposedAlternate,
   TeacherRejectedRequest
-} from './Notifications/NotificationComponents';
+} from './NotificationComponents';
 
 interface NotificationItemProps {
   notification: NotificationIface;

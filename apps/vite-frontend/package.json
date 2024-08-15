@@ -12,7 +12,7 @@
   "dependencies": {
     "@ethersproject/bytes": "^5.7.0",
     "@ethersproject/wallet": "^5.7.0",
-    "@headlessui/react": "^1.7.19",
+    "@headlessui/react": "^2.1.2",
     "@heroicons/react": "^2.1.4",
     "@huddle01/react": "^2.0.14",
     "@lit-protocol/constants": "6.4.2",

@@ -1,4 +1,3 @@
-import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useRoom } from '@huddle01/react/hooks';
 import useLocalStorage from '@rehooks/local-storage';
@@ -12,14 +11,14 @@ import { useSessionDurationIPFS } from '../../hooks/IPFS/useSessionDurationIPFS'
 import { NotificationIface } from '@/types/types';
 import LocalPeer from './Components/LocalPeer';
 import RemotePeer from './Components/RemotePeer';
+import { redirect } from '@tanstack/react-router';
 
 interface RoomQueryParams {
   id: string;
   roomRole: 'teacher' | 'learner';
   notification: string;
 }
-const Room  = () => {
-  const router = useRouter();
+const Roomt = () => {
   const { id: roomId, roomRole, notification } = router.query as unknown as RoomQueryParams;
 
   const parsedNotification: NotificationIface = JSON.parse(notification);
@@ -83,7 +82,7 @@ const Room  = () => {
     void (async () => {
       if ( onLeaveCalled ) {
         console.log('push to room summary');
-        await router.push(`/room[roodId]-summary`);
+         throw redirect `/room[roodId]-summary`;
       }
     })();
   }, [onLeaveCalled, router])

@@ -19,7 +19,7 @@ export const useLearnerSubmitLearningRequest = () => {
     }: {
       dateTime: string;
       teacherID: number;
-      userID: string;
+      userID: number;
       teachingLang: string;
       sessionDuration: number;
       learnerSignedSessionDuration: SignatureLike;

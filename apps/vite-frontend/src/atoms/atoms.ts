@@ -4,6 +4,7 @@ import { AuthMethod, AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { atomWithStorage } from 'jotai/utils';
 import { sessionSigsExpired } from '@/utils/app';
+import { NotificationIface } from '@/types/types';
 
 export const renderLoginButtonsAtom = atom<boolean>(false);
 export const selectedLangAtom = atom<string>('');
@@ -17,5 +18,4 @@ export const userIdAtom = atom<string | null>(null);
 
 export const userNameAtom = atom<string>('')
 
-
-
+export const sessionDataAtom = atom<NotificationIface>();

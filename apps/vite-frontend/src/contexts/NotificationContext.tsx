@@ -8,15 +8,15 @@ import { classifySession } from './helpers';
 import useInitialNotifications from './Queries/useInitialNotifications';
 
 const NotificationContext = createContext<NotificationContextType>({ notificationsContextValue: [], showIndicator: false, setShowIndicator: ()=>{} });
-const [userId] = useLocalStorage<number>("userID");
 
 export const useNotificationContext = () => useContext(NotificationContext);
 
 const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
+const [userId] = useLocalStorage<number>("userID");
   const {data: supabaseClient} = useSupabaseClient();
 
   const [showIndicator, setShowIndicator] = useState<boolean>(false);
-    const { data: initialNotifications } = useInitialNotifications();
+  const { data: initialNotifications } = useInitialNotifications();
 
   const [notifications, setNotifications] = useState<ExtendedSession[]>([]);
 
@@ -69,7 +69,6 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
             setNotifications(notifications => [...notifications, extendedSession]);
           } catch (error) {
             console.error('Error processing realtime update:', error);
-            // Optionally, you could update some error state here
             // setError('Failed to process realtime update');
           }
         }

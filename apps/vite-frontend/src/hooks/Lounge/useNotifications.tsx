@@ -2,14 +2,13 @@
 import { useNotificationContext } from '@/contexts/NotificationContext';
 import { NotificationIface} from '@/types/types';
 
-export const useNotifications = (modeView: "Learn" | "Teach" ): NotificationIface[] => {
+export const useNotifications = (): NotificationIface[] => {
   const { notificationsContextValue } = useNotificationContext();
 
   return notificationsContextValue.reduce((acc: NotificationIface[], sessionRow) => {
     let notification: NotificationIface | null = null;
 
     const baseNotification: Partial<NotificationIface> = {
-      type: modeView.toLowerCase() as 'Learn' | 'Teach',
       session_id: sessionRow.session_id,
       request_time_date: sessionRow.request_time_date,
       teacherName: sessionRow.teacherName,

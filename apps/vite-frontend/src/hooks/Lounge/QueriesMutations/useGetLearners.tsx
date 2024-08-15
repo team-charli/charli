@@ -4,7 +4,6 @@ interface FetchLearnersResponse {
   wants_to_learn_langs: string[];
   id: number;
 }
-//WIP: mirror  useGetTeachers.tsx
 import { UseQueryResult, useQuery } from '@tanstack/react-query';
 import useLocalStorage from '@rehooks/local-storage';
 import { useSupabaseClient } from '@/contexts/AuthContext';
