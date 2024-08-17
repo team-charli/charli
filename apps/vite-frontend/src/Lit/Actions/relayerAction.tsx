@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-// const RelayerAction = `
+const RelayerAction = `
 (async () => {
   const { signedTx, expectedSender, usdcContractAddress, spenderAddress, amount } = args;
 
@@ -88,4 +88,4 @@
     })
   });
 })();
-// `;
+`;

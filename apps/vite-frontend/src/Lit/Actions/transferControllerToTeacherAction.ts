@@ -30,7 +30,7 @@
 // userAddress = "0x"
 // ;
 /* above are passed in params, must delete before deploy */
-// export const transferControllerToTeacherAction = `
+export const transferControllerToTeacherAction = `
 (async () => {
   const CHARLI_SESSION_SESSION_TIME_TRACKER_ADDRESS = '0x3A7a366A278559BC57F3750D458aE2bB044252d0'
   const USDC_CONTRACT_ADDRESS = "0x"
@@ -184,5 +184,5 @@
     })
   }
 })();
-// `
+`
 

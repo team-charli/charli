@@ -14,6 +14,7 @@ import OnboardRoute from '@/pages/onboard/OnboardRoute'
 import BolsaRoute from '@/pages/bolsa/BolsaRoute';
 import { sessionSigsExNearReAuth } from './RouteQueries/sessionSigsExNearReAuth'
 import { supabaseExpNearReAuth } from './RouteQueries/supabaseExpNearReAuth'
+import { signOutComplete } from './RouteQueries/signOutComplete'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
@@ -25,6 +26,19 @@ export const rootRoute = createRootRouteWithContext<RouterContext>()({
       return;
     }
     routingLogger.info("root route")
+    const threshold = 900 //seconds
+    const supabaseTokenNearEx = supabaseExpNearReAuth(queryClient, threshold)
+    const sessionSigsNearReAuth = sessionSigsExNearReAuth(queryClient, threshold)
+    if (supabaseTokenNearEx) {
+      console.log("supabaseTokenNearEx")
+      signOutComplete(queryClient);
+      throw redirect({to: '/login'})
+
+    } else if (sessionSigsNearReAuth) {
+      console.log("sessionSigsNearReAuth");
+      signOutComplete(queryClient);
+      throw redirect({to: '/login'})
+    }
   }
 })
 
@@ -41,10 +55,8 @@ export const entry = createRoute({
     }
 
     const {isOnboarded, isLitLoggedIn} = entryRouteQueries(queryClient);
-    const threshold = 900 //seconds
-    supabaseExpNearReAuth(queryClient, threshold)
-    sessionSigsExNearReAuth(queryClient, )
     routingLogger.info("entry route")
+
 
     if (isLitLoggedIn && isOnboarded === false) {
       routingLogger.info('Conditions met for routing to /onboard');
@@ -90,10 +102,6 @@ export const loginRoute = createRoute({
     if (isLitLoggedIn && isOnboarded) {
       routingLogger.info('isLitLoggedIn && isOnboarded: routing to /lounge');
       throw redirect({ to: '/lounge' });
-    }
-    if (!isLitLoggedIn) {
-      routingLogger.info('!isLitLoggedIn: redirecting to /login');
-      throw redirect({ to: '/login' });
     }
   }
 })

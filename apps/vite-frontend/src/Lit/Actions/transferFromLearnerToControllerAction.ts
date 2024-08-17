@@ -17,7 +17,7 @@
 
 // Above  values should be dynamically passed to the Lit Action through executeJs they are included here to avoid triggering ide diagnostics
 
-// export const transferFromLearnerToControllerAction = `
+export const transferFromLearnerToControllerAction = `
 (async () => {
 const verifyDurationAndId = () => {
   // Encode the data
@@ -139,5 +139,5 @@ const conditions = [
     LitActions.setResponse({ response: JSON.stringify({ error: "ACC failed: Insufficient allowance" }) });
   }
 })();
-// `
+`
 
