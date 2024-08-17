@@ -40,7 +40,9 @@ const [userId] = useLocalStorage<number>("userID");
           filter: `teacher_id=eq.${userId},learner_id=eq.${userId}`,
         },
         async (payload: RealtimePostgresChangesPayload<Session> | null) => {
+          console.log('payload', payload)
           try {
+
             if (payload === null) {
               console.error('Received null payload');
               return;

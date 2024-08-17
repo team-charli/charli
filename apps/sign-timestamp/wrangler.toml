@@ -1,5 +1,0 @@
-name = "sign-timestamp"
-compatibility_date = "2023-07-31"
-main = "src/index.ts"
-
-

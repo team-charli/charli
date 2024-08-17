@@ -19,7 +19,8 @@ export const fetchLearnerToControllerParams = async (
         requested_session_duration,
         requested_session_duration_learner_sig,
         controller_claim_keyid,
-        hashed_learner_address
+        hashed_learner_address,
+        secure_session_id
       `)
       .eq('id', sessionId)
       .single();

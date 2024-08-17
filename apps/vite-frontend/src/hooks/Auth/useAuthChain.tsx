@@ -48,7 +48,6 @@ export const useAuthChain = () => {
     queryKey: ['isLitLoggedIn'],
     enabledDeps: !!litAccountQuery.data && !!sessionSigsQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [litAccountQuery.data, sessionSigsQuery.data],
-    persister
   });
 
   const pkpWalletQuery = usePkpWalletQuery({
@@ -65,7 +64,7 @@ export const useAuthChain = () => {
 
 
   const signInSupabaseQuery = useSignInSupabaseQuery({
-    queryKey: ['signInSupabase', signinRedirectQuery.data?.idToken],
+    queryKey: ['signInSupabase', signinRedirectQuery.data?.idToken || persistedAuthData.data?.idToken],
     enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) ||  (!!authMethodQuery.data ?? false) && (!!supabaseClientQuery.data ?? false) && typeof supabaseClientQuery.data?.auth.signInWithIdToken === 'function',
     queryFnData: signinRedirectQuery.data || authMethodQuery.data,
     supabaseClient: supabaseClientQuery.data

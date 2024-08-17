@@ -15,7 +15,8 @@ export const useLearnerSubmitLearningRequest = () => {
       userID,
       teachingLang,
       sessionDuration,
-      learnerSignedSessionDuration
+      learnerSignedSessionDuration,
+      secureSessionId
     }: {
       dateTime: string;
       teacherID: number;
@@ -23,6 +24,7 @@ export const useLearnerSubmitLearningRequest = () => {
       teachingLang: string;
       sessionDuration: number;
       learnerSignedSessionDuration: SignatureLike;
+      secureSessionId: string;
     }) => {
       if (!supabaseClient || !currentAccount) {
         throw new Error('Supabase client or current account not available');
@@ -42,6 +44,7 @@ export const useLearnerSubmitLearningRequest = () => {
             requested_session_duration: sessionDuration,
             hashed_learner_address,
             requested_session_duration_learner_sig: learnerSignedSessionDuration,
+            secure_session_id: secureSessionId
           },
         ])
         .select();

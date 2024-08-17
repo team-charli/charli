@@ -1,3 +1,4 @@
+// @ts-nocheck
 // declare const ethers: any
 // let learnerAddress='0x'
 // let controllerAddress='0x'
@@ -16,25 +17,36 @@
 
 // Above  values should be dynamically passed to the Lit Action through executeJs they are included here to avoid triggering ide diagnostics
 
-export const transferFromLearnerToControllerAction = `
+// export const transferFromLearnerToControllerAction = `
 (async () => {
-  const verifyDuration = () => {
-    const teacherAddress = ethers.verifyMessage(String(sessionDuration), requestedSessionDurationTeacherSig);
-    const learnerAddress = ethers.verifyMessage(String(sessionDuration), requestedSessionDurationLearnerSig);
+const verifyDurationAndId = () => {
+  // Encode the data
+  const encodedData = ethers.utils.defaultAbiCoder.encode(
+    ["string", "uint256"],
+    [sessionId, sessionDuration]
+  );
 
-    const teacherSignedDuration: boolean =  hashedTeacherAddress === ethers.keccak256(teacherAddress);
-    const learnerSignedDuration: boolean = hashedLearnerAddress === ethers.keccak256(hashedLearnerAddress);
+  // Hash the encoded data
+  const message = ethers.utils.keccak256(encodedData);
 
-    //redundant checks for visibility; check made before join session
-    if (!teacherSignedDuration) {
-      LitActions.setResponse({ response: JSON.stringify({ error: "teacher never signed session duration" }) });
-      throw new Error()
-    } else if (!learnerSignedDuration) {
-      LitActions.setResponse({ response: JSON.stringify({ error: "learner never signed session duration" }) });
-      throw new Error()
-    }
+  // Recover the addresses from the signatures
+  const recoveredLearnerAddress = ethers.utils.verifyMessage(ethers.utils.arrayify(message), requestedSessionDurationLearnerSig);
+  const recoveredTeacherAddress = ethers.utils.verifyMessage(ethers.utils.arrayify(message), requestedSessionDurationTeacherSig);
+
+  // Hash the recovered addresses
+  const hashedRecoveredLearnerAddress = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(recoveredLearnerAddress));
+  const hashedRecoveredTeacherAddress = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(recoveredTeacherAddress));
+
+  // Compare the hashed recovered addresses with the provided hashed addresses
+  const learnerSignedDuration = hashedLearnerAddress === hashedRecoveredLearnerAddress;
+  const teacherSignedDuration = hashedTeacherAddress === hashedRecoveredTeacherAddress;
+
+  if (!learnerSignedDuration || !teacherSignedDuration) {
+    LitActions.setResponse({ response: JSON.stringify({ error: "Invalid signatures or addresses don't match" }) });
+    throw new Error("Invalid signatures or addresses don't match");
   }
-  verifyDuration();
+}
+  verifyDurationAndId();
 
   const abi = [
     "function transferFrom(address sender, address recipient, uint256 amount) returns (boolean)"
@@ -64,19 +76,19 @@ export const transferFromLearnerToControllerAction = `
   const unsignedTxn = ethers.utils.keccak256(serializedTx);
   const toSign = ethers.utils.arrayify(unsignedTxn);
 
-  const conditions = [
-    {
-      contractAddress: usdcContractAddress,
-      standardContractType: "ERC20",
-      chain,
-      method: "allowance",
-      parameters: [learnerAddress, ':userAddress'],
-      returnValueTest: {
-        comparator: '>=',
-        value: ethers.utils.formatUnits(amount, 6)
-      }
+const conditions = [
+  {
+    contractAddress: usdcContractAddress,
+    standardContractType: "ERC20",
+    chain,
+    method: "allowance",
+    parameters: [learnerAddress, controllerAddress],
+    returnValueTest: {
+      comparator: '>=',
+      value: ethers.utils.formatUnits(amount, 6)
     }
-  ];
+  }
+];
 
   const learnerAllowedAmount = await LitActions.checkConditions({conditions, authSig, chain});
 
@@ -127,5 +139,5 @@ export const transferFromLearnerToControllerAction = `
     LitActions.setResponse({ response: JSON.stringify({ error: "ACC failed: Insufficient allowance" }) });
   }
 })();
-`
+// `
 

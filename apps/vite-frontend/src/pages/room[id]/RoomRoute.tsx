@@ -18,7 +18,7 @@ interface RoomQueryParams {
   roomRole: 'teacher' | 'learner';
   notification: string;
 }
-const Roomt = () => {
+const Room = () => {
   const { id: roomId, roomRole, notification } = router.query as unknown as RoomQueryParams;
 
   const parsedNotification: NotificationIface = JSON.parse(notification);

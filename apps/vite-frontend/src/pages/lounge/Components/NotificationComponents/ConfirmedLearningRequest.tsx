@@ -4,7 +4,7 @@ import { useLocalizeAndFormatDateTime } from '@/hooks/utils/useLocalizeAndFormat
 import { ConfirmedLearningRequestProps } from '@/types/types';
 import { formatUtcTimestampToLocalStrings } from '@/utils/app';
 import {Link} from '@tanstack/react-router';
-
+//TODO: render a notifcation on successfully submit
 const ConfirmedLearningRequest = ({ notification: sessionData }: ConfirmedLearningRequestProps) => {
   if (!sessionData.roomId) throw new Error('sessionData.roomId is undefined')
   const { formattedDate, formattedTime } = formatUtcTimestampToLocalStrings(sessionData?.confirmed_time_date);

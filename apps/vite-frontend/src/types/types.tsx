@@ -276,6 +276,7 @@ export interface SessionParamsResult {
     requestedSessionDurationLearnerSig: string | null;
     keyId: string | null;
     hashedLearnerAddress: string | null;
+    secureSessionId: string | null;
 }
 
 export interface TimestampResponse {

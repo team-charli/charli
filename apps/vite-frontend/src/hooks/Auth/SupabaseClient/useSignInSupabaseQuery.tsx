@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient, User, Session } from '@supabase/supabase-js';
 import { AuthData, AuthMethodPlus } from '@/types/types';
 
 export interface SignInResult {
   authProviderId: string | null;
-  user: any | null;
+  user: User | null;
+  session: Session | null;
   error: Error | null;
 }
 
@@ -63,11 +64,12 @@ export const useSignInSupabaseQuery = ({
           return {
             authProviderId: data.user.id,
             user: data.user,
+            session: data.session,
             error: null
           };
         } catch (error) {
           console.error("Error in signInWithIdToken:", error);
-          return { authProviderId: null, user: null, error: error as Error };
+          return { authProviderId: null, user: null, session: null, error: error as Error };
         }
       } else if (supabaseClient && authMethod && Object.keys(authMethod).length > 0) {
         try {
@@ -97,10 +99,10 @@ export const useSignInSupabaseQuery = ({
           return {authProviderId: data.user.id, user: data.user, error: null}
         } catch (error) {
           console.error("Error in signInWithIdToken:", error);
-          return { authProviderId: null, user: null, error: error as Error };
+          return { authProviderId: null, user: null, session: null, error: error as Error };
         }
       } else {
-        return { authProviderId: null, user: null, error: new Error('Missing Supabase client or auth tokens') };
+        return { authProviderId: null, user: null, session: null, error: new Error('Missing Supabase client or auth tokens') };
       }
     },
     enabled: enabledDeps,

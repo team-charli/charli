@@ -12,6 +12,8 @@ import { loungeRouteQueries } from './RouteQueries/loungeRouteQueries'
 import LoungeRoute from '@/pages/lounge/LoungeRoute'
 import OnboardRoute from '@/pages/onboard/OnboardRoute'
 import BolsaRoute from '@/pages/bolsa/BolsaRoute';
+import { sessionSigsExNearReAuth } from './RouteQueries/sessionSigsExNearReAuth'
+import { supabaseExpNearReAuth } from './RouteQueries/supabaseExpNearReAuth'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
@@ -39,7 +41,9 @@ export const entry = createRoute({
     }
 
     const {isOnboarded, isLitLoggedIn} = entryRouteQueries(queryClient);
-
+    const threshold = 900 //seconds
+    supabaseExpNearReAuth(queryClient, threshold)
+    sessionSigsExNearReAuth(queryClient, )
     routingLogger.info("entry route")
 
     if (isLitLoggedIn && isOnboarded === false) {

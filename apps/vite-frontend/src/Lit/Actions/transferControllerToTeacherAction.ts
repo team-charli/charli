@@ -1,3 +1,4 @@
+// @ts-nocheck
 // import ethers from 'ethers' //remove in deploy
 
 // let teacherRole, teacherPeerId, teacherRoomId, teacherDuration, learnerRole, learnerPeerId, learnerRoomId, learnerDuration, usdcContractAddress, chainId, addressTimestampWorkerWallet,  clientTimestamp, signedClientTimestamp,
@@ -29,7 +30,7 @@
 // userAddress = "0x"
 // ;
 /* above are passed in params, must delete before deploy */
-export const transferControllerToTeacherAction = `
+// export const transferControllerToTeacherAction = `
 (async () => {
   const CHARLI_SESSION_SESSION_TIME_TRACKER_ADDRESS = '0x3A7a366A278559BC57F3750D458aE2bB044252d0'
   const USDC_CONTRACT_ADDRESS = "0x"
@@ -89,11 +90,6 @@ export const transferControllerToTeacherAction = `
     }
 
   }
-  // complete case [x]
-  // verify duration [x]
-  // check both huddle duration [x]
-  // check funds exist [x]
-  // check both signed data [x]
   const learnerFaultCase = (() => {
     if (faultUser !== 'learner') return false;
     let faultSigValid: boolean;
@@ -188,5 +184,5 @@ export const transferControllerToTeacherAction = `
     })
   }
 })();
-`
+// `
 

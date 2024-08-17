@@ -2,14 +2,11 @@ import { sessionSigsExpired } from "@/utils/app";
 import { useQuery } from "@tanstack/react-query";
 import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 import { authChainLogger } from "@/App";
-import { PersisterFunction } from "@/types/types";
 
 interface IsLitLoggedInQueryParams {
   queryKey: [string];
   enabledDeps: boolean;
   queryFnData: [IRelayPKP | null | undefined, SessionSigs | null | undefined],
-  persister: PersisterFunction;
-
 }
 export const useIsLitLoggedInQuery = ({queryKey, enabledDeps, queryFnData}: IsLitLoggedInQueryParams) => {
 

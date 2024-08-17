@@ -1,5 +1,6 @@
 // UserItem.tsx
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
+import {hexlify, randomBytes} from 'ethers';
 import useLocalStorage from "@rehooks/local-storage";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
@@ -20,12 +21,18 @@ interface UserItemProps {
 
 const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
   const [loggedInUserId] = useLocalStorage<number>("userID");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
   // Only initialize these hooks if modeView is "Learn"
   const learningRequestState = modeView === "Learn" ? useLearningRequestState() : null;
   const { controller_address } = modeView === "Learn" ? useComputeControllerAddress() : { controller_address: null };
   const { mutateAsync: signSessionDuration, isPending: isSigningSessionDuration } = modeView === "Learn" ? useSignSessionDuration() : { mutateAsync: null, isPending: false };
   const signApproveFundControllerMutation = modeView === "Learn" ? useSignApproveFundController() : null;
   const submitLearningRequestMutation = modeView === "Learn" ? useLearnerSubmitLearningRequest() : null;
+
+const generateSecureSessionId = useCallback(() => {
+    return hexlify(randomBytes(16));
+  }, []);
 
   const handleSubmitLearningRequest = useCallback(async () => {
     if (modeView !== "Learn" || !learningRequestState) return;
@@ -34,19 +41,27 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
 
     if (sessionDuration && loggedInUserId) {
       try {
-        const learnerSignedSessionDuration = await signSessionDuration!(sessionDuration);
+        const newSecureSessionId: string = generateSecureSessionId();
+
+        const learnerSignedSessionDuration = await signSessionDuration!({
+          duration: sessionDuration,
+          secureSessionId: newSecureSessionId
+        });
+
         await signApproveFundControllerMutation!.mutateAsync({
           contractAddress,
           spenderAddress: controller_address!,
           amount
         });
+
         submitLearningRequestMutation!.mutate({
           dateTime,
           teacherID: userID,
           userID: loggedInUserId,
           teachingLang: lang,
           sessionDuration,
-          learnerSignedSessionDuration
+          learnerSignedSessionDuration,
+          secureSessionId: newSecureSessionId
         }, {
           onSuccess: () => learningRequestState.setRenderSubmitConfirmation(true),
           onError: (error) => console.error("Error submitting learning request:", error),
@@ -55,7 +70,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
         console.error("Error in submit process:", error);
       }
     }
-  }, [modeView, learningRequestState, signSessionDuration, signApproveFundControllerMutation, submitLearningRequestMutation, loggedInUserId, userID, lang, controller_address]);
+  }, [modeView, learningRequestState, signSessionDuration, signApproveFundControllerMutation, submitLearningRequestMutation, loggedInUserId, userID, lang, controller_address, generateSecureSessionId]);
 
   if (modeView === "Teach") {
     return <li key={userID}>{userName}</li>;
