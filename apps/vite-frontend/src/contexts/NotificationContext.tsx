@@ -29,11 +29,8 @@ const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
 
 useEffect(() => {
   if (supabaseClient) {
-    console.log('Setting up subscription for userId:', userId);
 
     async function handlePayload(payload: RealtimePostgresChangesPayload<Session> | null) {
-      console.log('Received payload:', payload);
-      console.log('userID', userId);
       try {
         if (payload === null) {
           console.error('Received null payload');
@@ -87,17 +84,13 @@ useEffect(() => {
         handlePayload
       )
       .subscribe((status) => {
-        console.log('Subscription status:', status);
       });
 
-    console.log('Subscription set up');
 
     return () => {
-      console.log('Cleaning up subscription');
       void (async () => {
         try {
           await subscription.unsubscribe();
-          console.log('Unsubscribed successfully');
         } catch (error) {
           console.error('Error unsubscribing from channel:', error);
         }
@@ -110,9 +103,6 @@ useEffect(() => {
     if (showIndicator) alert("Notification Alert Triggered!")
   }, [showIndicator])
 
-  // useEffect(() => {
-  //   console.log('notifications', notifications)
-  // }, [notifications])
 
   return (
     <NotificationContext.Provider value={{ notificationsContextValue: notifications, showIndicator, setShowIndicator }}>
