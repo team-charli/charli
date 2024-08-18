@@ -13,8 +13,8 @@ import LoungeRoute from '@/pages/lounge/LoungeRoute'
 import OnboardRoute from '@/pages/onboard/OnboardRoute'
 import BolsaRoute from '@/pages/bolsa/BolsaRoute';
 import { sessionSigsExNearReAuth } from './RouteQueries/sessionSigsExNearReAuth'
-import { supabaseExpNearReAuth } from './RouteQueries/supabaseExpNearReAuth'
 import { signOutComplete } from './RouteQueries/signOutComplete'
+import { supabaseAtOrNearExp } from './RouteQueries/supabaseAtOrNearExp'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
@@ -29,26 +29,25 @@ export const rootRoute = createRootRouteWithContext<RouterContext>()({
     routingLogger.info("root route");
     const threshold = 900; // seconds
 
-    // try {
-    //   const sessionSigsNearReAuth = sessionSigsExNearReAuth(queryClient, threshold);
+    try {
+      const sessionSigsNearReAuth = sessionSigsExNearReAuth(queryClient, threshold);
 
-    //   if (sessionSigsNearReAuth) {
-    //     console.log("sessionSigsNearReAuth");
-    //     signOutComplete(queryClient);
-    //     throw redirect({ to: '/login' });
-    //   }
+      if (sessionSigsNearReAuth) {
+        console.log("sessionSigsNearReAuth");
+        signOutComplete(queryClient);
+        throw redirect({ to: '/login' });
+      }
+      const supabaseTokenNearEx = await supabaseAtOrNearExp(queryClient, threshold);
 
-    //   const supabaseTokenNearEx = await supabaseExpNearReAuth(queryClient, threshold);
-
-    //   if (supabaseTokenNearEx) {
-    //     console.log("supabaseTokenNearEx");
-    //     signOutComplete(queryClient);
-    //     throw redirect({ to: '/login' });
-    //   }
-    // } catch (error) {
-    //   console.error("Error in beforeLoad:", error);
-    //   // Handle error, possibly redirecting to an error page
-    // }
+      if (supabaseTokenNearEx) {
+        console.log("supabaseTokenNearEx");
+        signOutComplete(queryClient);
+        throw redirect({ to: '/login' });
+      }
+    } catch (error) {
+      console.error("Error in beforeLoad:", error);
+      // Handle error, possibly redirecting to an error page
+    }
   }
 })
 

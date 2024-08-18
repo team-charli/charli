@@ -1,3 +1,4 @@
+//useSignInSupabaseQuery.tsx
 import { useQuery } from '@tanstack/react-query';
 import { SupabaseClient, User, Session } from '@supabase/supabase-js';
 import { AuthData, AuthMethodPlus } from '@/types/types';

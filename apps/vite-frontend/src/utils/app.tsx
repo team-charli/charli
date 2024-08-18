@@ -241,3 +241,15 @@ export const getSignificantDate = (notification: NotificationIface): Date => {
     return new Date(notification.request_time_date);
   }
 };
+
+export function isTokenExpired(token: string, thresholdSeconds: number = 0): boolean {
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(token.split('.')[1]), c => c.charCodeAt(0))));
+    const expirationTime = payload.exp * 1000; // Convert to milliseconds
+    const currentTime = Date.now();
+    return currentTime >= expirationTime - thresholdSeconds * 1000;
+  } catch (error) {
+    console.error('Error parsing token:', error);
+    // return true; // Assume expired if we can't parse it
+  }
+}

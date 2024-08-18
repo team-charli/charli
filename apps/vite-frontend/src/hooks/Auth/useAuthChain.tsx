@@ -20,12 +20,12 @@ export const useAuthChain = () => {
     queryKey: ['signInRedirect'],
     enabledDeps: true
   })
-  const persistedAuthData = usePersistedAuthDataQuery()
+  const persistedAuthDataQuery = usePersistedAuthDataQuery()
 
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
-    enabledDeps:  signinRedirectQuery.isSuccess && !!signinRedirectQuery.data ||persistedAuthData.isSuccess && !!persistedAuthData.data,
-    queryFnData: [signinRedirectQuery.data || persistedAuthData.data],
+    enabledDeps: (signinRedirectQuery.isSuccess || persistedAuthDataQuery.isSuccess) && (!!signinRedirectQuery.data || !!persistedAuthDataQuery.data),
+    queryFnData: [signinRedirectQuery.data || persistedAuthDataQuery.data],
     persister
   });
 
@@ -58,13 +58,13 @@ export const useAuthChain = () => {
 
 
   const supabaseClientQuery = useSupabaseClientQuery({
-    queryKey: ['supabaseClient', signinRedirectQuery.data?.idToken || persistedAuthData.data?.idToken],
-    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) || (!!persistedAuthData.data?.idToken ?? false),
+    queryKey: ['supabaseClient', signinRedirectQuery.data?.idToken || persistedAuthDataQuery.data?.idToken],
+    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) || (!!persistedAuthDataQuery.data?.idToken ?? false),
   });
 
 
   const signInSupabaseQuery = useSignInSupabaseQuery({
-    queryKey: ['signInSupabase', signinRedirectQuery.data?.idToken || persistedAuthData.data?.idToken],
+    queryKey: ['signInSupabase', signinRedirectQuery.data?.idToken || persistedAuthDataQuery.data?.idToken],
     enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) ||  (!!authMethodQuery.data ?? false) && (!!supabaseClientQuery.data ?? false) && typeof supabaseClientQuery.data?.auth.signInWithIdToken === 'function',
     queryFnData: signinRedirectQuery.data || authMethodQuery.data,
     supabaseClient: supabaseClientQuery.data
@@ -83,8 +83,9 @@ export const useAuthChain = () => {
     queryFnData: litAccountQuery.data
   });
 
- const queries = useMemo(() => [
+  const queries = useMemo(() => [
     { name: 'litNodeClient', query: isLitConnectedQuery },
+    { name : 'persistedAuthData', query: persistedAuthDataQuery},
     { name: 'authMethod', query: authMethodQuery },
     { name: 'litAccount', query: litAccountQuery },
     { name: 'sessionSigs', query: sessionSigsQuery },
@@ -94,15 +95,15 @@ export const useAuthChain = () => {
     { name: 'signInSupabase', query: signInSupabaseQuery},
     { name: 'isOnboarded', query: isOnboardedQuery },
     { name: 'hasBalance', query: hasBalanceQuery },
+
   ], [
-    isLitConnectedQuery, authMethodQuery, litAccountQuery, sessionSigsQuery,
-    isLitLoggedInQuery, pkpWalletQuery, supabaseClientQuery, signInSupabaseQuery,
-    isOnboardedQuery, hasBalanceQuery
-  ]);
+      isLitConnectedQuery, persistedAuthDataQuery, authMethodQuery, litAccountQuery, sessionSigsQuery,
+      isLitLoggedInQuery, pkpWalletQuery, supabaseClientQuery, signInSupabaseQuery,
+      isOnboardedQuery, hasBalanceQuery
+    ]);
 
   const essentialQueries = useMemo(() => [
-    'litNodeClient', 'authMethod', 'litAccount', 'sessionSigs',
-    'isLitLoggedIn', 'supabaseClient', 'isOnboarded', 'signInSupabase'
+    'litNodeClient', 'persistedAuthData', 'authMethod', 'litAccount', 'sessionSigs', 'isLitLoggedIn', 'supabaseClient', 'isOnboarded', 'signInSupabase'
   ], []);
 
   const isQuerySuccessful = useCallback((query: UseQueryResult) =>
