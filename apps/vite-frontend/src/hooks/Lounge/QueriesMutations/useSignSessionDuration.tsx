@@ -23,6 +23,12 @@ export const useSignSessionDuration = () => {
         console.error(e);
         throw new Error('Failed to sign session duration');
       }
+    },
+    retry: 3, // Set the maximum number of retries
+    retryDelay: (attemptIndex) => 1000 * 2 ** attemptIndex, // Exponential backoff without unnecessary cap
+    onError: (error, variables, context) => {
+      console.error("Error in useSignSessionDuration:", error);
     }
+
   });
 };

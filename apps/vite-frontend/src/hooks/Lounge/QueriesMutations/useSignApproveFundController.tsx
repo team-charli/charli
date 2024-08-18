@@ -17,23 +17,23 @@ export const useSignApproveFundController = () => {
       if (!pkpWallet) throw new Error('pkpWallet undefined');
       if (!contractAddress) throw new Error('contractAddress undefined');
       if (!amount) throw new Error('amount undefined');
-      console.log(typeof amount);
 
+      console.log(typeof amount);
       const erc20AbiFragment = ["function approve(address spender, uint256 amount) returns (bool)"];
       const iface = new ethers.Interface(erc20AbiFragment);
-        const data = iface.encodeFunctionData("approve", [spenderAddress, amount]);
-        const tx = {
-          to: contractAddress,
-          data: data,
-        };
-
-        const signedTx = await pkpWallet.signTransaction(tx);
-        console.log("Signed Approve transaction:", signedTx);
-        return signedTx;
-      // } catch (error) {
-      //   console.error("Error in useSignApproveFundController:", error);
-      //   throw error; // Re-throw the original error
-      // }
+      const data = iface.encodeFunctionData("approve", [spenderAddress, amount]);
+      const tx = {
+        to: contractAddress,
+        data: data,
+      };
+      const signedTx = await pkpWallet.signTransaction(tx);
+      console.log("Signed Approve transaction:", signedTx);
+      return signedTx;
+    },
+    retry: 3, // Set the maximum number of retries
+    retryDelay: (attemptIndex) => 1000 * 2 ** attemptIndex, // Exponential backoff without unnecessary cap
+    onError: (error, variables, context) => {
+      console.error("Error in useSignApproveFundController:", error);
     }
   });
 };
