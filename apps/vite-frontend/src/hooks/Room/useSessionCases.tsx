@@ -1,6 +1,8 @@
+//useSessionCases.tsx
 import { useState, useEffect } from 'react';
 import { FaultData, Message, SessionData, SessionIPFSData } from '@/types/types';
 import { useLitAccount, usePkpWallet, useSessionSigs, useSupabaseClient } from '@/contexts/AuthContext';
+import { useMutation } from '@tanstack/react-query';
 
 const useSessionCases = (messages: Message[]) => {
   const [sessionIPFSData, setSessionIPFSData] = useState<SessionIPFSData | null>(null);
@@ -8,6 +10,18 @@ const useSessionCases = (messages: Message[]) => {
   const { data: sessionSigs } = useSessionSigs();
   const { data: supabaseClient, isLoading: supabaseLoading } = useSupabaseClient();
   const {data: pkpWallet} = usePkpWallet();
+
+  const signMessageMutation = useMutation({
+    mutationFn: async (message: string) => {
+      if (!pkpWallet) throw new Error('no pkpWallet');
+      return await pkpWallet.signMessage(message);
+    },
+    retry: 3,
+    retryDelay: (attemptIndex) => 1000 * 2 ** attemptIndex,
+    onError: (error) => {
+      console.error("Error signing message:", error);
+    }
+  });
 
   useEffect(() => {
     const handleMessage = async (message: Message) => {
@@ -42,11 +56,10 @@ const useSessionCases = (messages: Message[]) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  const signTimestampData = async (sessionData: SessionData): Promise<SessionIPFSData> => {
+ const signTimestampData = async (sessionData: SessionData): Promise<SessionIPFSData> => {
     if (currentAccount && sessionSigs) {
       try {
-        if (!pkpWallet) throw new Error('no pkpWallet')
-        const signature = await pkpWallet.signMessage(JSON.stringify(sessionData));
+        const signature = await signMessageMutation.mutateAsync(JSON.stringify(sessionData));
 
         const signedData: SessionIPFSData = {
           ...sessionData,

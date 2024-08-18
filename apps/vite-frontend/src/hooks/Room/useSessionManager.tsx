@@ -1,6 +1,8 @@
+// useSessionManager.tsx
 import { useState, useEffect, useRef } from 'react';
-import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
+import { useMutation } from '@tanstack/react-query';
 import { Message, UseSessionManagerOptions } from '@/types/types';
+import { usePkpWallet } from '@/contexts/AuthContext';
 
 const useSessionManager = ({
   clientSideRoomId,
@@ -10,39 +12,47 @@ const useSessionManager = ({
   currentAccount,
   sessionSigs
 }: UseSessionManagerOptions) => {
+  const { data: pkpWallet } = usePkpWallet();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const socketRef = useRef<WebSocket | null>(null);
+  const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const signMessageMutation = useMutation({
+    mutationFn: async (message: string) => {
+      if (!pkpWallet) throw new Error('pkpWallet is undefined');
+      return await pkpWallet.signMessage(message);
+    },
+    retry: 3,
+    retryDelay: (attemptIndex) => 1000 * 2 ** attemptIndex,
+    onError: (error) => {
+      console.error("Error signing message:", error);
+    }
+  });
+
   const startHeartbeat = () => {
-  if (heartbeatTimerRef.current) return;
+    if (heartbeatTimerRef.current) return;
 
-  heartbeatTimerRef.current = setInterval(() => {
-    if (!socketRef.current || !sessionSigs || !currentAccount) return;
+    heartbeatTimerRef.current = setInterval(() => {
+      if (!socketRef.current || !sessionSigs || !currentAccount || !pkpWallet) return;
 
-    const pkpWallet = new PKPEthersWallet({
-      controllerSessionSigs: sessionSigs,
-      pkpPubKey: currentAccount.publicKey,
-    });
+      const timestamp = Date.now();
+      const message = `Heartbeat at ${timestamp}`;
 
-    let timestamp: number;
-    pkpWallet.init()
-      .then(() => {
-         timestamp = Date.now();
-        const message = `Heartbeat at ${timestamp}`;
-
-        return pkpWallet.signMessage(message);
-      })
-      .then((signature) => {
-        const heartbeatMessage = {
-          type: 'heartbeat',
-          timestamp,
-          signature,
-        };
-
-        socketRef.current?.send(JSON.stringify(heartbeatMessage));
-      })
-      .catch((error) => {
-        console.error('Error in heartbeat:', error);
+      signMessageMutation.mutate(message, {
+        onSuccess: (signature) => {
+          const heartbeatMessage = {
+            type: 'heartbeat',
+            timestamp,
+            signature,
+          };
+          socketRef.current?.send(JSON.stringify(heartbeatMessage));
+        },
+        onError: (error) => {
+          console.error('Error in heartbeat:', error);
+        }
       });
-  }, 30000);
-};
+    }, 30000);
+  };
 
   const stopHeartbeat = () => {
     if (heartbeatTimerRef.current) {
@@ -51,16 +61,12 @@ const useSessionManager = ({
     }
   };
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const socketRef = useRef<WebSocket | null>(null);
-  const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
-
   useEffect(() => {
-    if (clientSideRoomId && hashedTeacherAddress && hashedLearnerAddress && userAddress && currentAccount && sessionSigs) {
+    if (clientSideRoomId && hashedTeacherAddress && hashedLearnerAddress && userAddress && currentAccount && sessionSigs && pkpWallet) {
       const initializeWebhookServer = async () => {
         try {
           const workerUrl = import.meta.env.VITE_SESSION_TIMER_WORKER_URL;
-          if (!workerUrl) throw new Error('undfined env')
+          if (!workerUrl) throw new Error('undefined env');
           const response = await fetch(`${workerUrl}/init`, {
             method: 'POST',
             headers: {
@@ -107,7 +113,7 @@ const useSessionManager = ({
                 console.error('WebSocket error:', error);
                 setMessages((prevMessages) => [
                   ...prevMessages,
-                 { type: 'websocket', data: 'WebSocket error: ' + String(error) },
+                  { type: 'websocket', data: 'WebSocket error: ' + String(error) },
                 ]);
               });
             };
@@ -127,9 +133,7 @@ const useSessionManager = ({
         }
       };
 
-      void (async () => {
-        await initializeWebhookServer();
-      })();
+      void initializeWebhookServer();
 
       return () => {
         stopHeartbeat();
@@ -138,12 +142,9 @@ const useSessionManager = ({
         }
       };
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress, currentAccount, sessionSigs]);
-
+  }, [clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress, currentAccount, sessionSigs, pkpWallet]);
 
   return messages;
 };
-
 
 export default useSessionManager;
