@@ -18,27 +18,37 @@ import { signOutComplete } from './RouteQueries/signOutComplete'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
-  onError: error  => {console.error(error)},
-  errorComponent: ErrorComponent ,
-  beforeLoad: ({ context }) => {
+  onError: error => { console.error(error) },
+  errorComponent: ErrorComponent,
+  beforeLoad: async ({ context }) => {
     const { auth, queryClient } = context;
     if (!auth.isSuccess) {
       return;
     }
-    routingLogger.info("root route")
-    const threshold = 900 //seconds
-    const supabaseTokenNearEx = supabaseExpNearReAuth(queryClient, threshold)
-    const sessionSigsNearReAuth = sessionSigsExNearReAuth(queryClient, threshold)
-    if (supabaseTokenNearEx) {
-      console.log("supabaseTokenNearEx")
-      signOutComplete(queryClient);
-      throw redirect({to: '/login'})
 
-    } else if (sessionSigsNearReAuth) {
-      console.log("sessionSigsNearReAuth");
-      signOutComplete(queryClient);
-      throw redirect({to: '/login'})
-    }
+    routingLogger.info("root route");
+    const threshold = 900; // seconds
+
+    // try {
+    //   const sessionSigsNearReAuth = sessionSigsExNearReAuth(queryClient, threshold);
+
+    //   if (sessionSigsNearReAuth) {
+    //     console.log("sessionSigsNearReAuth");
+    //     signOutComplete(queryClient);
+    //     throw redirect({ to: '/login' });
+    //   }
+
+    //   const supabaseTokenNearEx = await supabaseExpNearReAuth(queryClient, threshold);
+
+    //   if (supabaseTokenNearEx) {
+    //     console.log("supabaseTokenNearEx");
+    //     signOutComplete(queryClient);
+    //     throw redirect({ to: '/login' });
+    //   }
+    // } catch (error) {
+    //   console.error("Error in beforeLoad:", error);
+    //   // Handle error, possibly redirecting to an error page
+    // }
   }
 })
 

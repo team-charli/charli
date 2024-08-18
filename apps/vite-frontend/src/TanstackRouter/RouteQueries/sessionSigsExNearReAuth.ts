@@ -5,10 +5,11 @@ import { QueryClient } from "@tanstack/query-core";
 //number in seconds
 export const sessionSigsExNearReAuth = (queryClient: QueryClient, threshold: number = 0): boolean => {
   const sessionSigs = queryClient.getQueryData(['litSessionSigs']) as SessionSigs | null | undefined;
-  if (!sessionSigs) {
-    console.log(`sessionSigsExpired function: no sessionSigs`);
-    return true;
-  }
+
+  // if (!sessionSigs) {
+  //   console.log(`sessionSigsExpired function: no sessionSigs`);
+  //   return true;
+  // }
 
   const caller = new Error().stack?.split('\n')[2].trim().split(' ')[1] || 'unknown';
   const currentTime = new Date().getTime();

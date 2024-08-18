@@ -12,7 +12,7 @@ const NotificationContext = createContext<NotificationContextType>({ notificatio
 export const useNotificationContext = () => useContext(NotificationContext);
 
 const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
-const [userId] = useLocalStorage<number>("userID");
+  const [userId] = useLocalStorage<number>("userID");
   const {data: supabaseClient} = useSupabaseClient();
 
   const [showIndicator, setShowIndicator] = useState<boolean>(false);
@@ -27,9 +27,44 @@ const [userId] = useLocalStorage<number>("userID");
   }, [initialNotifications]);
 
 
-  useEffect(() => {
-    if (supabaseClient) {
-      const mySubscription = supabaseClient
+useEffect(() => {
+  if (supabaseClient) {
+    console.log('Setting up subscription for userId:', userId);
+
+    async function handlePayload(payload: RealtimePostgresChangesPayload<Session> | null) {
+      console.log('Received payload:', payload);
+      console.log('userID', userId);
+      try {
+        if (payload === null) {
+          console.error('Received null payload');
+          return;
+        }
+        if (payload.eventType === 'DELETE') {
+          setNotifications(notifications =>
+            notifications.filter(n => n.session_id !== payload.old.session_id)
+          );
+          return;
+        }
+        if (!payload.new) {
+          console.error('Unexpected payload structure:', payload);
+          return;
+        }
+        const baseSession: Session = payload.new;
+        const { teacherName, learnerName } = await fetchLearnersAndTeachers(supabaseClient, baseSession.teacher_id, baseSession.learner_id);
+        const extendedSession: ExtendedSession = {
+          ...baseSession,
+          teacherName,
+          learnerName,
+          ...classifySession(baseSession),
+        };
+        setNotifications(notifications => [...notifications, extendedSession]);
+      } catch (error) {
+        console.error('Error processing realtime update:', error);
+        // setError('Failed to process realtime update');
+      }
+    }
+
+    const subscription = supabaseClient
       .channel('realtime:public.sessions')
       .on(
         'postgres_changes',
@@ -37,65 +72,47 @@ const [userId] = useLocalStorage<number>("userID");
           event: '*',
           schema: 'public',
           table: 'sessions',
-          filter: `teacher_id=eq.${userId},learner_id=eq.${userId}`,
+          filter: `teacher_id=eq.${userId}`,
         },
-        async (payload: RealtimePostgresChangesPayload<Session> | null) => {
-          console.log('payload', payload)
-          try {
-
-            if (payload === null) {
-              console.error('Received null payload');
-              return;
-            }
-
-            if (payload.eventType === 'DELETE') {
-              setNotifications(notifications =>
-                notifications.filter(n => n.session_id !== payload.old.session_id)
-              );
-              return;
-            }
-
-            if (!payload.new) {
-              console.error('Unexpected payload structure:', payload);
-              return;
-            }
-
-            const baseSession: Session = payload.new;
-            const { teacherName, learnerName } = await fetchLearnersAndTeachers(supabaseClient, baseSession.teacher_id, baseSession.learner_id);
-            const extendedSession: ExtendedSession = {
-              ...baseSession,
-              teacherName,
-              learnerName,
-              ...classifySession(baseSession),
-            };
-            setNotifications(notifications => [...notifications, extendedSession]);
-          } catch (error) {
-            console.error('Error processing realtime update:', error);
-            // setError('Failed to process realtime update');
-          }
-        }
+        handlePayload
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sessions',
+          filter: `learner_id=eq.${userId}`,
+        },
+        handlePayload
+      )
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+      });
 
-      return () => {
-        void (async () => {
-          try {
-            await mySubscription.unsubscribe();
-          } catch (error) {
-            console.error('Error unsubscribing from channel:', error);
-          }
-        })();
-      };
-    }
-  }, [supabaseClient, userId]);
+    console.log('Subscription set up');
+
+    return () => {
+      console.log('Cleaning up subscription');
+      void (async () => {
+        try {
+          await subscription.unsubscribe();
+          console.log('Unsubscribed successfully');
+        } catch (error) {
+          console.error('Error unsubscribing from channel:', error);
+        }
+      })();
+    };
+  }
+}, [supabaseClient, userId]);
 
   useEffect(() => {
     if (showIndicator) alert("Notification Alert Triggered!")
   }, [showIndicator])
 
-  useEffect(() => {
-    console.log('notifications', notifications)
-  }, [notifications])
+  // useEffect(() => {
+  //   console.log('notifications', notifications)
+  // }, [notifications])
 
   return (
     <NotificationContext.Provider value={{ notificationsContextValue: notifications, showIndicator, setShowIndicator }}>

@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/query-core";
-import { Session, User } from '@supabase/supabase-js';
+import { Session, SupabaseClient, User } from '@supabase/supabase-js';
+import { AuthData } from "@/types/types";
 
 export interface SignInResult {
   authProviderId: string | null;
@@ -8,12 +9,19 @@ export interface SignInResult {
   error: Error | null;
 }
 
-export const supabaseExpNearReAuth = (queryClient: QueryClient, threshold: number) => {
+export const supabaseExpNearReAuth = async (queryClient: QueryClient, threshold: number) => {
 
-  const persistedAuthData: SignInResult | null | undefined = queryClient.getQueryData(['persistedAuthData']);
-  if (!persistedAuthData) throw new Error('persistedAuthData undefined')
-  const expiresIn = persistedAuthData.session?.expires_in;
-  if (typeof expiresIn !== 'number') throw new Error('no supabase.auth.session.expires_in value')
+  const persistedAuthData: AuthData | null | undefined = queryClient.getQueryData(['persistedAuthData']);
 
-  return expiresIn <= threshold
+  if (persistedAuthData) {
+    const supabaseClient: SupabaseClient | undefined = queryClient.getQueryData(['supabaseClient', persistedAuthData.idToken])
+    if (supabaseClient){
+      const session = await supabaseClient.auth.getSession();
+      const expiresIn = session.data.session?.expires_in;
+      if (typeof expiresIn !== 'number') throw new Error('no supabase.auth.session.expires_in value')
+      return expiresIn <= threshold
+    }
+  }
+  return false
 }
+

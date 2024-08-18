@@ -15,7 +15,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { huddleClient } from './Huddle/huddleClient';
 import NotificationProvider from './contexts/NotificationContext';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth, useSupabaseClient } from './contexts/AuthContext';
 import { experimental_createPersister } from '@tanstack/react-query-persist-client';
 import { router, RouterContext } from './TanstackRouter/router';
 
@@ -43,6 +43,8 @@ export const persister = experimental_createPersister({
 
 
 function CharliApp() {
+
+
   return (
     <QueryClientProvider client={queryClient} >
       <AuthProvider>
@@ -66,6 +68,7 @@ function CharliApp() {
     </QueryClientProvider>
   );
 }
+
 
 
 

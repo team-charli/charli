@@ -9,9 +9,9 @@ interface NotificationComponentProps {
 
 const SentLearningRequest = ({notification}: NotificationComponentProps) => {
   const okHandler = () => {
-
     return null
   }
+
   return (
     <div className="grid grid-cols-3">
       <div className="col-start-2 col-span-2">

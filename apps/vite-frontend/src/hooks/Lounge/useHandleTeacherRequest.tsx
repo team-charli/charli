@@ -67,7 +67,7 @@ export const useHandleTeacherRequest = (
               hashedLearnerAddress,
               hashedTeacherAddress,
               requestedSessionDuration,
-              secureSessionId  // Add secureSessionId here
+              secureSessionId
             );
             console.log('actionResult', actionResult)
           } catch (error) {

@@ -11,6 +11,7 @@ export const signOutSupabase = async (queryClient: QueryClient ) => {
 
   try {
   await supabaseClient.auth.signOut()
+
   } catch(e) {
     console.error("error supabaseClient.auth.signOut() ", e)
   }

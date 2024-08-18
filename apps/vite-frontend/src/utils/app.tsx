@@ -141,7 +141,6 @@ export function sessionSigsExpired(sessionSigs: SessionSigs | null | undefined):
       }
     }
   }
-
   // console.log(`sessionSigs not expired`);
   return false;
 }

@@ -23,8 +23,8 @@ const UserList = ({ modeView, selectedLang }: UserListProps) => {
 return (
   <div className="grid grid-cols-3">
     <div className="col-start-2 col-span-2">
-      <h3>{modeView === "Learn" ? "Teachers" : "Learners"}</h3>
-      <ul className="flex flex-wrap items-start gap-2">
+      <h3 className="text-xl">{modeView === "Learn" ? "Teachers" : "Learners"}</h3>
+      <ul className="flex flex-col items-start gap-2">
         {users && users.map((user: UserData, index: number) => (
           <UserItem
             key={user.id}

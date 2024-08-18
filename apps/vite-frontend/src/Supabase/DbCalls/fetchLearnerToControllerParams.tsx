@@ -44,7 +44,8 @@ export const fetchLearnerToControllerParams = async (
       requestedSessionDuration: session.requested_session_duration,
       requestedSessionDurationLearnerSig: session.requested_session_duration_learner_sig,
       keyId: session.controller_claim_keyid,
-      hashedLearnerAddress: session.hashed_learner_address
+      hashedLearnerAddress: session.hashed_learner_address,
+      secureSessionId: session.secure_session_id
     };
   } catch (error) {
     console.error("Error fetching learner to controller params:", error);
