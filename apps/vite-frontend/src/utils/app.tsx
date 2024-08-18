@@ -1,4 +1,4 @@
-import { NotificationIface } from '@/types/types';
+import { AuthMethodPlus, NotificationIface } from '@/types/types';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import bs58 from 'bs58';
 import {ethers} from 'ethers';
@@ -242,14 +242,27 @@ export const getSignificantDate = (notification: NotificationIface): Date => {
   }
 };
 
-export function isTokenExpired(token: string, thresholdSeconds: number = 0): boolean {
+export function isTokenExpired(authMethod: AuthMethodPlus, thresholdSeconds: number = 0): boolean {
+  if (!authMethod.idToken) {
+    console.warn('No ID token available to check expiration.');
+    return true; // Assume expired if no ID token is available
+  }
+
   try {
-    const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(token.split('.')[1]), c => c.charCodeAt(0))));
-    const expirationTime = payload.exp * 1000; // Convert to milliseconds
-    const currentTime = Date.now();
-    return currentTime >= expirationTime - thresholdSeconds * 1000;
+    const [, payloadBase64] = authMethod.idToken.split('.');
+    const payloadJson = atob(payloadBase64);
+    const payload = JSON.parse(payloadJson);
+
+    if (payload.exp) {
+      const expirationTime = payload.exp * 1000; // Convert to milliseconds
+      const currentTime = Date.now();
+      return currentTime >= expirationTime - thresholdSeconds * 1000;
+    } else {
+      console.warn('No expiration claim found in the ID token.');
+      return true; // Assume expired if no expiration claim is present
+    }
   } catch (error) {
-    console.error('Error parsing token:', error);
-    // return true; // Assume expired if we can't parse it
+    console.error('Error parsing ID token:', error);
+    return true; // Assume expired if parsing fails
   }
 }

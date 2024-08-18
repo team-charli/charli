@@ -4,7 +4,7 @@ import { litNodeClient } from '@/utils/litClients';
 import { authChainLogger } from '@/App';
 
 const TIMEOUT_DURATION = 10000; // 10 seconds
-const MAX_RETRIES = 1;
+const MAX_RETRIES = 3;
 
 export const useLitNodeClientReadyQuery = () => {
   return useQuery<boolean, Error>({

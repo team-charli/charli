@@ -27,7 +27,7 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData, pers
       // Check cached AuthMethod
       const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethodPlus | null;
       if (cachedAuthMethod) {
-        if (!isTokenExpired(cachedAuthMethod.idToken) && !isTokenExpired(cachedAuthMethod.accessToken)) {
+        if (!isTokenExpired(cachedAuthMethod)) {
           authChainLogger.info("2b: finish authMethod query - Using valid cached AuthMethod");
           return cachedAuthMethod;
         } else {
