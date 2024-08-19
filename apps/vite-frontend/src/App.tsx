@@ -6,20 +6,20 @@ routingLogger.setLevel('info');
 export const mutationLogger = log.getLogger('mutationLogger')
 mutationLogger.setLevel('info')
 authChainLogger.setLevel('silent');
-routingLogger.setLevel('silent');
+// routingLogger.setLevel('silent');
 
 import { Provider } from 'jotai/react';
 import '@/styles/globals.css';
 import { HuddleProvider } from "@huddle01/react";
 import { RouterProvider } from '@tanstack/react-router';
 import { huddleClient } from './Huddle/huddleClient';
-import NotificationProvider from './contexts/NotificationContext';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { AuthProvider, useAuth, useSupabaseClient } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { experimental_createPersister } from '@tanstack/react-query-persist-client';
 import { router, RouterContext } from './TanstackRouter/router';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import SessionsProvider from './contexts/SessionsContext';
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -43,15 +43,13 @@ export const persister = experimental_createPersister({
 
 
 function CharliApp() {
-
-
   return (
     <QueryClientProvider client={queryClient} >
       <AuthProvider>
         {(authContext) => (
           <Provider>
             <ReactQueryDevtools initialIsOpen={false} />
-            <NotificationProvider>
+            <SessionsProvider>
               <HuddleProvider client={huddleClient}>
                 <RouterProvider
                   router={router}
@@ -61,7 +59,7 @@ function CharliApp() {
                   } as RouterContext}
                 />
               </HuddleProvider>
-            </NotificationProvider>
+            </SessionsProvider>
           </Provider>
         )}
       </AuthProvider>

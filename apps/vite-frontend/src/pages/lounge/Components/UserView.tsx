@@ -4,7 +4,6 @@ import Notifications from "./Notifications";
 
 export const UserView = ({ modeView, selectedLang }: {modeView: "Learn" | "Teach", selectedLang: string}) => {
   const notifications = useNotifications();
-  console.log('notifications', notifications)
 
   return (
     <>

@@ -22,7 +22,7 @@ export const fetchLearnerToControllerParams = async (
         hashed_learner_address,
         secure_session_id
       `)
-      .eq('id', sessionId)
+      .eq('session_id', sessionId)
       .single();
 
     if (sessionError) throw sessionError;

@@ -18,8 +18,10 @@ export const useComputeControllerAddress = () => {
 
     const userId = generateUserId();
     const keyId = litNodeClient.computeHDKeyId(userId, ipfs_cid, true);
+    console.log('keyId', keyId)
+    console.trace();
     const publicKey = litNodeClient.computeHDPubKey(keyId);
-    // console.log('publicKey', publicKey)
+    console.log('publicKey', publicKey)
     const claimKeyAddress = ethers.computeAddress("0x" + publicKey);
 
     setControllerData({

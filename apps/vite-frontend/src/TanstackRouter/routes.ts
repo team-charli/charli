@@ -33,14 +33,14 @@ export const rootRoute = createRootRouteWithContext<RouterContext>()({
       const sessionSigsNearReAuth = sessionSigsExNearReAuth(queryClient, threshold);
 
       if (sessionSigsNearReAuth) {
-        console.log("sessionSigsNearReAuth");
+        console.log("sessionSigsNearReAuth: clear storage and redirect");
         signOutComplete(queryClient);
         throw redirect({ to: '/login' });
       }
       const supabaseTokenNearEx = await supabaseAtOrNearExp(queryClient, threshold);
 
       if (supabaseTokenNearEx) {
-        console.log("supabaseTokenNearEx");
+        console.log("supabaseTokenNearEx: clear storage and redirect");
         signOutComplete(queryClient);
         throw redirect({ to: '/login' });
       }

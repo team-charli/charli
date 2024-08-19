@@ -4,8 +4,7 @@ import { ReceivedTeachingRequestProps } from '@/types/types';
 import { useLocalizeAndFormatDateTime } from '@/hooks/utils/useLocalizeAndFormatDateTime';
 import DateTimeLocalInput from '@/components/elements/DateTimeLocalInput';
 import { useHandleTeacherRequest } from '@/hooks/Lounge/useHandleTeacherRequest';
-//TODO: not rendering
-//TODO: retry all pkp sign fails
+
 const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps) => {
   const [uiCondition, setUiCondition] = useState<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>('initial');
 
@@ -15,35 +14,42 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
 
 
   return (
-    <ul>
-      {uiCondition === 'initial' && (
-        <li>
-          Confirm meeting with {notification.learnerName} at {displayLocalTime} {displayLocalDate} in {notification.teaching_lang}?
-          <div>
-            <button onClick={() => void handleTeacherChoice('accept')}>Accept</button>
-            <button onClick={() => void handleTeacherChoice('reject')}>Reject</button>
-            <button onClick={() => void handleTeacherChoice('reschedule')}>Reschedule</button>
-          </div>
-        </li>
-      )}
-      {uiCondition === 'confirmed' && <li>Request confirmed.</li>}
-      {uiCondition === 'rejectOptions' && (
-        <li>
-          <div>
-            <p>Reason for rejection:</p>
-            <button onClick={() => void handleRejectResponse('no_time')}>No free time</button>
-            <button onClick={() => void handleRejectResponse('no_interest')}>Not interested</button>
-            <button onClick={() => void handleRejectResponse('other')}>Other reason</button>
-          </div>
-        </li>
-      )}
-      {uiCondition === 'changingTime' && (
-        <li>
-          <DateTimeLocalInput dateTime={dateTime} setDateTime={setDateTime} />
-          <button onClick={() => void handleSubmitChangeDateTime()}>Submit New Time</button>
-        </li>
-      )}
-    </ul>
+    <div className="grid grid-cols-3">
+
+      <div className="col-start-2 col-span-2">
+
+        <ul>
+          {uiCondition === 'initial' && (
+            <li className="flex items-center gap-2 bg-red-300 w-1/2 border-2 border-neutral-700">
+              Confirm meeting with {notification.learnerName} at {displayLocalTime} {displayLocalDate} in {notification.teaching_lang}?
+              <div>
+<button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out mr-2" onClick={() => void handleTeacherChoice('accept')}>Accept</button>
+<button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out mr-2" onClick={() => void handleTeacherChoice('reject')}>Reject</button>
+<button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out" onClick={() => void handleTeacherChoice('reschedule')}>Reschedule</button>
+              </div>
+            </li>
+          )}
+          {uiCondition === 'confirmed' && <li>Request confirmed.</li>}
+          {uiCondition === 'rejectOptions' && (
+            <li className="flex items-center gap-2  w-1/2 border-2 border-neutral-700">
+              <div>
+                <p>Reason for rejection:</p>
+                <button onClick={() => void handleRejectResponse('no_time')}>No free time</button>
+                <button onClick={() => void handleRejectResponse('no_interest')}>Not interested</button>
+                <button onClick={() => void handleRejectResponse('other')}>Other reason</button>
+              </div>
+            </li>
+          )}
+          {uiCondition === 'changingTime' && (
+            <li className="flex items-center gap-2  w-1/2 border-2 border-neutral-700">
+              <DateTimeLocalInput dateTime={dateTime} setDateTime={setDateTime} />
+              <button onClick={() => void handleSubmitChangeDateTime()}>Submit New Time</button>
+            </li>
+          )}
+        </ul>
+      </div>
+    </div>
+
   );
 };
 

@@ -31,7 +31,7 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData, pers
           authChainLogger.info("2b: finish authMethod query - Using valid cached AuthMethod");
           return cachedAuthMethod;
         } else {
-          authChainLogger.info("Cached AuthMethod contains expired tokens");
+          console.log("Cached AuthMethod contains expired tokens");
 
           // Clear local storage
           localStorage.clear();

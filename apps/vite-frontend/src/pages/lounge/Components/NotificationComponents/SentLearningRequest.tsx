@@ -8,9 +8,6 @@ interface NotificationComponentProps {
 }
 
 const SentLearningRequest = ({notification}: NotificationComponentProps) => {
-  const okHandler = () => {
-    return null
-  }
 
   return (
     <div className="grid grid-cols-3">
@@ -22,21 +19,6 @@ const SentLearningRequest = ({notification}: NotificationComponentProps) => {
               <span className="italic">{notification.teacherName}</span>
               {` for ${notification.teaching_lang}`}
             </span>
-            <Button
-              className="relative w-11 bg-white border border-gray-300 rounded-md shadow-sm py-2 flex items-center justify-center cursor-default focus:outline-none sm:text-sm flex-shrink-0"
-              onClick={okHandler}
-              onMouseDown={(e) => {
-                e.currentTarget.classList.add('ring-1', 'ring-indigo-500', 'border-indigo-500');
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.classList.remove('ring-1', 'ring-indigo-500', 'border-indigo-500');
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.classList.remove('ring-1', 'ring-indigo-500', 'border-indigo-500');
-              }}
-            >
-              Ok
-            </Button>
           </li>
         </ul>
       </div>

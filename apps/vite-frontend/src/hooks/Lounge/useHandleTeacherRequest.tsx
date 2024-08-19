@@ -39,6 +39,7 @@ export const useHandleTeacherRequest = (
         } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
 
         try {
+          console.log('keyId', keyId)
           await ky.post('https://mint-controller-pkp.zach-greco.workers.dev', { json: { keyId }})
         } catch (error) {
           console.error(error);

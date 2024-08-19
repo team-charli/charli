@@ -2,7 +2,7 @@
 import { Dispatch } from 'react';
 import { Listbox, ListboxButton, ListboxOptions, ListboxOption } from '@headlessui/react';
 import { ChevronUpDownIcon } from '@heroicons/react/24/solid'
-import { useNotificationContext } from '@/contexts/NotificationContext';
+import { useSessionsContext } from '@/contexts/SessionsContext';
 
 const userGroups: { name: "Learn" | "Teach" }[] = [
   { name: 'Learn' },
@@ -15,7 +15,7 @@ interface DropDownButtonProps {
 }
 
 const DropDownButton = ({ modeView, setModeView }: DropDownButtonProps) => {
-  const { showIndicator } = useNotificationContext()
+  const { showIndicator } = useSessionsContext()
   const selectedUserGroup = userGroups.find(group => group.name === modeView);
   const groupEmojis = {
     Learn: '🎓',

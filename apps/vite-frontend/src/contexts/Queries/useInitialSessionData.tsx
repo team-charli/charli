@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import useLocalStorage from '@rehooks/local-storage';
 import { classifySession } from '../helpers';
 import { useSupabaseClient } from '../AuthContext';
-import { ExtendedSession } from '@/types/types';
+import { ExtendedSession, Session } from '@/types/types';
 
 const useInitialSessionData = () => {
   const { data: supabaseClient } = useSupabaseClient();
@@ -14,25 +14,39 @@ const useInitialSessionData = () => {
       throw new Error('Supabase client or userId not available');
     }
 
-    const { data, error } = await supabaseClient
+    // Fetch sessions
+    const { data: sessionsData, error: sessionsError } = await supabaseClient
       .from('sessions')
-      .select(`
-        *,
-        teacher:user_data!fk_sessions_teacher_id(name),
-        learner:user_data!fk_sessions_learner_id(name)
-      `)
+      .select('*')
       .or(`teacher_id.eq.${userId},learner_id.eq.${userId}`)
       .order('request_time_date', { ascending: false })
       .limit(100);
 
-    if (error) {
-      throw error;
+    if (sessionsError) {
+      throw sessionsError;
     }
 
-    return data.map((session: any) => ({
+    // Extract unique user IDs
+    const userIds = new Set(sessionsData.flatMap(session => [session.teacher_id, session.learner_id]));
+
+    // Fetch user names
+    const { data: userData, error: userError } = await supabaseClient
+      .from('user_data')
+      .select('id, name')
+      .in('id', Array.from(userIds));
+
+    if (userError) {
+      throw userError;
+    }
+
+    // Create a map of user IDs to names
+    const userNameMap = Object.fromEntries(userData.map(user => [user.id, user.name]));
+
+    // Combine session data with user names and classify sessions
+    return sessionsData.map((session: Session) => ({
       ...session,
-      teacherName: session.teacher?.name,
-      learnerName: session.learner?.name,
+      teacherName: userNameMap[session.teacher_id] || 'Unknown Teacher',
+      learnerName: userNameMap[session.learner_id] || 'Unknown Learner',
       ...classifySession(session),
     }));
   };
