@@ -1,10 +1,11 @@
+//UserItem.tsx
 import { useCallback } from "react";
 import { hexlify, randomBytes } from 'ethers';
 import useLocalStorage from "@rehooks/local-storage";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
 import { Button } from "@headlessui/react";
-import { userUserItemHooks } from "../hooks/userUserItemHooks";
+import { useUserItem } from "../hooks/useUserItem";
 
 const contractAddress = import.meta.env.VITE_USDC_SEPOLIA_CONTRACT_ADDRESS;
 
@@ -19,7 +20,23 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
   const [loggedInUserId] = useLocalStorage<number>("userID");
   const isLearnMode = modeView === "Learn";
 
-  const hooks = userUserItemHooks(isLearnMode, userID, lang, loggedInUserId);
+  const userItemHook = useUserItem(isLearnMode, userID, lang, loggedInUserId);
+
+  if (!isLearnMode) {
+    return <li key={userID}>{userName}</li>;
+  }
+
+  if (!userItemHook) {
+    return null; // or some loading state
+  }
+
+  const {
+    learningRequestState,
+    controllerData,
+    signSessionDuration,
+    signApproveFundController,
+    submitLearningRequest,
+  } = userItemHook;
 
   const generateSecureSessionId = useCallback(() => {
     return hexlify(randomBytes(16));
@@ -29,18 +46,10 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
     return <li key={userID}>{userName}</li>;
   }
 
-  if (!hooks) {
+  if (!learningRequestState) {
     return null; // or some loading state
   }
 
-  const {
-    learningRequestState,
-    controller_address,
-    signSessionDuration,
-    signApproveFundControllerMutation,
-    submitLearningRequestMutation,
-    isSigningSessionDuration
-  } = hooks;
   const handleSubmitLearningRequest = useCallback(async () => {
     if (!isLearnMode || !learningRequestState) return;
 
@@ -50,18 +59,18 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
       try {
         const newSecureSessionId: string = generateSecureSessionId();
 
-        const learnerSignedSessionDuration = await signSessionDuration({
+        const learnerSignedSessionDuration = await signSessionDuration.mutateAsync({
           duration: sessionDuration,
           secureSessionId: newSecureSessionId
         });
 
-        await signApproveFundControllerMutation.mutateAsync({
+        await signApproveFundController.mutateAsync({
           contractAddress,
-          spenderAddress: controller_address,
+          spenderAddress: controllerData.controller_address,
           amount
         });
 
-        submitLearningRequestMutation.mutate({
+        submitLearningRequest.mutate({
           dateTime,
           teacherID: userID,
           userID: loggedInUserId,
@@ -71,25 +80,17 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
           secureSessionId: newSecureSessionId
         }, {
           onSuccess: () => setRenderSubmitConfirmation(true),
-          onError: (error) => console.error("Error submitting learning request:", error),
+          onError: (error: unknown) => console.error("Error submitting learning request:", error),
         });
       } catch (error) {
         console.error("Error in submit process:", error);
       }
     }
-  }, [isLearnMode, learningRequestState, signSessionDuration, signApproveFundControllerMutation, submitLearningRequestMutation, loggedInUserId, userID, lang, controller_address, generateSecureSessionId]);
+  }, [isLearnMode, learningRequestState, signSessionDuration, signApproveFundController, submitLearningRequest, loggedInUserId, userID, lang, controllerData.controller_address, generateSecureSessionId]);
 
   const okHandler = () => {
-    learningRequestState?.setRenderSubmitConfirmation(false);
+    learningRequestState.setRenderSubmitConfirmation(false);
   };
-
-  if (!isLearnMode) {
-    return <li key={userID}>{userName}</li>;
-  }
-
-  if (!learningRequestState) {
-    return null; // or some loading state
-  }
 
   const {
     renderSubmitConfirmation,
@@ -103,7 +104,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
 
   return (
     <>
-      <li onClick={() => !renderSubmitConfirmation && setToggleDateTimePicker(prev => !prev)} className="cursor-pointer">
+      <li onClick={() => !renderSubmitConfirmation && setToggleDateTimePicker((prev: boolean) => !prev)} className="cursor-pointer">
         <u>{userName}</u>
       </li>
       {toggleDateTimePicker && !renderSubmitConfirmation && (
@@ -114,7 +115,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
           <button
             onClick={handleSubmitLearningRequest}
             className="p-1 rounded"
-            disabled={isSigningSessionDuration || signApproveFundControllerMutation.isPending || submitLearningRequestMutation.isPending}
+            disabled={signSessionDuration.isPending || signApproveFundController.isPending || submitLearningRequest.isPending}
           >
             Submit
           </button>
