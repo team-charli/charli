@@ -38,13 +38,36 @@ export const useHandleTeacherRequest = (
           secureSessionId
         } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
 
-        try {
-          console.log('keyId', keyId)
-          await ky.post('https://onhlhmondvxwwiwnruvo.supabase.co/functions/v1/mint-and-burn-pkp', { json: { keyId }})
-        } catch (error) {
-          console.error(error);
-          throw new Error(`error: mint controller pkp`)
-        }
+try {
+  const session = await supabaseClient.auth.getSession()
+  console.log('session', session)
+  console.log('keyId', keyId);
+  console.log('typeof keyId', typeof keyId)
+
+const response = await supabaseClient.functions.invoke('mint-controller-pkp', {
+  body: JSON.stringify({ keyId: keyId }),
+});
+
+// const localFunctionUrl = 'http://127.0.0.1:54321/functions/v1/mint-controller-pkp';
+
+// const response = await fetch(localFunctionUrl, {
+//   method: 'POST',
+//   headers: {
+//     'Content-Type': 'application/json',
+//   },
+//   body: JSON.stringify({ keyId: keyId }),
+// });
+
+  console.log('Response data:', response);
+} catch (error) {
+  console.error('Error details:', error);
+  if (error.response) {
+    // The request was made and the server responded with a status code
+    // that falls out of the range of 2xx
+    console.error('Error response:', await error.response.text());
+  }
+  throw new Error(`error: mint controller pkp`);
+}
 
         const {requestedSessionDurationTeacherSig} = useTeacherSignRequestedSessionDuration(
           requestedSessionDurationLearnerSig,
