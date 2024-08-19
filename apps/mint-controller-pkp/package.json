@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run"
+    "build": "node build.js",
+    "deploy": "npm run build && wrangler deploy ./dist/worker.js"
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20240620.0",
@@ -12,7 +13,9 @@
     "@lit-protocol/contracts-sdk": "^6.4.2",
     "@lit-protocol/lit-node-client-nodejs": "^6.4.2",
     "@lit-protocol/types": "^6.4.2",
+    "@types/node": "^22.4.1",
     "bs58": "^5.0.0",
+    "esbuild": "^0.23.1",
     "ethers": "^6.11.1"
   }
 }

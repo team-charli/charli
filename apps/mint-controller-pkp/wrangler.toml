@@ -1,10 +1,12 @@
 name = "mint-controller-pkp"
 compatibility_date = "2023-07-31"
-main = "src/index.ts"
-[vars]
-MINT_PKP_PRIVATE_KEY=""
-IPFS_CID_PAY_TEACHER_FROM_CONTROLLER=""
-LIT_NETWORK="cayenne"
-CHRONICLE_RPC="https://chain-rpc.litprotocol.com/http"
-DOMAIN="localhost"
-ORIGIN="https://localhost/notifications"
+main = "./dist/worker.js"
+
+[build]
+command = "npm run build"
+
+compatibility_flags = ["nodejs_compat"]
+
+[[rules]]
+type = "ESModule"
+globs = ["**/*.js", "**/*.mjs"]

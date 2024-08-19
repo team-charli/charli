@@ -4,13 +4,13 @@ import { LitNodeClientNodeJs as LitNodeClient } from "@lit-protocol/lit-node-cli
 import { AuthCallback, LIT_NETWORKS_KEYS, LitAbility } from '@lit-protocol/types';
 import { LitActionResource, createSiweMessageWithRecaps } from '@lit-protocol/auth-helpers';
 
+// ... rest of your code remains the same
+
 export interface Env {
-  MINT_PKP_PRIVATE_KEY: string;
-  IPFS_CID_PAY_TEACHER_FROM_CONTROLLER: string;
+  PRIVATE_KEY: string;
   LIT_NETWORK: LIT_NETWORKS_KEYS;
-  CHRONICLE_RPC: string;
-  DOMAIN: string;
-  ORIGIN: string;
+  // DOMAIN: string;
+  // ORIGIN: string;
 }
 
 export default {
@@ -23,7 +23,7 @@ export default {
     }
 
     const provider = new ethers.JsonRpcProvider("https://chain-rpc.litprotocol.com/http");
-    const privKey = env.MINT_PKP_PRIVATE_KEY;
+    const privKey = env.PRIVATE_KEY;
     const wallet = new ethers.Wallet(privKey, provider);
     const NETWORK = env.LIT_NETWORK   ;
     const litNodeClient = new LitNodeClient({ litNetwork: NETWORK });

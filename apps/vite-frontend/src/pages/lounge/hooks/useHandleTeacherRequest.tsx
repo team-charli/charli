@@ -40,7 +40,7 @@ export const useHandleTeacherRequest = (
 
         try {
           console.log('keyId', keyId)
-          await ky.post('https://mint-controller-pkp.zach-greco.workers.dev', { json: { keyId }})
+          await ky.post('https://onhlhmondvxwwiwnruvo.supabase.co/functions/v1/mint-and-burn-pkp', { json: { keyId }})
         } catch (error) {
           console.error(error);
           throw new Error(`error: mint controller pkp`)
