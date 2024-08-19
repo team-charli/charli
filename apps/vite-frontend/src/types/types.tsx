@@ -351,6 +351,7 @@ export type SupabaseError = {
   message: string;
   // Add other properties if needed
 };
+
 export type AuthData = {
   idToken: string;
   accessToken: string;

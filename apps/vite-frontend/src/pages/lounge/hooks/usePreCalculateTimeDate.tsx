@@ -1,6 +1,6 @@
 //usePreCalculateTimeDate.tsx
+import { formatDateTimeLocal } from '@/utils/app';
 import { useState } from 'react';
-import { formatDateTimeLocal } from '../../utils/app';
 
 export const usePreCalculateTimeDate = () => {
   const initialDateTime = formatDateTimeLocal(new Date());

@@ -4,8 +4,8 @@ import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
 import { useSignInSupabaseQuery } from './SupabaseClient/useSignInSupabaseQuery';
 import { useCallback, useEffect, useMemo, useReducer } from "react";
-import {router} from "@/TanstackRouter/router"
-import {queryClient, persister, authChainLogger } from "@/App"
+import { router } from "@/TanstackRouter/router"
+import { persister, authChainLogger } from "@/App"
 import { usePersistedAuthDataQuery } from "./LitAuth/usePersistedAuthDataQuery";
 import { UseQueryResult } from "@tanstack/react-query";
 import { PKPEthersWallet } from "@lit-protocol/pkp-ethers";
@@ -59,14 +59,14 @@ export const useAuthChain = () => {
 
   const supabaseClientQuery = useSupabaseClientQuery({
     queryKey: ['supabaseClient', signinRedirectQuery.data?.idToken || persistedAuthDataQuery.data?.idToken],
-    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) || (!!persistedAuthDataQuery.data?.idToken ?? false),
+    enabledDeps: !!persistedAuthDataQuery.data?.idToken ?? false,
   });
 
 
   const signInSupabaseQuery = useSignInSupabaseQuery({
-    queryKey: ['signInSupabase', signinRedirectQuery.data?.idToken || persistedAuthDataQuery.data?.idToken],
-    enabledDeps: (!!signinRedirectQuery.data?.idToken ?? false) ||  (!!authMethodQuery.data ?? false) && (!!supabaseClientQuery.data ?? false) && typeof supabaseClientQuery.data?.auth.signInWithIdToken === 'function',
-    queryFnData: signinRedirectQuery.data || authMethodQuery.data,
+    queryKey: ['signInSupabase', authMethodQuery.data ],
+    enabledDeps:  !!authMethodQuery.data && !!supabaseClientQuery.data,
+    queryFnData:  authMethodQuery.data,
     supabaseClient: supabaseClientQuery.data
   })
 

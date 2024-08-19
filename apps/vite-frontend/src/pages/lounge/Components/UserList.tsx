@@ -1,6 +1,6 @@
 // UserList.tsx
+import useGetUsers from '../hooks/QueriesMutations/useGetUsers';
 import UserItem from './UserItem';
-import {useGetUsers} from '@/hooks/Lounge/QueriesMutations/useGetUsers'
 
 interface UserListProps {
   modeView: "Learn" | "Teach";

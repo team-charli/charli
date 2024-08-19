@@ -3,8 +3,8 @@ import { useState } from 'react'
 import IconHeader from '@/components/IconHeader'
 import DropDownButton from './Components/Interactions/DropDownButton'
 import LangNav from './Components/Interactions/LangNav'
-import { useLangNavDataQuery } from '@/hooks/Lounge/QueriesMutations/useLangNavDataQuery'
 import { UserView } from './Components/UserView'
+import { useLangNavDataQuery } from './hooks/QueriesMutations/useLangNavDataQuery'
 
 interface Language {
   id: number;

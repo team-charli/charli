@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useRoom } from '@huddle01/react/hooks';
 import useLocalStorage from '@rehooks/local-storage';
-import useBellListener from '../../hooks/Room/useBellListener';
-import useSessionManager from '../../hooks/Room/useSessionManager';
-import useSessionCases from '../../hooks/Room/useSessionCases';
-import { AuthSig, IRelayPKP, SessionSigs } from '@lit-protocol/types';
-import { useVerifiyRoleAndAddress } from '../../hooks/Room/useVerifiyRoleAndAddress';
-import { useExecuteTransferControllerToTeacher } from '../../hooks/LitActions/useExecuteTransferControllerToTeacher';
-import { useSessionDurationIPFS } from '../../hooks/IPFS/useSessionDurationIPFS';
-import { NotificationIface } from '@/types/types';
 import LocalPeer from './Components/LocalPeer';
 import RemotePeer from './Components/RemotePeer';
 import { redirect, useParams, useSearch } from '@tanstack/react-router';
-import { useAtomValue } from 'jotai';
-import { sessionDataAtom } from '@/atoms/atoms';
+import { router } from '@/TanstackRouter/router';
+import { useSessionDurationIPFS } from './hooks/IPFS/useSessionDurationIPFS';
+import { useExecuteTransferControllerToTeacher } from './hooks/LitActionHooks/useExecuteTransferControllerToTeacher';
+import useBellListener from './hooks/Room/useBellListener';
+import useSessionCases from './hooks/Room/useSessionCases';
+import useSessionManager from './hooks/Room/useSessionManager';
+import { useVerifiyRoleAndAddress } from './hooks/Room/useVerifiyRoleAndAddress';
+import { useLitAccount, useSessionSigs } from '@/contexts/AuthContext';
 
 interface RoomQueryParams {
   id: string;
@@ -27,9 +25,8 @@ const Room  = () => {
 
   // const [onJoinCalled, setOnJoinCalled ] = useState(false);
   const [ onLeaveCalled, setOnLeaveCalled ] = useState(false);
-  const [currentAccount] = useLocalStorage<IRelayPKP>('currentAccount')
-  const [sessionSigs] = useLocalStorage<SessionSigs>('sessionSigs')
-  const [ authSig ] = useLocalStorage<AuthSig>("lit-wallet-sig");
+  const { data: currentAccount } = useLitAccount();
+  const { data: sessionSigs } = useSessionSigs();
 
   const [ huddleAccessToken ] = useLocalStorage<string>('huddle-access-token');
   const { getIPFSDuration } = useSessionDurationIPFS();

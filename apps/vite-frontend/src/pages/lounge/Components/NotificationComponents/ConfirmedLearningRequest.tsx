@@ -1,9 +1,9 @@
 // ConfirmedLearningRequest.tsx
-import { useGenerateHuddleAccessToken } from '@/hooks/Lounge/QueriesMutations/useGenerateHuddleAccessToken';
-import { useLocalizeAndFormatDateTime } from '@/hooks/utils/useLocalizeAndFormatDateTime';
 import { ConfirmedLearningRequestProps } from '@/types/types';
 import { formatUtcTimestampToLocalStrings } from '@/utils/app';
+import { useLocalizeAndFormatDateTime } from '@/utils/hooks/utils/useLocalizeAndFormatDateTime';
 import {Link} from '@tanstack/react-router';
+import { useGenerateHuddleAccessToken } from '../../hooks/QueriesMutations/useGenerateHuddleAccessToken';
 //TODO: render a notifcation on successfull submit
 
 const ConfirmedLearningRequest = ({ notification: sessionData }: ConfirmedLearningRequestProps) => {

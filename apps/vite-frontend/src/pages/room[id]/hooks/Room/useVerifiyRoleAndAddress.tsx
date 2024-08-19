@@ -1,6 +1,6 @@
+import { verifyRoleAndAddress } from "@/utils/app";
 import { IRelayPKP } from "@lit-protocol/types";
 import { useEffect, useState } from "react";
-import { verifyRoleAndAddress } from "../../utils/app";
 
 export const useVerifiyRoleAndAddress = (hashed_teacher_address: string | undefined, hashed_learner_address: string | undefined, roomRole: 'teacher' | 'learner', currentAccount:IRelayPKP | null) => {
   const [verifiedRoleAndAddress, setVerifiedRoleAndAddress] = useState(false);

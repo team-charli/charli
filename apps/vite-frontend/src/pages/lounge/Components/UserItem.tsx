@@ -4,7 +4,7 @@ import useLocalStorage from "@rehooks/local-storage";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
 import { Button } from "@headlessui/react";
-import { userUserItemHooks } from "@/hooks/Lounge/userUserItemHooks";
+import { userUserItemHooks } from "../hooks/userUserItemHooks";
 
 const contractAddress = import.meta.env.VITE_USDC_SEPOLIA_CONTRACT_ADDRESS;
 

@@ -1,9 +1,9 @@
 //AuthContext.tsx
-import { useAuthChain } from '@/hooks/Auth/useAuthChain';
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { UseQueryResult } from '@tanstack/react-query';
 import React, { createContext, useContext } from 'react';
+import { useAuthChain } from './hooks/Auth/useAuthChain';
 
 export type AuthContextType = {
   queries: AuthQuery[];

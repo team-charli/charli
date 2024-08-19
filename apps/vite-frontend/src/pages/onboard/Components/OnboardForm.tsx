@@ -1,12 +1,12 @@
 import React, { useState, FormEvent } from 'react';
 import { useAtomValue } from 'jotai';
 import { LanguageButton } from '@/types/types';
-import { useOnboardLearnMutation } from '@/hooks/Onboard/Mutations/useOnboardLearnMutation';
-import { useOnboardTeachMutation } from '@/hooks/Onboard/Mutations/useOnboardTeachMutation';
-import { useLanguageData } from '@/hooks/Onboard/OnboardForm/useLanguageData';
 import LanguageToggleButtons from './Form/LanguageToggleButtons';
 import NameInputField from './Form/NameInputField';
 import { /*useHasBalance */} from '@/contexts/AuthContext';
+import { useLanguageData } from '../hooks/OnboardForm/useLanguageData';
+import { useOnboardLearnMutation } from '../hooks/Mutations/useOnboardLearnMutation';
+import { useOnboardTeachMutation } from '../hooks/Mutations/useOnboardTeachMutation';
 
 interface OnboardFormProps {
   onboardMode: 'Learn' | 'Teach' | null;

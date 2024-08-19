@@ -7,7 +7,7 @@ import ky from "ky";
 import { calculateSessionCost } from "@/utils/app";
 import { Dispatch, SetStateAction, useState } from "react";
 import { NotificationIface } from "@/types/types";
-import { useExecuteTransferFromLearnerToController } from '../LitActions/useExecuteTransferFromLearnerToController';
+import { useExecuteTransferFromLearnerToController } from './LitActions/useExecuteTransferFromLearnerToController';
 
 export const useHandleTeacherRequest = (
   notification: NotificationIface,

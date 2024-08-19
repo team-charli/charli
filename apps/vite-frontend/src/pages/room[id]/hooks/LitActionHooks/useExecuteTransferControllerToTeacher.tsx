@@ -1,8 +1,8 @@
-import { transferControllerToTeacherAction } from "../../Lit/Actions/transferControllerToTeacherAction";
 import { ethers } from 'ethers';
 import { AuthSig, SessionSigs } from "@lit-protocol/types";
 import { SessionIPFSData } from "@/types/types";
 import { litNodeClient } from "@/utils/litClients";
+import { transferControllerToTeacherAction } from '../../LitActions/transferControllerToTeacherAction';
 
 
 export const useExecuteTransferControllerToTeacher = (
