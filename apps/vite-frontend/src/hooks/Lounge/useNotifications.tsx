@@ -1,51 +1,58 @@
 // hooks/useNotifications.ts
-import { useNotificationContext } from '@/contexts/NotificationContext';
-import { NotificationIface} from '@/types/types';
+import { useSessionsContext } from '@/contexts/SessionsContext';
+import { NotificationIface, ExtendedSession } from '@/types/types';
+import { useLocalStorage } from '@rehooks/local-storage';
 
 export const useNotifications = (): NotificationIface[] => {
-  const { notificationsContextValue } = useNotificationContext();
+  const { sessionsContextValue } = useSessionsContext();
+  const [userId] = useLocalStorage<number>("userID");
 
-  return notificationsContextValue.reduce((acc: NotificationIface[], sessionRow) => {
-    let notification: NotificationIface | null = null;
+  return sessionsContextValue.reduce((acc: NotificationIface[], sessionRow: ExtendedSession) => {
+    const isLearner = userId === sessionRow.learner_id;
 
     const baseNotification: Partial<NotificationIface> = {
       session_id: sessionRow.session_id,
-      request_time_date: sessionRow.request_time_date,
+      request_origin_type: sessionRow.request_origin_type,
       teacherName: sessionRow.teacherName,
       learnerName: sessionRow.learnerName,
       teacher_id: sessionRow.teacher_id,
       learner_id: sessionRow.learner_id,
+      request_time_date: sessionRow.request_time_date,
+      confirmed_time_date: sessionRow.confirmed_time_date,
+      counter_time_date: sessionRow.counter_time_date,
+      session_rejected_reason: sessionRow.session_rejected_reason,
+      roomId: sessionRow.huddle_room_id,
       teaching_lang: sessionRow.teaching_lang,
-      request_origin_type: sessionRow.request_origin_type,
       controller_address: sessionRow.controller_address,
       controller_claim_user_id: sessionRow.controller_claim_user_id,
       controller_public_key: sessionRow.controller_public_key,
       controller_claim_keyid: sessionRow.controller_claim_keyid,
       requested_session_duration: sessionRow.requested_session_duration,
       hashed_learner_address: sessionRow.hashed_learner_address,
-      hashed_teacher_address: sessionRow.hashed_teacher_address
+      hashed_teacher_address: sessionRow.hashed_teacher_address,
     };
 
+    let notification: NotificationIface | null = null;
+
     if (sessionRow.isProposed) {
-      notification = { ...baseNotification, subType: 'sentLearningRequest' } as NotificationIface;
+      notification = {
+        ...baseNotification,
+        subType: isLearner ? 'sentLearningRequest' : 'receivedTeachingRequest'
+      } as NotificationIface;
     } else if (sessionRow.isAccepted) {
       notification = {
         ...baseNotification,
-        subType: 'confirmedLearningRequest',
-        confirmed_time_date: sessionRow.confirmed_time_date,
-        roomId: "YourRoomLinkHere"
+        subType: isLearner ? 'confirmedLearningRequest' : 'confirmedTeachingSession'
       } as NotificationIface;
     } else if (sessionRow.isAmended) {
       notification = {
         ...baseNotification,
-        subType: 'teacherProposedAlternate',
-        counter_time_date: sessionRow.counter_time_date
+        subType: isLearner ? 'teacherProposedAlternate' : 'proposedAlternateTime'
       } as NotificationIface;
     } else if (sessionRow.isRejected) {
       notification = {
         ...baseNotification,
-        subType: 'teacherRejectedRequest',
-        session_rejected_reason: sessionRow.session_rejected_reason
+        subType: isLearner ? 'teacherRejectedRequest' : 'rejectedTeachingRequest'
       } as NotificationIface;
     }
 

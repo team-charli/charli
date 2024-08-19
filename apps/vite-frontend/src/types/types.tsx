@@ -223,8 +223,8 @@ export interface ConfirmedLearningRequestProps {
   notification: NotificationIface;
 }
 
-export type NotificationContextType = {
-  notificationsContextValue: ExtendedSession[];
+export type SessionsContextType = {
+  sessionsContextValue: ExtendedSession[];
   showIndicator: boolean;
   setShowIndicator: Dispatch<SetStateAction<boolean>>;
 };

@@ -1,28 +1,29 @@
+//useInitialNotifications.tsx
 import { useQuery } from '@tanstack/react-query';
 import useLocalStorage from '@rehooks/local-storage';
 import { classifySession } from '../helpers';
 import { useSupabaseClient } from '../AuthContext';
 import { ExtendedSession } from '@/types/types';
 
-const useInitialNotifications = () => {
+const useInitialSessionData = () => {
   const { data: supabaseClient } = useSupabaseClient();
   const [userId] = useLocalStorage<number>("userID");
 
-  const fetchNotifications = async (): Promise<ExtendedSession[]> => {
+  const fetchInitialSessionData = async (): Promise<ExtendedSession[]> => {
     if (!supabaseClient || !userId) {
       throw new Error('Supabase client or userId not available');
     }
 
-const { data, error } = await supabaseClient
-  .from('sessions')
-  .select(`
-    *,
-    teacher:user_data!fk_sessions_teacher_id(name),
-    learner:user_data!fk_sessions_learner_id(name)
-  `)
-  .or(`teacher_id.eq.${userId},learner_id.eq.${userId}`)
-  .order('request_time_date', { ascending: false })
-  .limit(100);
+    const { data, error } = await supabaseClient
+      .from('sessions')
+      .select(`
+        *,
+        teacher:user_data!fk_sessions_teacher_id(name),
+        learner:user_data!fk_sessions_learner_id(name)
+      `)
+      .or(`teacher_id.eq.${userId},learner_id.eq.${userId}`)
+      .order('request_time_date', { ascending: false })
+      .limit(100);
 
     if (error) {
       throw error;
@@ -37,13 +38,11 @@ const { data, error } = await supabaseClient
   };
 
   return useQuery({
-    queryKey: ['initialNotifications', userId],
-    queryFn: fetchNotifications,
+    queryKey: ['initialSessionData', userId],
+    queryFn: fetchInitialSessionData,
     enabled: !!supabaseClient && !!userId,
-    staleTime: Infinity, // This ensures the query won't refetch unnecessarily
+    staleTime: Infinity,
   });
 };
 
-
-export default useInitialNotifications;
-
+export default useInitialSessionData;
