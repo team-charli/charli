@@ -42,7 +42,7 @@ const verifyDurationAndId = () => {
   const teacherSignedDuration = hashedTeacherAddress === hashedRecoveredTeacherAddress;
 
   if (!learnerSignedDuration || !teacherSignedDuration) {
-    LitActions.setResponse({ response: JSON.stringify({ error: "Invalid signatures or addresses don't match" }) });
+    Lit.Actions.setResponse({ response: JSON.stringify({ error: "Invalid signatures or addresses don't match" }) });
     throw new Error("Invalid signatures or addresses don't match");
   }
 }
@@ -52,7 +52,7 @@ const verifyDurationAndId = () => {
     "function transferFrom(address sender, address recipient, uint256 amount) returns (boolean)"
   ];
 
-  const latestNonce = await LitActions.getLatestNonce({
+  const latestNonce = await Lit.Actions.getLatestNonce({
     address: controllerAddress,
     chain: "chronicle",
   });
@@ -89,12 +89,12 @@ const conditions = [
   }
 ];
 
-  const learnerAllowedAmount = await LitActions.checkConditions({conditions, authSig, chain});
+  const learnerAllowedAmount = await Lit.Actions.checkConditions({conditions, authSig, chain});
 
 
 
   if (learnerAllowedAmount) {
-    const signature = await LitActions.signAndCombineEcdsa({
+    const signature = await Lit.Actions.signAndCombineEcdsa({
       toSign,
       publicKey: controllerPubKey,
       sigName: "sign_transfer_from",
@@ -103,12 +103,8 @@ const conditions = [
     console.log('Signature for transferFrom:', signature);
 
     const signedTx = ethers.utils.serializeTransaction(unsignedTx, signature);
-//TODO: fix with integer arithmatic
-/*useHandleTeacherRequest.tsx:93 RangeError: The number NaN cannot be converted to a BigInt because it is not an integer
-    at BigInt (<anonymous>)
-    at handleTeacherChoice (useHandleTeacherRequest.tsx:65:35)*/
 
-    const forwardTxToRelayerRes = await LitActions.runOnce({
+    const forwardTxToRelayerRes = await Lit.Actions.runOnce({
       waitForResponse: true,
       name: "forwardTxToRelayer"
     }, async () => {
@@ -137,9 +133,9 @@ const conditions = [
         return await response.json();
       });
 
-    LitActions.setResponse({ response: JSON.stringify(forwardTxToRelayerRes) });
+    Lit.Actions.setResponse({ response: JSON.stringify(forwardTxToRelayerRes) });
   } else {
-    LitActions.setResponse({ response: JSON.stringify({ error: "ACC failed: Insufficient allowance" }) });
+    Lit.Actions.setResponse({ response: JSON.stringify({ error: "ACC failed: Insufficient allowance" }) });
   }
 })();
 `
