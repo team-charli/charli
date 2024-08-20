@@ -58,10 +58,11 @@ export const useHandleTeacherRequest = (
             secureSessionId
           );
           console.log('{controllerPublicKey && controllerAddress && learnerAddress && requestedSessionDuration && currentAccount && requestedSessionDurationTeacherSig && hashedLearnerAddress && secureSessionId}', {controllerPublicKey , controllerAddress , learnerAddress , requestedSessionDuration, currentAccount, requestedSessionDurationTeacherSig, hashedLearnerAddress, secureSessionId})
+          console.log('controllerAddress', controllerAddress)
 
           if (controllerPublicKey && controllerAddress && learnerAddress && requestedSessionDuration &&
             currentAccount && requestedSessionDurationTeacherSig && hashedLearnerAddress && secureSessionId) {
-            const paymentAmount = BigInt(calculateSessionCost(parseInt(requestedSessionDuration)));
+            const paymentAmount = calculateSessionCost(requestedSessionDuration);
             const newHashedTeacherAddress = ethers.keccak256(ethers.toUtf8Bytes(currentAccount.ethAddress));
             setHashedTeacherAddress(newHashedTeacherAddress);
 

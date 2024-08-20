@@ -103,11 +103,17 @@ export function safeDestructure<T extends object>(result: Defaultable<T>, defaul
   return result;
 }
 
-export function calculateSessionCost(sessionDuration: number | undefined) {
+export function calculateSessionCost(sessionDuration: string | undefined) {
   if (!sessionDuration) throw new Error(`sessionDuration undefined`)
-  const sessionRate = import.meta.env.VITE_SESSION_RATE;
+  const SCALING_FACTOR = 6; // Number of decimal places for USDC
+  const RATE_PER_MINUTE = ethers.parseUnits('0.3', SCALING_FACTOR);
+
+  const sessionRate = ethers.parseUnits('0.3', SCALING_FACTOR);
+
   if (!sessionRate) throw new Error("import NEXT_PUBLIC_SESSION_RATE undefined")
-  return  parseInt(sessionRate) * sessionDuration;
+  const durationScaled = ethers.parseUnits(sessionDuration.toString(), SCALING_FACTOR);
+  const scaledCost = durationScaled * RATE_PER_MINUTE;
+  return scaledCost;
 }
 
 export function verifyRoleAndAddress(hashed_teacher_address:string | undefined, hashed_learner_address: string | undefined, roomRole: "learner" | "teacher", currentAccount: IRelayPKP) {
@@ -222,14 +228,14 @@ export function hasSessionKey(): boolean {
 }
 
 export function hasTanstackQueryStorage() {
-    const prefix = "tanstack-query-";
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-            return true; // A key with the prefix exists
-        }
+  const prefix = "tanstack-query-";
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) {
+      return true; // A key with the prefix exists
     }
-    return false; // No matching keys found
+  }
+  return false; // No matching keys found
 }
 
 export const getSignificantDate = (notification: NotificationIface): Date => {
