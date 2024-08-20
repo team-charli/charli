@@ -2,17 +2,18 @@ import {SignatureLike, ethers} from 'ethers';
 import useLocalStorage from "@rehooks/local-storage";
 import { litNodeClient } from '@/utils/litClients';
 import { transferFromLearnerToControllerAction } from '../../LitActions/transferFromLearnerToControllerAction';
+import { useSessionSigs } from '@/contexts/AuthContext';
 
 export const useExecuteTransferFromLearnerToController = () => {
-  const [sessionSigs] = useLocalStorage('sessionSigs');
+  const { data: sessionSigs} = useSessionSigs();
   const executeTransferFromLearnerToController = async (learnerAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: bigint, requestedSessionDurationLearnerSig: SignatureLike | null, requestedSessionDurationTeacherSig: SignatureLike | undefined, hashedLearnerAddress: string | undefined, hashedTeacherAddress: string | undefined, sessionDuration: string, secureSessionId: string | null) => {
 
-    const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
-    const chainId = import.meta.env.VITE_CHAIN_ID;
+    const usdcContractAddress = import.meta.env.VITE_USDC_SEPOLIA_CONTRACT_ADDRESS;
+    const chainId = import.meta.env.VITE_CHAIN_ID_SEPOLIA;
 
     try {
     const results = await litNodeClient.executeJs({
-      code: transferFromLearnerToControllerAction ,
+      code: transferFromLearnerToControllerAction,
       sessionSigs,
       jsParams: {
         learnerAddress,

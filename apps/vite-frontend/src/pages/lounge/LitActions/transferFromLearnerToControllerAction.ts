@@ -58,7 +58,6 @@ const verifyDurationAndId = () => {
   });
 
   const contract = new ethers.Contract(usdcContractAddress, abi);
-  const amount = ethers.utils.parseUnits(paymentAmount.toString(), 6);
   const txData = contract.interface.encodeFunctionData("transferFrom", [learnerAddress, controllerAddress, amount]);
 
   const txObject = {
@@ -104,6 +103,10 @@ const conditions = [
     console.log('Signature for transferFrom:', signature);
 
     const signedTx = ethers.utils.serializeTransaction(unsignedTx, signature);
+//TODO: fix with integer arithmatic
+/*useHandleTeacherRequest.tsx:93 RangeError: The number NaN cannot be converted to a BigInt because it is not an integer
+    at BigInt (<anonymous>)
+    at handleTeacherChoice (useHandleTeacherRequest.tsx:65:35)*/
 
     const forwardTxToRelayerRes = await LitActions.runOnce({
       waitForResponse: true,
