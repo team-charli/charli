@@ -1,5 +1,5 @@
 // useUserItem.ts
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useMutation, UseMutationResult } from '@tanstack/react-query';
 import { ethers, BigNumberish, SignatureLike } from 'ethers';
 import { usePreCalculateTimeDate } from './usePreCalculateTimeDate';
@@ -8,6 +8,23 @@ import { litNodeClient } from '@/utils/litClients';
 import { generateUserId, convertLocalTimetoUtc } from '@/utils/app';
 
 // Define the return type of useUserItem
+type ControllerData = {
+    controller_claim_user_id: string;
+    controller_address: string;
+    controller_public_key: string;
+    claim_key_id: string;
+  };
+
+interface SubmitLearningRequest {
+  dateTime: string;
+  teacherID: number;
+  userID: number;
+  teachingLang: string;
+  sessionDuration: number;
+  learnerSignedSessionDuration: SignatureLike;
+  secureSessionId: string;
+}
+
 interface UseUserItemReturn {
   learningRequestState: {
     sessionLengthInputValue: string;
@@ -21,12 +38,6 @@ interface UseUserItemReturn {
     sessionDuration: number;
     amount: BigNumberish;
   };
-  controllerData: {
-    controller_claim_user_id: string;
-    controller_address: string;
-    controller_public_key: string;
-    claim_key_id: string;
-  };
   signSessionDuration: UseMutationResult<SignatureLike, unknown, { duration: number; secureSessionId: string }, unknown>;
   signApproveFundController: UseMutationResult<string, unknown, { contractAddress: string; spenderAddress: string; amount: BigNumberish }, unknown>;
   submitLearningRequest: UseMutationResult<boolean, unknown, {
@@ -37,7 +48,9 @@ interface UseUserItemReturn {
     sessionDuration: number;
     learnerSignedSessionDuration: SignatureLike;
     secureSessionId: string;
+    controllerData: ControllerData;
   }, unknown>;
+   generateControllerData: () => ControllerData;
 }
 
 export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, loggedInUserId: number | null): UseUserItemReturn | null => {
@@ -55,30 +68,23 @@ export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, 
 
   const amount = useMemo(() => sessionDuration * 0.3 as BigNumberish, [sessionDuration]);
 
-  // Controller Address
-  const [controllerData, setControllerData] = useState({
-    controller_claim_user_id: '',
-    controller_address: '',
-    controller_public_key: '',
-    claim_key_id: '',
-  });
 
-  useEffect(() => {
+const generateControllerData = useCallback((): ControllerData => {
     const ipfs_cid = import.meta.env.VITE_LIT_ACTION_IPFS_CID_TRANSFER_FROM_LEARNER;
     if (!ipfs_cid) throw new Error('missing ipfs_cid env');
     const userId = generateUserId();
     const keyId = litNodeClient.computeHDKeyId(userId, ipfs_cid, true);
     const publicKey = litNodeClient.computeHDPubKey(keyId);
     const claimKeyAddress = ethers.computeAddress("0x" + publicKey);
-    setControllerData({
+    console.log('claimKeyAddress', claimKeyAddress);
+    return {
       controller_claim_user_id: userId,
       controller_address: claimKeyAddress,
       controller_public_key: publicKey,
       claim_key_id: keyId,
-    });
+    };
   }, []);
 
-  // Sign Session Duration
   const { data: pkpWallet } = usePkpWallet();
   const signSessionDuration = useMutation({
     mutationFn: async ({ duration, secureSessionId }: { duration: number, secureSessionId: string }) => {
@@ -92,7 +98,6 @@ export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, 
     },
   });
 
-  // Sign Approve Fund Controller
   const signApproveFundController = useMutation({
     mutationFn: async ({ contractAddress, spenderAddress, amount }: { contractAddress: string, spenderAddress: string, amount: BigNumberish }) => {
       if (!pkpWallet || !contractAddress || !amount) throw new Error('Invalid parameters');
@@ -104,10 +109,10 @@ export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, 
     },
   });
 
-  // Submit Learning Request
   const { data: currentAccount } = useLitAccount();
   const { data: supabaseClient } = useSupabaseClient();
-  const submitLearningRequest = useMutation({
+
+const submitLearningRequest = useMutation({
     mutationFn: async ({
       dateTime,
       teacherID,
@@ -116,15 +121,8 @@ export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, 
       sessionDuration,
       learnerSignedSessionDuration,
       secureSessionId,
-    }: {
-      dateTime: string;
-      teacherID: number;
-      userID: number;
-      teachingLang: string;
-      sessionDuration: number;
-      learnerSignedSessionDuration: SignatureLike;
-      secureSessionId: string;
-    }) => {
+      controllerData,
+    }: SubmitLearningRequest & { controllerData: ControllerData }) => {
       if (!supabaseClient || !currentAccount) throw new Error('Supabase client or current account not available');
       const utcDateTime = convertLocalTimetoUtc(dateTime);
       let hashed_learner_address = ethers.keccak256(currentAccount.ethAddress);
@@ -144,6 +142,7 @@ export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, 
           controller_claim_user_id: controllerData.controller_claim_user_id,
           controller_public_key: controllerData.controller_public_key,
           controller_claim_keyid: controllerData.claim_key_id,
+          controller_address: controllerData.controller_address
         }])
         .select();
       if (error) throw error;
@@ -164,7 +163,7 @@ export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, 
       sessionDuration,
       amount,
     },
-    controllerData,
+    generateControllerData,
     signSessionDuration,
     signApproveFundController,
     submitLearningRequest,

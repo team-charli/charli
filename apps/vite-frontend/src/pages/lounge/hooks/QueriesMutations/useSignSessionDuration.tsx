@@ -18,6 +18,8 @@ export const useSignSessionDuration = () => {
 
         const message = ethers.keccak256(encodedData);
 
+        console.log("sign message. message:", message);
+
         return await pkpWallet.signMessage(ethers.getBytes(message));
       } catch (e) {
         console.error(e);

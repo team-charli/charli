@@ -10,6 +10,7 @@ export const useExecuteTransferFromLearnerToController = () => {
     const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
     const chainId = import.meta.env.VITE_CHAIN_ID;
 
+    try {
     const results = await litNodeClient.executeJs({
       code: transferFromLearnerToControllerAction ,
       sessionSigs,
@@ -40,8 +41,11 @@ export const useExecuteTransferFromLearnerToController = () => {
     const { txParams } = response as any;
 
     const txn = ethers.Transaction.from({ ...txParams, signature: encodedSig }).serialized;
-
+    console.log('txn', txn)
     return txn;
+    } catch (e) {
+      console.error(e);
+    }
   }
   return executeTransferFromLearnerToController;
 }

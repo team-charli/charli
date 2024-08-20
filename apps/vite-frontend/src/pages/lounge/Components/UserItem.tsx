@@ -32,10 +32,11 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
 
   const {
     learningRequestState,
-    controllerData,
+    generateControllerData,
     signSessionDuration,
     signApproveFundController,
     submitLearningRequest,
+
   } = userItemHook;
 
   const generateSecureSessionId = useCallback(() => {
@@ -57,6 +58,8 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
 
     if (sessionDuration && loggedInUserId) {
       try {
+        const newControllerData = generateControllerData();
+
         const newSecureSessionId: string = generateSecureSessionId();
 
         const learnerSignedSessionDuration = await signSessionDuration.mutateAsync({
@@ -66,7 +69,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
 
         await signApproveFundController.mutateAsync({
           contractAddress,
-          spenderAddress: controllerData.controller_address,
+          spenderAddress: newControllerData.controller_address,
           amount
         });
 
@@ -77,11 +80,12 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
           teachingLang: lang,
           sessionDuration,
           learnerSignedSessionDuration,
-          secureSessionId: newSecureSessionId
+          secureSessionId: newSecureSessionId,
+          controllerData: newControllerData,
         }, {
-          onSuccess: () => setRenderSubmitConfirmation(true),
-          onError: (error: unknown) => console.error("Error submitting learning request:", error),
-        });
+            onSuccess: () => setRenderSubmitConfirmation(true),
+            onError: (error: unknown) => console.error("Error submitting learning request:", error),
+          });
       } catch (error) {
         console.error("Error in submit process:", error);
       }

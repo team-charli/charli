@@ -19,6 +19,7 @@ export const useHandleTeacherRequest = (
   const {data: supabaseClient} = useSupabaseClient();
   const {data: currentAccount} = useLitAccount();
   const {data: sessionSigs} = useSessionSigs();
+  const { signSessionDuration, isLoading, isError, error } = useTeacherSignRequestedSessionDuration();
 
   if (!supabaseClient) throw new Error(`no supabaseClient`)
   if (!currentAccount) throw new Error('no currentAccount')
@@ -27,60 +28,43 @@ export const useHandleTeacherRequest = (
   const handleTeacherChoice = async (action: string) => {
     switch (action) {
       case 'accept':
-        const {
-          controllerPublicKey,
-          controllerAddress,
-          learnerAddress,
-          requestedSessionDuration,
-          keyId,
-          requestedSessionDurationLearnerSig,
-          hashedLearnerAddress,
-          secureSessionId
-        } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
+        try {
+          const {
+            controllerPublicKey,
+            controllerAddress,
+            learnerAddress,
+            requestedSessionDuration,
+            keyId,
+            requestedSessionDurationLearnerSig,
+            hashedLearnerAddress,
+            secureSessionId
+          } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
 
-try {
-  const session = await supabaseClient.auth.getSession()
-  console.log('session', session)
-  console.log('keyId', keyId);
-  console.log('typeof keyId', typeof keyId)
+          const session = await supabaseClient.auth.getSession()
+          console.log('session', session)
+          console.log('keyId', keyId);
+          console.log('typeof keyId', typeof keyId)
 
-const response = await supabaseClient.functions.invoke('mint-controller-pkp', {
-  body: JSON.stringify({ keyId: keyId }),
-});
+          const response = await supabaseClient.functions.invoke('mint-controller-pkp', {
+            body: JSON.stringify({ keyId: keyId }),
+          });
 
-// const localFunctionUrl = 'http://127.0.0.1:54321/functions/v1/mint-controller-pkp';
+          console.log('Response data:', response);
 
-// const response = await fetch(localFunctionUrl, {
-//   method: 'POST',
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-//   body: JSON.stringify({ keyId: keyId }),
-// });
+          const requestedSessionDurationTeacherSig = await signSessionDuration(
+            requestedSessionDurationLearnerSig,
+            requestedSessionDuration,
+            hashedLearnerAddress,
+            secureSessionId
+          );
+          console.log('{controllerPublicKey && controllerAddress && learnerAddress && requestedSessionDuration && currentAccount && requestedSessionDurationTeacherSig && hashedLearnerAddress && secureSessionId}', {controllerPublicKey , controllerAddress , learnerAddress , requestedSessionDuration, currentAccount, requestedSessionDurationTeacherSig, hashedLearnerAddress, secureSessionId})
 
-  console.log('Response data:', response);
-} catch (error) {
-  console.error('Error details:', error);
-  if (error.response) {
-    // The request was made and the server responded with a status code
-    // that falls out of the range of 2xx
-    console.error('Error response:', await error.response.text());
-  }
-  throw new Error(`error: mint controller pkp`);
-}
-
-        const {requestedSessionDurationTeacherSig} = useTeacherSignRequestedSessionDuration(
-          requestedSessionDurationLearnerSig,
-          requestedSessionDuration,
-          hashedLearnerAddress,
-          secureSessionId  // Pass secureSessionId here
-        )
-
-        if (controllerPublicKey && controllerAddress && learnerAddress && requestedSessionDuration &&
+          if (controllerPublicKey && controllerAddress && learnerAddress && requestedSessionDuration &&
             currentAccount && requestedSessionDurationTeacherSig && hashedLearnerAddress && secureSessionId) {
-          const paymentAmount = BigInt(calculateSessionCost(parseInt(requestedSessionDuration)));
-          setHashedTeacherAddress(ethers.keccak256(ethers.toUtf8Bytes(currentAccount.ethAddress)))
-          try {
+            const paymentAmount = BigInt(calculateSessionCost(parseInt(requestedSessionDuration)));
+            const newHashedTeacherAddress = ethers.keccak256(ethers.toUtf8Bytes(currentAccount.ethAddress));
+            setHashedTeacherAddress(newHashedTeacherAddress);
+
             const actionResult = await executeTransferFromLearnerToController(
               learnerAddress,
               controllerAddress,
@@ -89,18 +73,13 @@ const response = await supabaseClient.functions.invoke('mint-controller-pkp', {
               requestedSessionDurationLearnerSig,
               requestedSessionDurationTeacherSig,
               hashedLearnerAddress,
-              hashedTeacherAddress,
+              newHashedTeacherAddress,
               requestedSessionDuration,
               secureSessionId
             );
             console.log('actionResult', actionResult)
-          } catch (error) {
-            console.error(error);
-            throw new Error(`error: executeTransferFromLearnerToController`)
           }
-        }
 
-        try {
           await teacherConfirmRequestDb(
             supabaseClient,
             setUiCondition,
@@ -109,9 +88,9 @@ const response = await supabaseClient.functions.invoke('mint-controller-pkp', {
             currentAccount,
             hashedTeacherAddress
           );
-        } catch (error) {
+        } catch (error: any) {
           console.error(error);
-          throw new Error(`${ error }`)
+          throw new Error(`error: ${error.message}`);
         }
         break;
       case 'reject':
@@ -131,5 +110,5 @@ const response = await supabaseClient.functions.invoke('mint-controller-pkp', {
     await teacherChangeDateTime(supabaseClient, dateTime);
   };
 
-  return {handleTeacherChoice, handleRejectResponse, handleSubmitChangeDateTime}
+  return {handleTeacherChoice, handleRejectResponse, handleSubmitChangeDateTime, isLoading, isError, error}
 }
