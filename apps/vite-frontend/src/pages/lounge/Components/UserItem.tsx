@@ -90,7 +90,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
         console.error("Error in submit process:", error);
       }
     }
-  }, [isLearnMode, learningRequestState, signSessionDuration, signApproveFundController, submitLearningRequest, loggedInUserId, userID, lang, controllerData.controller_address, generateSecureSessionId]);
+  }, [isLearnMode, learningRequestState, signSessionDuration, signApproveFundController, submitLearningRequest, loggedInUserId, userID, lang, generateSecureSessionId, generateControllerData]);
 
   const okHandler = () => {
     learningRequestState.setRenderSubmitConfirmation(false);

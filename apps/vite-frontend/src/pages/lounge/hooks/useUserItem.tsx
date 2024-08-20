@@ -66,7 +66,7 @@ export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, 
     [sessionLengthInputValue]
   );
 
-  const amount = useMemo(() => sessionDuration * 0.3 as BigNumberish, [sessionDuration]);
+  const amount = useMemo(() => ethers.parseUnits(String(sessionDuration * 0.3), 6) as BigNumberish, [sessionDuration]);
 
 
 const generateControllerData = useCallback((): ControllerData => {
