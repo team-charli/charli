@@ -20,7 +20,7 @@ interface RoomQueryParams {
 }
 const Room  = () => {
   const { id: roomId } = useParams({ from: '/room/$id' });
-  const { roomRole, sessionId } = useSearch({ from: '/room/$id' })
+  const { roomRole, sessionId, hashedLearnerAddress , hashedTeacherAddress } = useSearch({ from: '/room/$id' });
 
 
   // const [onJoinCalled, setOnJoinCalled ] = useState(false);
@@ -31,11 +31,9 @@ const Room  = () => {
   const [ huddleAccessToken ] = useLocalStorage<string>('huddle-access-token');
   const { getIPFSDuration } = useSessionDurationIPFS();
 
-  const {verifiedRole, verifiedRoleAndAddress} = useVerifiyRoleAndAddress(hashed_teacher_address, hashed_learner_address, roomRole, currentAccount  )
+  const {verifiedRole, verifiedRoleAndAddress} = useVerifiyRoleAndAddress(hashedTeacherAddress, hashedLearnerAddress, roomRole, currentAccount)
 
-  console.log(verifiedRole);
-
-  const sessionManager = useSessionManager({clientSideRoomId: roomId, hashedLearnerAddress: hashed_learner_address, hashedTeacherAddress: hashed_teacher_address, userAddress: currentAccount?.ethAddress, sessionSigs, currentAccount});
+  const sessionManager = useSessionManager({clientSideRoomId: roomId, hashedLearnerAddress: hashedLearnerAddress, hashedTeacherAddress: hashedTeacherAddress, userAddress: currentAccount?.ethAddress, sessionSigs, currentAccount});
 
   let teacherDurationSig, learnerDurationSig, sessionDuration;
 
@@ -54,14 +52,11 @@ const Room  = () => {
   const userIPFSData = useSessionCases(sessionManager);
   if (!userIPFSData) throw new Error('userIPFSData not defined')
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const actionResult = useExecuteTransferControllerToTeacher(userIPFSData, sessionSigs, authSig, sessionDuration, teacherDurationSig, learnerDurationSig, currentAccount?.ethAddress );
+  const actionResult = useExecuteTransferControllerToTeacher(userIPFSData, sessionSigs, /*authSig,*/ sessionDuration, teacherDurationSig, learnerDurationSig, currentAccount?.ethAddress );
   const { joinRoom, state: roomJoinState} = useRoom({
     onLeave: () => { setOnLeaveCalled(true); }
   });
 
-
-  // TODO: generalize relayer
-  // TODO: send actionResult with relayer
 
   useEffect(() => {
     void (async () => {
@@ -81,15 +76,13 @@ const Room  = () => {
     void (async () => {
       if ( onLeaveCalled ) {
         console.log('push to room summary');
-         throw redirect `/room[roodId]-summary`;
+        // throw redirect `/room[roodId]-summary`;
       }
     })();
   }, [onLeaveCalled, router])
 
 
-  const swapWindowViews = () => {
-    //TODO: implement
-  }
+  const swapWindowViews = () => {/*TODO:implement*/}
 
   useBellListener();
 

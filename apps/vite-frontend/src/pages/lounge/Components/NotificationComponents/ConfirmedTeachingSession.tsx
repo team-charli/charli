@@ -9,7 +9,7 @@ interface ConfirmedTeachingSessionProps {
 
 const ConfirmedTeachingSession = ({ notification }: ConfirmedTeachingSessionProps) => {
   const { formattedDate, formattedTime } = formatUtcTimestampToLocalStrings(notification.confirmed_time_date);
-  const link = "/room/" + notification.roomId;
+  const link = `/room/${notification.roomId}?roomRole=teacher&sessionId=${notification.session_id}&hashedLearnerAddress=${notification.hashed_learner_address}&hashedTeacherAddress=${notification.hashed_teacher_address}`;
 
   return (
     <ul>

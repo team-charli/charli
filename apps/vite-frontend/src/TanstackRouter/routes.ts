@@ -194,8 +194,10 @@ export const roomRoute = createRoute({
   component: RoomRoute,
   validateSearch: (search: Record<string, unknown>) => {
     return {
-      roomRole: search.roomRole as string,
+      roomRole: search.roomRole as 'teacher' | 'learner',
       sessionId: search.sessionId as string,
+      hashedLearnerAddress: search.hashedLearnerAddress as string,
+      hashedTeacherAddress: search.hashedTeacherAddress as string,
     }
   },
 })
