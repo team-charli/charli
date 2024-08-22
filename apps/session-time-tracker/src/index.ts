@@ -12,18 +12,6 @@ app.get('/websocket/:roomId', async (c) => {
   const resp = await durableObject.fetch(c.req.url);
   return resp;
 });
-app.post('/authenticate', async (c) => {
-  const { walletAddress, signature, sessionId } = await c.req.json();
-  const isSignatureValid = verifySignature(walletAddress, signature, sessionId);
-  if (!isSignatureValid) return c.text("Invalid signature", 401);
-  const payload = {
-    walletAddress,
-    sessionId,
-    exp: Math.floor(Date.now() / 1000) + 60 * 100, //100 minutes
-  };
-  const jwt = await sign(payload, c.env.JWT_SECRET);
-  return c.json({ jwt }, 200);
-});
 
 app.post('/init', async (c) => {
   const { clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress } = await c.req.json();
