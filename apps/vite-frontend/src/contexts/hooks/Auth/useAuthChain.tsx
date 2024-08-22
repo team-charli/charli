@@ -9,6 +9,7 @@ import { persister, authChainLogger } from "@/App"
 import { usePersistedAuthDataQuery } from "./LitAuth/usePersistedAuthDataQuery";
 import { UseQueryResult } from "@tanstack/react-query";
 import { PKPEthersWallet } from "@lit-protocol/pkp-ethers";
+import { IRelayPKP } from "@lit-protocol/types";
 
 export const useAuthChain = () => {
 
@@ -87,7 +88,7 @@ export const useAuthChain = () => {
     { name: 'litNodeClient', query: isLitConnectedQuery },
     { name : 'persistedAuthData', query: persistedAuthDataQuery},
     { name: 'authMethod', query: authMethodQuery },
-    { name: 'litAccount', query: litAccountQuery },
+    { name: 'litAccount', query: litAccountQuery as UseQueryResult<IRelayPKP, Error>},
     { name: 'sessionSigs', query: sessionSigsQuery },
     { name: 'isLitLoggedIn', query: isLitLoggedInQuery},
     { name: 'pkpWallet', query: pkpWalletQuery as UseQueryResult<PKPEthersWallet, Error> },

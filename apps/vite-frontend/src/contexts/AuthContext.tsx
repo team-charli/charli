@@ -4,6 +4,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { UseQueryResult } from '@tanstack/react-query';
 import React, { createContext, useContext } from 'react';
 import { useAuthChain } from './hooks/Auth/useAuthChain';
+import { IRelayPKP } from '@lit-protocol/types';
 
 export type AuthContextType = {
   queries: AuthQuery[];
@@ -48,7 +49,12 @@ export const usePkpWallet = () => useAuth().queries.find(q => q.name === 'pkpWal
 
 export const useLitNodeClientReady = () => useAuth().queries.find(q => q.name === 'litNodeClient')?.query as UseQueryResult<any, any>;
 export const useLitAuthMethod = () => useAuth().queries.find(q => q.name === 'authMethod')?.query as UseQueryResult<any, any>;
-export const useLitAccount = () => useAuth().queries.find(q => q.name === 'litAccount')?.query as UseQueryResult<any, any>;
+
+export const useLitAccount = (): UseQueryResult<IRelayPKP, Error> => {const query = useAuth().queries.find(q => q.name === 'litAccount')?.query;
+  if (!query) throw new Error('LitAccount query not found');
+  return query as UseQueryResult<IRelayPKP,Error>;
+}
+
 export const useSessionSigs = () => useAuth().queries.find(q => q.name === 'sessionSigs')?.query as UseQueryResult<any, any>;
 export const useIsLitLoggedIn = () => useAuth().queries.find(q => q.name === 'isLitLoggedIn')?.query as UseQueryResult<any, any>;
 export const useIsOnboarded = () => useAuth().queries.find(q => q.name === 'isOnboarded')?.query as UseQueryResult<any, any>;
