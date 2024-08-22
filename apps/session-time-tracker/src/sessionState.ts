@@ -1,3 +1,4 @@
+//sessionState.ts
 import {ethers} from 'ethers';
 export class SessionState {
   participants: Record<string, Participant> = {};

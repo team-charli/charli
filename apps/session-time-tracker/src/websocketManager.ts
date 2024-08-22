@@ -1,3 +1,4 @@
+//websocketManager.ts
 import { WebhookEvents, WebhookData } from './types';
 import { Hono } from 'hono';
 import {Wallet, keccak256, getAddress, verifyMessage} from 'ethers';

@@ -1,3 +1,4 @@
+//index.ts
 import { verifyMessage } from 'ethers';
 import { Hono } from 'hono';
 import { sign } from 'hono/jwt';

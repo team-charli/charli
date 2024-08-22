@@ -1,3 +1,4 @@
+//connectionManager.ts
 import ethers from 'ethers';
 
 export class ConnectionManager {
