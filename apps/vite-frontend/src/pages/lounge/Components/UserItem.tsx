@@ -7,8 +7,6 @@ import SessionLengthInput from "@/components/elements/SessionLengthInput";
 import { Button } from "@headlessui/react";
 import { useUserItem } from "../hooks/useUserItem";
 
-const contractAddress = import.meta.env.VITE_USDC_SEPOLIA_CONTRACT_ADDRESS;
-
 interface UserItemProps {
   userName: string;
   userID: number;
@@ -20,7 +18,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
   const [loggedInUserId] = useLocalStorage<number>("userID");
   const isLearnMode = modeView === "Learn";
 
-  const userItemHook = useUserItem(isLearnMode, userID, lang, loggedInUserId);
+  const userItemHook = useUserItem(isLearnMode);
 
   if (!isLearnMode) {
     return <li key={userID}>{userName}</li>;
@@ -34,7 +32,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
     learningRequestState,
     generateControllerData,
     signSessionDuration,
-    signApproveFundController,
+    executeApproveFundControllerAction,
     submitLearningRequest,
 
   } = userItemHook;
@@ -67,8 +65,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
           secureSessionId: newSecureSessionId
         });
 
-        await signApproveFundController.mutateAsync({
-          contractAddress,
+        await executeApproveFundControllerAction.mutateAsync({
           spenderAddress: newControllerData.controller_address,
           amount
         });
@@ -90,7 +87,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
         console.error("Error in submit process:", error);
       }
     }
-  }, [isLearnMode, learningRequestState, signSessionDuration, signApproveFundController, submitLearningRequest, loggedInUserId, userID, lang, generateSecureSessionId, generateControllerData]);
+  }, [isLearnMode, learningRequestState, signSessionDuration, executeApproveFundControllerAction, submitLearningRequest, loggedInUserId, userID, lang, generateSecureSessionId, generateControllerData]);
 
   const okHandler = () => {
     learningRequestState.setRenderSubmitConfirmation(false);
@@ -119,7 +116,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
           <button
             onClick={handleSubmitLearningRequest}
             className="p-1 rounded"
-            disabled={signSessionDuration.isPending || signApproveFundController.isPending || submitLearningRequest.isPending}
+            disabled={signSessionDuration.isPending || executeApproveFundControllerAction.isPending || submitLearningRequest.isPending}
           >
             Submit
           </button>

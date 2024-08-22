@@ -87,21 +87,6 @@ export function getBytesFromMultihash(multihash: string): string {
   return `0x${Buffer.from(decoded).toString("hex")}`;
 }
 
-export function generateUserId() {
-  const uniqueData = `ControllerPKP_${Date.now()}`;
-  const bytes = ethers.toUtf8Bytes(uniqueData);
-  const uniqueId = ethers.keccak256(bytes);
-  return `ControllerPKP_${uniqueId}`;
-}
-
-type Defaultable<T> = T | null;
-
-export function safeDestructure<T extends object>(result: Defaultable<T>, defaults: T): T {
-  if (result === null) {
-    return defaults;
-  }
-  return result;
-}
 
 export function calculateSessionCost(sessionDuration: string | undefined) {
   if (!sessionDuration) throw new Error(`sessionDuration undefined`)

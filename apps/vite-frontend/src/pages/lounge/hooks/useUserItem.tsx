@@ -1,19 +1,19 @@
 // useUserItem.ts
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useMutation, UseMutationResult } from '@tanstack/react-query';
 import { ethers, BigNumberish, SignatureLike } from 'ethers';
 import { usePreCalculateTimeDate } from './usePreCalculateTimeDate';
-import { usePkpWallet, useLitAccount, useSupabaseClient } from '@/contexts/AuthContext';
+import { usePkpWallet, useLitAccount, useSupabaseClient, useSessionSigs } from '@/contexts/AuthContext';
 import { litNodeClient } from '@/utils/litClients';
-import { generateUserId, convertLocalTimetoUtc } from '@/utils/app';
+import { convertLocalTimetoUtc } from '@/utils/app';
 
 // Define the return type of useUserItem
 type ControllerData = {
-    controller_claim_user_id: string;
-    controller_address: string;
-    controller_public_key: string;
-    claim_key_id: string;
-  };
+  controller_claim_user_id: string;
+  controller_address: string;
+  controller_public_key: string;
+  claim_key_id: string;
+};
 
 interface SubmitLearningRequest {
   dateTime: string;
@@ -39,7 +39,7 @@ interface UseUserItemReturn {
     amount: BigNumberish;
   };
   signSessionDuration: UseMutationResult<SignatureLike, unknown, { duration: number; secureSessionId: string }, unknown>;
-  signApproveFundController: UseMutationResult<string, unknown, { contractAddress: string; spenderAddress: string; amount: BigNumberish }, unknown>;
+  executeApproveFundControllerAction: UseMutationResult<void, unknown, ExecuteApproveFundControllerActionParams, unknown>;
   submitLearningRequest: UseMutationResult<boolean, unknown, {
     dateTime: string;
     teacherID: number;
@@ -50,11 +50,21 @@ interface UseUserItemReturn {
     secureSessionId: string;
     controllerData: ControllerData;
   }, unknown>;
-   generateControllerData: () => ControllerData;
+  generateControllerData: () => ControllerData;
+}
+interface ExecuteApproveFundControllerActionParams {
+  spenderAddress: string,
+  amount: BigNumberish
+  sig: SignatureLike;
+  secureSessionId: string;
 }
 
-export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, loggedInUserId: number | null): UseUserItemReturn | null => {
+export const useUserItem = (isLearnMode: boolean): UseUserItemReturn | null => {
   if (!isLearnMode) return null;
+  const { data: supabaseClient } = useSupabaseClient();
+  const { data: sessionSigs} = useSessionSigs();
+  const { data: currentAccount} = useLitAccount();
+  const { data: pkpWallet } = usePkpWallet();
 
   const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string>("20");
   const [toggleDateTimePicker, setToggleDateTimePicker] = useState(false);
@@ -69,14 +79,16 @@ export const useUserItem = (isLearnMode: boolean, userID: number, lang: string, 
   const amount = useMemo(() => ethers.parseUnits(String(sessionDuration * 0.3), 6) as BigNumberish, [sessionDuration]);
 
 
-const generateControllerData = useCallback((): ControllerData => {
+  const generateControllerData = useCallback((): ControllerData => {
     const ipfs_cid = import.meta.env.VITE_LIT_ACTION_IPFS_CID_TRANSFER_FROM_LEARNER;
-    if (!ipfs_cid) throw new Error('missing ipfs_cid env');
-    const userId = generateUserId();
+    const uniqueData = `ControllerPKP_${Date.now()}`;
+    const bytes = ethers.toUtf8Bytes(uniqueData);
+    const userId = ethers.keccak256(bytes);
     const keyId = litNodeClient.computeHDKeyId(userId, ipfs_cid, true);
     const publicKey = litNodeClient.computeHDPubKey(keyId);
     const claimKeyAddress = ethers.computeAddress("0x" + publicKey);
     console.log('claimKeyAddress', claimKeyAddress);
+
     return {
       controller_claim_user_id: userId,
       controller_address: claimKeyAddress,
@@ -85,34 +97,31 @@ const generateControllerData = useCallback((): ControllerData => {
     };
   }, []);
 
-  const { data: pkpWallet } = usePkpWallet();
   const signSessionDuration = useMutation({
     mutationFn: async ({ duration, secureSessionId }: { duration: number, secureSessionId: string }) => {
       if (!pkpWallet) throw new Error('Wallet not initialized');
       const encodedData = ethers.concat([
-        ethers.toUtf8Bytes(secureSessionId),
-        ethers.toBeHex(duration, 32)
+        ethers.toUtf8Bytes(secureSessionId), ethers.toBeHex(duration, 32)
       ]);
       const message = ethers.keccak256(encodedData);
       return await pkpWallet.signMessage(ethers.getBytes(message));
     },
   });
 
-  const signApproveFundController = useMutation({
-    mutationFn: async ({ contractAddress, spenderAddress, amount }: { contractAddress: string, spenderAddress: string, amount: BigNumberish }) => {
-      if (!pkpWallet || !contractAddress || !amount) throw new Error('Invalid parameters');
-      const erc20AbiFragment = ["function approve(address spender, uint256 amount) returns (bool)"];
-      const iface = new ethers.Interface(erc20AbiFragment);
-      const data = iface.encodeFunctionData("approve", [spenderAddress, amount]);
-      const tx = { to: contractAddress, data: data };
-      return await pkpWallet.signTransaction(tx);
+  const executeApproveFundControllerAction = useMutation({
+    mutationFn: async ({ spenderAddress, amount, sig, secureSessionId  }: ExecuteApproveFundControllerActionParams ) => {
+      const ipfsId = import.meta.env.VITE_APPROVE_SIGNER_ACTION_IPFS_CID;
+      const pinataApiCypherText = import.meta.env.VITE_ENCRYPTED_API_KEY_CIPHERTEXT;
+      const pinataApiKeyEncryptionHash = import.meta.env.VITE_ENCRYPTED_API_KEY_HASH;
+
+      litNodeClient.executeJs({ipfsId, sessionSigs, jsParams: {
+        sig, learnerAddress: currentAccount?.ethAddress, secureSessionId, spenderAddress, amount, /*authSig,*/ learnerPublicKey: currentAccount?.publicKey, pinataApiCypherText, pinataApiKeyEncryptionHash}  })
+
     },
   });
 
-  const { data: currentAccount } = useLitAccount();
-  const { data: supabaseClient } = useSupabaseClient();
 
-const submitLearningRequest = useMutation({
+  const submitLearningRequest = useMutation({
     mutationFn: async ({
       dateTime,
       teacherID,
@@ -126,7 +135,7 @@ const submitLearningRequest = useMutation({
       if (!supabaseClient || !currentAccount) throw new Error('Supabase client or current account not available');
       const utcDateTime = convertLocalTimetoUtc(dateTime);
       let hashed_learner_address = ethers.keccak256(currentAccount.ethAddress);
-      const { data, error } = await supabaseClient
+      const { error } = await supabaseClient
         .from('sessions')
         .insert([{
           teacher_id: teacherID,
@@ -165,7 +174,7 @@ const submitLearningRequest = useMutation({
     },
     generateControllerData,
     signSessionDuration,
-    signApproveFundController,
+    executeApproveFundControllerAction,
     submitLearningRequest,
   };
 };
