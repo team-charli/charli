@@ -25,7 +25,7 @@ export class SessionTimer {
     const expirationTime = now + this.duration;
 
     try {
-      const wallet = new ethers.Wallet(this.env.PRIVATE_KEY);
+      const wallet = new ethers.Wallet(this.env.PRIVATE_KEY_SESSION_TIME_SIGNER);
       const currentTime = new Date();
       const timestampMs = String(currentTime.getTime());
       const signature = await wallet.signMessage(timestampMs);
@@ -39,7 +39,7 @@ export class SessionTimer {
       await this.broadcastMessage({ type: 'warning', message: '3 minute warning' });
     } else if (now >= expirationTime) {
       try {
-        const wallet = new ethers.Wallet(this.env.PRIVATE_KEY);
+        const wallet = new ethers.Wallet(this.env.PRIVATE_KEY_SESSION_TIME_SIGNER);
         const currentTime = new Date();
         const timestampMs = String(currentTime.getTime());
         const signature = await wallet.signMessage(timestampMs);
@@ -64,7 +64,7 @@ export class SessionTimer {
 
 interface Env {
   CONNECTION_MANAGER: DurableObjectNamespace;
-  PRIVATE_KEY: string;
+  PRIVATE_KEY_SESSION_TIME_SIGNER: string;
 }
 
 interface RequestPayload {

@@ -11,7 +11,7 @@ export class WebSocketManager {
   private readonly heartbeatThreshold = 35000; // 90 seconds
 
   constructor(private state: DurableObjectState, private env: any) {
-    const privateKey = env.CHARLI_SESSION_SESSION_TIME_TRACKER;
+    const privateKey = env.PRIVATE_KEY_USER_TIME_SIGNER;
     this.wallet = new Wallet(privateKey);
     this.clientData = null;
     this.app = new Hono();

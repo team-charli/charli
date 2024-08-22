@@ -128,7 +128,7 @@ export class ConnectionManager {
 
   private async signMessage(message: string): Promise<string> {
     try {
-      const wallet = new ethers.Wallet(this.env.PRIVATE_KEY);
+      const wallet = new ethers.Wallet(this.env.PRIVATE_KEY_SESSION_TIME_SIGNER);
       const signature = await wallet.signMessage(message);
       return signature;
     } catch (error) {
@@ -164,5 +164,5 @@ export class ConnectionManager {
 
 interface Env {
   SESSION_STATE: DurableObjectNamespace;
-  PRIVATE_KEY: string;
+  PRIVATE_KEY_SESSION_TIME_SIGNER: string;
 }
