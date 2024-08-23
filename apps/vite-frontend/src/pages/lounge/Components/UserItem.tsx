@@ -55,7 +55,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
     const { sessionDuration, dateTime, amount, setRenderSubmitConfirmation } = learningRequestState;
 
     if (sessionDuration && loggedInUserId) {
-      try {
+      // try {
         const newControllerData = generateControllerData();
 
         const newSecureSessionId: string = generateSecureSessionId();
@@ -67,7 +67,9 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
 
         await executeApproveFundControllerAction.mutateAsync({
           spenderAddress: newControllerData.controller_address,
-          amount
+          amount,
+          sig: learnerSignedSessionDuration,
+          secureSessionId: newSecureSessionId,
         });
 
         submitLearningRequest.mutate({
@@ -81,11 +83,11 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
           controllerData: newControllerData,
         }, {
             onSuccess: () => setRenderSubmitConfirmation(true),
-            onError: (error: unknown) => console.error("Error submitting learning request:", error),
+            // onError: (error: unknown) => console.error("Error submitting learning request:", error),
           });
-      } catch (error) {
-        console.error("Error in submit process:", error);
-      }
+      // } catch (error) {
+      //   console.error("Error in submit process:", error);
+      // }
     }
   }, [isLearnMode, learningRequestState, signSessionDuration, executeApproveFundControllerAction, submitLearningRequest, loggedInUserId, userID, lang, generateSecureSessionId, generateControllerData]);
 

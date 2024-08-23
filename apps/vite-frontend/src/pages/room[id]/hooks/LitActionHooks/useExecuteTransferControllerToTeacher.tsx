@@ -2,13 +2,12 @@ import { ethers } from 'ethers';
 import { AuthSig, SessionSigs } from "@lit-protocol/types";
 import { SessionIPFSData } from "@/types/types";
 import { litNodeClient } from "@/utils/litClients";
-import { transferControllerToTeacherAction } from '../../LitActions/transferControllerToTeacherAction';
 
 
 export const useExecuteTransferControllerToTeacher = (
   userIPFSData: SessionIPFSData | null,
   sessionSigs: SessionSigs | null,
-  authSig: AuthSig | null,
+  //authSig: AuthSig | null,
   sessionDuration: number | undefined,
   teacherDurationSig: string | undefined,
   learnerDurationSig: string | undefined,
@@ -59,13 +58,11 @@ export const useExecuteTransferControllerToTeacher = (
   } : undefined;
 
   const executeTransferControllerToTeacher = async (): Promise<string> => {
-    const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS;
     const chainId = import.meta.env.VITE_CHAIN_ID;
-    const chain = import.meta.env.VITE_LIT_CHAIN_NAME;
     const addressTimestampWorkerWallet = import.meta.env.VITE_PUBLIC_ADDRESS_TIMESTAMP_WORKER_WALLET;
 
     const results = await litNodeClient.executeJs({
-      code: transferControllerToTeacherAction,
+      ipfsId,
       sessionSigs,
       jsParams: {
         teacherRole,
@@ -88,11 +85,9 @@ export const useExecuteTransferControllerToTeacher = (
         learnerDuration,
         hashedLearnerAddress,
 
-        usdcContractAddress,
         chainId,
-        chain,
         addressTimestampWorkerWallet,
-        authSig,
+        // authSig,
 
         clientTimestamp,
         signedClientTimestamp,

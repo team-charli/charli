@@ -25,10 +25,8 @@ export const useSignInSupabaseQuery = ({
   queryFnData,
   supabaseClient,
 }: UseSignInSupabase) => {
-  // Initialize your variables
   let authMethod: AuthMethodPlus | undefined;
 
-  // If queryFnData has a 'method' property, it's treated as AuthMethod
   authMethod = queryFnData as AuthMethodPlus;
   return useQuery<SignInResult, Error>({
     queryKey,
@@ -44,6 +42,7 @@ export const useSignInSupabaseQuery = ({
           } else {
             throw new Error('bad provider type')
           }
+
           const { data, error } = await supabaseClient.auth.signInWithIdToken({
             provider,
             token: authMethod.idToken,

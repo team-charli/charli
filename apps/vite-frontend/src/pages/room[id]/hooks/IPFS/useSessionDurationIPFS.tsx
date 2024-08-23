@@ -1,7 +1,7 @@
 // useSessionDurationIPFS.tsx
 import { useMutation } from '@tanstack/react-query';
-import { IPFSResponse, SessionDurationData } from "../../types/types";
 import { useLitAccount, useSessionSigs, useSupabaseClient, usePkpWallet } from "@/contexts/AuthContext";
+import { IPFSResponse, SessionDurationData } from '@/types/types';
 
 const pinata_api_key = import.meta.env.VITE_PINATA_API_KEY;
 const pinata_secret_api_key = import.meta.env.VITE_PINATA_API_SECRET;

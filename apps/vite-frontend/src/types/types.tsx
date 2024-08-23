@@ -343,7 +343,7 @@ export interface UseSessionManagerOptions {
   hashedTeacherAddress: string | undefined;
   hashedLearnerAddress: string | undefined;
   userAddress: string | undefined;
-  currentAccount: IRelayPKP | null;
+  currentAccount: IRelayPKP | undefined;
   sessionSigs: SessionSigs | null;
 }
 

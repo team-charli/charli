@@ -6,6 +6,7 @@ import { usePreCalculateTimeDate } from './usePreCalculateTimeDate';
 import { usePkpWallet, useLitAccount, useSupabaseClient, useSessionSigs } from '@/contexts/AuthContext';
 import { litNodeClient } from '@/utils/litClients';
 import { convertLocalTimetoUtc } from '@/utils/app';
+import { approveSigner } from '../LitActions/approveAction';
 
 // Define the return type of useUserItem
 type ControllerData = {
@@ -108,17 +109,44 @@ export const useUserItem = (isLearnMode: boolean): UseUserItemReturn | null => {
     },
   });
 
-  const executeApproveFundControllerAction = useMutation({
-    mutationFn: async ({ spenderAddress, amount, sig, secureSessionId  }: ExecuteApproveFundControllerActionParams ) => {
-      const ipfsId = import.meta.env.VITE_APPROVE_SIGNER_ACTION_IPFS_CID;
-      const pinataApiCypherText = import.meta.env.VITE_ENCRYPTED_API_KEY_CIPHERTEXT;
-      const pinataApiKeyEncryptionHash = import.meta.env.VITE_ENCRYPTED_API_KEY_HASH;
+const executeApproveFundControllerAction = useMutation({
+  mutationFn: async ({ spenderAddress, amount, sig, secureSessionId }: ExecuteApproveFundControllerActionParams) => {
+    const ipfsId = import.meta.env.VITE_APPROVE_SIGNER_ACTION_IPFS_CID;
+    const pinataApiCypherText = import.meta.env.VITE_ENCRYPTED_API_KEY_CIPHERTEXT;
+    const pinataApiKeyEncryptionHash = import.meta.env.VITE_ENCRYPTED_API_KEY_HASH;
 
-      litNodeClient.executeJs({ipfsId, sessionSigs, jsParams: {
-        sig, learnerAddress: currentAccount?.ethAddress, secureSessionId, spenderAddress, amount, /*authSig,*/ learnerPublicKey: currentAccount?.publicKey, pinataApiCypherText, pinataApiKeyEncryptionHash}  })
+    console.log('ipfsId', ipfsId)
+    const result = await litNodeClient.executeJs({
+      code: approveSigner,
+      sessionSigs,
+      jsParams: {
+        sig,
+        learnerAddress: currentAccount?.ethAddress,
+        secureSessionId,
+        spenderAddress,
+        amount,
+        learnerPublicKey: currentAccount?.publicKey,
+        pinataApiCypherText,
+        pinataApiKeyEncryptionHash
+      }
+    })
 
-    },
-  });
+    console.log('result', result)
+  },
+  // onError: (error, variables, context) => {
+
+
+  //   // Handle the error here
+  //   console.error('An error occurred:', error);
+  //   // You can also access the variables and context if needed
+  //   console.log('Variables:', variables);
+  //   console.log('Context:', context);
+
+  //   // Optionally, you can show an error message to the user
+  //   // For example, using a toast notification library or updating state
+  //   // showErrorToast('Failed to approve fund controller action');
+  // },
+});
 
 
   const submitLearningRequest = useMutation({
