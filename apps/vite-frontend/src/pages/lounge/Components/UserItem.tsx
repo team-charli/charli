@@ -34,7 +34,7 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
     signSessionDuration,
     executeApproveFundControllerAction,
     submitLearningRequest,
-
+    signApproveTransaction
   } = userItemHook;
 
   const generateSecureSessionId = useCallback(() => {
@@ -49,47 +49,41 @@ const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
     return null; // or some loading state
   }
 
-  const handleSubmitLearningRequest = useCallback(async () => {
-    if (!isLearnMode || !learningRequestState) return;
+// UserItem.tsx
+const handleSubmitLearningRequest = useCallback(async () => {
+  if (!isLearnMode || !learningRequestState) return;
+  const { sessionDuration, dateTime, setRenderSubmitConfirmation } = learningRequestState;
+  if (sessionDuration && loggedInUserId) {
+    try {
+      const newControllerData = generateControllerData();
+      const newSecureSessionId = generateSecureSessionId();
 
-    const { sessionDuration, dateTime, amount, setRenderSubmitConfirmation } = learningRequestState;
+      const signedTx = await signApproveTransaction.mutateAsync();
 
-    if (sessionDuration && loggedInUserId) {
-      // try {
-        const newControllerData = generateControllerData();
+      const approveResult = await executeApproveFundControllerAction.mutateAsync(signedTx);
 
-        const newSecureSessionId: string = generateSecureSessionId();
-
-        const learnerSignedSessionDuration = await signSessionDuration.mutateAsync({
-          duration: sessionDuration,
-          secureSessionId: newSecureSessionId
-        });
-
-        await executeApproveFundControllerAction.mutateAsync({
-          spenderAddress: newControllerData.controller_address,
-          amount,
-          sig: learnerSignedSessionDuration,
-          secureSessionId: newSecureSessionId,
-        });
-
-        submitLearningRequest.mutate({
+      if (approveResult.success) {
+        await submitLearningRequest.mutateAsync({
           dateTime,
           teacherID: userID,
           userID: loggedInUserId,
           teachingLang: lang,
           sessionDuration,
-          learnerSignedSessionDuration,
           secureSessionId: newSecureSessionId,
           controllerData: newControllerData,
-        }, {
-            onSuccess: () => setRenderSubmitConfirmation(true),
-            // onError: (error: unknown) => console.error("Error submitting learning request:", error),
-          });
-      // } catch (error) {
-      //   console.error("Error in submit process:", error);
-      // }
+          learnerSignedSessionDuration:
+        });
+        setRenderSubmitConfirmation(true);
+      } else {
+        throw new Error("Approval transaction failed");
+      }
+    } catch (error) {
+      console.error("Error in submit process:", error);
+      // Handle error (e.g., show error message to user)
     }
-  }, [isLearnMode, learningRequestState, signSessionDuration, executeApproveFundControllerAction, submitLearningRequest, loggedInUserId, userID, lang, generateSecureSessionId, generateControllerData]);
+  }
+}, [isLearnMode, learningRequestState, signApproveTransaction, executeApproveFundControllerAction, submitLearningRequest, loggedInUserId, userID, lang, generateSecureSessionId, generateControllerData]);
+
 
   const okHandler = () => {
     learningRequestState.setRenderSubmitConfirmation(false);

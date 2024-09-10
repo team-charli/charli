@@ -1,70 +1,19 @@
 // useUserItem.ts
 import { useState, useMemo, useCallback } from 'react';
-import { useMutation, UseMutationResult } from '@tanstack/react-query';
-import { ethers, BigNumberish, SignatureLike } from 'ethers';
+import { useMutation } from '@tanstack/react-query';
+import { ethers, BigNumberish } from 'ethers';
 import { usePreCalculateTimeDate } from './usePreCalculateTimeDate';
 import { usePkpWallet, useLitAccount, useSupabaseClient, useSessionSigs } from '@/contexts/AuthContext';
 import { litNodeClient } from '@/utils/litClients';
 import { convertLocalTimetoUtc } from '@/utils/app';
 import { approveSigner } from '../LitActions/approveAction';
-
-// Define the return type of useUserItem
-type ControllerData = {
-  controller_claim_user_id: string;
-  controller_address: string;
-  controller_public_key: string;
-  claim_key_id: string;
-};
-
-interface SubmitLearningRequest {
-  dateTime: string;
-  teacherID: number;
-  userID: number;
-  teachingLang: string;
-  sessionDuration: number;
-  learnerSignedSessionDuration: SignatureLike;
-  secureSessionId: string;
-}
-
-interface UseUserItemReturn {
-  learningRequestState: {
-    sessionLengthInputValue: string;
-    setSessionLengthInputValue: React.Dispatch<React.SetStateAction<string>>;
-    toggleDateTimePicker: boolean;
-    setToggleDateTimePicker: React.Dispatch<React.SetStateAction<boolean>>;
-    renderSubmitConfirmation: boolean;
-    setRenderSubmitConfirmation: React.Dispatch<React.SetStateAction<boolean>>;
-    dateTime: string;
-    setDateTime: React.Dispatch<React.SetStateAction<string>>;
-    sessionDuration: number;
-    amount: BigNumberish;
-  };
-  signSessionDuration: UseMutationResult<SignatureLike, unknown, { duration: number; secureSessionId: string }, unknown>;
-  executeApproveFundControllerAction: UseMutationResult<void, unknown, ExecuteApproveFundControllerActionParams, unknown>;
-  submitLearningRequest: UseMutationResult<boolean, unknown, {
-    dateTime: string;
-    teacherID: number;
-    userID: number;
-    teachingLang: string;
-    sessionDuration: number;
-    learnerSignedSessionDuration: SignatureLike;
-    secureSessionId: string;
-    controllerData: ControllerData;
-  }, unknown>;
-  generateControllerData: () => ControllerData;
-}
-interface ExecuteApproveFundControllerActionParams {
-  spenderAddress: string,
-  amount: BigNumberish
-  sig: SignatureLike;
-  secureSessionId: string;
-}
+import { ControllerData, SubmitLearningRequest, UseUserItemReturn } from '@/types/types';
 
 export const useUserItem = (isLearnMode: boolean): UseUserItemReturn | null => {
   if (!isLearnMode) return null;
   const { data: supabaseClient } = useSupabaseClient();
-  const { data: sessionSigs} = useSessionSigs();
-  const { data: currentAccount} = useLitAccount();
+  const { data: sessionSigs } = useSessionSigs();
+  const { data: currentAccount } = useLitAccount();
   const { data: pkpWallet } = usePkpWallet();
 
   const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string>("20");
@@ -79,7 +28,6 @@ export const useUserItem = (isLearnMode: boolean): UseUserItemReturn | null => {
 
   const amount = useMemo(() => ethers.parseUnits(String(sessionDuration * 0.3), 6) as BigNumberish, [sessionDuration]);
 
-
   const generateControllerData = useCallback((): ControllerData => {
     const ipfs_cid = import.meta.env.VITE_LIT_ACTION_IPFS_CID_TRANSFER_FROM_LEARNER;
     const uniqueData = `ControllerPKP_${Date.now()}`;
@@ -89,7 +37,6 @@ export const useUserItem = (isLearnMode: boolean): UseUserItemReturn | null => {
     const publicKey = litNodeClient.computeHDPubKey(keyId);
     const claimKeyAddress = ethers.computeAddress("0x" + publicKey);
     console.log('claimKeyAddress', claimKeyAddress);
-
     return {
       controller_claim_user_id: userId,
       controller_address: claimKeyAddress,
@@ -98,56 +45,48 @@ export const useUserItem = (isLearnMode: boolean): UseUserItemReturn | null => {
     };
   }, []);
 
-  const signSessionDuration = useMutation({
-    mutationFn: async ({ duration, secureSessionId }: { duration: number, secureSessionId: string }) => {
+const signSessionDuration = useMutation({
+  mutationFn: async ({ duration, secureSessionId }: { duration: number, secureSessionId: string }) => {
+    if (!pkpWallet) throw new Error('Wallet not initialized');
+
+    const encodedData = ethers.concat([
+      ethers.toUtf8Bytes(secureSessionId),
+      ethers.toBeHex(duration)
+    ]);
+
+    const message = ethers.keccak256(encodedData);
+    return await pkpWallet.signMessage(ethers.getBytes(message));
+  },
+});
+
+  const signApproveTransaction = useMutation({
+    mutationFn: async (controllerData: ControllerData) => {
       if (!pkpWallet) throw new Error('Wallet not initialized');
-      const encodedData = ethers.concat([
-        ethers.toUtf8Bytes(secureSessionId), ethers.toBeHex(duration, 32)
-      ]);
-      const message = ethers.keccak256(encodedData);
-      return await pkpWallet.signMessage(ethers.getBytes(message));
+      const USDC_CONTRACT_ADDRESS = import.meta.env.VITE_USDC_SEPOLIA_CONTRACT_ADDRESS;
+      const tx = {
+        to: USDC_CONTRACT_ADDRESS,
+        gasLimit: ethers.toBeHex(100000),
+        data: new ethers.Interface(["function approve(address spender, uint256 amount)"]).encodeFunctionData("approve", [controllerData.controller_address, amount]),
+      };
+      return await pkpWallet.signTransaction(tx);
     },
   });
 
-const executeApproveFundControllerAction = useMutation({
-  mutationFn: async ({ spenderAddress, amount, sig, secureSessionId }: ExecuteApproveFundControllerActionParams) => {
-    const ipfsId = import.meta.env.VITE_APPROVE_SIGNER_ACTION_IPFS_CID;
-    const pinataApiCypherText = import.meta.env.VITE_ENCRYPTED_API_KEY_CIPHERTEXT;
-    const pinataApiKeyEncryptionHash = import.meta.env.VITE_ENCRYPTED_API_KEY_HASH;
-
-    console.log('ipfsId', ipfsId)
-    const result = await litNodeClient.executeJs({
-      code: approveSigner,
-      sessionSigs,
-      jsParams: {
-        sig,
-        learnerAddress: currentAccount?.ethAddress,
-        secureSessionId,
-        spenderAddress,
-        amount,
-        learnerPublicKey: currentAccount?.publicKey,
-        pinataApiCypherText,
-        pinataApiKeyEncryptionHash
-      }
-    })
-
-    console.log('result', result)
-  },
-  // onError: (error, variables, context) => {
-
-
-  //   // Handle the error here
-  //   console.error('An error occurred:', error);
-  //   // You can also access the variables and context if needed
-  //   console.log('Variables:', variables);
-  //   console.log('Context:', context);
-
-  //   // Optionally, you can show an error message to the user
-  //   // For example, using a toast notification library or updating state
-  //   // showErrorToast('Failed to approve fund controller action');
-  // },
-});
-
+  const executeApproveFundControllerAction = useMutation({
+    mutationFn: async (signedTx: string, secureSessionId: string, controllerDatasessionIdAndDurationSig: string, sessionDuration: string )  => {
+      const result = await litNodeClient.executeJs({
+        ipfsId: "QmR1fbsosSmH76GXUCoW6nRgQei6N9Twm9MsEcH12NnMCX",
+        sessionSigs,
+        jsParams: {
+          signedTx,
+          secureSessionId,
+          controllerDatasessionIdAndDurationSig,
+          sessionDuration
+        }
+      });
+      return result;
+    },
+  });
 
   const submitLearningRequest = useMutation({
     mutationFn: async ({
@@ -159,7 +98,7 @@ const executeApproveFundControllerAction = useMutation({
       learnerSignedSessionDuration,
       secureSessionId,
       controllerData,
-    }: SubmitLearningRequest & { controllerData: ControllerData }) => {
+    }: any) => {
       if (!supabaseClient || !currentAccount) throw new Error('Supabase client or current account not available');
       const utcDateTime = convertLocalTimetoUtc(dateTime);
       let hashed_learner_address = ethers.keccak256(currentAccount.ethAddress);
@@ -201,8 +140,9 @@ const executeApproveFundControllerAction = useMutation({
       amount,
     },
     generateControllerData,
-    signSessionDuration,
+    signApproveTransaction,
     executeApproveFundControllerAction,
     submitLearningRequest,
+    signSessionDuration
   };
 };

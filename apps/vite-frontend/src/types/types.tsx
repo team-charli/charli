@@ -379,3 +379,55 @@ export interface UserItemIface {
   modeView: "Learn" | "Teach"
 }
 
+// types.ts
+import { BigNumberish, SignatureLike } from 'ethers';
+import { UseMutationResult } from '@tanstack/react-query';
+
+export interface ControllerData {
+  controller_claim_user_id: string;
+  controller_address: string;
+  controller_public_key: string;
+  claim_key_id: string;
+}
+
+export interface ExecuteApproveFundControllerActionParams {
+  spenderAddress: string;
+  amount: BigNumberish;
+  sig: SignatureLike;
+  secureSessionId: string;
+  userId: string;
+  ipfsCid: string;
+}
+
+export interface SubmitLearningRequest {
+  dateTime: string;
+  teacherID: number;
+  userID: number;
+  teachingLang: string;
+  sessionDuration: number;
+  learnerSignedSessionDuration: SignatureLike;
+  secureSessionId: string;
+  controllerData: ControllerData;
+}
+
+export interface LearningRequestState {
+  sessionLengthInputValue: string;
+  setSessionLengthInputValue: React.Dispatch<React.SetStateAction<string>>;
+  toggleDateTimePicker: boolean;
+  setToggleDateTimePicker: React.Dispatch<React.SetStateAction<boolean>>;
+  renderSubmitConfirmation: boolean;
+  setRenderSubmitConfirmation: React.Dispatch<React.SetStateAction<boolean>>;
+  dateTime: string;
+  setDateTime: React.Dispatch<React.SetStateAction<string>>;
+  sessionDuration: number;
+  amount: BigNumberish;
+}
+
+export interface UseUserItemReturn {
+  learningRequestState: LearningRequestState;
+  generateControllerData: () => ControllerData;
+  signSessionDuration: UseMutationResult<SignatureLike, unknown, { duration: number; secureSessionId: string }, unknown>;
+  executeApproveFundControllerAction: UseMutationResult<any, unknown, ExecuteApproveFundControllerActionParams, unknown>;
+  submitLearningRequest: UseMutationResult<boolean, unknown, SubmitLearningRequest, unknown>;
+  signApproveTransaction: any;
+}

@@ -32,14 +32,13 @@ export default {
     const sessionSigsFunction = async() => {
       const authNeededCallback: AuthCallback = async ({
         uri,
-        expiration,
         resourceAbilityRequests,
       }) => {
 
         // Prepare the SIWE message for signing
         if (!uri) throw new Error('no uri')
-        if (!expiration) throw new Error('no expiration')
         if (!resourceAbilityRequests) throw new Error('no resourceAbilityRequests')
+        const expiration = new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString()
         const toSign = await createSiweMessageWithRecaps({
           uri: uri,
           expiration: expiration,
