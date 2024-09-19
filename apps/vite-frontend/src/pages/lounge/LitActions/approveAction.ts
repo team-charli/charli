@@ -1,10 +1,7 @@
-// @ts-nocheck
-//signedTx, secureSessionId, sessionIdAndDurationSig, duration
+// @ts-nocheck ipfs-cid:QmYSrUVHtfQ547o2DZBPWnH4GGDHYASMdkyakxKWPG5MLv
+const approveAction =
 
-//ipfs-cid:QmcBLoCwo7JBuf1aMfTuRh76EES2gHgtKYNM5Xen3o7uQb
-// export const approveSigner = `(
-
-(async () => {
+async () => {
 
   const verifySessionDurationAndSecureId = () => {
     const encodedData = ethers.utils.concat([
@@ -33,21 +30,33 @@
 
 
   // Send the pre-signed transaction using runOnce
+  let sendTransactionDidRun;
   try {
-  let txHash = await Lit.Actions.runOnce({
-    waitForResponse: true,
-    name: "approveTxSender"
-  }, async () => {
-      const rpcUrl = await Lit.Actions.getRpcUrl({ chain: "sepolia" });
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-      const tx = await provider.sendTransaction(signedTx);
-      await tx.wait(); // Wait for the transaction to be mined
-      return tx.hash;
-    });
+    sendTransactionDidRun = await Lit.Actions.runOnce(
+      {
+        waitForResponse: true,
+        name: "approveTxSender",
+      },
+      async () => {
+        try {
+          const rpcUrl = await Lit.Actions.getRpcUrl({ chain: "sepolia" });
+          const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+          console.log("RPC URL:", rpcUrl);
+          const network = await provider.getNetwork();
+          console.log("Connected to Network:", network);
+          const tx = await provider.sendTransaction(signedTx);
+          console.log("tx", tx)
+
+          return tx.hash;
+        } catch (error) {
+          // Return error message to the main catch block
+          throw new Error(`Transaction failed: ${error}`);
+        }
+      })
   } catch (error) {
-    Lit.Actions.setResponse(error);
+    console.log(error);
   }
+  Lit.Actions.setResponse({response: JSON.stringify(sendTransactionDidRun)})
 
-})();
-// `;
-
+}
+approveAction();
