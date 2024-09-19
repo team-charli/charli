@@ -43,11 +43,11 @@ Deno.serve(async (req) => {
       const sessionSigs = await getSessionSigs(litNodeClient, wallet);
       console.log("Session signatures obtained");
 
-      const mintAndBurnResult = await mintAndBurnPKP(keyId, sessionSigs, litNodeClient, wallet);
-      console.log("Mint and burn completed", { result: mintAndBurnResult });
+      const controllerKeyClaimData = await getControllerKeyClaimData(keyId, sessionSigs, litNodeClient, wallet);
+      console.log("Key Claim Complete. Returning Key Claim Data", { result: controllerKeyClaimData });
       await litNodeClient.disconnect()
 
-      return new Response(JSON.stringify(mintAndBurnResult), {
+      return new Response(JSON.stringify(controllerKeyClaimData), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -111,7 +111,7 @@ async function getSessionSigs(litNodeClient: any, wallet: ethers.Wallet) {
   });
 }
 
-async function mintAndBurnPKP(keyId: string, sessionSigs: any, litNodeClient: any, wallet: ethers.Wallet) {
+async function getControllerKeyClaimData(keyId: string, sessionSigs: any, litNodeClient: any, wallet: ethers.Wallet) {
   try {
     const contractClient = new LitContracts({ signer: wallet, network: LIT_NETWORK });
     await contractClient.connect();
@@ -123,7 +123,6 @@ async function mintAndBurnPKP(keyId: string, sessionSigs: any, litNodeClient: an
     });
 
     if (claimActionRes && claimActionRes.claims) {
-
       console.log({derivedKeyId: claimActionRes.claims[keyId].derivedKeyId,
         signatures: claimActionRes.claims[keyId].signatures })
 
@@ -138,13 +137,8 @@ async function mintAndBurnPKP(keyId: string, sessionSigs: any, litNodeClient: an
         contractClient.stakingContract.read.address,
         `0x${claimActionRes.claims![keyId].derivedKeyId}`
       );
-      return publicKey;
-        claimAndMintResult = await contractClient.pkpNftContractUtils.write.claimAndMint(
-          `0x${claimActionRes.claims[keyId].derivedKeyId}`,
-          claimActionRes.claims[keyId].signatures
-        );
+      return [publicKey, claimAndMintResult];
 
-        console.log('After claimAndMint:', claimAndMintResult);
       } catch (error) {
         console.error('Detailed error:', {
           message: error.message,
@@ -155,22 +149,6 @@ async function mintAndBurnPKP(keyId: string, sessionSigs: any, litNodeClient: an
         });
         throw error;
       }
-
-      console.log("Claim and mint completed", { result: claimAndMintResult });
-
-      const mintTx = claimAndMintResult.tx;
-      console.log("mintTx", mintTx)
-      const mintTxReceipt = await mintTx.wait();
-      const tokenId = mintTxReceipt.events[0].topics[1];
-      console.log("tokenId", tokenId)
-
-
-      const burnTx = await contractClient.pkpNftContract.write.burn(tokenId).catch(e => console.error(e));
-      console.log("Burn transaction completed", { burnTx });
-
-      await litNodeClient.disconnect()
-      return { mintTx, burnTx };
-
     } else {
       await litNodeClient.disconnect()
 
