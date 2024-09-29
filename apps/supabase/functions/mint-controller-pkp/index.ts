@@ -1,185 +1,171 @@
 import { ethers } from "https://esm.sh/ethers@5.7.0";
 import { LitContracts } from "https://esm.sh/@lit-protocol/contracts-sdk";
 import * as LitNodeClient from "https://esm.sh/@lit-protocol/lit-node-client-nodejs";
-import { AuthCallback, LitAbility } from "https://esm.sh/@lit-protocol/types";
-import { LitActionResource, createSiweMessageWithRecaps } from "https://esm.sh/@lit-protocol/auth-helpers";
 import { corsHeaders } from '../_shared/cors.ts';
 
-const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY") ?? "";
+const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY_MINT_CONTROLLER_PKP") ?? "";
 const LIT_NETWORK = Deno.env.get("LIT_NETWORK") ?? "datil-dev";
+const RELAYER_TOKEN_ID = Deno.env.get("ETHEREUM_RELAYER_TOKEN_ID");
 
+const pkpContract = {
+  dev: {
+    address: Deno.env.get("DEV_PKP_NFT_CONTRACT_ADDRESS"),
+  },
+  test: {
+    address: Deno.env.get("TEST_PKP_NFT_CONTRACT_ADDRESS"),
+  },
+  production: {
+    address: Deno.env.get("PROD_PKP_NFT_CONTRACT_ADDRESS"),
+  }
+};
 
-Deno.serve(async (req) => {
+type Environment = 'dev' | 'test' | 'production';
 
+function getPkpNftContractAddress(env: Environment): string {
+  const address = pkpContract[env]?.address;
+  if (!address) {
+    throw new Error(`Missing contract address for environment: ${env}`);
+  }
+  return address;
+}
+
+interface RequestBody {
+  keyType: number;
+  derivedKeyId: string;
+  signatures: string[];
+  env: Environment;
+  ipfsIdsToRegister: string[];
+}
+
+Deno.serve(async (req: Request) => {
+  let provider: ethers.JsonRpcProvider;
+  let wallet: ethers.Wallet;
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  if (req.method === "POST") {
-    try {
-      const body = await req.text();
-      let keyId;
-      try {
-        const json = JSON.parse(body);
-        keyId = json.keyId;
-      } catch (parseError) {
-        console.error(parseError)
-      }
-
-      if (!keyId) {
-        console.error("Missing keyId in request");
-        return new Response(JSON.stringify({ error: "Missing keyId in request" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const provider = new ethers.providers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
-      const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-      const litNodeClient = new LitNodeClient.LitNodeClientNodeJs({ litNetwork: LIT_NETWORK });
-      await litNodeClient.connect();
-      console.log("LitNodeClient connected");
-
-      const sessionSigs = await getSessionSigs(litNodeClient, wallet);
-      console.log("Session signatures obtained");
-
-      const mintAndBurnResult = await mintAndBurnPKP(keyId, sessionSigs, litNodeClient, wallet);
-      console.log("Mint and burn completed", { result: mintAndBurnResult });
-      await litNodeClient.disconnect()
-
-      return new Response(JSON.stringify(mintAndBurnResult), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      console.error("Unexpected error", { error: error.message, stack: error.stack });
-
-      return new Response(JSON.stringify({ error: "Unexpected error occurred", details: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-  } else {
-
-    console.log("Method not allowed", { method: req.method });
+  if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  try {
+    const body = await parseRequestBody(req);
+    validateRequest(body);
+
+    provider = new ethers.providers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
+    wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const pkpNftContractAddress = getPkpNftContractAddress(body.env);
+
+    const litNodeClient = new LitNodeClient.LitNodeClientNodeJs({ litNetwork: LIT_NETWORK });
+
+    await litNodeClient.connect();
+    console.log("LitNodeClient connected");
+
+    console.log("Session signatures obtained");
+
+    const mintAndBurnResult = await mintAndBurnPKP(body.keyType, body.derivedKeyId, body.signatures, litNodeClient, wallet, pkpNftContractAddress, body.ipfsIdsToRegister);
+      console.log("Mint and burn completed", { result: mintAndBurnResult });
+
+    await litNodeClient.disconnect();
+
+    return new Response(JSON.stringify(mintAndBurnResult), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Error processing request", { error: error.message, stack: error.stack });
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: error instanceof BadRequestError ? 400 : 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 });
 
-async function getSessionSigs(litNodeClient: any, wallet: ethers.Wallet) {
-  const authNeededCallback: AuthCallback = async ({
-    uri,
-    expiration,
-    resourceAbilityRequests,
-  }) => {
-    if (!uri || !expiration || !resourceAbilityRequests) {
-      await litNodeClient.disconnect()
-      throw new Error("Missing required parameters");
-    }
-
-    const toSign = await createSiweMessageWithRecaps({
-      uri: uri,
-      expiration: expiration,
-      resources: resourceAbilityRequests,
-      walletAddress: wallet.address,
-      nonce: await litNodeClient.getLatestBlockhash(),
-      litNodeClient: litNodeClient,
-    });
-
-    const signature = await wallet.signMessage(toSign);
-
-    return {
-      sig: signature,
-      derivedVia: "web3.eth.personal.sign",
-      signedMessage: toSign,
-      address: wallet.address,
-    };
-  };
-
-  return await litNodeClient.getSessionSigs({
-    chain: "ethereum",
-    resourceAbilityRequests: [
-      {
-        resource: new LitActionResource("*"),
-        ability: LitAbility.LitActionExecution,
-      },
-    ],
-    authNeededCallback,
-  });
+async function parseRequestBody(req: Request): Promise<RequestBody> {
+  const body = await req.text();
+  try {
+    return JSON.parse(body);
+  } catch (parseError) {
+    throw new BadRequestError("Invalid JSON in request body" + parseError);
+  }
 }
 
-async function mintAndBurnPKP(keyId: string, sessionSigs: any, litNodeClient: any, wallet: ethers.Wallet) {
+function validateRequest(body: RequestBody) {
+  if (!body.keyType) {
+    throw new BadRequestError("Missing keyId in request");
+  } else if (body.signatures.length < 1) {
+    throw new BadRequestError("Missing signatures in request");
+  } else if (!body.derivedKeyId) {
+    throw new BadRequestError("Missing derivedKeyId in request");
+   } else if (!body.env || !['dev', 'test', 'production'].includes(body.env)) {
+    throw new BadRequestError("Invalid or missing environment in request");
+  } else if (body.ipfsIdsToRegister.length < 1) {
+    throw new BadRequestError("No ipfsIdToRegister array passed")
+  }
+}
+
+
+async function mintAndBurnPKP(keyType: number, derivedKeyId: string, signatures: string[], litNodeClient: LitNodeClient, wallet: ethers.Wallet, pkpNftContractAddress: ethers.AddressLike, ipfsIdsToRegister: string[]) {
+  const approveIpfsId = ipfsIdsToRegister[0];
+  const transferFromIpfsId = ipfsIdsToRegister[1]
   try {
     const contractClient = new LitContracts({ signer: wallet, network: LIT_NETWORK });
     await contractClient.connect();
+    const pkpMintCost = await contractClient.pkpNftContract.read.mintCost();
 
-    const claimActionRes = await litNodeClient.executeJs({
-      sessionSigs,
-      code: `(async () => { Lit.Actions.claimKey({keyId}); })();`,
-      jsParams: { keyId },
-    });
+    const claimAndMintTx = await contractClient.pkpNftContract.write.claimAndMint(keyType, `0x${derivedKeyId}`, signatures, {value: pkpMintCost});
+    const claimAndMintReceipt = await claimAndMintTx.wait(1);
+    console.log('claimAndMintTx: ', claimAndMintTx);
 
-    if (claimActionRes && claimActionRes.claims) {
+    const pkpInfo = await getPkpInfoFromMintReceipt(claimAndMintReceipt, contractClient);
+    console.log("Claim and mint completed", { pkpInfo });
 
-      console.log({derivedKeyId: claimActionRes.claims[keyId].derivedKeyId,
-        signatures: claimActionRes.claims[keyId].signatures })
+    const erc721Abi =  [
+        "function transferFrom(address from, address to, uint256 tokenId)"
+    ];
 
-      let claimAndMintResult;
-      try {
-        console.log('Before claimAndMint:', {
-          derivedKeyId: claimActionRes.claims[keyId].derivedKeyId,
-          signaturesLength: claimActionRes.claims[keyId].signatures.length
-        });
+    const contract = new ethers.Contract(pkpNftContractAddress, erc721Abi, wallet);
+    const burnAddress = "0x0000000000000000000000000000000000000001";
+    const burnTx = await contract.transferFrom(wallet.address, burnAddress, pkpInfo.tokenId);
+    const burnReceipt = await burnTx.wait(1);
 
-        const publicKey = await contractClient.pubkeyRouterContract.read.getDerivedPubkey(
-        contractClient.stakingContract.read.address,
-        `0x${claimActionRes.claims![keyId].derivedKeyId}`
-      );
-      return publicKey;
-        claimAndMintResult = await contractClient.pkpNftContractUtils.write.claimAndMint(
-          `0x${claimActionRes.claims[keyId].derivedKeyId}`,
-          claimActionRes.claims[keyId].signatures
-        );
+    console.log("Burn transaction completed", { burnReceipt });
 
-        console.log('After claimAndMint:', claimAndMintResult);
-      } catch (error) {
-        console.error('Detailed error:', {
-          message: error.message,
-          name: error.name,
-          cause: error.cause,
-          stack: error.stack,
-          ...error
-        });
-        throw error;
-      }
-
-      console.log("Claim and mint completed", { result: claimAndMintResult });
-
-      const mintTx = claimAndMintResult.tx;
-      console.log("mintTx", mintTx)
-      const mintTxReceipt = await mintTx.wait();
-      const tokenId = mintTxReceipt.events[0].topics[1];
-      console.log("tokenId", tokenId)
-
-
-      const burnTx = await contractClient.pkpNftContract.write.burn(tokenId).catch(e => console.error(e));
-      console.log("Burn transaction completed", { burnTx });
-
-      await litNodeClient.disconnect()
-      return { mintTx, burnTx };
-
-    } else {
-      await litNodeClient.disconnect()
-
-      throw new Error("Claim action did not return expected results");
-    }
+    return { mintTxHash: claimAndMintTx.hash, burnTxHash: burnTx.hash, pkpInfo  };
   } catch (error) {
-    console.log("Error in mintAndBurnPKP", { error: error.message, stack: error.stack });
-    await litNodeClient.disconnect()
-
+    console.error("Error in mintAndBurnPKP", { error: error.message, stack: error.stack });
     throw error;
+  } finally {
+    await litNodeClient.disconnect();
+  }
+}
+
+async function getPkpInfoFromMintReceipt(txReceipt: ethers.ContractReceipt, litContractsClient: LitContracts) {
+  const pkpMintedEvent = txReceipt.events?.find(
+    (event) => event.topics[0] === "0x3b2cc0657d0387a736293d66389f78e4c8025e413c7a1ee67b7707d4418c46b8"
+  );
+
+  if (!pkpMintedEvent) {
+    throw new Error("PKP Minted event not found in transaction receipt");
+  }
+
+  const publicKey = "0x" + pkpMintedEvent.data.slice(130, 260);
+  const tokenId = ethers.utils.keccak256(publicKey);
+  const ethAddress = await litContractsClient.pkpNftContract.read.getEthAddress(tokenId);
+
+  return {
+    tokenId: ethers.BigNumber.from(tokenId).toString(),
+    publicKey,
+    ethAddress,
+  };
+}
+
+class BadRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BadRequestError";
   }
 }

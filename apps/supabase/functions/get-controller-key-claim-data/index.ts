@@ -5,7 +5,7 @@ import { AuthCallback, LitAbility } from "https://esm.sh/@lit-protocol/types";
 import { LitActionResource, createSiweMessageWithRecaps } from "https://esm.sh/@lit-protocol/auth-helpers";
 import { corsHeaders } from '../_shared/cors.ts';
 
-const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY") ?? "";
+const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY_MINT_CONTROLLER_PKP") ?? "";
 const LIT_NETWORK = Deno.env.get("LIT_NETWORK") ?? "datil-dev";
 
 
@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
       }
 
       const provider = new ethers.providers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
+      // if (!PRIVATE_KEY || PRIVATE_KEY.length < 1) throw new Error("private key not being sourced from secrets")
       const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
       const litNodeClient = new LitNodeClient.LitNodeClientNodeJs({ litNetwork: LIT_NETWORK });
       await litNodeClient.connect();
@@ -126,7 +127,7 @@ async function getControllerKeyClaimData(keyId: string, sessionSigs: any, litNod
       console.log({derivedKeyId: claimActionRes.claims[keyId].derivedKeyId,
         signatures: claimActionRes.claims[keyId].signatures })
 
-      let claimAndMintResult;
+      const claimAndMintResult = claimActionRes.claims;
       try {
         console.log('Before claimAndMint:', {
           derivedKeyId: claimActionRes.claims[keyId].derivedKeyId,
@@ -134,10 +135,10 @@ async function getControllerKeyClaimData(keyId: string, sessionSigs: any, litNod
         });
 
         const publicKey = await contractClient.pubkeyRouterContract.read.getDerivedPubkey(
-        contractClient.stakingContract.read.address,
-        `0x${claimActionRes.claims![keyId].derivedKeyId}`
-      );
-      return [publicKey, claimAndMintResult];
+          contractClient.stakingContract.read.address,
+          `0x${claimActionRes.claims![keyId].derivedKeyId}`
+        );
+        return [publicKey, claimAndMintResult];
 
       } catch (error) {
         console.error('Detailed error:', {
