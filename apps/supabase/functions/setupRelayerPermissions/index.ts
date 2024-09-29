@@ -2,7 +2,7 @@ import { ethers } from "https://esm.sh/ethers@5.7.0";
 import { LitContracts } from "https://esm.sh/@lit-protocol/contracts-sdk";
 import { corsHeaders } from '../_shared/cors.ts';
 
-const RELAYER_MANAGER_PRIVATE_KEY = Deno.env.get("PRIVATE_KEY_MINT_CONTROLLER_PKP") ?? "";
+const RELAYER_MANAGER_PRIVATE_KEY = Deno.env.get("RELAYER_MANAGER_PRIVATE_KEY") ?? "";
 const LIT_NETWORK = Deno.env.get("LIT_NETWORK") ?? "datil-dev";
 
 interface RequestBody {
