@@ -1,7 +1,11 @@
+/* Not possible for Lit Action Claiming?? */
+
+
 import { LitNodeClient } from '@lit-protocol/lit-node-client';
 import {ethers} from 'ethers';
 
 export const generateControllerData = (litNodeClient: LitNodeClient, ipfs_cid: string) => {
+
   const uniqueData = `ControllerPKP_${Date.now()}`;
   const bytes = ethers.toUtf8Bytes(uniqueData);
   const userId = ethers.keccak256(bytes);

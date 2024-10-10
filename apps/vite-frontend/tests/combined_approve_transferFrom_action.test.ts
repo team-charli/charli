@@ -1,30 +1,39 @@
 import { LocalStorage } from "node-localstorage";
-import {ethers, parseUnits, Wallet, hexlify, randomBytes, JsonRpcProvider, HDNodeWallet, Transaction, TransactionRequest, AddressLike, BytesLike, SignatureLike, toBeHex} from 'ethers'
-import { expect, test, beforeAll } from "bun:test";
+import {ethers, TransactionRequest, AddressLike, SignatureLike, toBeHex, TransactionResponse} from 'ethers'
+import { expect, test, beforeAll, afterAll } from "bun:test";
 import { LitNodeClient, encryptString } from '@lit-protocol/lit-node-client';
+import {PINATA_API_DATA_CIPHERTEXT, PINATA_API_DATA_ENCRYPTHASH } from './setup/pinataEncryptedData'
 import { LitNetwork, LIT_RPC } from "@lit-protocol/constants";
-import {LPACC_EVM_BASIC } from '@lit-protocol/accs-schemas';
-import { getSessionSigsViaAuthSig } from './setup/sessionSigs';
 import { AccessControlConditions, ExecuteJsResponse, SessionSigs, SessionSigsMap } from "@lit-protocol/types";
-import { generateControllerData } from "./setup/controllerData";
 import { learnerSessionId_DurationSigs, teacherSessionId_DurationSigs } from "./setup/sessionId_duration_sigs";
 import { sessionSigsForDecryptInAction } from "./setup/sessionSigsForDecryptInAction";
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { waitForConfirmation } from "./setup/waitForTx";
+import { condenseSignatures } from "./setup/condenseClaimKeySigs";
+import { restoreSignatures } from "./setup/restoreClaimKeySigs";
 
+const transferFromAction_ipfsId = "QmR1sEv9UHAvXmALKZRpv9zy7gxD6BpGQ8ur4QWDSBQLG3";
+const approve_ipfsId = "QmSd4PUjGmK9iNcMvBPS118QEWHg8JKgVTaqkqi7DS1dhv"
+const relayerIpfsId = "Qmdg7WDHFddPzB95iKZW69riRCNyXcoWscF3xLva7d6BvT"
+
+
+let inputPublicKey: string;
+let outputPublicKey: string;
+let inputAddress: string;
+let outputAddress: string;
+let isPermittedAction: boolean;
+let getControllerKeyClaimDataResponse: any;
 let litNodeClient: LitNodeClient;
 let learnerSessionSigs: SessionSigsMap | undefined;
 let teacherSessionSigs: SessionSigsMap | undefined;
 
-const transferFromAction_ipfsId = "QmeyUYpwgi62rD6ScZyQ8a2UjeeJFPz4gHZEfADDxN27Wx";
-const approve_ipfsId = "QmUExi6PorFUZmWzxQB9jV963vuQutcrdPZAVc6dmVj9Tq"
-let approveTx: TransactionRequest;
-let signedApproveTx: string;
 let learner_sessionIdAndDurationSig: string;
+let approveTxResponse: TransactionResponse | null;
+const claimKeyIpfsId = "QmcAqoHwpC1gS59GQKgVXGhfhCqBYvF1PpzvZypv6XW6Xk"
+
+const env: "dev" | "test" | "production" = "dev"
 
 let controllerAddress: AddressLike
 let controllerPubKey: string;
-let usdcContractAddress = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
+let controllerClaimKeySigs: SignatureLike[];
 let chainId = 84532;
 let chain = "sepolia";
 let sessionDataLearnerSig: SignatureLike;
@@ -37,23 +46,32 @@ let learnerAddressEncryptHash: string;
 let accessControlConditions: AccessControlConditions;
 
 let userId: string;
-let keyId: string;
-const amount = ".10";
-const amountScaled = ethers.parseUnits(".10", 6)
+const amount = ".05";
+const amountScaled = ethers.parseUnits(".05", 6)
 let allowanceAmountParsed: string;
-const provider = new ethers.JsonRpcProvider('https://rpc.ankr.com/eth_sepolia')
+const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
+const yellowStoneProvider = new ethers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
+const rpcChain = Bun.env.CHAIN_NAME_FOR_ACTION_PARAMS_BASE_SEPOLIA;
+const rpcChainId = Bun.env.CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA;
+const daiContractAddress = Bun.env.USDC_CONTRACT_ADDRESS_BASE_SEPOLIA;
+const ethereumRelayerPublicKey = Bun.env.CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
 
 const teacherPrivateKey = Bun.env.TEACHER_PRIVATEKEY;
 const learnerPrivateKey = Bun.env.LEARNER_PRIVATEKEY;
-if (!learnerPrivateKey?.length || !teacherPrivateKey?.length) throw new Error('failed to import pk envs')
+const controllerPrivateKey = Bun.env.CONTROLLER_PRIVATEKEY;
+if (!learnerPrivateKey?.length || !teacherPrivateKey?.length || !controllerPrivateKey?.length) throw new Error('failed to import pk envs')
 const learnerWallet = new ethers.Wallet(learnerPrivateKey, provider)
 const teacherWallet = new ethers.Wallet(teacherPrivateKey, provider)
+const controllerWallet = new ethers.Wallet(controllerPrivateKey, yellowStoneProvider)
 console.log("learnerWallet.address", learnerWallet.address);
 console.log("teacherWallet.address", teacherWallet.address);
+console.log("daiContractAddress", daiContractAddress);
 
 const secureSessionId = ethers.hexlify(ethers.randomBytes(16))
 const duration = BigInt(30); // mins
 let approveActionResult: ExecuteJsResponse;
+let approveMessageHash: string;
+let approvalMessageSig: string;
 
 beforeAll(async () => {
   litNodeClient = new LitNodeClient({
@@ -66,22 +84,19 @@ beforeAll(async () => {
     },
   });
 
-  await litNodeClient.connect()
+  // const litContracts = new LitContracts({ signer: learnerWallet, network: LitNetwork.DatilDev});
+  await litNodeClient.connect();
+  // await litContracts.connect();
 
-  hashedTeacherAddress = ethers.keccak256(teacherWallet.address);
-  const controllerData = generateControllerData(litNodeClient, transferFromAction_ipfsId)
-  keyId = controllerData.claim_key_id;
-  controllerAddress = controllerData.controller_address;
-  controllerPubKey = controllerData.controller_public_key;
-  userId = controllerData.controller_claim_user_id;
   const learnerSignedData = await learnerSessionId_DurationSigs(secureSessionId, BigInt(duration), learnerWallet )
   learner_sessionIdAndDurationSig = learnerSignedData.learner_sessionIdAndDurationSig;
 
   sessionDataLearnerSig = learnerSignedData.learner_sessionIdAndDurationSig;
   const teacherSignedData = await teacherSessionId_DurationSigs(secureSessionId, duration, teacherWallet)
   sessionDataTeacherSig = teacherSignedData.teacher_sessionIdAndDurationSig;
-
+  hashedTeacherAddress = ethers.keccak256(teacherWallet.address);
   hashedLearnerAddress = ethers.keccak256(learnerWallet.address);
+
   // encrypt learnerAddress
 
   accessControlConditions = [
@@ -107,7 +122,6 @@ beforeAll(async () => {
 
   learnerSessionSigs = await sessionSigsForDecryptInAction(learnerWallet, litNodeClient, accessControlConditions, learnerAddressEncryptHash);
 
-  teacherSessionSigs = await sessionSigsForDecryptInAction(teacherWallet, litNodeClient, accessControlConditions, learnerAddressEncryptHash);
   let nonce: number;
 
   const currentNonce = await provider.getTransactionCount(learnerWallet.address, "latest");
@@ -133,59 +147,102 @@ beforeAll(async () => {
     // If no correction was needed, use the pending nonce
     nonce = pendingNonce;
   }
-  // approve test setup
-  const feeData = await provider.getFeeData();
-  console.log("Gas Fee Data:");
-  console.log("  maxFeePerGas:", feeData.maxFeePerGas ? feeData.maxFeePerGas.toString() : "undefined");
-  console.log("  maxPriorityFeePerGas:", feeData.maxPriorityFeePerGas ? feeData.maxPriorityFeePerGas.toString() : "undefined");
-  if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) throw new Error("feeData undefined")
-  approveTx = {
-    to: usdcContractAddress,
-    gasLimit: 65000,
-    chainId: 11155111,
-    maxPriorityFeePerGas: toBeHex((feeData?.maxPriorityFeePerGas * BigInt(120)) / BigInt(100)),
-    maxFeePerGas: toBeHex((feeData?.maxFeePerGas * BigInt(120)) / BigInt(100)),
-    nonce,
-    data: new ethers.Interface(["function approve(address spender, uint256 amount)"]).encodeFunctionData("approve", [controllerAddress, amountScaled]),
-  };
+  // controllerData for mint
+  const uniqueData = `ControllerPKP_${Date.now()}`;
+  const bytes = ethers.toUtf8Bytes(uniqueData);
+  userId = ethers.keccak256(bytes);
+  const keyId = litNodeClient.computeHDKeyId(userId, claimKeyIpfsId, true);
 
-  signedApproveTx = await learnerWallet.signTransaction(approveTx);
+  const GET_CONTROLLER_KEY_CLAIM_DATA_URL = 'http://127.0.0.1:54321/functions/v1/get-controller-key-claim-data';
+
+  getControllerKeyClaimDataResponse = await fetch(GET_CONTROLLER_KEY_CLAIM_DATA_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      keyId: keyId,
+    }),
+  });
+
+  getControllerKeyClaimDataResponse = await getControllerKeyClaimDataResponse.json();
+
+  //returned: [publicKey, claimAndMintResult];
+  console.log("getControllerKeyClaimDataResponse ", getControllerKeyClaimDataResponse  )
+  controllerPubKey = getControllerKeyClaimDataResponse[0];
+  inputPublicKey = controllerPubKey;
+  console.log("controllerPubKey", controllerPubKey)
+  controllerAddress = ethers.computeAddress(controllerPubKey);
+  inputAddress = controllerAddress;
+  const derivedKeyId = getControllerKeyClaimDataResponse[1][keyId].derivedKeyId;
+  const rawControllerClaimKeySigs = getControllerKeyClaimDataResponse[1][keyId].signatures;
+
+
+  const condensedSigs = condenseSignatures(rawControllerClaimKeySigs);
+  /*--Store Base64 Sigs in DB--*/
+  // -- db put --
+  /* Restore Signatures -- */
+  controllerClaimKeySigs = restoreSignatures(condensedSigs);
 
   //mintClaimBurn
-  const localFunctionUrl = 'http://127.0.0.1:54321/functions/v1/mint-controller-pkp';
+  const MINT_CLAIM_BURN_URL = 'http://127.0.0.1:54321/functions/v1/mint-controller-pkp'
 
-  try {
-    const response = await fetch(localFunctionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Add any other required headers here
-      },
-      body: JSON.stringify({ keyId: keyId }),
-    });
+  let mintClaimBurnResponse: any = await fetch(MINT_CLAIM_BURN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      keyType: 2,
+      derivedKeyId: derivedKeyId,
+      signatures: controllerClaimKeySigs,
+      env: "dev",
+      ipfsIdsToRegister: [approve_ipfsId, transferFromAction_ipfsId ]
+    }),
+  });
+  mintClaimBurnResponse = await mintClaimBurnResponse.json();
+  console.log("mintClaimResponse", mintClaimBurnResponse)
+  outputPublicKey = mintClaimBurnResponse.pkpInfo.publicKey;
+  outputAddress = ethers.computeAddress(outputPublicKey);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+  isPermittedAction = mintClaimBurnResponse.permissions.isPermittedAction;
+  // approve test setup
+  const feeData = await provider.getFeeData();
+  if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) throw new Error("feeData undefined")
 
-    const mintPkpResult = await response.json();
+  const signApprovalMessage = async () => {
+    const approveMessageHash = ethers.solidityPackedKeccak256(
+      ["address", "address", "uint256", "string"],
+      [daiContractAddress, controllerAddress, amountScaled, secureSessionId]
+    );
 
-    // Process the result here
-    console.log("mintPkpResult", mintPkpResult);
-    await waitForConfirmation(mintPkpResult.mintTx.hash);
-    await waitForConfirmation(mintPkpResult.burnTx.hash);
-  } catch (error) {
-    console.log("error in beforeAll", error)
-  }
+    const approvalMessageSig = await learnerWallet.signMessage(ethers.getBytes(approveMessageHash));
+    return { approveMessageHash, approvalMessageSig };
+  };
+
+  // Usage
+  const signedApproveMessage = await signApprovalMessage();
+  approveMessageHash = signedApproveMessage.approveMessageHash;
+  approvalMessageSig = signedApproveMessage.approvalMessageSig;
 })
 
-test.skip("approve and transferFromLearnerToControllerAction", async () => {
+test("approve", async () => {
   try {
     const jsParams = {
-      signedTx: signedApproveTx,
+      daiContractAddress,
+      controllerAddress,
+      amountScaled,
       secureSessionId,
-      sessionIdAndDurationSig: learner_sessionIdAndDurationSig,
-      duration: String(sessionDuration)
+      learnerAddress: learnerWallet.address,
+      duration,
+      sessionIdAndDurationSig: sessionDataLearnerSig,
+      env,
+      relayerIpfsId,
+      rpcChain,
+      rpcChainId,
+      ethereumRelayerPublicKey,
+      approveMessageHash,
+      approvalMessageSig
     }
 
     console.log("jsParams", jsParams)
@@ -203,41 +260,43 @@ test.skip("approve and transferFromLearnerToControllerAction", async () => {
 
   const txHash = JSON.parse(approveActionResult.response as string);
 
-  if (typeof txHash !== 'string' || !txHash.startsWith('0x')) {
-    throw new Error('Invalid transaction hash');
+  approveTxResponse = await provider.getTransaction(txHash);
+  await approveTxResponse!.wait(1);
+}, 30000);
+
+test.skip("transferFromLearnerToControllerAction", async () => {
+  await litNodeClient.disconnect();
+  (litNodeClient?.config?.storageProvider?.provider as LocalStorage).clear();
+  await litNodeClient.connect();
+  teacherSessionSigs = await sessionSigsForDecryptInAction(teacherWallet, litNodeClient, accessControlConditions, learnerAddressEncryptHash);
+  const jsParams = {
+    ipfsId: transferFromAction_ipfsId,
+    userId,
+    controllerAddress,
+    controllerPubKey: controllerPubKey.startsWith("0x") ? controllerPubKey.slice(2) : controllerPubKey,
+    daiContractAddress,
+    chain,
+    chainId,
+    sessionDataLearnerSig,
+    sessionDataTeacherSig,
+    sessionDuration,
+    secureSessionId,
+    hashedLearnerAddress,
+    hashedTeacherAddress,
+    amount,
+    accessControlConditions,
+    relayerIpfsId,
+    env
   }
 
-  const tx = await provider.getTransaction(txHash);
-  await tx!.wait(1);
-
-  // Now proceed with your transferFrom test
-  console.log("usdcContractAddress", usdcContractAddress);
-  console.log("controllerAddress", controllerAddress);
-  console.log("learnerAddress", learnerWallet.address);
+  console.log("jsParams", jsParams)
+  let actionResult: any;
   try {
-    const actionResult = await litNodeClient.executeJs({
+
+    actionResult = await litNodeClient.executeJs({
       ipfsId: transferFromAction_ipfsId,
       sessionSigs: teacherSessionSigs,
-      jsParams: {
-        keyId,
-        ipfsId: transferFromAction_ipfsId,
-        userId,
-        learnerAddressCiphertext,
-        learnerAddressEncryptHash,
-        controllerAddress,
-        controllerPubKey,
-        usdcContractAddress,
-        chain,
-        chainId,
-        sessionDataLearnerSig,
-        sessionDataTeacherSig,
-        sessionDuration,
-        secureSessionId,
-        hashedLearnerAddress,
-        hashedTeacherAddress,
-        amount,
-        accessControlConditions
-      }
+      jsParams
     })
     console.log("actionResult", actionResult)
     expect(true).toBe(true);
@@ -245,6 +304,15 @@ test.skip("approve and transferFromLearnerToControllerAction", async () => {
   } catch (error) {
     console.error("Error in executeJs:", error);
     expect(true).toBe(false);
+  } finally {
+    console.log("actionResult", actionResult)
   }
-}, 60000);
+}, 50000);
+afterAll(async () => {
+  console.log("inputPublicKey", inputPublicKey )
+  console.log("outputPublicKey", outputPublicKey)
+  console.log("inputAddress", inputAddress);
+  console.log("outputAddress", outputAddress);
+  console.log("isPermittedAction", isPermittedAction)
+})
 

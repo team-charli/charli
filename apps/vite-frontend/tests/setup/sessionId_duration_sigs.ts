@@ -1,6 +1,6 @@
 import {BigNumberish, ethers, HDNodeWallet} from "ethers";
 
-export const learnerSessionId_DurationSigs = async (secureSessionId: string, duration: BigNumberish, learnerWallet: HDNodeWallet ) => {
+export const learnerSessionId_DurationSigs = async (secureSessionId: string, duration: BigNumberish, learnerWallet: ethers.Wallet ) => {
   const sessionData = ethers.concat([
     ethers.toUtf8Bytes(secureSessionId),
     ethers.toBeHex(duration)
@@ -10,7 +10,7 @@ export const learnerSessionId_DurationSigs = async (secureSessionId: string, dur
   return {sessionData, learner_sessionIdAndDurationSig }
 }
 
-export const teacherSessionId_DurationSigs = async (secureSessionId: string, duration: BigNumberish, teacherWallet: HDNodeWallet) => {
+export const teacherSessionId_DurationSigs = async (secureSessionId: string, duration: BigNumberish, teacherWallet: ethers.Wallet) => {
   const sessionData = ethers.concat([
     ethers.toUtf8Bytes(secureSessionId),
     ethers.toBeHex(duration)

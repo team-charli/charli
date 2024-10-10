@@ -380,14 +380,12 @@ export interface UserItemIface {
 }
 
 // types.ts
-import { BigNumberish, SignatureLike } from 'ethers';
+import { AddressLike, BigNumberish, SignatureLike } from 'ethers';
 import { UseMutationResult } from '@tanstack/react-query';
 
 export interface ControllerData {
-  controller_claim_user_id: string;
-  controller_address: string;
+  controller_address: AddressLike;
   controller_public_key: string;
-  claim_key_id: string;
 }
 
 export interface ExecuteApproveFundControllerActionParams {
@@ -425,7 +423,7 @@ export interface LearningRequestState {
 
 export interface UseUserItemReturn {
   learningRequestState: LearningRequestState;
-  generateControllerData: () => ControllerData;
+  generateControllerData: () => Promise<ControllerData>;
   signSessionDuration: UseMutationResult<SignatureLike, unknown, { duration: number; secureSessionId: string }, unknown>;
   executeApproveFundControllerAction: UseMutationResult<any, unknown, ExecuteApproveFundControllerActionParams, unknown>;
   submitLearningRequest: UseMutationResult<boolean, unknown, SubmitLearningRequest, unknown>;

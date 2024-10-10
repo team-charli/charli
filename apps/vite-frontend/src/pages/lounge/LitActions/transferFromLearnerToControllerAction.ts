@@ -1,4 +1,5 @@
 // @ts-nocheck
+//ipfs://QmVsArWZgnAWVU5kSuPjXpgVu4PfZe3vpbFZmTVzFMuiYX
 const transferFromLearnerToControllerAction =
 async () => {
   try {
@@ -25,152 +26,84 @@ async () => {
       const teacherSignedDuration = hashedTeacherAddress === hashedRecoveredTeacherAddress;
 
       if (!learnerSignedDuration || !teacherSignedDuration) {
+        Lit.Actions.setResponse({ response: JSON.stringify({ error: "Invalid signatures or addresses don't match" }) });
         throw new Error("Invalid signatures or addresses don't match");
       }
-      console.log("verifyDurationAndId success");
+      console.log("verifyDurationAndId success")
     };
     verifyDurationAndId();
+    let decryptedLearnerAddress;
+    const decryptLearnerAddress = async () => {
+      decryptedLearnerAddress = await Lit.Actions.decryptAndCombine
+      ({
+          ciphertext: learnerAddressCiphertext,
+          dataToEncryptHash: learnerAddressEncryptHash,
+          authSig: null,
+          chain: "ethereum",
+          accessControlConditions
+        })
 
-    const decryptedLearnerAddress = await Lit.Actions.decryptAndCombine({
-      ciphertext: learnerAddressCiphertext,
-      dataToEncryptHash: learnerAddressEncryptHash,
-      authSig: null,
-      chain: "ethereum",
-      accessControlConditions
-    });
-
-    if (decryptedLearnerAddress.length > 10) {
-      console.log("Successfully Decrypted learner address");
+      if (decryptedLearnerAddress.length > 10) {
+        console.log("Successfully Decrypted learner address");
+      }
+      console.log("decryptedLearnerAddress: ", JSON.stringify(decryptedLearnerAddress));
     }
+    await decryptLearnerAddress();
 
-    console.log(`decryptedLearnerAddress length: ${decryptedLearnerAddress.length}`);
+    const abi = [ "function transferFrom(address from, address to, uint256 value) returns (bool)" ];
 
-    // const rpcUrl = await Lit.Actions.getRpcUrl({ chain: chain });
-    // const latestNonce = await Lit.Actions.getLatestNonce({ address: controllerAddress, chain });
+    const contract = new ethers.Contract(usdcContractAddress, abi);
+    const amountBigNumber = ethers.utils.parseUnits(amount, 6);
 
-    // const abi = [ "function transferFrom(address from, address to, uint256 value) returns (bool)" ];
-    // const contract = new ethers.Contract(usdcContractAddress, abi);
-    // const amountBigNumber = ethers.utils.parseUnits(amount, 6);
+    const txData = contract.interface.encodeFunctionData("transferFrom", [decryptedLearnerAddress, controllerAddress, amountBigNumber]);
 
-    // const txData = contract.interface.encodeFunctionData("transferFrom", [decryptedLearnerAddress, controllerAddress, amountBigNumber]);
+    const submitRelayTx = async () => {
+      try {
+        await Lit.Actions.call({ipfsId: relayerIpfsId, params: {env, callingActionId: Lit.Auth.actionIpfsIds[0], learnerAddressCiphertext, learnerAddressEncryptHash, rpcChainId, accessControlConditions, txData}});
+      } catch(error) {
+        throw new Error(error);
+      }
+    }
+    const relayedTxHash = await submitRelayTx();
+    try {
+      fetchResult = await Lit.Actions.runOnce({
+        waitForResponse: true,
+        name: "call pinDataWithAction function"
+      }, async () => {
+          await fetch({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ linkData })
+          });
 
-    // const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-
-    // const feeData = await provider.getFeeData();
-    // if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) throw new Error("feeData undefined");
-
-    // const txObject = {
-    //   to: usdcContractAddress,
-    //   from: controllerAddress,
-    //   nonce: latestNonce,
-    //   chainId,
-    //   data: txData,
-    //   type: 2,
-    //   gasLimit: ethers.utils.hexlify(100000),
-    //   maxPriorityFeePerGas: ethers.utils.hexlify(feeData.maxPriorityFeePerGas.mul(120).div(100)),
-    //   maxFeePerGas: ethers.utils.hexlify(feeData.maxFeePerGas.mul(120).div(100))
-    // };
-
-    // const serializedTx = ethers.utils.serializeTransaction(txObject);
-    // const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(serializedTx));
-    // const toSign = ethers.utils.arrayify(hash);
-
-    // console.log(`addresses: ${JSON.stringify({decryptedLearnerAddress, controllerAddress})}`);
-
-    // let signature;
-    // try {
-    //   signature = await Lit.Actions.signAndCombineEcdsa({
-    //     toSign,
-    //     publicKey: controllerPubKey,
-    //     sigName: "sign_transfer_from",
-    //   });
-    //   console.log("sign transferFrom success");
-    // } catch (error) {
-    //   console.log(`signAndCombineEcdsa Error: `, error);
-    // }
-
-    // console.log("SIGN_AND_COMBINE_ECDSA_SUCCESS");
-
-    // let txResponse;
-    // try {
-    //   txResponse = await Lit.Actions.runOnce({
-    //     waitForResponse: true,
-    //     name: "transferFromTxSender"
-    //   }, async () => {
-    //         const signedTx = ethers.utils.serializeTransaction(txObject, signature);
-    //         const tx = await provider.sendTransaction(signedTx);
-    //         await tx.wait();
-    //         console.log("submit transferFrom tx success");
-    //         return JSON.stringify({
-    //           transactionHash: tx.hash,
-    //           blockHash: tx.blockHash,
-    //           blockNumber: tx.blockNumber
-    //         });
-    //     });
-
-    //   if (txResponse.startsWith("[ERROR]")) {
-    //     throw new Error(txResponse.slice(7));
-    //   }
-
-    //   txResponse = JSON.parse(txResponse);
-    // } catch (error) {
-    //   console.log(`Error send transferFrom transaction: `, error);
-    //   throw new Error(error);
-    // }
-
-    // const linkData = {
-    //   originalTxHash: hash,
-    //   relayedTxHash: txResponse.transactionHash,
-    //   learnerAddress: decryptedLearnerAddress,
-    //   controllerAddress: controllerAddress,
-    //   amount: amount,
-    //   usdcContractAddress: usdcContractAddress,
-    //   sessionId: sessionId,
-    //   blockHash: txResponse.blockHash,
-    //   blockNumber: txResponse.blockNumber,
-    //   timestamp: Date.now()
-    // };
-
-    // let ipfsHash;
-    // let fetchResult;
-    // try {
-    //   fetchResult = await Lit.Actions.runOnce({
-    //     waitForResponse: true,
-    //     name: "call pinDataWithAction function"
-    //   }, async () => {
-    //       await fetch({
-    //         method: 'POST',
-    //         headers: { 'Content-Type': 'application/json' },
-    //         body: JSON.stringify({ linkData })
-    //       });
-
-    //       const data = await response.json();
-    //       ipfsHash = data.ipfsHash;
-    //       console.log(`Data stored on IPFS: ${ipfsHash}`);
-    //     })
-    // } catch (error) {
-    //   console.log(`Failed to store data on IPFS: `, error);
-    //   throw new Error(error);
-    // }
-    // if (!fetchResult) return;
+          const data = await response.json();
+          ipfsHash = data.ipfsHash;
+          console.log(`Data stored on IPFS: ${ipfsHash}`);
+        })
+    } catch (error) {
+      console.error('Failed to store data on IPFS:', error);
+    }
+    const linkData = {
+      relayedTxHash,
+      learnerAddress: decryptedLearnerAddress,
+      controllerAddress: controllerAddress,
+      amount: amount,
+      usdcContractAddress: usdcContractAddress,
+      sessionId: sessionId,
+      timestamp: Date.now()
+    };
 
 
-    // result.success = true;
-    // result.transactionHash = txResponse.transactionHash;
-    // result.blockHash = txResponse.blockHash;
-    // result.blockNumber = txResponse.blockNumber;
-    // result.ipfsHash = ipfsHash;
+    Lit.Actions.setResponse({
+      response: JSON.stringify({
+        success: true,
+        relayedTxHash,
+        ipfsHash: ipfsHash
+      })
+    });
 
   } catch (error) {
-    console.log(`Uncaught error in transferFromLearnerToControllerAction function`, error);
-  } finally {
-    if (error) {
-      console.log(error)
-    }
-    Lit.Actions.setResponse({
-      response: JSON.stringify(result)
-    });
+    console.error("Uncaught error in transferFromLearnerToControllerAction function:", error);
   }
 };
-
 transferFromLearnerToControllerAction();

@@ -33,14 +33,14 @@ const genAuthSig = async (
     ? params.resources.map(convertToLitResourceAbilityRequest)
     : [];
 
-const message = await createSiweMessageWithRecaps({
-  walletAddress: await ethersSigner.getAddress(),
-  nonce: params.nonce,
-  litNodeClient,
-  resources: resourceAbilityRequests, // Use the full resourceAbilityRequests here
-  expiration: params.expiration || ONE_WEEK_FROM_NOW,
-  uri: params.uri
-});
+  const message = await createSiweMessageWithRecaps({
+    walletAddress: await ethersSigner.getAddress(),
+    nonce: params.nonce,
+    litNodeClient,
+    resources: resourceAbilityRequests,
+    expiration: params.expiration || ONE_WEEK_FROM_NOW,
+    uri: params.uri
+  });
   return await generateAuthSig({
     signer: ethersSigner,
     toSign: message,
@@ -49,14 +49,16 @@ const message = await createSiweMessageWithRecaps({
 };
 
 export const getSessionSigsViaAuthSig = async (
-  ethersSigner: ethers.HDNodeWallet,
+  ethersSigner: ethers.Wallet,
   litNodeClient: LitNodeClient,
-  acc: AccessControlConditions,
-  dataToEncryptHash: string
+  dataToEncryptHash?: string,
+  acc?: AccessControlConditions,
 ) => {
   try {
+    let resourceAbilityRequests: LitResourceAbilityRequest[];
+    if (acc?.length && dataToEncryptHash?.length) {
     const accsResourceString = await LitAccessControlConditionResource.generateResourceString(acc, dataToEncryptHash);
-    const resourceAbilityRequests: LitResourceAbilityRequest[] = [
+    resourceAbilityRequests  = [
       {
         resource: new LitActionResource("*"),
         ability: LitAbility.LitActionExecution,
@@ -66,7 +68,15 @@ export const getSessionSigsViaAuthSig = async (
         ability: LitAbility.AccessControlConditionDecryption,
       }
     ];
+    } else {
+      resourceAbilityRequests = [
+      {
+        resource: new LitActionResource("*"),
+        ability: LitAbility.LitActionExecution,
+      },
 
+      ]
+    }
     console.log("Generated resource ability requests:", resourceAbilityRequests);
 
     const sessionSignatures = await litNodeClient.getSessionSigs({
@@ -77,7 +87,7 @@ export const getSessionSigsViaAuthSig = async (
         if (!params.expiration || !params.uri) {
           throw new Error("Missing required parameters for auth callback");
         }
-        return await genAuthSig(ethersSigner, litNodeClient, params);
+        return await genAuthSig(ethersSigner, litNodeClient, params, resourceAbilityRequests);
       },
     });
 

@@ -1,103 +1,78 @@
 //UserItem.tsx
 import { useCallback } from "react";
-import { hexlify, randomBytes } from 'ethers';
+import { ethers, hexlify, parseUnits, randomBytes } from 'ethers';
 import useLocalStorage from "@rehooks/local-storage";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
 import { Button } from "@headlessui/react";
-import { useUserItem } from "../hooks/useUserItem";
-
+import { useLearningRequestMutations } from "../hooks/useLearningRequestMutations";
+import {useLearningRequestState} from "../hooks/useLearningRequestState"
+import { waitForTransaction } from "../utils/waitForTx";
 interface UserItemProps {
   userName: string;
   userID: number;
-  lang: string;
+  language: string;
   modeView: "Learn" | "Teach";
 }
 
-const UserItem = ({ userName, userID, lang, modeView }: UserItemProps) => {
+const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
   const [loggedInUserId] = useLocalStorage<number>("userID");
   const isLearnMode = modeView === "Learn";
 
-  const userItemHook = useUserItem(isLearnMode);
+  const learningRequestFunctions = useLearningRequestMutations(isLearnMode);
+  const learningRequestState = useLearningRequestState();
+  const { generateControllerData, signSessionDurationAndSecureSessionId, executePermitAction, submitLearningRequestToDb, signPermitAndCollectActionParams } = learningRequestFunctions;
 
-  if (!isLearnMode) {
-    return <li key={userID}>{userName}</li>;
-  }
+  const {  sessionLengthInputValue, setSessionLengthInputValue, toggleDateTimePicker, setToggleDateTimePicker, renderSubmitConfirmation, setRenderSubmitConfirmation, dateTime, setDateTime, sessionDuration, amountDai, } = learningRequestState;
 
-  if (!userItemHook) {
-    return null; // or some loading state
-  }
 
-  const {
-    learningRequestState,
-    generateControllerData,
-    signSessionDuration,
-    executeApproveFundControllerAction,
-    submitLearningRequest,
-    signApproveTransaction
-  } = userItemHook;
+  const handleSubmitLearningRequest = useCallback(async () => {
+    if (!isLearnMode || !learningRequestState) return;
+    const provider = new ethers.JsonRpcProvider(import.meta.env.VITE_RPC_URL)
+    const { sessionDuration, dateTime, setRenderSubmitConfirmation } = learningRequestState;
+    if (sessionDuration && loggedInUserId) {
+      try {
+        const controllerData = await generateControllerData();
+        const secureSessionId = hexlify(randomBytes(16));
+        const sessionIdAndDurationSig = await signSessionDurationAndSecureSessionId.mutateAsync({sessionDuration, secureSessionId});
 
-  const generateSecureSessionId = useCallback(() => {
-    return hexlify(randomBytes(16));
-  }, []);
+        const actionParams = await signPermitAndCollectActionParams.mutateAsync({controllerAddress: controllerData.controller_address, provider, secureSessionId, sessionIdAndDurationSig, sessionDuration, amountScaled: amountDai });
 
-  if (!isLearnMode) {
-    return <li key={userID}>{userName}</li>;
-  }
+        const {txHash} = await executePermitAction.mutateAsync(actionParams);
 
-  if (!learningRequestState) {
-    return null; // or some loading state
-  }
+        const txInfoObj = await waitForTransaction(provider, txHash)
 
-// UserItem.tsx
-const handleSubmitLearningRequest = useCallback(async () => {
-  if (!isLearnMode || !learningRequestState) return;
-  const { sessionDuration, dateTime, setRenderSubmitConfirmation } = learningRequestState;
-  if (sessionDuration && loggedInUserId) {
-    try {
-      const newControllerData = generateControllerData();
-      const newSecureSessionId = generateSecureSessionId();
+        if (txInfoObj.txStatus === "reverted" || txInfoObj.txStatus === "failed") throw new Error("halted submit on permitTx reverted || failed")
 
-      const signedTx = await signApproveTransaction.mutateAsync();
-
-      const approveResult = await executeApproveFundControllerAction.mutateAsync(signedTx);
-
-      if (approveResult.success) {
-        await submitLearningRequest.mutateAsync({
+        await submitLearningRequestToDb.mutateAsync({
           dateTime,
           teacherID: userID,
           userID: loggedInUserId,
-          teachingLang: lang,
+          teachingLang: language,
           sessionDuration,
-          secureSessionId: newSecureSessionId,
-          controllerData: newControllerData,
-          learnerSignedSessionDuration:
+          secureSessionId,
+          controllerData,
+          learnerSessionDurationSig: sessionIdAndDurationSig
         });
         setRenderSubmitConfirmation(true);
-      } else {
-        throw new Error("Approval transaction failed");
+      } catch (error) {
+
+        console.error("Error in submit process:", error);
+        throw new Error("Permit transaction failed");
+
+        // Handle error (e.g., show error message to user)
       }
-    } catch (error) {
-      console.error("Error in submit process:", error);
-      // Handle error (e.g., show error message to user)
     }
-  }
-}, [isLearnMode, learningRequestState, signApproveTransaction, executeApproveFundControllerAction, submitLearningRequest, loggedInUserId, userID, lang, generateSecureSessionId, generateControllerData]);
+  }, [isLearnMode, learningRequestState, signPermitAndCollectActionParams, executePermitAction, submitLearningRequestToDb, loggedInUserId, userID, language,  generateControllerData]);
 
 
   const okHandler = () => {
     learningRequestState.setRenderSubmitConfirmation(false);
   };
 
-  const {
-    renderSubmitConfirmation,
-    toggleDateTimePicker,
-    setToggleDateTimePicker,
-    dateTime,
-    setDateTime,
-    sessionLengthInputValue,
-    setSessionLengthInputValue
-  } = learningRequestState;
+  if (!isLearnMode) {
+    return <li key={userID}>{userName}</li>;
+  }
 
   return (
     <>
@@ -112,7 +87,7 @@ const handleSubmitLearningRequest = useCallback(async () => {
           <button
             onClick={handleSubmitLearningRequest}
             className="p-1 rounded"
-            disabled={signSessionDuration.isPending || executeApproveFundControllerAction.isPending || submitLearningRequest.isPending}
+            disabled={signSessionDurationAndSecureSessionId.isPending || executePermitAction.isPending || signSessionDurationAndSecureSessionId.isPending}
           >
             Submit
           </button>
