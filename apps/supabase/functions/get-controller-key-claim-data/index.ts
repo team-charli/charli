@@ -1,3 +1,4 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { ethers } from "https://esm.sh/ethers@5.7.0";
 import { LitContracts } from "https://esm.sh/@lit-protocol/contracts-sdk";
 import * as LitNodeClient from "https://esm.sh/@lit-protocol/lit-node-client-nodejs";
@@ -9,12 +10,20 @@ const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY_MINT_CONTROLLER_PKP") ?? "";
 const LIT_NETWORK = Deno.env.get("LIT_NETWORK") ?? "datil-dev";
 
 
-Deno.serve(async (req) => {
+const supabaseUrl = Deno.env.get('SUPABASE_URL') as string
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string
+const supabaseClient = createClient(supabaseUrl, supabaseKey)
 
+interface Signature {
+  r: string;
+  s: string;
+  v: number;
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
-
   if (req.method === "POST") {
     try {
       const body = await req.text();
@@ -25,43 +34,35 @@ Deno.serve(async (req) => {
       } catch (parseError) {
         console.error(parseError)
       }
-
-      if (!keyId) {
+      if (!keyId ) {
         console.error("Missing keyId in request");
         return new Response(JSON.stringify({ error: "Missing keyId in request" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
       const provider = new ethers.providers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
-      // if (!PRIVATE_KEY || PRIVATE_KEY.length < 1) throw new Error("private key not being sourced from secrets")
       const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
       const litNodeClient = new LitNodeClient.LitNodeClientNodeJs({ litNetwork: LIT_NETWORK });
       await litNodeClient.connect();
       console.log("LitNodeClient connected");
-
       const sessionSigs = await getSessionSigs(litNodeClient, wallet);
       console.log("Session signatures obtained");
-
       const controllerKeyClaimData = await getControllerKeyClaimData(keyId, sessionSigs, litNodeClient, wallet);
       console.log("Key Claim Complete. Returning Key Claim Data", { result: controllerKeyClaimData });
       await litNodeClient.disconnect()
-
       return new Response(JSON.stringify(controllerKeyClaimData), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (error) {
       console.error("Unexpected error", { error: error.message, stack: error.stack });
-
       return new Response(JSON.stringify({ error: "Unexpected error occurred", details: error.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
   } else {
-
     console.log("Method not allowed", { method: req.method });
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -69,6 +70,7 @@ Deno.serve(async (req) => {
     });
   }
 });
+
 
 async function getSessionSigs(litNodeClient: any, wallet: ethers.Wallet) {
   const authNeededCallback: AuthCallback = async ({
@@ -116,7 +118,6 @@ async function getControllerKeyClaimData(keyId: string, sessionSigs: any, litNod
   try {
     const contractClient = new LitContracts({ signer: wallet, network: LIT_NETWORK });
     await contractClient.connect();
-
     const claimActionRes = await litNodeClient.executeJs({
       sessionSigs,
       code: `(async () => { Lit.Actions.claimKey({keyId}); })();`,
@@ -124,22 +125,41 @@ async function getControllerKeyClaimData(keyId: string, sessionSigs: any, litNod
     });
 
     if (claimActionRes && claimActionRes.claims) {
-      console.log({derivedKeyId: claimActionRes.claims[keyId].derivedKeyId,
-        signatures: claimActionRes.claims[keyId].signatures })
+      const derivedKeyId = claimActionRes.claims[keyId].derivedKeyId;
+      const rawControllerClaimKeySigs = claimActionRes.claims[keyId].signatures;
 
-      const claimAndMintResult = claimActionRes.claims;
+      // Condense signatures
+      const condensedSigs = condenseSignatures(rawControllerClaimKeySigs);
+
       try {
-        console.log('Before claimAndMint:', {
-          derivedKeyId: claimActionRes.claims[keyId].derivedKeyId,
-          signaturesLength: claimActionRes.claims[keyId].signatures.length
-        });
-
         const publicKey = await contractClient.pubkeyRouterContract.read.getDerivedPubkey(
           contractClient.stakingContract.read.address,
-          `0x${claimActionRes.claims![keyId].derivedKeyId}`
+          `0x${derivedKeyId}`
         );
-        return [publicKey, claimAndMintResult];
 
+        // Prepare key_claim_data
+        const key_claim_data = {
+          derivedKeyId,
+          condensedSigs
+        };
+
+        const { data, error } = await supabaseClient
+          .from('sessions')
+          .insert({ key_claim_data, request_origin_type: 'learner' })
+          .select();
+
+        if (error) {
+          console.error('Error updating data in Supabase:', error);
+          throw error;
+        }
+        if (!data || data.length === 0) {
+          throw new Error('No data returned after insertion');
+        }
+
+        const sessionId = data[0].session_id;
+
+        // Return both the public key and the new session ID to the client
+        return { publicKey, sessionId};
       } catch (error) {
         console.error('Detailed error:', {
           message: error.message,
@@ -152,13 +172,22 @@ async function getControllerKeyClaimData(keyId: string, sessionSigs: any, litNod
       }
     } else {
       await litNodeClient.disconnect()
-
       throw new Error("Claim action did not return expected results");
     }
   } catch (error) {
-    console.log("Error in mintAndBurnPKP", { error: error.message, stack: error.stack });
+    console.log("Error in getControllerKeyClaimData", { error: error.message, stack: error.stack });
     await litNodeClient.disconnect()
-
     throw error;
   }
+}
+
+function condenseSignatures(signatures: Signature[]): string[] {
+  return signatures.map(sig => {
+    // Pad v to 2 hex characters
+    const vHex = ethers.utils.hexZeroPad(ethers.utils.hexlify(sig.v), 1);
+    // Concatenate r, s, and v
+    const combined = sig.r + sig.s.slice(2) + vHex.slice(2);
+    // Convert to Uint8Array and encode to Base64
+    return ethers.utils.base64.encode(ethers.utils.arrayify(combined));
+  });
 }
