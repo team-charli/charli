@@ -7,8 +7,10 @@ const LIT_NETWORK = Deno.env.get("LIT_NETWORK") ?? "datil-dev";
 
 interface RequestBody {
   relayerPkpTokenId: string;
-  approveActionIpfsId: string;
+  permitActionIpfsId: string;
   transferFromActionIpfsId: string;
+  relayerActionIpfsId: string;
+  resetPkpNonceIpfsId: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -35,8 +37,10 @@ Deno.serve(async (req: Request) => {
   const result = await setupRelayerPermissions(
     wallet,
     body.relayerPkpTokenId,
-    body.approveActionIpfsId,
-    body.transferFromActionIpfsId
+    body.permitActionIpfsId,
+    body.transferFromActionIpfsId,
+    body.relayerActionIpfsId,
+    body.resetPkpNonceIpfsId
   );
 
   return new Response(JSON.stringify({ success: result }), {
@@ -49,21 +53,28 @@ function validateInputs(body: RequestBody): void {
   if (!ethers.BigNumber.isBigNumber(body.relayerPkpTokenId) && isNaN(Number(body.relayerPkpTokenId))) {
     throw new Error("Invalid relayerPkpTokenId: Must be a valid BigNumber string.");
   }
-  if (!body.approveActionIpfsId || !body.transferFromActionIpfsId) {
-    throw new Error("Invalid IPFS IDs: approveActionIpfsId and transferFromActionIpfsId are required.");
+  if (!body.permitActionIpfsId || !body.transferFromActionIpfsId || !body.relayerActionIpfsId || !body.resetPkpNonceIpfsId) {
+    throw new Error("Invalid IPFS IDs: permitActionIpfsId, transferFromActionIpfsId, relayerActionIpfsId, and resetPkpNonceIpfsId are required.");
   }
 }
 
-async function setupRelayerPermissions(wallet: ethers.Wallet, relayerPkpTokenId: string, approveActionIpfsId: string, transferFromActionIpfsId: string) {
-  console.log("Starting setupRelayerPermissions with inputs:", { relayerPkpTokenId, approveActionIpfsId, transferFromActionIpfsId });
+async function setupRelayerPermissions(
+  wallet: ethers.Wallet,
+  relayerPkpTokenId: string,
+  permitActionIpfsId: string,
+  transferFromActionIpfsId: string,
+  relayerActionIpfsId: string,
+  resetPkpNonceIpfsId: string
+) {
+  console.log("Starting setupRelayerPermissions with inputs:", { relayerPkpTokenId, permitActionIpfsId, transferFromActionIpfsId, relayerActionIpfsId, resetPkpNonceIpfsId });
 
   const contractClient = new LitContracts({ signer: wallet, network: LIT_NETWORK });
   await contractClient.connect();
 
-  console.log("Adding permitted action for approveActionIpfsId");
+  console.log("Adding permitted action for permitActionIpfsId");
   await contractClient.pkpPermissionsContractUtils.write.addPermittedAction(
     relayerPkpTokenId,
-    approveActionIpfsId,
+    permitActionIpfsId,
     [1] // SignAnything scope
   );
 
@@ -74,10 +85,24 @@ async function setupRelayerPermissions(wallet: ethers.Wallet, relayerPkpTokenId:
     [1] // SignAnything scope
   );
 
-  console.log("Verifying permissions for approveActionIpfsId");
-  const approvePermissionRelayer = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(
+  console.log("Adding permitted action for relayerActionIpfsId");
+  await contractClient.pkpPermissionsContractUtils.write.addPermittedAction(
     relayerPkpTokenId,
-    approveActionIpfsId
+    relayerActionIpfsId,
+    [1] // SignAnything scope
+  );
+
+  console.log("Adding permitted action for resetPkpNonceIpfsId");
+  await contractClient.pkpPermissionsContractUtils.write.addPermittedAction(
+    relayerPkpTokenId,
+    resetPkpNonceIpfsId,
+    [1] // SignAnything scope
+  );
+
+  console.log("Verifying permissions for permitActionIpfsId");
+  const permitPermissionRelayer = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(
+    relayerPkpTokenId,
+    permitActionIpfsId
   );
 
   console.log("Verifying permissions for transferFromActionIpfsId");
@@ -86,7 +111,19 @@ async function setupRelayerPermissions(wallet: ethers.Wallet, relayerPkpTokenId:
     transferFromActionIpfsId
   );
 
-  const allPermissionsSet = approvePermissionRelayer && transferFromPermissionRelayer;
+  console.log("Verifying permissions for relayerActionIpfsId");
+  const relayerActionPermissionRelayer = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(
+    relayerPkpTokenId,
+    relayerActionIpfsId
+  );
+
+  console.log("Verifying permissions for resetPkpNonceIpfsId");
+  const resetPkpNoncePermissionRelayer = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(
+    relayerPkpTokenId,
+    resetPkpNonceIpfsId
+  );
+
+  const allPermissionsSet = permitPermissionRelayer && transferFromPermissionRelayer && relayerActionPermissionRelayer && resetPkpNoncePermissionRelayer;
   console.log("All Relayer permissions set correctly:", allPermissionsSet);
 
   if (!allPermissionsSet) {
