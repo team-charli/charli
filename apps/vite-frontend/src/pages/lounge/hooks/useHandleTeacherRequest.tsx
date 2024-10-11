@@ -1,7 +1,7 @@
 import {ethers} from 'ethers'
 import { fetchLearnerToControllerParams } from "@/Supabase/DbCalls/fetchLearnerToControllerParams";
 import { useTeacherSignRequestedSessionDuration } from "./Confirm/useTeacherSignRequestedSessionDuration";
-import { useLitAccount, useSessionSigs, useSupabaseClient } from "@/contexts/AuthContext";
+import { useLitAccount, usePkpWallet, useSessionSigs, useSupabaseClient } from "@/contexts/AuthContext";
 import { teacherChangeDateTime, teacherConfirmRequestDb, teacherRejectRequest } from "@/Supabase/DbCalls/teacherConfirmRejectReschedule";
 import ky from "ky";
 import { calculateSessionCost } from "@/utils/app";
@@ -19,6 +19,8 @@ export const useHandleTeacherRequest = (
   const {data: supabaseClient} = useSupabaseClient();
   const {data: currentAccount} = useLitAccount();
   const {data: sessionSigs} = useSessionSigs();
+  const {data: pkpWallet} = usePkpWallet();
+  const teacherAddress = pkpWallet?.address;
   const { signSessionDuration, isLoading, isError, error } = useTeacherSignRequestedSessionDuration();
 
   if (!supabaseClient) throw new Error(`no supabaseClient`)
@@ -32,12 +34,13 @@ export const useHandleTeacherRequest = (
           const {
             controllerPublicKey,
             controllerAddress,
-            learnerAddress,
             requestedSessionDuration,
             keyId,
             requestedSessionDurationLearnerSig,
             hashedLearnerAddress,
-            secureSessionId
+            secureSessionId,
+            learnerAddressEncryptHash,
+            learnerAddressCipherText,
           } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
 
           const session = await supabaseClient.auth.getSession()
@@ -45,9 +48,30 @@ export const useHandleTeacherRequest = (
           console.log('keyId', keyId);
           console.log('typeof keyId', typeof keyId)
 
-          const response = await supabaseClient.functions.invoke('mint-controller-pkp', {
-            body: JSON.stringify({ keyId: keyId }),
-          });
+          /* Claude modify mint-controller-pkp function */
+          ///* Restore Signatures -- */
+          //const controllerClaimKeySigs = restoreSignatures(condensedSigs);
+
+          ////mintClaimBurn
+          //let mintClaimResponse: any;
+          //try {
+          //  mintClaimResponse = await supabaseClient.functions.invoke('mint-controller-pkp', {
+          //    body: JSON.stringify({
+          //      keyType: 2,
+          //      derivedKeyId: derivedKeyId,
+          //      signatures: controllerClaimKeySigs,
+          //      env: "dev",
+          //      ipfsIdsToRegister: [import.meta.env.VITE_TRANSFERFROM_ACTION_IPFSID]
+
+          //    })
+          //  });
+          //} catch (error) {
+          //  console.log(error);
+          //}
+
+          //if (Object.keys(mintClaimResponse).length > 1) {
+          //  console.log("success mintClaimResponse")
+          //}
 
           console.log('Response data:', response);
 
@@ -57,17 +81,15 @@ export const useHandleTeacherRequest = (
             hashedLearnerAddress,
             secureSessionId
           );
-          console.log('{controllerPublicKey && controllerAddress && learnerAddress && requestedSessionDuration && currentAccount && requestedSessionDurationTeacherSig && hashedLearnerAddress && secureSessionId}', {controllerPublicKey , controllerAddress , learnerAddress , requestedSessionDuration, currentAccount, requestedSessionDurationTeacherSig, hashedLearnerAddress, secureSessionId})
-          console.log('controllerAddress', controllerAddress)
 
-          if (controllerPublicKey && controllerAddress && learnerAddress && requestedSessionDuration &&
+          if (controllerPublicKey && controllerAddress && teacherAddress && requestedSessionDuration &&
             currentAccount && requestedSessionDurationTeacherSig && hashedLearnerAddress && secureSessionId) {
             const paymentAmount = calculateSessionCost(requestedSessionDuration);
             const newHashedTeacherAddress = ethers.keccak256(ethers.toUtf8Bytes(currentAccount.ethAddress));
             setHashedTeacherAddress(newHashedTeacherAddress);
 
             const actionResult = await executeTransferFromLearnerToController(
-              learnerAddress,
+              teacherAddress,
               controllerAddress,
               controllerPublicKey,
               paymentAmount,
@@ -76,7 +98,10 @@ export const useHandleTeacherRequest = (
               hashedLearnerAddress,
               newHashedTeacherAddress,
               requestedSessionDuration,
-              secureSessionId
+              secureSessionId,
+              learnerAddressEncryptHash,
+              learnerAddressCipherText,
+
             );
             console.log('actionResult', actionResult)
           }

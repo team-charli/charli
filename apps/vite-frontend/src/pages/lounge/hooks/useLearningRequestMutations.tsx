@@ -5,9 +5,8 @@ import { ethers, BigNumberish, AddressLike, JsonRpcProvider } from 'ethers';
 import { usePkpWallet, useLitAccount, useSupabaseClient, useSessionSigs } from '@/contexts/AuthContext';
 import { litNodeClient } from '@/utils/litClients';
 import { convertLocalTimetoUtc } from '@/utils/app';
-import { ControllerData } from '@/types/types';
-import { condenseSignatures } from '../utils/condenseSignatures';
-import { restoreSignatures } from '../utils/restoreSignatures';
+import { SessionControllerData } from '@/types/types';
+import { useSessionsContext } from '@/contexts/SessionsContext';
 
 export const useLearningRequestMutations = (isLearnMode: boolean) => {
   if (!isLearnMode) throw new Error("need isLearnMode input");
@@ -15,9 +14,11 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
   const { data: sessionSigs } = useSessionSigs();
   const { data: currentAccount } = useLitAccount();
   const { data: pkpWallet } = usePkpWallet();
+  const {sessionsContextValue} = useSessionsContext()
+
   if (!supabaseClient) throw new Error("supabaseClient undefined")
 
-  const generateControllerData = useCallback(async (): Promise<ControllerData> => {
+  const generateControllerData = useCallback(async (): Promise<SessionControllerData> => {
     const uniqueData = `ControllerPKP_${Date.now()}`;
     const bytes = ethers.toUtf8Bytes(uniqueData);
     const userId = ethers.keccak256(bytes);
@@ -29,59 +30,25 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
     try {
       getControllerKeyClaimDataResponse = await supabaseClient.functions.invoke('get-controller-key-claim-data', {
         body: JSON.stringify({
-          keyId
+          keyId,
         })
       });
     } catch (error) {
       console.log(error)
     }
 
-    // returned: data.[publicKey, claimAndMintResult];
-    if (Object.keys(getControllerKeyClaimDataResponse).length >1 ) {
+    if (getControllerKeyClaimDataResponse.data) {
       console.log('getControllerKeyClaimDataResponse: true')
     }
 
-    const controllerPubKey = getControllerKeyClaimDataResponse.data[0];
-    const inputPublicKey = controllerPubKey;
-    console.log("controllerPubKey", controllerPubKey)
+    const controllerPubKey = getControllerKeyClaimDataResponse.data.publicKey;
     const controllerAddress = ethers.computeAddress(controllerPubKey);
-    const inputAddress = controllerAddress;
-    const derivedKeyId = getControllerKeyClaimDataResponse.data[1][keyId].derivedKeyId;
-    const rawControllerClaimKeySigs = getControllerKeyClaimDataResponse.data[1][keyId].signatures;
-
-
-    const condensedSigs = condenseSignatures(rawControllerClaimKeySigs);
-    /*--Store Base64 Sigs in DB--*/
-    // -- db put --
-    /* Restore Signatures -- */
-    const controllerClaimKeySigs = restoreSignatures(condensedSigs);
-
-    //mintClaimBurn
-    let mintClaimResponse: any;
-    try {
-      mintClaimResponse = await supabaseClient.functions.invoke('mint-controller-pkp', {
-        body: JSON.stringify({
-          keyType: 2,
-          derivedKeyId: derivedKeyId,
-          signatures: controllerClaimKeySigs,
-          env: "dev",
-          ipfsIdsToRegister: [import.meta.env.VITE_TRANSFERFROM_ACTION_IPFSID]
-
-        })
-      });
-    } catch (error) {
-      console.log(error);
-    }
-
-    if (Object.keys(mintClaimResponse).length > 1) {
-      console.log("success mintClaimResponse")
-    }
-    const outputPublicKey = mintClaimResponse.data.pkpInfo.publicKey;
-    const outputAddress = ethers.computeAddress(outputPublicKey);
+    const sessionId = getControllerKeyClaimDataResponse.data.sessionId;
 
     return {
       controller_address: controllerAddress,
       controller_public_key: controllerPubKey,
+      sessionId
     };
   }, []);
 
@@ -98,7 +65,6 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
       return await pkpWallet.signMessage(ethers.getBytes(message));
     },
   });
-
 
 
   type SignPermitAndCollectActionParams = {controllerAddress: AddressLike, provider: JsonRpcProvider, amountScaled: BigNumberish, secureSessionId: string, sessionIdAndDurationSig: string, sessionDuration: number};
@@ -202,41 +168,42 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
     env: 'dev',
   }
 
-const executePermitAction = useMutation({
-  mutationFn: async (actionParams: PermitActionParams | undefined) => {
-    if (!actionParams) throw new Error('actionParams undefined');
-    const {
-      owner, spender, nonce, deadline, value, v, r, s,
-      daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
-      secureSessionId, sessionIdAndDurationSig, learnerAddress, duration, env
-    } = actionParams;
-
-    const result = await litNodeClient.executeJs({
-      ipfsId: import.meta.env.VITE_PERMIT_ACTION_IPFSID,
-      sessionSigs,
-      jsParams: {
+  const executePermitAction = useMutation({
+    mutationFn: async (actionParams: PermitActionParams | undefined) => {
+      if (!actionParams) throw new Error('actionParams undefined');
+      const {
         owner, spender, nonce, deadline, value, v, r, s,
         daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
         secureSessionId, sessionIdAndDurationSig, learnerAddress, duration, env
+      } = actionParams;
+
+      const permitActionIpfsId = import.meta.env.VITE_PERMIT_ACTION_IPFSID;
+      const result = await litNodeClient.executeJs({
+        ipfsId: permitActionIpfsId,
+        sessionSigs,
+        jsParams: {
+          owner, spender, nonce, deadline, value, v, r, s,
+          daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
+          secureSessionId, sessionIdAndDurationSig, learnerAddress, duration, env
+        }
+      });
+
+      if (!result.success) {
+        throw new Error('Permit action failed');
       }
-    });
 
-    if (!result.success) {
-      throw new Error('Permit action failed');
-    }
+      if (typeof result.response !== 'string') {
+        throw new Error('Unexpected response type');
+      }
 
-    if (typeof result.response !== 'string') {
-      throw new Error('Unexpected response type');
-    }
-
-    try {
-      const txHash = JSON.parse(JSON.parse(result.response));
-      return { txHash };
-    } catch (error) {
-      throw new Error('Failed to parse transaction hash');
-    }
-  },
-});
+      try {
+        const txHash = JSON.parse(JSON.parse(result.response));
+        return { txHash };
+      } catch (error) {
+        throw new Error('Failed to parse transaction hash');
+      }
+    },
+  });
 
   const submitLearningRequestToDb = useMutation({
     mutationFn: async ({
@@ -246,30 +213,31 @@ const executePermitAction = useMutation({
       teachingLang,
       sessionDuration,
       learnerSessionDurationSig,
+      sessionId,
       secureSessionId,
-      controllerData,
+      ciphertext,
+      dataToEncryptHash
     }: any) => {
       if (!supabaseClient || !currentAccount) throw new Error('Supabase client or current account not available');
       const utcDateTime = convertLocalTimetoUtc(dateTime);
       let hashed_learner_address = ethers.keccak256(currentAccount.ethAddress);
+      console.log("sessionId at update", sessionId)
       const { error } = await supabaseClient
         .from('sessions')
-        .insert([{
+        .update([{
           teacher_id: teacherID,
           learner_id: userID,
           request_time_date: utcDateTime,
-          request_origin_type: "learner",
           request_origin: userID,
           teaching_lang: teachingLang,
           requested_session_duration: sessionDuration,
           hashed_learner_address,
           requested_session_duration_learner_sig: learnerSessionDurationSig,
           secure_session_id: secureSessionId,
-          controller_claim_user_id: controllerData.controller_claim_user_id,
-          controller_public_key: controllerData.controller_public_key,
-          controller_claim_keyid: controllerData.claim_key_id,
-          controller_address: controllerData.controller_address
+          learner_address_encrypt_hash: dataToEncryptHash,
+          learner_address_cipher_text: ciphertext
         }])
+        .eq('session_id', sessionId)
         .select();
       if (error) throw error;
       return true;

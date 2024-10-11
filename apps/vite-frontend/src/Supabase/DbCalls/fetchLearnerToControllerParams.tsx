@@ -11,7 +11,7 @@ export const fetchLearnerToControllerParams = async (
 
   try {
     const { data: session, error: sessionError } = await supabaseClient
-      .from("sessions")
+      .from('sessions')
       .select(`
         controller_public_key,
         controller_address,
@@ -20,7 +20,9 @@ export const fetchLearnerToControllerParams = async (
         requested_session_duration_learner_sig,
         controller_claim_keyid,
         hashed_learner_address,
-        secure_session_id
+        secure_session_id,
+        learner_address_encrypt_hash,
+        learner_address_cipher_text
       `)
       .eq('session_id', sessionId)
       .single();

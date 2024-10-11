@@ -277,7 +277,10 @@ export interface SessionParamsResult {
     keyId: string | null;
     hashedLearnerAddress: string | null;
     secureSessionId: string | null;
+    learnerAddressEncryptHash: string | null;
+    learnerAddressCipherText: string | null;
 }
+
 
 export interface TimestampResponse {
   timestamp: string;
@@ -383,9 +386,10 @@ export interface UserItemIface {
 import { AddressLike, BigNumberish, SignatureLike } from 'ethers';
 import { UseMutationResult } from '@tanstack/react-query';
 
-export interface ControllerData {
+export interface SessionControllerData {
   controller_address: AddressLike;
   controller_public_key: string;
+  sessionId: BigNumberish;
 }
 
 export interface ExecuteApproveFundControllerActionParams {

@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { JsonRpcProvider, Contract, InterfaceAbi, parseEther, parseUnits } from 'ethers';
 import { authChainLogger } from '@/App';
-import { usdcABI } from '@/abis/usdcABI';
+import { daiAbi} from '@/abis/daiABI';
 import { IRelayPKP } from '@lit-protocol/types';
 
 interface HasBalanceQueryParams {
@@ -26,13 +26,14 @@ export const useHasBalanceQuery = ({queryKey, enabledDeps, queryFnData}:HasBalan
         return null;
       }
       try {
-        const usdcAddress = import.meta.env.VITE_USDC_SEPOLIA_CONTRACT_ADDRESS;
-        const url = import.meta.env.VITE_SEPOLIA_RPC_URL;
-        const abi = usdcABI as InterfaceAbi;
+        const usdcAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
+        const url = import.meta.env.VITE_RPC_URL;
+        const abi = daiAbi as InterfaceAbi;
         const provider = new JsonRpcProvider(url);
         const usdcContract = new Contract(usdcAddress, abi, provider)
+        console.log('currentAccount.ethAddress', currentAccount.ethAddress)
         const balance = await usdcContract.balanceOf(currentAccount.ethAddress);
-        const minBalanceUSDC = parseUnits('9', 6);
+        const minBalanceUSDC = parseUnits('9', 18);
         const hasBalance = balance >= minBalanceUSDC;
         authChainLogger.info(`12b: hasBalance query finish:`, (Date.now() - startTime) / 1000);
 

@@ -30,7 +30,7 @@ return (
             key={user.id}
             userName={user.name}
             userID={user.id}
-            lang={selectedLang}
+            language={selectedLang}
             modeView={modeView}
           />
         ))}

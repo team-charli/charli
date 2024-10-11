@@ -1,52 +1,64 @@
 import {SignatureLike, ethers} from 'ethers';
-import useLocalStorage from "@rehooks/local-storage";
 import { litNodeClient } from '@/utils/litClients';
-// import { transferFromLearnerToControllerAction } from '../../LitActions/transferFromLearnerToControllerAction';
 import { useSessionSigs } from '@/contexts/AuthContext';
 
 export const useExecuteTransferFromLearnerToController = () => {
   const { data: sessionSigs} = useSessionSigs();
-  const executeTransferFromLearnerToController = async (learnerAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: bigint, requestedSessionDurationLearnerSig: SignatureLike | null, requestedSessionDurationTeacherSig: SignatureLike | undefined, hashedLearnerAddress: string | undefined, hashedTeacherAddress: string | undefined, sessionDuration: string, secureSessionId: string | null) => {
+  const executeTransferFromLearnerToController = async (teacherAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: bigint, requestedSessionDurationLearnerSig: SignatureLike | null, requestedSessionDurationTeacherSig: SignatureLike | undefined, hashedLearnerAddress: string | undefined, hashedTeacherAddress: string | undefined, sessionDuration: string, secureSessionId: string | null, learnerAddressEncryptHash: string | null, learnerAddressCipherText: string | null,
+) => {
 
-    const ipfsId = import.meta.env.VITE_TRANSFER_FROM_LEARNER_TO_CONTROLLER_SIGNER_ACTION_IPFS_CID;
-    const usdcContractAddress = import.meta.env.VITE_USDC_SEPOLIA_CONTRACT_ADDRESS;
-    const chainId = import.meta.env.VITE_CHAIN_ID_SEPOLIA;
+    const transferFromActionIpfsId = import.meta.env.VITE_TRANSFER_FROM_ACTION_IPFSID;
+    const daiContractAddress= import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
+    const rpcChainId = import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA;
+    const ethereumRelayerPublicKey = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
+    const relayerIpfsId = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_ACTION_IPFS_ID;
+    const env = import.meta.env.VITE_ENVIRONMENT;
+    const accessControlConditions = [
+      {
+        contractAddress: '',
+        standardContractType: '',
+        chain: "ethereum",
+        method: '',
+        parameters: [
+          ':userAddress',
+        ],
+        returnValueTest: {
+          comparator: '!=',
+          value: '0x'
+        }
+      }
+    ]
 
-
-    try {
-    const results = await litNodeClient.executeJs({
-      ipfsId,
-      sessionSigs,
-      jsParams: {
-        learnerAddress,
+      try {
+      const jsParams = {
+        ipfsId: transferFromActionIpfsId,
+        learnerAddressCiphertext: learnerAddressCipherText,
+        learnerAddressEncryptHash,
         controllerAddress,
-        controllerPubKey,
-        paymentAmount,
-        usdcContractAddress,
-        chainId,
+        controllerPubKey: controllerPubKey.startsWith("0x") ? controllerPubKey.slice(2) : controllerPubKey,
+        daiContractAddress,
+        sessionDataLearnerSig: requestedSessionDurationLearnerSig,
+        sessionDataTeacherSig: requestedSessionDurationTeacherSig,
         sessionDuration,
-        requestedSessionDurationLearnerSig,
-        requestedSessionDurationTeacherSig,
+        secureSessionId,
         hashedLearnerAddress,
         hashedTeacherAddress,
-        secureSessionId
-      },
-    });
+        amount: paymentAmount.toString(),
+        accessControlConditions,
+        rpcChain: 'baseSepolia',
+        rpcChainId,
+        ethereumRelayerPublicKey,
+        relayerIpfsId,
+        env,
+      }
 
-    console.log('results', results)
-    const { signatures, response } = results;
-    const sig = signatures.sig1;
-    const encodedSig = ethers.Signature.from({
-      r: "0x" + sig.r,
-      s: "0x" + sig.s,
-      v: sig.recid,
-    }).serialized;
+      const transferFromResult = await litNodeClient.executeJs({
+        ipfsId: transferFromActionIpfsId ,
+        sessionSigs,
+        jsParams,
+      });
 
-    const { txParams } = response as any;
-
-    const txn = ethers.Transaction.from({ ...txParams, signature: encodedSig }).serialized;
-    console.log('txn', txn)
-    return txn;
+      console.log('results', transferFromResult)
     } catch (e) {
       console.error(e);
     }

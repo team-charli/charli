@@ -6,8 +6,9 @@ import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
 import { Button } from "@headlessui/react";
 import { useLearningRequestMutations } from "../hooks/useLearningRequestMutations";
-import {useLearningRequestState} from "../hooks/useLearningRequestState"
+import { useLearningRequestState } from "../hooks/useLearningRequestState";
 import { waitForTransaction } from "../utils/waitForTx";
+import { useEncryptLearnerAddress } from "../hooks/useEncryptLearnerAddress";
 interface UserItemProps {
   userName: string;
   userID: number;
@@ -23,16 +24,17 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
   const learningRequestState = useLearningRequestState();
   const { generateControllerData, signSessionDurationAndSecureSessionId, executePermitAction, submitLearningRequestToDb, signPermitAndCollectActionParams } = learningRequestFunctions;
 
-  const {  sessionLengthInputValue, setSessionLengthInputValue, toggleDateTimePicker, setToggleDateTimePicker, renderSubmitConfirmation, setRenderSubmitConfirmation, dateTime, setDateTime, sessionDuration, amountDai, } = learningRequestState;
+  const {  sessionLengthInputValue, setSessionLengthInputValue, toggleDateTimePicker, setToggleDateTimePicker, renderSubmitConfirmation, setRenderSubmitConfirmation, dateTime, setDateTime, sessionDuration, amountDai,  } = learningRequestState;
 
+  const encryptLearnerAddress = useEncryptLearnerAddress();
 
   const handleSubmitLearningRequest = useCallback(async () => {
-    if (!isLearnMode || !learningRequestState) return;
+    if (!isLearnMode || !learningRequestState ) return;
     const provider = new ethers.JsonRpcProvider(import.meta.env.VITE_RPC_URL)
-    const { sessionDuration, dateTime, setRenderSubmitConfirmation } = learningRequestState;
     if (sessionDuration && loggedInUserId) {
       try {
-        const controllerData = await generateControllerData();
+      const { sessionId, ...controllerData } = await generateControllerData();
+
         const secureSessionId = hexlify(randomBytes(16));
         const sessionIdAndDurationSig = await signSessionDurationAndSecureSessionId.mutateAsync({sessionDuration, secureSessionId});
 
@@ -40,9 +42,17 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
 
         const {txHash} = await executePermitAction.mutateAsync(actionParams);
 
+        const encryptLearnerAddressResult = await encryptLearnerAddress()
+        const {ciphertext, dataToEncryptHash} = encryptLearnerAddressResult;
+        //TODO should Promise.all these because waitForTransaction takes long time
         const txInfoObj = await waitForTransaction(provider, txHash)
 
+
+
+
+
         if (txInfoObj.txStatus === "reverted" || txInfoObj.txStatus === "failed") throw new Error("halted submit on permitTx reverted || failed")
+        console.log("Before submitLearningRequestToDb, sessionId:", sessionId);
 
         await submitLearningRequestToDb.mutateAsync({
           dateTime,
@@ -50,14 +60,17 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
           userID: loggedInUserId,
           teachingLang: language,
           sessionDuration,
+          sessionId,
           secureSessionId,
           controllerData,
-          learnerSessionDurationSig: sessionIdAndDurationSig
+          learnerSessionDurationSig: sessionIdAndDurationSig,
+          ciphertext,
+          dataToEncryptHash
         });
         setRenderSubmitConfirmation(true);
       } catch (error) {
 
-        console.error("Error in submit process:", error);
+        console.error("Error in submitLearningRequestToDb:", error);
         throw new Error("Permit transaction failed");
 
         // Handle error (e.g., show error message to user)

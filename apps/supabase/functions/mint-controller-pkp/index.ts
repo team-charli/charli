@@ -1,3 +1,4 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { ethers } from "https://esm.sh/ethers@5.7.0";
 import { LitContracts } from "https://esm.sh/@lit-protocol/contracts-sdk";
 import * as LitNodeClient from "https://esm.sh/@lit-protocol/lit-node-client-nodejs";
@@ -5,7 +6,9 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY_MINT_CONTROLLER_PKP") ?? "";
 const LIT_NETWORK = Deno.env.get("LIT_NETWORK") ?? "datil-dev";
-const RELAYER_TOKEN_ID = Deno.env.get("ETHEREUM_RELAYER_TOKEN_ID");
+const supabaseUrl = Deno.env.get('SUPABASE_URL') as string
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string
+const supabaseClient = createClient(supabaseUrl, supabaseKey)
 
 const pkpContract = {
   dev: {
@@ -30,11 +33,8 @@ function getPkpNftContractAddress(env: Environment): string {
 }
 
 interface RequestBody {
-  keyType: number;
-  derivedKeyId: string;
-  signatures: string[];
+  sessionId: number;
   env: Environment;
-  ipfsIdsToRegister: string[];
 }
 
 Deno.serve(async (req: Request) => {
@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
 
     console.log("Session signatures obtained");
 
-    const mintAndBurnResult = await mintAndBurnPKP(body.keyType, body.derivedKeyId, body.signatures, litNodeClient, wallet, pkpNftContractAddress, body.ipfsIdsToRegister);
+    const mintAndBurnResult = await mintAndBurnPKP(body.sessionId, litNodeClient, wallet, pkpNftContractAddress);
       console.log("Mint and burn completed", { result: mintAndBurnResult });
 
     await litNodeClient.disconnect();
@@ -94,29 +94,32 @@ async function parseRequestBody(req: Request): Promise<RequestBody> {
 }
 
 function validateRequest(body: RequestBody) {
-  if (!body.keyType) {
-    throw new BadRequestError("Missing keyId in request");
-  } else if (body.signatures.length < 1) {
-    throw new BadRequestError("Missing signatures in request");
-  } else if (!body.derivedKeyId) {
-    throw new BadRequestError("Missing derivedKeyId in request");
+  if (!body.sessionId) {
+    throw new BadRequestError("Invalid or missing sessionId")
    } else if (!body.env || !['dev', 'test', 'production'].includes(body.env)) {
     throw new BadRequestError("Invalid or missing environment in request");
-  } else if (body.ipfsIdsToRegister.length < 1) {
-    throw new BadRequestError("No ipfsIdToRegister array passed")
   }
 }
 
 
-async function mintAndBurnPKP(keyType: number, derivedKeyId: string, signatures: string[], litNodeClient: LitNodeClient, wallet: ethers.Wallet, pkpNftContractAddress: ethers.AddressLike, ipfsIdsToRegister: string[]) {
-  const approveIpfsId = ipfsIdsToRegister[0];
-  const transferFromIpfsId = ipfsIdsToRegister[1]
+async function mintAndBurnPKP(sessionId: number, litNodeClient: LitNodeClient, wallet: ethers.Wallet, pkpNftContractAddress: ethers.AddressLike) {
   try {
+     const { data, error } = await supabaseClient
+       .from('sessions')
+       .select('key_claim_data')
+       .eq('session_id', sessionId);
+    if (error) throw new Error(error);
+    if (!data || data.length === 0) throw new Error("No data found for the given sessionId");
+    const keyClaimData = data[0].key_claim_data;
+    if (!keyClaimData) throw new Error("keyClaimData null or undefined")
+    const derivedKeyId = keyClaimData.derivedKeyId;
+    const condensedSigs = keyClaimData.condensedSigs;
+    const signatures = restoreSignatures(condensedSigs);
     const contractClient = new LitContracts({ signer: wallet, network: LIT_NETWORK });
     await contractClient.connect();
     const pkpMintCost = await contractClient.pkpNftContract.read.mintCost();
 
-    const claimAndMintTx = await contractClient.pkpNftContract.write.claimAndMint(keyType, `0x${derivedKeyId}`, signatures, {value: pkpMintCost});
+    const claimAndMintTx = await contractClient.pkpNftContract.write.claimAndMint(2, `0x${derivedKeyId}`, signatures, {value: pkpMintCost});
     const claimAndMintReceipt = await claimAndMintTx.wait(1);
     console.log('claimAndMintTx: ', claimAndMintTx);
 
@@ -168,4 +171,29 @@ class BadRequestError extends Error {
     super(message);
     this.name = "BadRequestError";
   }
+}
+
+
+interface Signature {
+  r: string;
+  s: string;
+  v: number;
+}
+
+function restoreSignatures(condensedSigs: string[]): Signature[] {
+  return condensedSigs.map(condensedSig => {
+    // Decode the Base64 string to Uint8Array
+    const bytes = ethers.utils.base64.decode(condensedSig);
+    // Convert Uint8Array to hex string
+    const hexString = ethers.utils.hexlify(bytes);
+    // Extract r, s, and v
+    const r = ethers.utils.hexDataSlice(hexString, 0, 32);
+    const s = ethers.utils.hexDataSlice(hexString, 32, 64);
+    const v = ethers.utils.hexDataSlice(hexString, 64);
+    return {
+      r,
+      s,
+      v: ethers.BigNumber.from(v).toNumber()
+    };
+  });
 }
