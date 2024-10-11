@@ -48,32 +48,25 @@ export const useHandleTeacherRequest = (
           console.log('keyId', keyId);
           console.log('typeof keyId', typeof keyId)
 
-          /* Claude modify mint-controller-pkp function */
-          ///* Restore Signatures -- */
-          //const controllerClaimKeySigs = restoreSignatures(condensedSigs);
 
           ////mintClaimBurn
-          //let mintClaimResponse: any;
-          //try {
-          //  mintClaimResponse = await supabaseClient.functions.invoke('mint-controller-pkp', {
-          //    body: JSON.stringify({
-          //      keyType: 2,
-          //      derivedKeyId: derivedKeyId,
-          //      signatures: controllerClaimKeySigs,
-          //      env: "dev",
-          //      ipfsIdsToRegister: [import.meta.env.VITE_TRANSFERFROM_ACTION_IPFSID]
+          let mintClaimResponse: any;
+          try {
+            mintClaimResponse = await supabaseClient.functions.invoke('mint-controller-pkp', {
+              body: JSON.stringify({
+                env: "dev",
+                sessionId: notification.session_id,
+              })
+            });
+          } catch (error) {
+            console.log(error);
+          }
 
-          //    })
-          //  });
-          //} catch (error) {
-          //  console.log(error);
-          //}
+          if (Object.keys(mintClaimResponse).length > 1) {
+            console.log("success mintClaimResponse")
+          }
 
-          //if (Object.keys(mintClaimResponse).length > 1) {
-          //  console.log("success mintClaimResponse")
-          //}
-
-          console.log('Response data:', response);
+          console.log('mintClaimResponse: ', mintClaimResponse );
 
           const requestedSessionDurationTeacherSig = await signSessionDuration(
             requestedSessionDurationLearnerSig,

@@ -2,6 +2,7 @@
 import LoginRoute from '@/pages/login'
 import RoomRoute from '@/pages/room[id]/Room'
 import { createRootRouteWithContext, createRoute, ErrorComponent, Outlet, redirect } from '@tanstack/react-router'
+import {validateSessionSigs} from '@lit-protocol/misc'
 import Entry from '@/pages/Entry'
 import { RouterContext } from './router'
 import { routingLogger } from "@/App";
@@ -15,6 +16,7 @@ import BolsaRoute from '@/pages/bolsa/BolsaRoute';
 import { sessionSigsExNearReAuth } from './RouteQueries/sessionSigsExNearReAuth'
 import { signOutComplete } from './RouteQueries/signOutComplete'
 import { supabaseAtOrNearExp } from './RouteQueries/supabaseAtOrNearExp'
+import { areSessionSigsExpired } from './RouteQueries/areSessionSigsExpired'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
@@ -30,23 +32,22 @@ export const rootRoute = createRootRouteWithContext<RouterContext>()({
     const threshold = 900; // seconds
 
     try {
-      const sessionSigsNearReAuth = sessionSigsExNearReAuth(queryClient, threshold);
-
-      if (sessionSigsNearReAuth) {
-        console.log("sessionSigsNearReAuth: clear storage and redirect");
+      if (areSessionSigsExpired(queryClient)) {
         signOutComplete(queryClient);
-        throw redirect({ to: '/login' });
+        console.log("signOutComplete")
+        throw redirect({to: '/login'});
       }
+
       const supabaseTokenNearEx = await supabaseAtOrNearExp(queryClient, threshold);
 
       if (supabaseTokenNearEx) {
         console.log("supabaseTokenNearEx: clear storage and redirect");
+        console.log("signOutComplete")
         signOutComplete(queryClient);
         throw redirect({ to: '/login' });
       }
     } catch (error) {
       console.error("Error in beforeLoad:", error);
-      // Handle error, possibly redirecting to an error page
     }
   }
 })
@@ -60,6 +61,7 @@ export const entry = createRoute({
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
     if (!auth.isSuccess) {
+      routingLogger.info("waiting for !auth.isSuccess")
       return;
     }
 

@@ -2,11 +2,11 @@ import log from 'loglevel';
 export const authChainLogger = log.getLogger('authChainLogger');
 authChainLogger.setLevel('info');
 export const routingLogger = log.getLogger('routingLogger');
-routingLogger.setLevel('info');
 export const mutationLogger = log.getLogger('mutationLogger')
+routingLogger.setLevel('info');
 mutationLogger.setLevel('info')
-authChainLogger.setLevel('silent');
-routingLogger.setLevel('silent');
+// authChainLogger.setLevel('silent');
+// routingLogger.setLevel('silent');
 
 import { Provider } from 'jotai/react';
 import '@/styles/globals.css';
@@ -32,12 +32,12 @@ export const queryClient = new QueryClient({
 export const persister = experimental_createPersister({
   storage: window.localStorage,
   deserialize: (cachedString) => {
-    // console.log('Deserializing cached string:', JSON.stringify(cachedString));
-    return JSON.parse(cachedString);
+    const deserialized = JSON.parse(cachedString);
+    return deserialized;
   },
   serialize: (client) => {
-    // console.log('Serializing full client data:', JSON.parse(JSON.stringify(client)));
-    return JSON.stringify(client);
+    const serialized = JSON.stringify(client);
+    return serialized;
   },
 });
 

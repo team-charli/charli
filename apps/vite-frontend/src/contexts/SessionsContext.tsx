@@ -17,7 +17,7 @@ export const useSessionsContext = () => useContext(SessionsContext);
 
 const SessionsProvider = ({ children }: { children: React.ReactNode }) => {
   const [userId] = useLocalStorage<number>("userID");
-  const {data: supabaseClient} = useSupabaseClient();
+  const {data: supabaseClient, isLoading, isError} = useSupabaseClient();
 
   const [showIndicator, setShowIndicator] = useState<boolean>(false);
   const { data: initialSessionData } = useInitialSessionData();
@@ -32,6 +32,11 @@ const SessionsProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   useEffect(() => {
+    console.log("SessionsProvider effect running");
+    console.log("supabaseClient:", supabaseClient);
+    console.log("isLoading:", isLoading);
+    console.log("isError:", isError);
+
     if (supabaseClient) {
 
 

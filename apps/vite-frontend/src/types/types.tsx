@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { AuthMethod, AuthSig, IRelayPKP, SessionSigs  } from '@lit-protocol/types';
+import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
 import { Atom } from 'jotai';

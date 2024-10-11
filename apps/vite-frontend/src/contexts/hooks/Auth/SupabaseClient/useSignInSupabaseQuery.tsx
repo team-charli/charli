@@ -2,7 +2,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { SupabaseClient, User, Session } from '@supabase/supabase-js';
 import { AuthData, AuthMethodPlus } from '@/types/types';
-import { isTokenExpired } from '@/utils/app';
 
 export interface SignInResult {
   authProviderId: string | null;
@@ -12,7 +11,7 @@ export interface SignInResult {
 }
 
 interface UseSignInSupabase {
-  queryKey: [string, AuthMethodPlus | null | undefined];
+  queryKey: [string, AuthMethodPlus | string | null | undefined];
   enabledDeps: boolean;
   queryFnData: AuthMethodPlus | null | undefined;
   supabaseClient: SupabaseClient | null | undefined;

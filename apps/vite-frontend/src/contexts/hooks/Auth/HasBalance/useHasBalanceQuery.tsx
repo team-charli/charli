@@ -26,15 +26,14 @@ export const useHasBalanceQuery = ({queryKey, enabledDeps, queryFnData}:HasBalan
         return null;
       }
       try {
-        const usdcAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
+        const daiAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
         const url = import.meta.env.VITE_RPC_URL;
         const abi = daiAbi as InterfaceAbi;
         const provider = new JsonRpcProvider(url);
-        const usdcContract = new Contract(usdcAddress, abi, provider)
-        console.log('currentAccount.ethAddress', currentAccount.ethAddress)
-        const balance = await usdcContract.balanceOf(currentAccount.ethAddress);
-        const minBalanceUSDC = parseUnits('9', 18);
-        const hasBalance = balance >= minBalanceUSDC;
+        const daiContract = new Contract(daiAddress, abi, provider);
+        const balance = await daiContract.balanceOf(currentAccount.ethAddress);
+        const minBalanceDai = parseUnits('9', 18);
+        const hasBalance = balance >= minBalanceDai;
         authChainLogger.info(`12b: hasBalance query finish:`, (Date.now() - startTime) / 1000);
 
 

@@ -13,10 +13,10 @@ export const useEncryptLearnerAddress = () => {
           chain: "ethereum",
           method: '',
           parameters: [
-            ':userAddress',
+            "0x",
           ],
           returnValueTest: {
-            comparator: '!=',
+            comparator: '=',
             value: '0x'
           }
         }

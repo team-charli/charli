@@ -1,3 +1,4 @@
+import {validateSessionSigs} from '@lit-protocol/misc'
 import { SessionSigs } from "@lit-protocol/types";
 import { QueryClient } from "@tanstack/query-core";
 
@@ -9,17 +10,23 @@ export const sessionSigsExNearReAuth = (queryClient: QueryClient, threshold: num
   const caller = new Error().stack?.split('\n')[2].trim().split(' ')[1] || 'unknown';
   const currentTime = new Date().getTime();
 
-  for (const key in sessionSigs) {
-    if (Object.prototype.hasOwnProperty.call(sessionSigs, key)) {
-      const signedMessage = JSON.parse(sessionSigs[key].signedMessage);
-      const expirationTime = new Date(signedMessage.expiration).getTime();
-      const timeUntilExpire = expirationTime - currentTime;
+  if (sessionSigs) {
+    const sessionSigsValidationResult = validateSessionSigs(sessionSigs);
+    if (sessionSigsValidationResult) {
 
-      if (timeUntilExpire <= threshold) {
-        console.log(`sessionSigsExpired (${caller}): ${key} will expire within ${threshold}ms`);
-        return true;
-      }
     }
   }
+  // for (const key in sessionSigs) {
+  //   if (Object.prototype.hasOwnProperty.call(sessionSigs, key)) {
+  //     const signedMessage = JSON.parse(sessionSigs[key].signedMessage);
+  //     const expirationTime = new Date(signedMessage.expiration).getTime();
+  //     const timeUntilExpire = expirationTime - currentTime;
+
+  //     if (timeUntilExpire <= threshold) {
+  //       console.log(`sessionSigsExpired (${caller}): ${key} will expire within ${threshold}ms`);
+  //       return true;
+  //     }
+  //   }
+  // }
   return false;
 }

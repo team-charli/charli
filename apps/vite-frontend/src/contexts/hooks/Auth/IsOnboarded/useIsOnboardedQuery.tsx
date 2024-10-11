@@ -14,7 +14,7 @@ interface IsOnboardedParams {
 
 export const useIsOnboardedQuery = ({
   queryKey,
-  enabledDeps, //!!litAccountQuery.data && !!supabaseClientQuery.data,
+  enabledDeps,
   queryFnData,
   supabaseClient,
 }: IsOnboardedParams) => {

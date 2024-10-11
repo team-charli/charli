@@ -1,11 +1,11 @@
-import {SignatureLike, ethers} from 'ethers';
+import {SignatureLike} from 'ethers';
 import { litNodeClient } from '@/utils/litClients';
-import { useSessionSigs } from '@/contexts/AuthContext';
-
+import { useAddResourceAndRefectchSessionSigsQuery } from '@/contexts/hooks/Auth/LitAuth/useAddResourceAndRefectchSessionSigs';
 export const useExecuteTransferFromLearnerToController = () => {
-  const { data: sessionSigs} = useSessionSigs();
+  const addResourceAndRefetchSessionSigs = useAddResourceAndRefectchSessionSigsQuery();
+
   const executeTransferFromLearnerToController = async (teacherAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: bigint, requestedSessionDurationLearnerSig: SignatureLike | null, requestedSessionDurationTeacherSig: SignatureLike | undefined, hashedLearnerAddress: string | undefined, hashedTeacherAddress: string | undefined, sessionDuration: string, secureSessionId: string | null, learnerAddressEncryptHash: string | null, learnerAddressCipherText: string | null,
-) => {
+  ) => {
 
     const transferFromActionIpfsId = import.meta.env.VITE_TRANSFER_FROM_ACTION_IPFSID;
     const daiContractAddress= import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
@@ -20,16 +20,18 @@ export const useExecuteTransferFromLearnerToController = () => {
         chain: "ethereum",
         method: '',
         parameters: [
-          ':userAddress',
+          '0x',
         ],
         returnValueTest: {
-          comparator: '!=',
+          comparator: '=',
           value: '0x'
         }
       }
     ]
+    const sessionSigs = await addResourceAndRefetchSessionSigs(accessControlConditions, learnerAddressEncryptHash);
 
-      try {
+
+    try {
       const jsParams = {
         ipfsId: transferFromActionIpfsId,
         learnerAddressCiphertext: learnerAddressCipherText,
