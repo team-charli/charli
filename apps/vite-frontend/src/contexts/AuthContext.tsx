@@ -5,6 +5,7 @@ import { UseQueryResult } from '@tanstack/react-query';
 import React, { createContext, useContext } from 'react';
 import { useAuthChain } from './hooks/Auth/useAuthChain';
 import { IRelayPKP } from '@lit-protocol/types';
+import { useAddResourceAndRefectchSessionSigsQuery } from './hooks/Auth/LitAuth/useAddResourceAndRefectchSessionSigs';
 
 export type AuthContextType = {
   queries: AuthQuery[];
@@ -69,4 +70,7 @@ export const useSupabaseClient = (): UseQueryResult<SupabaseClient, Error> => {
 export const useSignInSupabase = () => useAuth().queries.find(q => q.name === 'signInSupabase')?.query as UseQueryResult<any, any>;
 
 export const useHasBalance = () => useAuth().queries.find(q => q.name === 'hasBalance')?.query as UseQueryResult<any, any>;
+
+export const useAddResourceAndRefectchSessionSigs = useAddResourceAndRefectchSessionSigsQuery ;
+
 

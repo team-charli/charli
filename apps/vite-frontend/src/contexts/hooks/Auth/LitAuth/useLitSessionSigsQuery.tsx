@@ -13,9 +13,11 @@ interface SessionSigsQueryParams {
   queryFnData: [AuthMethodPlus | null | undefined, IRelayPKP | null | undefined, boolean];
   invalidateQueries: () => Promise<string>;
   persister: any;
+  additionalResourceAbilityRequests?: Array<{ resource: any, ability: any }>;
 }
 
-export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, invalidateQueries, persister}: SessionSigsQueryParams) => {
+export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, invalidateQueries, persister, additionalResourceAbilityRequests = []
+}: SessionSigsQueryParams) => {
   const queryClient = useQueryClient();
   // const [{idToken, authMethodType}, litAccount, isConnected] = queryFnData;
   let authMethod: AuthMethod;
@@ -76,6 +78,7 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, inva
               resource: new LitActionResource('*'),
               ability: LitAbility.LitActionExecution,
             },
+            ...additionalResourceAbilityRequests
           ]
         });
         authChainLogger.info('New sessionSigs obtained');
