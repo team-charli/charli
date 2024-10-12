@@ -150,10 +150,11 @@ async function getControllerKeyClaimData(keyId: string, learnerId: number, sessi
           derivedKeyId,
           condensedSigs
         };
+        const controllerAddress = ethers.utils.computeAddress("0x" + publicKey);
 
         const { data, error } = await supabaseClient
           .from('sessions')
-          .insert({ key_claim_data, request_origin_type: 'learner', learner_id: learnerId })
+          .insert({ key_claim_data, request_origin_type: 'learner', learner_id: learnerId, controller_public_key: publicKey, controller_address: controllerAddress})
           .select();
 
         if (error) {
