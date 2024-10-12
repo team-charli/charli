@@ -27,10 +27,11 @@ Deno.serve(async (req) => {
   if (req.method === "POST") {
     try {
       const body = await req.text();
-      let keyId;
+      let keyId, learnerId
       try {
         const json = JSON.parse(body);
         keyId = json.keyId;
+        learnerId = json.learnerId
       } catch (parseError) {
         console.error(parseError)
       }
@@ -40,6 +41,13 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      } else if (!learnerId) {
+        console.error("Missing learnerId in request");
+        return new Response(JSON.stringify({ error: "Missing learnerId in request" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+
       }
       const provider = new ethers.providers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
       const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
@@ -48,7 +56,7 @@ Deno.serve(async (req) => {
       console.log("LitNodeClient connected");
       const sessionSigs = await getSessionSigs(litNodeClient, wallet);
       console.log("Session signatures obtained");
-      const controllerKeyClaimData = await getControllerKeyClaimData(keyId, sessionSigs, litNodeClient, wallet);
+      const controllerKeyClaimData = await getControllerKeyClaimData(keyId, learnerId, sessionSigs, litNodeClient, wallet);
       console.log("Key Claim Complete. Returning Key Claim Data", { result: controllerKeyClaimData });
       await litNodeClient.disconnect()
       return new Response(JSON.stringify(controllerKeyClaimData), {
@@ -114,7 +122,7 @@ async function getSessionSigs(litNodeClient: any, wallet: ethers.Wallet) {
   });
 }
 
-async function getControllerKeyClaimData(keyId: string, sessionSigs: any, litNodeClient: any, wallet: ethers.Wallet) {
+async function getControllerKeyClaimData(keyId: string, learnerId: number, sessionSigs: any, litNodeClient: any, wallet: ethers.Wallet) {
   try {
     const contractClient = new LitContracts({ signer: wallet, network: LIT_NETWORK });
     await contractClient.connect();
@@ -145,7 +153,7 @@ async function getControllerKeyClaimData(keyId: string, sessionSigs: any, litNod
 
         const { data, error } = await supabaseClient
           .from('sessions')
-          .insert({ key_claim_data, request_origin_type: 'learner' })
+          .insert({ key_claim_data, request_origin_type: 'learner', learner_id: learnerId })
           .select();
 
         if (error) {
