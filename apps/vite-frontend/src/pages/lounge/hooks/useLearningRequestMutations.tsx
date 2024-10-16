@@ -6,19 +6,17 @@ import { usePkpWallet, useLitAccount, useSupabaseClient, useSessionSigs } from '
 import { litNodeClient } from '@/utils/litClients';
 import { convertLocalTimetoUtc } from '@/utils/app';
 import { SessionControllerData } from '@/types/types';
-import { useSessionsContext } from '@/contexts/SessionsContext';
 
-export const useLearningRequestMutations = (isLearnMode: boolean) => {
-  if (!isLearnMode) throw new Error("need isLearnMode input");
+export const useLearningRequestMutations = () => {
+
   const { data: supabaseClient } = useSupabaseClient();
   const { data: sessionSigs } = useSessionSigs();
   const { data: currentAccount } = useLitAccount();
   const { data: pkpWallet } = usePkpWallet();
-  const {sessionsContextValue} = useSessionsContext()
 
   if (!supabaseClient) throw new Error("supabaseClient undefined")
 
-  const generateControllerData = useCallback(async (): Promise<SessionControllerData> => {
+  const generateControllerData = useCallback(async (learnerId: number): Promise<SessionControllerData> => {
     const uniqueData = `ControllerPKP_${Date.now()}`;
     const bytes = ethers.toUtf8Bytes(uniqueData);
     const userId = ethers.keccak256(bytes);
@@ -31,6 +29,7 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
       getControllerKeyClaimDataResponse = await supabaseClient.functions.invoke('get-controller-key-claim-data', {
         body: JSON.stringify({
           keyId,
+          learnerId
         })
       });
     } catch (error) {
@@ -60,7 +59,6 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
         ethers.toUtf8Bytes(secureSessionId),
         ethers.toBeHex(sessionDuration)
       ]);
-
       const message = ethers.keccak256(encodedData);
       return await pkpWallet.signMessage(ethers.getBytes(message));
     },
@@ -72,7 +70,9 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
   const signPermitAndCollectActionParams = useMutation({
     mutationFn: async (params: SignPermitAndCollectActionParams) => {
       try {
-        const { controllerAddress, provider, amountScaled, secureSessionId, sessionIdAndDurationSig, sessionDuration } = params;
+        const { provider, amountScaled, secureSessionId, sessionIdAndDurationSig, sessionDuration } = params;
+        const relayerAddress = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS;
+        console.log('relayerAddress', relayerAddress)
 
         if (!pkpWallet) throw new Error('Wallet not initialized');
         const daiContractAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
@@ -83,12 +83,10 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
           'function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
           'function allowance(address owner, address spender) view returns (uint256)'
         ];
-        console.log("daiContractAddress", typeof daiContractAddress)
-        console.log("daiContractAddress", daiContractAddress)
 
         const daiContract = new ethers.Contract(daiContractAddress, daiContractAbi, provider);
 
-        const currentAllowance = await daiContract.allowance(pkpWallet.address, controllerAddress);
+        const currentAllowance = await daiContract.allowance(pkpWallet.address, relayerAddress );
         if (currentAllowance >= amountScaled) {
           console.log("Approval already set, skipping permit transaction");
           return;
@@ -97,7 +95,7 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
         // permit setup
         // Set Permit Parameters
         const owner = pkpWallet.address;
-        const spender = controllerAddress; // Your application's address or PKP address
+        const spender = relayerAddress ; // Your application's address or PKP address
         const value = amountScaled.toString();
         const deadline = (Math.floor(Date.now() / 1000) + 3600).toString(); // Convert to string
         const nonceBN = await daiContract.nonces(owner);
@@ -221,12 +219,11 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
       if (!supabaseClient || !currentAccount) throw new Error('Supabase client or current account not available');
       const utcDateTime = convertLocalTimetoUtc(dateTime);
       let hashed_learner_address = ethers.keccak256(currentAccount.ethAddress);
-      console.log("sessionId at update", sessionId)
+
       const { error } = await supabaseClient
         .from('sessions')
         .update([{
           teacher_id: teacherID,
-          learner_id: userID,
           request_time_date: utcDateTime,
           request_origin: userID,
           teaching_lang: teachingLang,
@@ -239,6 +236,8 @@ export const useLearningRequestMutations = (isLearnMode: boolean) => {
         }])
         .eq('session_id', sessionId)
         .select();
+
+
       if (error) throw error;
       return true;
     },

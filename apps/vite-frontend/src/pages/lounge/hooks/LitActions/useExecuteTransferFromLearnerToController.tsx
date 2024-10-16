@@ -4,7 +4,7 @@ import { useAddResourceAndRefectchSessionSigsQuery } from '@/contexts/hooks/Auth
 export const useExecuteTransferFromLearnerToController = () => {
   const addResourceAndRefetchSessionSigs = useAddResourceAndRefectchSessionSigsQuery();
 
-  const executeTransferFromLearnerToController = async (teacherAddress: string, controllerAddress: string, controllerPubKey: string, paymentAmount: bigint, requestedSessionDurationLearnerSig: SignatureLike | null, requestedSessionDurationTeacherSig: SignatureLike | undefined, hashedLearnerAddress: string | undefined, hashedTeacherAddress: string | undefined, sessionDuration: string, secureSessionId: string | null, learnerAddressEncryptHash: string | null, learnerAddressCipherText: string | null,
+  const executeTransferFromLearnerToController = async (controllerAddress: string,  paymentAmount: bigint, requestedSessionDurationLearnerSig: SignatureLike | null, requestedSessionDurationTeacherSig: SignatureLike | undefined, hashedLearnerAddress: string | undefined, hashedTeacherAddress: string | undefined, sessionDuration: number | null, sessionId: number | null, secureSessionId: string | null, learnerAddressEncryptHash: string | null, learnerAddressCipherText: string | null,
   ) => {
 
     const transferFromActionIpfsId = import.meta.env.VITE_TRANSFER_FROM_ACTION_IPFSID;
@@ -29,7 +29,7 @@ export const useExecuteTransferFromLearnerToController = () => {
       }
     ]
     const sessionSigs = await addResourceAndRefetchSessionSigs(accessControlConditions, learnerAddressEncryptHash);
-
+    if (!sessionSigs) throw new Error('sessionSigs undefined')
 
     try {
       const jsParams = {
@@ -37,11 +37,11 @@ export const useExecuteTransferFromLearnerToController = () => {
         learnerAddressCiphertext: learnerAddressCipherText,
         learnerAddressEncryptHash,
         controllerAddress,
-        controllerPubKey: controllerPubKey.startsWith("0x") ? controllerPubKey.slice(2) : controllerPubKey,
         daiContractAddress,
         sessionDataLearnerSig: requestedSessionDurationLearnerSig,
         sessionDataTeacherSig: requestedSessionDurationTeacherSig,
         sessionDuration,
+        sessionId,
         secureSessionId,
         hashedLearnerAddress,
         hashedTeacherAddress,
@@ -53,7 +53,7 @@ export const useExecuteTransferFromLearnerToController = () => {
         relayerIpfsId,
         env,
       }
-
+      console.log("transferFrom jsParams", jsParams)
       const transferFromResult = await litNodeClient.executeJs({
         ipfsId: transferFromActionIpfsId ,
         sessionSigs,
@@ -61,6 +61,8 @@ export const useExecuteTransferFromLearnerToController = () => {
       });
 
       console.log('results', transferFromResult)
+      console.log('results', transferFromResult.logs)
+
     } catch (e) {
       console.error(e);
     }

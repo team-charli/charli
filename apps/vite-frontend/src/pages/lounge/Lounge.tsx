@@ -5,6 +5,8 @@ import DropDownButton from './Components/Interactions/DropDownButton'
 import LangNav from './Components/Interactions/LangNav'
 import { UserView } from './Components/UserView'
 import { useLangNavDataQuery } from './hooks/QueriesMutations/useLangNavDataQuery'
+import { useAtomValue } from 'jotai'
+import { onboardModeAtom } from '@/atoms/atoms'
 
 interface Language {
   id: number;
@@ -15,7 +17,9 @@ interface Language {
 }
 
 export const Lounge = () => {
-  const [modeView, setModeView] = useState<"Learn" | "Teach">("Learn")
+  let intiialModeView = useAtomValue(onboardModeAtom);
+  if (!intiialModeView) intiialModeView  = "Learn"
+  const [modeView, setModeView] = useState<"Learn" | "Teach">(intiialModeView)
   const [selectedLang, setSelectedLang] = useState<string>("");
   const { languagesToShow, isLoading, error } = useLangNavDataQuery(modeView, setSelectedLang, selectedLang);
 

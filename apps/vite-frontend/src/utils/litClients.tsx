@@ -10,7 +10,7 @@ export const litNodeClient: LitNodeClient = new LitNodeClient({
   alertWhenUnauthorized: false,
   litNetwork,
   checkNodeAttestation: false,
-  debug: false,
+  debug: true,
 });
 
 

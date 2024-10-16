@@ -20,7 +20,7 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
   const [loggedInUserId] = useLocalStorage<number>("userID");
   const isLearnMode = modeView === "Learn";
 
-  const learningRequestFunctions = useLearningRequestMutations(isLearnMode);
+  const learningRequestFunctions = useLearningRequestMutations();
   const learningRequestState = useLearningRequestState();
   const { generateControllerData, signSessionDurationAndSecureSessionId, executePermitAction, submitLearningRequestToDb, signPermitAndCollectActionParams } = learningRequestFunctions;
 
@@ -33,7 +33,8 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
     const provider = new ethers.JsonRpcProvider(import.meta.env.VITE_RPC_URL)
     if (sessionDuration && loggedInUserId) {
       try {
-      const { sessionId, ...controllerData } = await generateControllerData();
+      const learnerId = loggedInUserId;
+      const { sessionId, ...controllerData } = await generateControllerData(learnerId);
 
         const secureSessionId = hexlify(randomBytes(16));
         const sessionIdAndDurationSig = await signSessionDurationAndSecureSessionId.mutateAsync({sessionDuration, secureSessionId});
@@ -45,11 +46,8 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
         const encryptLearnerAddressResult = await encryptLearnerAddress()
         const {ciphertext, dataToEncryptHash} = encryptLearnerAddressResult;
         //TODO should Promise.all these because waitForTransaction takes long time
+
         const txInfoObj = await waitForTransaction(provider, txHash)
-
-
-
-
 
         if (txInfoObj.txStatus === "reverted" || txInfoObj.txStatus === "failed") throw new Error("halted submit on permitTx reverted || failed")
         console.log("Before submitLearningRequestToDb, sessionId:", sessionId);
@@ -62,10 +60,9 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
           sessionDuration,
           sessionId,
           secureSessionId,
-          controllerData,
           learnerSessionDurationSig: sessionIdAndDurationSig,
           ciphertext,
-          dataToEncryptHash
+          dataToEncryptHash,
         });
         setRenderSubmitConfirmation(true);
       } catch (error) {

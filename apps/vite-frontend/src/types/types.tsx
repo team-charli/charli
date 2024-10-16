@@ -272,7 +272,7 @@ export interface SessionParamsResult {
     controllerPublicKey: string | null;
     controllerAddress: string | null;
     learnerAddress: string | null;
-    requestedSessionDuration: string | null;
+    requestedSessionDuration: number | null;
     requestedSessionDurationLearnerSig: string | null;
     keyId: string | null;
     hashedLearnerAddress: string | null;

@@ -1,4 +1,6 @@
 // @ts-nocheck
+// relayerPKP... burn after setting permssions
+// relayerPKP burn tx hash: ...
 const relayerAction = async () => {
   console.log("Starting relayerAction");
   let relayerPkpTokenId, relayerAddress, publicKey;

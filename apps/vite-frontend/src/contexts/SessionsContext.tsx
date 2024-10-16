@@ -32,13 +32,7 @@ const SessionsProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   useEffect(() => {
-    console.log("SessionsProvider effect running");
-    console.log("supabaseClient:", supabaseClient);
-    console.log("isLoading:", isLoading);
-    console.log("isError:", isError);
-
     if (supabaseClient) {
-
 
       const subscription = supabaseClient
       .channel('realtime:public.sessions')
@@ -82,7 +76,7 @@ const SessionsProvider = ({ children }: { children: React.ReactNode }) => {
             return;
           }
           const baseSession: Session = payload.new;
-          const { teacherName, learnerName } = await fetchLearnersAndTeachers(supabaseClient, baseSession.teacher_id, baseSession.learner_id);
+          const { teacherName, learnerName } = await fetchLearnersAndTeachers(supabaseClient, baseSession);
           const extendedSession: ExtendedSession = {
             ...baseSession,
             teacherName,

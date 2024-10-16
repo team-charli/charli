@@ -2,7 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { SessionParamsResult } from "../../types/types";
 
 export const fetchLearnerToControllerParams = async (
-  supabaseClient: SupabaseClient,
+  supabaseClient: SupabaseClient | undefined,
   sessionId: number
 ): Promise<SessionParamsResult> => {
   if (!supabaseClient) {
@@ -18,7 +18,6 @@ export const fetchLearnerToControllerParams = async (
         learner_id,
         requested_session_duration,
         requested_session_duration_learner_sig,
-        controller_claim_keyid,
         hashed_learner_address,
         secure_session_id,
         learner_address_encrypt_hash,
@@ -43,6 +42,8 @@ export const fetchLearnerToControllerParams = async (
       controllerPublicKey: session.controller_public_key,
       controllerAddress: session.controller_address,
       learnerAddress: userData.user_address,
+      learnerAddressEncryptHash: session.learner_address_encrypt_hash,
+      learnerAddressCipherText: session.learner_address_cipher_text,
       requestedSessionDuration: session.requested_session_duration,
       requestedSessionDurationLearnerSig: session.requested_session_duration_learner_sig,
       keyId: session.controller_claim_keyid,

@@ -23,7 +23,6 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData, persiste
       if (!queryFnData) throw new Error('no queryFnData')
       const {authMethodType, idToken: accessToken} = queryFnData;
       const authMethod = {authMethodType, accessToken};
-      console.log('Auth method for LitAccount query:', authMethod); // Add this log
 
       authChainLogger.info('3a: start litAccount query');
 
@@ -33,7 +32,6 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData, persiste
       }
 
       const cachedLitAccount = queryClient.getQueryData(queryKey) as IRelayPKP | null;
-      console.log('Cached LitAccount:', cachedLitAccount); // Add this log
 
       if (cachedLitAccount) {
         authChainLogger.info('3b: finish litAccount query --Using cached LitAccount');

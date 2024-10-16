@@ -2,7 +2,7 @@ import { IRelayPKP } from "@lit-protocol/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Dispatch, SetStateAction } from "react";
 
-export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, dateTime: string, session_id: number, currentAccount: IRelayPKP | null, hashedTeacherAddress: string | undefined) {
+export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null | undefined, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, dateTime: string, session_id: number, currentAccount: IRelayPKP | null | undefined, hashedTeacherAddress: string | undefined) {
   if (supabaseClient && currentAccount && hashedTeacherAddress) {
     try {
       const dateObj = new Date(dateTime)
@@ -23,7 +23,7 @@ export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient |
     }
   }
 }
-export async function teacherRejectRequest(supabaseClient: SupabaseClient | null, reason: string) {
+export async function teacherRejectRequest(supabaseClient: SupabaseClient | null| undefined, reason: string) {
   if (supabaseClient) {
     try {
       const {data, error} = await supabaseClient
@@ -41,7 +41,7 @@ export async function teacherRejectRequest(supabaseClient: SupabaseClient | null
   }
 }
 
-export async function teacherChangeDateTime(supabaseClient: SupabaseClient | null, dateTime: string) {
+export async function teacherChangeDateTime(supabaseClient: SupabaseClient | null | undefined, dateTime: string) {
   const dateObj = new Date(dateTime)
   const utcDateTime = dateObj.toISOString();
   if (supabaseClient) {

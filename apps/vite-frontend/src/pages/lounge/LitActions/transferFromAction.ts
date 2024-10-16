@@ -1,9 +1,18 @@
 // @ts-nocheck
 //ipfs://QmVsArWZgnAWVU5kSuPjXpgVu4PfZe3vpbFZmTVzFMuiYX
-const transferFromAction =
+const transferFromLearnerToControllerAction =
 async () => {
   try {
     const verifyDurationAndId = () => {
+      console.log("Input values:", {
+        secureSessionId,
+        sessionDuration,
+        sessionDataLearnerSig,
+        sessionDataTeacherSig,
+        hashedLearnerAddress,
+        hashedTeacherAddress
+      });
+
       // Encode the data
       const encodedData = ethers.utils.concat([
         ethers.utils.toUtf8Bytes(secureSessionId),
@@ -26,10 +35,17 @@ async () => {
       const teacherSignedDuration = hashedTeacherAddress === hashedRecoveredTeacherAddress;
 
       if (!learnerSignedDuration || !teacherSignedDuration) {
+        console.error("Verification failed. Mismatched values:", {
+          hashedLearnerAddress,
+          hashedRecoveredLearnerAddress,
+          hashedTeacherAddress,
+          hashedRecoveredTeacherAddress
+        });
         Lit.Actions.setResponse({ response: JSON.stringify({ error: "Invalid signatures or addresses don't match" }) });
         throw new Error("Invalid signatures or addresses don't match");
       }
-      console.log("verifyDurationAndId success")
+
+      console.log("verifyDurationAndId success");
     };
     verifyDurationAndId();
     let decryptedLearnerAddress;
@@ -52,58 +68,61 @@ async () => {
 
     const abi = [ "function transferFrom(address from, address to, uint256 value) returns (bool)" ];
 
-    const contract = new ethers.Contract(usdcContractAddress, abi);
+    const contract = new ethers.Contract(daiContractAddress, abi);
     const amountBigNumber = ethers.utils.parseUnits(amount, 6);
 
     const txData = contract.interface.encodeFunctionData("transferFrom", [decryptedLearnerAddress, controllerAddress, amountBigNumber]);
 
     const submitRelayTx = async () => {
       try {
-        await Lit.Actions.call({ipfsId: relayerIpfsId, params: {env, callingActionId: Lit.Auth.actionIpfsIds[0], learnerAddressCiphertext, learnerAddressEncryptHash, rpcChainId, accessControlConditions, txData}});
+        await Lit.Actions.call({ipfsId: relayerIpfsId, params: {env, callingActionId: Lit.Auth.actionIpfsIds[0], rpcChain, rpcChainId, accessControlConditions, daiContractAddress, txData, toAddress: controllerAddress }});
       } catch(error) {
         throw new Error(error);
       }
     }
     const relayedTxHash = await submitRelayTx();
-    try {
-      fetchResult = await Lit.Actions.runOnce({
-        waitForResponse: true,
-        name: "call pinDataWithAction function"
-      }, async () => {
-          await fetch({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ linkData })
-          });
 
-          const data = await response.json();
-          ipfsHash = data.ipfsHash;
-          console.log(`Data stored on IPFS: ${ipfsHash}`);
-        })
-    } catch (error) {
-      console.error('Failed to store data on IPFS:', error);
-    }
-    const linkData = {
-      relayedTxHash,
-      learnerAddress: decryptedLearnerAddress,
-      controllerAddress: controllerAddress,
-      amount: amount,
-      usdcContractAddress: usdcContractAddress,
-      sessionId: sessionId,
-      timestamp: Date.now()
-    };
+    //TODO: decrypt ipfs api key in action and post transaction to ipfs
+    // let ipfsHash;
+    // try {
+    //   fetchResult = await Lit.Actions.runOnce({
+    //     waitForResponse: true,
+    //     name: "call pinDataWithAction function"
+    //   }, async () => {
+    //       await fetch({
+    //         method: 'POST',
+    //         headers: { 'Content-Type': 'application/json' },
+    //         body: JSON.stringify({ linkData })
+    //       });
+
+    //       const data = await response.json();
+    //       ipfsHash = data.ipfsHash;
+    //       console.log(`Data stored on IPFS: ${ipfsHash}`);
+    //     })
+    // } catch (error) {
+    //   console.error('Failed to store data on IPFS:', error);
+    // }
+    // const linkData = {
+    //   relayedTxHash,
+    //   learnerAddress: decryptedLearnerAddress,
+    //   controllerAddress: controllerAddress,
+    //   amount: amount,
+    //   daiContractAddress: daiContractAddress,
+    //   sessionId: sessionId,
+    //   timestamp: Date.now()
+    // };
 
 
-    Lit.Actions.setResponse({
-      response: JSON.stringify({
-        success: true,
-        relayedTxHash,
-        ipfsHash: ipfsHash
-      })
-    });
+    // Lit.Actions.setResponse({
+    //   response: JSON.stringify({
+    //     success: true,
+    //     relayedTxHash,
+    //     ipfsHash: ipfsHash
+    //   })
+    // });
 
   } catch (error) {
     console.error("Uncaught error in transferFromLearnerToControllerAction function:", error);
   }
 };
-transferFromAction();
+transferFromLearnerToControllerAction();
