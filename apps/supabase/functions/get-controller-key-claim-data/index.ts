@@ -150,7 +150,7 @@ async function getControllerKeyClaimData(keyId: string, learnerId: number, sessi
           derivedKeyId,
           condensedSigs
         };
-        const controllerAddress = ethers.utils.computeAddress("0x" + publicKey);
+        const controllerAddress = ethers.utils.computeAddress(publicKey);
 
         const { data, error } = await supabaseClient
           .from('sessions')
