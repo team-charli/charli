@@ -8,7 +8,7 @@ interface HuddleAccessTokenResponse {
   accessToken: string;
 }
 
-type GenerateAccessTokenFn = (roomId: string) => Promise<void>;
+type GenerateAccessTokenFn = (roomId: string | null | undefined) => Promise<void>;
 
 interface UseGenerateHuddleAccessTokenResult {
   generateAccessToken: GenerateAccessTokenFn;
@@ -22,22 +22,25 @@ export const useGenerateHuddleAccessToken = (): UseGenerateHuddleAccessTokenResu
   const [huddleAccessToken, setHuddleAccessToken] = useLocalStorage<string | null>('huddle-access-token', null);
 
   const mutation = useMutation<HuddleAccessTokenResponse, Error, string>({
-    mutationFn: async (roomId: string) => {
+    mutationFn: async (roomId: string | null | undefined) => {
       if (!supabaseClient) throw new Error('supabaseClient undefined')
+      console.log("invoke create-huddle-access-tokens");
+
       const { data, error } = await supabaseClient.functions.invoke<HuddleAccessTokenResponse>('create-huddle-access-tokens', {
-        body: { roomId }
+        body: JSON.stringify({ roomId })
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error);
       if (!data) throw new Error("No data received from the server");
 
       setHuddleAccessToken(data.accessToken);
-      console.log('Generated Huddle AccessToken');
+      console.log('Generated and set Huddle AccessToken');
       return data;
     },
   });
 
-  const generateAccessToken: GenerateAccessTokenFn = useCallback(async (roomId: string) => {
+  const generateAccessToken: GenerateAccessTokenFn = useCallback(async (roomId: string | null | undefined) => {
+    if (!roomId) throw new Error('sessionData.roomId is undefined')
     await mutation.mutateAsync(roomId);
   }, [mutation]);
 

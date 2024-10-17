@@ -13,7 +13,6 @@ import { loungeRouteQueries } from './RouteQueries/loungeRouteQueries'
 import LoungeRoute from '@/pages/lounge/LoungeRoute'
 import OnboardRoute from '@/pages/onboard/OnboardRoute'
 import BolsaRoute from '@/pages/bolsa/BolsaRoute';
-import { sessionSigsExNearReAuth } from './RouteQueries/sessionSigsExNearReAuth'
 import { signOutComplete } from './RouteQueries/signOutComplete'
 import { supabaseAtOrNearExp } from './RouteQueries/supabaseAtOrNearExp'
 import { areSessionSigsExpired } from './RouteQueries/areSessionSigsExpired'
@@ -197,7 +196,7 @@ export const roomRoute = createRoute({
   validateSearch: (search: Record<string, unknown>) => {
     return {
       roomRole: search.roomRole as 'teacher' | 'learner',
-      sessionId: search.sessionId as string,
+      sessionId: search.sessionId as string ,
       hashedLearnerAddress: search.hashedLearnerAddress as string,
       hashedTeacherAddress: search.hashedTeacherAddress as string,
     }

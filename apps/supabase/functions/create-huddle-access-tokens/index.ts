@@ -15,6 +15,8 @@ Deno.serve(async (req) => {
   if (req.method === "POST") {
     try {
       const { roomId } = await req.json();
+      console.log('Received roomId:', roomId);
+
       const accessToken = new AccessToken({
         apiKey: huddleApiKey,
         roomId: roomId,
@@ -25,13 +27,43 @@ Deno.serve(async (req) => {
           },
         },
       });
-      const data = {status: "Success", accessToken: accessToken.toJwt(), roomId};
+
+      console.log('AccessToken created:', accessToken);
+
+      const response = await fetch('https://api.huddle01.com/api/v2/sdk/rooms/create-room', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': huddleApiKey,
+        },
+        body: JSON.stringify({
+          roomLocked: false,
+          metadata: {}  // Empty object as per the new requirements
+        }),
+      });
+
+      console.log('Huddle01 API response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const roomData = await response.json();
+      console.log('Room data:', roomData);
+
+      const jwt = await accessToken.toJwt();
+      console.log('JWT generated:', jwt);
+
+      const data = {status: "Success", accessToken: jwt, roomId: roomData.data.roomId};
+      console.log('Response data:', data);
+
       return new Response(JSON.stringify(data), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
     catch (error) {
+      console.error('Error:', error);
       return new Response(JSON.stringify({ error: 'Error processing request: ' + error.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }

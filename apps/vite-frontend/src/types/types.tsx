@@ -244,9 +244,7 @@ export interface NotificationIface {
   roomId?: string | undefined;
   teaching_lang: string;
   controller_address?: string;  // Made optional
-  controller_claim_user_id?: string;
   controller_public_key?: string;
-  controller_claim_keyid?: string;
   requested_session_duration?: number;
   hashed_learner_address?: string;
   hashed_teacher_address?: string;
@@ -269,16 +267,16 @@ export interface MatchParams {
 }
 
 export interface SessionParamsResult {
-    controllerPublicKey: string | null;
-    controllerAddress: string | null;
-    learnerAddress: string | null;
-    requestedSessionDuration: number | null;
-    requestedSessionDurationLearnerSig: string | null;
-    keyId: string | null;
-    hashedLearnerAddress: string | null;
-    secureSessionId: string | null;
-    learnerAddressEncryptHash: string | null;
-    learnerAddressCipherText: string | null;
+  controllerPublicKey: string | null;
+  controllerAddress: string | null;
+  learnerAddress: string | null;
+  requestedSessionDuration: number | null;
+  requestedSessionDurationLearnerSig: string | null;
+  keyId: string | null;
+  hashedLearnerAddress: string | null;
+  secureSessionId: string | null;
+  learnerAddressEncryptHash: string | null;
+  learnerAddressCipherText: string | null;
 }
 
 
@@ -376,7 +374,7 @@ export interface Language {
 }
 
 export interface UserItemIface {
- userName: string,
+  userName: string,
   userID: number,
   lang: string,
   modeView: "Learn" | "Teach"
