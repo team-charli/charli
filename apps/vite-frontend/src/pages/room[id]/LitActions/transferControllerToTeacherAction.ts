@@ -31,9 +31,7 @@
 // ;
 /* above are passed in params, must delete before deploy */
 
-export const transferControllerToTeacherAction = `
-
-(async () => {
+const transferControllerToTeacherAction = async () => {
   const CHARLI_SESSION_SESSION_TIME_TRACKER_ADDRESS = '0xeaeC934F96e754a71829b4048633B3f054421dcB';
   const USDC_CONTRACT_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
@@ -99,7 +97,7 @@ export const transferControllerToTeacherAction = `
     const learnerMetOrExceededDuration = learnerDuration >= sessionDuration;
 
     return teacherJoinedAtVerified && teacherLeftAtVerified && teacherMetOrExceededDuration &&
-           learnerJoinedAtVerified && learnerLeftAtVerified && learnerMetOrExceededDuration;
+      learnerJoinedAtVerified && learnerLeftAtVerified && learnerMetOrExceededDuration;
   })();
 
   const storeOnIPFS = async (data) => {
@@ -118,17 +116,17 @@ export const transferControllerToTeacherAction = `
       waitForResponse: true,
       name: "transferTxSender"
     }, async () => {
-      const rpcUrl = await Lit.Actions.getRpcUrl({ chain: chain });
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-      const signedTx = ethers.utils.serializeTransaction(txObject, signature);
-      const tx = await provider.sendTransaction(signedTx);
-      await tx.wait(); // Wait for the transaction to be mined
-      return JSON.stringify({
-        transactionHash: tx.hash,
-        blockHash: tx.blockHash,
-        blockNumber: tx.blockNumber
+        const rpcUrl = await Lit.Actions.getRpcUrl({ chain: chain });
+        const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+        const signedTx = ethers.utils.serializeTransaction(txObject, signature);
+        const tx = await provider.sendTransaction(signedTx);
+        await tx.wait(); // Wait for the transaction to be mined
+        return JSON.stringify({
+          transactionHash: tx.hash,
+          blockHash: tx.blockHash,
+          blockNumber: tx.blockNumber
+        });
       });
-    });
 
     return JSON.parse(txResponse);
   };
@@ -234,5 +232,4 @@ export const transferControllerToTeacherAction = `
       })
     });
   }
-})();
-`;
+};
