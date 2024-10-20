@@ -32,9 +32,11 @@ export const useGenerateHuddleAccessToken = (): UseGenerateHuddleAccessTokenResu
 
       if (error) throw new Error(error);
       if (!data) throw new Error("No data received from the server");
-
+      if (!data?.accessToken || Object.keys(data.accessToken).length === 0) {
+        throw new Error("no accessToken data in response");
+      }
+      console.log('storing huddle accessToken')
       setHuddleAccessToken(data.accessToken);
-      console.log('Generated and set Huddle AccessToken');
       return data;
     },
   });

@@ -1,23 +1,35 @@
 // ConfirmedLearningRequest.tsx
 import { ConfirmedLearningRequestProps } from '@/types/types';
 import { useLocalizeAndFormatDateTime } from '@/utils/hooks/utils/useLocalizeAndFormatDateTime';
-import {Link, redirect} from '@tanstack/react-router';
+import {Link, redirect, useNavigate} from '@tanstack/react-router';
 import { useGenerateHuddleAccessToken } from '../../hooks/QueriesMutations/useGenerateHuddleAccessToken';
 
 const ConfirmedLearningRequest = ({ notification: sessionData }: ConfirmedLearningRequestProps) => {
 
   const { localTimeAndDate: { displayLocalTime, displayLocalDate } } = useLocalizeAndFormatDateTime(sessionData.confirmed_time_date);
+  const navigate = useNavigate({ from: '/lounge' }); // Assume we're navigating from the lounge page
+
   const { generateAccessToken, isLoading } = useGenerateHuddleAccessToken();
 
   const handleClick = async (event: any) => {
     console.log("onClick called");
     event.preventDefault();
+    let accessTokenRes;
     try {
-    await generateAccessToken(sessionData.roomId);
-    throw redirect({to: `/room/${sessionData.roomId}`})
+      await generateAccessToken(sessionData.roomId);
+      navigate({
+        to: '/room/$id',
+        params: { id: sessionData.roomId ?? '' },
+        search: {
+          roomRole: "learner",
+          sessionId: sessionData.session_id?.toString() ?? '',
+          hashedLearnerAddress: sessionData?.hashed_learner_address ?? '',
+          hashedTeacherAddress: sessionData?.hashed_teacher_address ?? '',
+        }
+      });
     } catch (error) {
-     console.error("Failed to generate access token:", error);
-
+      console.error('accessTokenRes', accessTokenRes)
+      console.error("Failed to generate access token:", error);
     }
   };
 
