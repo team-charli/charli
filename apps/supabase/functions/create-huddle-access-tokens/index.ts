@@ -21,41 +21,30 @@ Deno.serve(async (req) => {
         apiKey: huddleApiKey,
         roomId: roomId,
         role: Role.GUEST,
+        permissions: {
+          admin: true,
+          canConsume: true,
+          canProduce: true,
+          canProduceSources: {
+            cam: true,
+            mic: true,
+            screen: true,
+          },
+          canRecvData: true,
+          canSendData: true,
+          canUpdateMetadata: true,
+        },
         options: {
           metadata: {
-            // Custom attributes here
+            // You can add any custom attributes here
           },
         },
       });
 
-      console.log('AccessToken created:', accessToken);
+      const token = await accessToken.toJwt();
+      console.log('JWT generated:', token);
 
-      const response = await fetch('https://api.huddle01.com/api/v2/sdk/rooms/create-room', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': huddleApiKey,
-        },
-        body: JSON.stringify({
-          roomLocked: false,
-          metadata: {}  // Empty object as per the new requirements
-        }),
-      });
-
-      console.log('Huddle01 API response status:', response.status);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const roomData = await response.json();
-      console.log('Room data:', roomData);
-
-      const jwt = await accessToken.toJwt();
-      console.log('JWT generated:', jwt);
-
-      const data = {status: "Success", accessToken: jwt, roomId: roomData.data.roomId};
-      console.log('Response data:', data);
+      const data = { status: "Success", accessToken: token, roomId: roomId };
 
       return new Response(JSON.stringify(data), {
         status: 200,
@@ -64,7 +53,7 @@ Deno.serve(async (req) => {
     }
     catch (error) {
       console.error('Error:', error);
-      return new Response(JSON.stringify({ error: 'Error processing request: ' + error.message }), {
+      return new Response(JSON.stringify({ error: 'Error processing request' }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
