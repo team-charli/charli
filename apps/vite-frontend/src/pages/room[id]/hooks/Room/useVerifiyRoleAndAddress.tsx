@@ -1,26 +1,27 @@
+import { useLitAccount } from "@/contexts/AuthContext";
 import { verifyRoleAndAddress } from "@/utils/app";
-import { IRelayPKP } from "@lit-protocol/types";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-export const useVerifiyRoleAndAddress = (hashed_teacher_address: string | undefined, hashed_learner_address: string | undefined, roomRole: 'teacher' | 'learner', currentAccount:IRelayPKP | undefined) => {
-  const [verifiedRoleAndAddress, setVerifiedRoleAndAddress] = useState(false);
-  const [verifiedRole, setVerifiedRole] = useState<'teacher'| 'learner' | null>(null)
+export const useVerifiyRoleAndAddress = (hashed_teacher_address: string | undefined, hashed_learner_address: string | undefined, roomRole: 'teacher' | 'learner') => {
+  const { data: currentAccount } = useLitAccount();
 
-  useEffect(() => {
-    if (hashed_teacher_address?.length && hashed_learner_address?.length && roomRole?.length && currentAccount) {
-    const result = verifyRoleAndAddress(hashed_teacher_address, hashed_learner_address, roomRole, currentAccount)
-    if (result.verifiedRole === 'teacher') {
-      setVerifiedRole('teacher')
-      setVerifiedRoleAndAddress(true);
-    } else if (result.verifiedRole === 'learner') {
-      setVerifiedRole('learner');
-      setVerifiedRoleAndAddress(true);
-    } else {
-      throw new Error(`can't verifiy`)
-    }
-    }
-  }, [currentAccount, hashed_learner_address, hashed_teacher_address, roomRole])
-  return {verifiedRole, verifiedRoleAndAddress}
-}
-
-
+  return useQuery({
+    queryKey: ['verifyRoleAndAddress', hashed_teacher_address, hashed_learner_address, roomRole, currentAccount],
+    queryFn: () => {
+      console.log('verifyRoleAndAddress query attempted');
+      if (hashed_teacher_address?.length && hashed_learner_address?.length && roomRole?.length && currentAccount) {
+        const result = verifyRoleAndAddress(hashed_teacher_address, hashed_learner_address, roomRole, currentAccount);
+        if (result.verifiedRole === 'teacher' || result.verifiedRole === 'learner') {
+          console.log('verifyRoleAndAddress query executed');
+          return { verifiedRole: result.verifiedRole, verifiedRoleAndAddress: true };
+        } else {
+          throw new Error(`can't verify`);
+        }
+      } else {
+        console.log({hashed_teacher_address_length: hashed_teacher_address?.length, hashed_learner_address_length: hashed_learner_address?.length,  roomRole, currentAccount});
+        return { verifiedRole: null, verifiedRoleAndAddress: false };
+      }
+    },
+    enabled: !!hashed_teacher_address && !!hashed_learner_address && !!roomRole && !!currentAccount,
+  });
+};
