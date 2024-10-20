@@ -1,4 +1,5 @@
 //index.ts
+import { cors } from 'hono/cors';
 import { verifyMessage } from 'ethers';
 import { Hono } from 'hono';
 import { sign } from 'hono/jwt';
@@ -6,6 +7,19 @@ import { WebhookReceiver } from "@huddle01/server-sdk/webhooks";
 export {WebSocketManager} from './websocketManager'
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+app.use('*', cors({
+  origin: ['http://localhost:5173', 'https://charli.chat'],
+  allowMethods: ['POST', 'GET', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  exposeHeaders: ['Content-Length'],
+  maxAge: 600,
+  credentials: true,
+}))
+
+app.options('*', (c) => {
+  return c.text('', 204)
+})
 
 app.get('/websocket/:roomId', async (c) => {
   const roomId = c.req.param('roomId');
