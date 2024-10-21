@@ -8,30 +8,41 @@ export {WebSocketManager} from './websocketManager'
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-app.use('*', cors({
+app.use('/init', cors({
   origin: ['http://localhost:5173', 'https://charli.chat'],
   allowMethods: ['POST', 'GET', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   exposeHeaders: ['Content-Length'],
   maxAge: 600,
   credentials: true,
-}))
+}));
+
+app.use('/webhook', cors({
+  origin: ['http://localhost:5173', 'https://charli.chat'],
+  allowMethods: ['POST', 'GET', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  exposeHeaders: ['Content-Length'],
+  maxAge: 600,
+  credentials: true,
+}));
 
 app.options('*', (c) => {
   return c.text('', 204)
 })
 
-app.get('/websocket/:roomId', async (c) => {
+app.all('/websocket/:roomId', async (c) => {
   const roomId = c.req.param('roomId');
   const durableObject = await getDurableObject(c.env.WEBSOCKET_MANAGER, roomId);
-  const resp = await durableObject.fetch(c.req.url);
+
+  // Forward the original request to the Durable Object
+  const resp = await durableObject.fetch(c.req.raw);
   return resp;
 });
 
 app.post('/init', async (c) => {
   const { clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress } = await c.req.json();
   const durableObject = await getDurableObject(c.env.WEBSOCKET_MANAGER, clientSideRoomId);
-  await durableObject.fetch('http://websocket-manager/init', {
+  const response = await durableObject.fetch('http://websocket-manager/init', {
     method: 'POST',
     body: JSON.stringify({
       clientSideRoomId,
@@ -41,7 +52,10 @@ app.post('/init', async (c) => {
     }),
   });
 
-  return c.text("Initialization successful", 200);
+  const responseText = await response.text();
+  const status = response.status;
+  const contentType = response.headers.get('Content-Type') || 'application/json';
+  return new Response(responseText, { status, headers: { 'Content-Type': contentType } });
 });
 
 app.post('/webhook', async (c) => {

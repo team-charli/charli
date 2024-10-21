@@ -1,82 +1,151 @@
-//websocketManager.ts
+// websocketManager.ts
 import { WebhookEvents, WebhookData } from './types';
-import { Hono } from 'hono';
-import {Wallet, keccak256, getAddress, verifyMessage} from 'ethers';
+import { Wallet, keccak256, getAddress, verifyMessage } from 'ethers';
 
 export class WebSocketManager {
   private clients: Map<string, { ws: WebSocket | null; user: User }> = new Map();
   private wallet: Wallet;
   private clientData: ClientData | null;
-  private app: Hono;
   private userHeartbeats: Map<string, number> = new Map();
-  private readonly heartbeatThreshold = 35000; // 90 seconds
+  private readonly heartbeatThreshold = 35000; // 35 seconds
 
   constructor(private state: DurableObjectState, private env: any) {
     const privateKey = env.PRIVATE_KEY_USER_TIME_SIGNER;
     this.wallet = new Wallet(privateKey);
     this.clientData = null;
-    this.app = new Hono();
+  }
 
-    this.app.get('/websocket/:roomId', async (c) => {
-      if (c.req.header('Upgrade') !== 'websocket') return new Response('Expected Upgrade: websocket', { status: 426 });
-      const [client, server] = Object.values(new WebSocketPair());
-      await this.handleWebSocketConnect(server);
-      return new Response(null, { status: 101, webSocket: client });
-    });
+async fetch(request: Request) {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
 
-    this.app.post('/init', async (c) => {
-      const clientData: ClientData = await c.req.json();
-      this.clientData = clientData;
-      const userAddressHash = keccak256(getAddress(clientData.userAddress));
-      let role: "teacher" | "learner";
-      if (userAddressHash === clientData.hashedTeacherAddress) {
-        role = "teacher";
-      } else if (userAddressHash === clientData.hashedLearnerAddress) {
-        role = "learner";
+  if (pathname.startsWith('/websocket/')) {
+    return this.handleWebSocketUpgrade(request);
+  } else if (pathname === '/init') {
+    return this.handleInitRequest(request);
+  } else if (pathname === '/process-event') {
+    return this.handleProcessEvent(request);
+  } else {
+    return new Response('Not Found', { status: 404 });
+  }
+}
+
+private async handleWebSocketUpgrade(request: Request): Promise<Response> {
+  if (request.headers.get('Upgrade') !== 'websocket') {
+    return new Response('Expected Upgrade: websocket', { status: 426 });
+  }
+
+  const [client, server] = Object.values(new WebSocketPair());
+  server.accept();
+
+  this.handleWebSocketConnection(server);
+
+  return new Response(null, { status: 101, webSocket: client });
+}
+
+  private handleWebSocketConnection(ws: WebSocket) {
+    let clientEntry: { ws: WebSocket | null; user: User } | undefined;
+
+    ws.addEventListener('message', async (event) => {
+      let messageString: string;
+
+      if (typeof event.data === 'string') {
+        messageString = event.data;
+      } else if (event.data instanceof ArrayBuffer) {
+        messageString = new TextDecoder().decode(event.data);
       } else {
-        throw new Error("User address doesn't match teacher or learner address");
+        console.error('Unsupported message data type:', typeof event.data);
+        return;
       }
-      const user: User = {
-        role,
-        hashedTeacherAddress: clientData.hashedTeacherAddress,
-        hashedLearnerAddress: clientData.hashedLearnerAddress,
-        peerId: null,
-        roomId: null,
-        joinedAt: null,
-        leftAt: null,
-        joinedAtSig: null,
-        leftAtSig: null,
-        duration: null,
-      };
-      this.clients.set(role, { ws: null, user });
-      return c.text('OK');
+
+      const data = JSON.parse(messageString);
+
+      if (data.type === 'initConnection') {
+        const role = data.data.role;
+        clientEntry = this.clients.get(role);
+        if (clientEntry) {
+          clientEntry.ws = ws;
+          console.log('WebSocket connection established for role:', role);
+        } else {
+          console.error('No client entry found for role:', role);
+          ws.close(1008, 'No client entry found for role');
+          return;
+        }
+      } else {
+        if (clientEntry) {
+          await this.handleWebSocketMessage(ws, messageString);
+        } else {
+          console.error('WebSocket not initialized properly.');
+          ws.close(1008, 'WebSocket not initialized properly');
+        }
+      }
     });
 
-    this.app.post('/process-event', async (c) => {
-      const event = await c.req.json();
-      await this.processEvent(event);
-      return c.text('OK');
+    ws.addEventListener('close', () => {
+      if (clientEntry) {
+        clientEntry.ws = null;
+        console.log('WebSocket connection closed for role:', clientEntry.user.role);
+      } else {
+        console.error('No client entry found for WebSocket close event');
+      }
+    });
+
+    ws.addEventListener('error', (event) => {
+      console.error('WebSocket error:', event);
     });
   }
-  async fetch(request: Request) { return this.app.fetch(request); }
 
-  async handleWebSocketConnect(ws: WebSocket) {
-    const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role && !entry.ws);
-    if (clientEntry) {
-      clientEntry.ws = ws;
-      console.log('WebSocket connection established');
-      this.state.acceptWebSocket(ws);
-      ws.addEventListener('close', () => {
-        clientEntry.ws = null;
-        console.log('WebSocket connection closed');
-      });
+  private async handleInitRequest(request: Request): Promise<Response> {
+    if (request.method !== 'POST') {
+      return new Response('Method Not Allowed', { status: 405 });
     }
+
+    const clientData: ClientData = await request.json();
+    this.clientData = clientData;
+
+    const userAddressHash = keccak256(getAddress(clientData.userAddress));
+    let role: 'teacher' | 'learner';
+    if (userAddressHash === clientData.hashedTeacherAddress) {
+      role = 'teacher';
+    } else if (userAddressHash === clientData.hashedLearnerAddress) {
+      role = 'learner';
+    } else {
+      throw new Error("User address doesn't match teacher or learner address");
+    }
+
+    const user: User = {
+      role,
+      hashedTeacherAddress: clientData.hashedTeacherAddress,
+      hashedLearnerAddress: clientData.hashedLearnerAddress,
+      peerId: null,
+      roomId: clientData.clientSideRoomId,
+      joinedAt: null,
+      leftAt: null,
+      joinedAtSig: null,
+      leftAtSig: null,
+      duration: null,
+    };
+    this.clients.set(role, { ws: null, user });
+
+    return new Response(JSON.stringify({ status: 'OK', role, roomId: user.roomId }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  private async handleProcessEvent(request: Request): Promise<Response> {
+    if (request.method !== 'POST') {
+      return new Response('Method Not Allowed', { status: 405 });
+    }
+
+    const event = (await request.json()) as WebhookData;
+    await this.processEvent(event);
+    return new Response('OK');
   }
 
   async processEvent(event: WebhookData) {
-    if (event.event === "peer:joined") {
+    if (event.event === 'peer:joined') {
       const { id: peerId, roomId: webhookRoomId, joinedAt } = event.payload as WebhookEvents['peer:joined'][0];
-      const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role && !entry.user.peerId);
+      const clientEntry = Array.from(this.clients.values()).find((entry) => entry.user.role && !entry.user.peerId);
       if (clientEntry) {
         const signature = await this.wallet.signMessage(String(joinedAt));
         clientEntry.user = {
@@ -100,8 +169,8 @@ export class WebSocketManager {
         this.broadcast(message);
 
         // Check if both users have joined
-        const teacherJoinedData = await this.state.storage.get('user:teacher') as User | null;
-        const learnerJoinedData = await this.state.storage.get('user:learner') as User | null;
+        const teacherJoinedData = (await this.state.storage.get('user:teacher')) as User | null;
+        const learnerJoinedData = (await this.state.storage.get('user:learner')) as User | null;
         if (teacherJoinedData && learnerJoinedData) {
           // Both users have joined, broadcast a message
           const bothJoinedMessage: Message = {
@@ -114,9 +183,9 @@ export class WebSocketManager {
           this.broadcast(bothJoinedMessage);
         }
       }
-    } else if (event.event === "peer:left") {
+    } else if (event.event === 'peer:left') {
       const { id: peerId, leftAt, duration } = event.payload as WebhookEvents['peer:left'][0];
-      const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.peerId === peerId);
+      const clientEntry = Array.from(this.clients.values()).find((entry) => entry.user.peerId === peerId);
       if (clientEntry) {
         const signature = await this.wallet.signMessage(String(leftAt));
         clientEntry.user = {
@@ -139,8 +208,8 @@ export class WebSocketManager {
         this.broadcast(message);
 
         // Check if both users have left
-        const teacherLeftData = await this.state.storage.get('user:teacher') as User | null;
-        const learnerLeftData = await this.state.storage.get('user:learner') as User | null;
+        const teacherLeftData = (await this.state.storage.get('user:teacher')) as User | null;
+        const learnerLeftData = (await this.state.storage.get('user:learner')) as User | null;
         if (teacherLeftData && learnerLeftData && teacherLeftData.leftAt && learnerLeftData.leftAt) {
           // Both users have left, broadcast a message
           const bothLeftMessage: Message = {
@@ -160,14 +229,16 @@ export class WebSocketManager {
     const data = JSON.parse(message);
     if (data.type === 'heartbeat') {
       const { timestamp, signature } = data;
-      const clientEntry = Array.from(this.clients.values()).find(entry => entry.ws === ws);
+      const clientEntry = Array.from(this.clients.values()).find((entry) => entry.ws === ws);
       if (clientEntry && clientEntry.user.peerId) {
         const address = verifyMessage(timestamp.toString(), signature);
-        if (address === this.clientData?.userAddress) this.userHeartbeats.set(clientEntry.user.peerId, timestamp);
+        if (address === this.clientData?.userAddress) {
+          this.userHeartbeats.set(clientEntry.user.peerId, timestamp);
+        }
       }
     } else if (data.type === 'getUserData') {
-      const teacherData = await this.state.storage.get('user:teacher') as User | null;
-      const learnerData = await this.state.storage.get('user:learner') as User | null;
+      const teacherData = (await this.state.storage.get('user:teacher')) as User | null;
+      const learnerData = (await this.state.storage.get('user:learner')) as User | null;
       const userData: UserData = {
         teacher: teacherData,
         learner: learnerData,
@@ -181,7 +252,7 @@ export class WebSocketManager {
     for (const [peerId, lastHeartbeat] of this.userHeartbeats) {
       if (currentTimestamp - lastHeartbeat > this.heartbeatThreshold) {
         // Heartbeat missed, initiate fault handling
-        const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.peerId === peerId);
+        const clientEntry = Array.from(this.clients.values()).find((entry) => entry.user.peerId === peerId);
         if (clientEntry) {
           await this.handleFault(clientEntry.user, clientEntry.ws);
         }
@@ -195,18 +266,22 @@ export class WebSocketManager {
     const isLearner = user.role === 'learner';
 
     // Check if the user is the first to join
-    const isFirstUser = user.joinedAt === Math.min(...Array.from(this.clients.values()).map(entry => entry.user.joinedAt!));
+    const joinedAtValues = Array.from(this.clients.values())
+    .map((entry) => entry.user.joinedAt)
+    .filter((joinedAt): joinedAt is number => joinedAt !== null);
+
+    const isFirstUser = user.joinedAt !== null && user.joinedAt === Math.min(...joinedAtValues);
 
     if (isFirstUser) {
       // First user fault, check if the second user joined within 3 minutes
-      const secondUserJoinedAt = Math.max(...Array.from(this.clients.values()).map(entry => entry.user.joinedAt!));
+      const secondUserJoinedAt = Math.max(...joinedAtValues);
       if (secondUserJoinedAt - user.joinedAt! > 180000) {
         if (isTeacher) {
           // Learner fault
           const faultType = 'learnerFault_didnt_join';
           const faultTime = Date.now();
           const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
-          const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role === 'learner');
+          const clientEntry = this.clients.get('learner');
           if (clientEntry) {
             clientEntry.user = {
               ...clientEntry.user,
@@ -223,14 +298,14 @@ export class WebSocketManager {
               signature: faultTimeSig,
             },
           };
-          if (!ws) throw new Error(`Websocket should not be null`);
+          if (!ws) throw new Error('WebSocket should not be null');
           await this.sendMessage(ws, message);
         } else if (isLearner) {
           // Teacher fault
           const faultType = 'teacherFault_didnt_join';
           const faultTime = Date.now();
           const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
-          const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role === 'teacher');
+          const clientEntry = this.clients.get('teacher');
           if (clientEntry) {
             clientEntry.user = {
               ...clientEntry.user,
@@ -247,63 +322,65 @@ export class WebSocketManager {
               signature: faultTimeSig,
             },
           };
-          if (!ws) throw new Error(`Websocket should not be null`);
+          if (!ws) throw new Error('WebSocket should not be null');
           await this.sendMessage(ws, message);
         }
       }
     } else {
       // User dropped connection for more than 3 minutes
       const currentTimestamp = Date.now();
-      const disconnectionDuration = currentTimestamp - user.leftAt!;
-      if (disconnectionDuration > 180000) {
-        if (isTeacher) {
-          // Teacher fault
-          const faultType = 'teacherFault_connection_timeout';
-          const faultTime = Date.now();
-          const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
-          const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role === 'teacher');
-          if (clientEntry) {
-            clientEntry.user = {
-              ...clientEntry.user,
-              faultTime,
-              faultTimeSig,
+      if (user.leftAt) {
+        const disconnectionDuration = currentTimestamp - user.leftAt;
+        if (disconnectionDuration > 180000) {
+          if (isTeacher) {
+            // Teacher fault
+            const faultType = 'teacherFault_connection_timeout';
+            const faultTime = Date.now();
+            const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
+            const clientEntry = this.clients.get('teacher');
+            if (clientEntry) {
+              clientEntry.user = {
+                ...clientEntry.user,
+                faultTime,
+                faultTimeSig,
+              };
+            }
+            const message: Message = {
+              type: 'fault',
+              data: {
+                faultType,
+                user: clientEntry?.user,
+                timestamp: faultTime,
+                signature: faultTimeSig,
+              },
             };
-          }
-          const message: Message = {
-            type: 'fault',
-            data: {
-              faultType,
-              user: clientEntry?.user,
-              timestamp: faultTime,
-              signature: faultTimeSig,
-            },
-          };
-          if (!ws) throw new Error(`Websocket should not be null`);
-          await this.sendMessage(ws, message);
-        } else if (isLearner) {
-          // Learner fault
-          const faultType = 'learnerFault_connection_timeout';
-          const faultTime = Date.now();
-          const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
-          const clientEntry = Array.from(this.clients.values()).find(entry => entry.user.role === 'learner');
-          if (clientEntry) {
-            clientEntry.user = {
-              ...clientEntry.user,
-              faultTime,
-              faultTimeSig,
+            if (!ws) throw new Error('WebSocket should not be null');
+            await this.sendMessage(ws, message);
+          } else if (isLearner) {
+            // Learner fault
+            const faultType = 'learnerFault_connection_timeout';
+            const faultTime = Date.now();
+            const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
+            const clientEntry = this.clients.get('learner');
+            if (clientEntry) {
+              clientEntry.user = {
+                ...clientEntry.user,
+                faultTime,
+                faultTimeSig,
+              };
+            }
+            const message: Message = {
+              type: 'fault',
+              data: {
+                faultType,
+                user: clientEntry?.user,
+                timestamp: faultTime,
+                signature: faultTimeSig,
+              },
             };
+            if (!ws) throw new Error('WebSocket should not be null');
+            await this.sendMessage(ws, message);
           }
-          const message: Message = {
-            type: 'fault',
-            data: {
-              faultType,
-              user: clientEntry?.user,
-              timestamp: faultTime,
-              signature: faultTimeSig,
-            },
-          };
-          if (!ws) throw new Error(`Websocket should not be null`);
-          await this.sendMessage(ws, message);
         }
       }
     }
@@ -312,6 +389,7 @@ export class WebSocketManager {
   async sendMessage(ws: WebSocket, message: Message) {
     ws.send(JSON.stringify(message));
   }
+
   async broadcast(message: Message) {
     for (const { ws } of this.clients.values()) {
       if (ws) {
@@ -320,7 +398,6 @@ export class WebSocketManager {
     }
   }
 }
-
 
 interface ClientData {
   clientSideRoomId: string;
@@ -332,7 +409,11 @@ interface ClientData {
 interface Message {
   type: 'fault' | 'userJoined' | 'userLeft' | 'bothJoined' | 'bothLeft' | 'userData';
   data: {
-    faultType?: 'learnerFault_didnt_join' | 'teacherFault_didnt_join' | 'learnerFault_connection_timeout' | 'teacherFault_connection_timeout';
+    faultType?:
+    | 'learnerFault_didnt_join'
+    | 'teacherFault_didnt_join'
+    | 'learnerFault_connection_timeout'
+    | 'teacherFault_connection_timeout';
     user?: User;
     timestamp?: number;
     signature?: string;
@@ -340,12 +421,14 @@ interface Message {
     learner?: User | null;
   };
 }
+
 interface UserData {
   teacher: User | null;
   learner: User | null;
 }
+
 interface User {
-  role: "teacher" | "learner" | null;
+  role: 'teacher' | 'learner' | null;
   peerId: string | null;
   roomId: string | null;
   joinedAt: number | null;
