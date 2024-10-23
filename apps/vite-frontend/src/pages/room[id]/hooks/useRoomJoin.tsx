@@ -1,8 +1,19 @@
 import { useRoom } from "@huddle01/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
-export const useRoomJoin = (roomId: string, huddleAccessToken: string | null, options: { enabled: boolean }) => {
+export const useRoomJoin = (
+  roomId: string,
+  huddleAccessToken: string | null,
+  options: {
+    verifiedRoleAndAddressData: {
+      verifiedRole: string | null;
+      verifiedRoleAndAddress: boolean;
+    } | undefined,
+    processedDurationProof: boolean,
+    hasConnectedWs: boolean
+  }
+) => {
   const queryClient = useQueryClient();
   const { joinRoom, state: roomJoinState } = useRoom({
     onLeave: () => {
@@ -27,11 +38,20 @@ export const useRoomJoin = (roomId: string, huddleAccessToken: string | null, op
     },
   });
 
+  const canJoinRoom = useMemo(() => {
+    return !!(
+      options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
+      options.verifiedRoleAndAddressData?.verifiedRole &&
+      options.processedDurationProof
+      // &&  options.hasConnectedWs
+    );
+  }, [options.verifiedRoleAndAddressData, options.processedDurationProof, /*options.hasConnectedWs*/]);
+
   useEffect(() => {
-    if (options.enabled && roomJoinState === 'idle' && !joinRoomMutation.isPending) {
+    if (canJoinRoom && roomJoinState === 'idle' && !joinRoomMutation.isPending) {
       joinRoomMutation.mutate();
     }
-  }, [options.enabled, roomJoinState, joinRoomMutation]);
+  }, [canJoinRoom, roomJoinState, joinRoomMutation]);
 
   return {
     roomJoinState,

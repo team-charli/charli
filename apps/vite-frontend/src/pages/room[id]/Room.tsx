@@ -2,14 +2,16 @@ import useLocalStorage from '@rehooks/local-storage';
 import LocalPeer from './Components/LocalPeer';
 import RemotePeer from './Components/RemotePeer';
 import {useParams, useSearch} from '@tanstack/react-router';
-import useBellListener from './hooks/Room/useBellListener';
-import useSessionCases from './hooks/Room/useSessionCases';
-import useSessionManager from './hooks/Room/useSessionManager';
-import {useVerifiyRoleAndAddress} from './hooks/Room/useVerifiyRoleAndAddress';
 import { useEffect } from 'react';
-import { useRoomJoin } from './hooks/Room/useRoomJoin';
-import { useSessionDuration } from './hooks/Room/useSessionDuration';
-import { useExecuteTransferToTeacher } from './hooks/LitActionHooks/useExecuteTransferToTeacher';
+import { useSessionDurationStatus } from './hooks/useSessionDurationStatus';
+import { useVerifiyRoleAndAddress } from './hooks/useVerifiyRoleAndAddress';
+import { useSessionDurationSigner } from './hooks/useSessionDurationSigner';
+import useSessionManager from './hooks/useSessionManager';
+import { useRoomJoin } from './hooks/useRoomJoin';
+import useSessionCases from './hooks/useSessionCases';
+import { useExecuteTransferToTeacher } from './hooks/useExecuteTransferToTeacher';
+import useBellListener from './hooks/useBellListener';
+import { useSessionSignatureProof } from './hooks/DurationProofs/useSessionSignatureProof';
 
 const Room = () => {
   const { id: roomId } = useParams({ from: '/room/$id' });
@@ -17,38 +19,34 @@ const Room = () => {
   const [huddleAccessToken] = useLocalStorage<string>('huddle-access-token');
 
   // 1. Verify role and address
-  const { data: verifiedRoleAndAddressData, isLoading: isVerifying } = useVerifiyRoleAndAddress(hashedTeacherAddress, hashedLearnerAddress, roomRole);
-
-  // 2. Handle session duration
   const {
-    sessionDurationData,
-    isBothSigned,
-    isLoading: isDurationLoading,
-    isError: isDurationError,
-  } = useSessionDuration(sessionId);
+    data: verifiedRoleAndAddressData,
+    isLoading: isVerifying
+  } = useVerifiyRoleAndAddress(hashedTeacherAddress, hashedLearnerAddress, roomRole);
 
-  // 3. Join room
-  const { roomJoinState, isJoining } = useRoomJoin(roomId, huddleAccessToken, {
-    enabled: verifiedRoleAndAddressData && isBothSigned,
-  });
+  useSessionSignatureProof(sessionId)
 
-  // 4. Initialize session manager
+
   const messages = useSessionManager({
     clientSideRoomId: roomId,
     hashedLearnerAddress,
     hashedTeacherAddress,
   });
 
+  const { roomJoinState, isJoining } = useRoomJoin(roomId, huddleAccessToken, {
+    enabled: verifiedRoleAndAddressData
+  });
+
   // 5. Get user IPFS data after joining the room
   const userIPFSData  = useSessionCases(messages);
 
   // 6. Execute transfer
-const executeTransferMutation = useExecuteTransferToTeacher(
-  userIPFSData,
-  sessionDurationData?.learnerData?.sessionDuration ?? sessionDurationData?.teacherData?.sessionDuration,
-  sessionDurationData?.teacherData?.teacherSignature,
-  sessionDurationData?.learnerData?.learnerSignature
-);
+  const executeTransferMutation = useExecuteTransferToTeacher(
+    userIPFSData,
+    sessionDurationData?.learnerData?.sessionDuration ?? sessionDurationData?.teacherData?.sessionDuration,
+    sessionDurationData?.teacherData?.teacherSignature,
+    sessionDurationData?.learnerData?.learnerSignature
+  );
 
   useBellListener();
 

@@ -16,6 +16,7 @@ const useSessionManager = ({
   const { data: currentAccount } = useLitAccount();
   const userAddress = currentAccount?.ethAddress;
   const [messages, setMessages] = useState<Message[]>([]);
+  const [ hasConnectedWs, setHasConnectedWs ] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const heartbeatTimerRef = useRef<number | null>(null);
 
@@ -223,7 +224,7 @@ initData.status === 'OK' ? 'successful' : 'failed'
       pkpWallet,
     ]);
 
-  return messages;
+  return {messages, hasConnectedWs};
 };
 
 export default useSessionManager;
