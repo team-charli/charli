@@ -1,15 +1,13 @@
+// Room.tsx
+import React, { useState, useEffect } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import LocalPeer from './Components/LocalPeer';
 import RemotePeer from './Components/RemotePeer';
-import {useParams, useSearch} from '@tanstack/react-router';
-import { useEffect } from 'react';
-import { useSessionDurationStatus } from './hooks/useSessionDurationStatus';
+import { useParams, useSearch } from '@tanstack/react-router';
 import { useVerifiyRoleAndAddress } from './hooks/useVerifiyRoleAndAddress';
-import { useSessionDurationSigner } from './hooks/useSessionDurationSigner';
 import useSessionManager from './hooks/useSessionManager';
 import { useRoomJoin } from './hooks/useRoomJoin';
 import useSessionCases from './hooks/useSessionCases';
-import { useExecuteTransferToTeacher } from './hooks/useExecuteTransferToTeacher';
 import useBellListener from './hooks/useBellListener';
 import { useSessionSignatureProof } from './hooks/DurationProofs/useSessionSignatureProof';
 
@@ -18,61 +16,59 @@ const Room = () => {
   const { roomRole, sessionId, hashedLearnerAddress, hashedTeacherAddress } = useSearch({ from: '/room/$id' });
   const [huddleAccessToken] = useLocalStorage<string>('huddle-access-token');
 
+
   // 1. Verify role and address
   const {
     data: verifiedRoleAndAddressData,
-    isLoading: isVerifying
+    isLoading: isVerifying,
   } = useVerifiyRoleAndAddress(hashedTeacherAddress, hashedLearnerAddress, roomRole);
 
-  useSessionSignatureProof(sessionId)
+  // 2. Sign sessionDuration proof
+  const { isProcessing, processedDurationProof } = useSessionSignatureProof(sessionId);
 
-
-  const messages = useSessionManager({
+  // 3. connect ws
+  const { messages, hasConnectedWs } = useSessionManager({
     clientSideRoomId: roomId,
     hashedLearnerAddress,
     hashedTeacherAddress,
   });
 
-  const { roomJoinState, isJoining } = useRoomJoin(roomId, huddleAccessToken, {
-    enabled: verifiedRoleAndAddressData
-  });
+
+  // 4. Join Room
+  const { roomJoinState, isJoining, peerIds} = useRoomJoin(
+    roomId,
+    huddleAccessToken,
+    {
+      verifiedRoleAndAddressData,
+      processedDurationProof,
+      hasConnectedWs,
+    }
+  );
 
   // 5. Get user IPFS data after joining the room
-  const userIPFSData  = useSessionCases(messages);
-
-  // 6. Execute transfer
-  const executeTransferMutation = useExecuteTransferToTeacher(
-    userIPFSData,
-    sessionDurationData?.learnerData?.sessionDuration ?? sessionDurationData?.teacherData?.sessionDuration,
-    sessionDurationData?.teacherData?.teacherSignature,
-    sessionDurationData?.learnerData?.learnerSignature
-  );
+  const userIPFSData = useSessionCases(messages);
 
   useBellListener();
 
-  // Logging effect
-  useEffect(() => {
-    console.log('Current roomJoinState:', roomJoinState);
-  }, [roomJoinState]);
-
-  if (isVerifying || isDurationLoading || isJoining || executeTransferMutation.isPending) {
+  if (isVerifying || isProcessing || isJoining) {
     return <div>Loading...</div>;
   }
 
-  if (isDurationError) {
-    console.error('An error occurred with session duration');
-  }
-
-  return (
+return (
     <>
       <div className="__localVideo">
         <LocalPeer roomJoinState={roomJoinState} />
       </div>
       <div className="__remoteVideo">
-        <RemotePeer />
+        {peerIds.length > 0 ? (
+          peerIds.map((remotePeerId) => (
+            <RemotePeer key={remotePeerId} remotePeerId={remotePeerId} />
+          ))
+        ) : (
+          <div>Waiting for remote peers...</div>
+        )}
       </div>
     </>
   );
-};
 
 export default Room;

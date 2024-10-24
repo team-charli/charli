@@ -50,7 +50,6 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
         const txInfoObj = await waitForTransaction(provider, txHash)
 
         if (txInfoObj.txStatus === "reverted" || txInfoObj.txStatus === "failed") throw new Error("halted submit on permitTx reverted || failed")
-        console.log("Before submitLearningRequestToDb, sessionId:", sessionId);
 
         await submitLearningRequestToDb.mutateAsync({
           dateTime,

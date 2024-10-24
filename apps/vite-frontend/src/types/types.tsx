@@ -288,8 +288,7 @@ export interface TimestampResponse {
 export interface SessionDurationData {
   sessionId: string;
   sessionDuration: number;
-  learnerSignature?: string;
-  teacherSignature?: string;
+  timestamp: number
 }
 
 export interface IPFSResponse {
@@ -343,9 +342,6 @@ export interface UseSessionManagerOptions {
   clientSideRoomId: string | undefined;
   hashedTeacherAddress: string | undefined;
   hashedLearnerAddress: string | undefined;
-  userAddress: string | undefined;
-  currentAccount: IRelayPKP | undefined;
-  sessionSigs: SessionSigs | null;
 }
 
 export type SupabaseError = {

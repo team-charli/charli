@@ -73,6 +73,7 @@ const useSessionManager = ({
 
     socket.addEventListener('open', () => {
       console.log('WebSocket connection opened');
+      setHasConnectedWs(true);
       const initMessage = {
         type: 'initConnection',
         data: { role, roomId }

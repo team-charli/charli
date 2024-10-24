@@ -61,8 +61,8 @@ export const useSignatureStorage = () => {
       }
 
       const field = isCounterSignature ?
-        'countersignature_ipfs_cid' :
-        'initial_signature_ipfs_cid';
+        'countersignature_duration_ipfs_cid' :
+        'initial_signed_duration_ipfs_cid';
 
       const { error } = await supabaseClient
         .from('sessions')

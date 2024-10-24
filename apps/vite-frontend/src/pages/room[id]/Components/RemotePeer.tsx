@@ -1,33 +1,88 @@
-import React, { useState, useEffect } from 'react';
-import { usePeerIds, useRemoteVideo, useRemoteAudio } from '@huddle01/react/hooks';
-import {Audio}  from '@huddle01/react/components';
-import {Video} from'@huddle01/react/components';
+//RemotePeer.tsx
+import { useRemotePeer, useRemoteVideo, useRemoteAudio, usePeerIds, useLocalPeer } from '@huddle01/react/hooks';
+import { useEffect, useRef } from 'react';
 
-const RemotePeer = () => {
-  const { peerIds } = usePeerIds({ roles: ['guest'] });
-  const [peerId, setPeerId] = useState('');
+type RemotePeerProps = {
+  remotePeerId: string;
+};
 
-  // Update peerId state when peerIds is fetched
-  useEffect(() => {
-    if (peerIds.length > 0) {
-      setPeerId(peerIds[0]);
+const RemotePeer = ({ remotePeerId }: RemotePeerProps) => {
+
+  // Get remote peer details and media
+  const { metadata,  } = useRemotePeer({
+    peerId: remotePeerId,
+    onMetadataUpdate: (data) => {
+      console.log('[Huddle] Remote peer metadata update:', JSON.stringify(data.metadata, null, 2));
     }
-  }, [peerIds]);
+  });
 
-  const { stream: videoStream, state: videoState } = useRemoteVideo({ peerId });
-  const { stream: audioStream, state: audioState } = useRemoteAudio({ peerId });
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  const hasPeerData = peerId && videoState === 'playable' && videoStream && audioState === 'playable' && audioStream;
+  const {
+    stream: videoStream,
+    state: videoState,
+    isVideoOn,
+  } = useRemoteVideo({
+    peerId: remotePeerId,
+    onPlayable: (data) => {
+      console.log('[Huddle] Remote video available:', remotePeerId);
+      if (videoRef.current && data.stream) {
+        videoRef.current.srcObject = data.stream;
+      }
+    }
+  });
+
+  const {
+    stream: audioStream,
+    state: audioState,
+    isAudioOn,
+  } = useRemoteAudio({
+    peerId: remotePeerId,
+    onPlayable: (data) => {
+      console.log('[Huddle] Remote audio available:', remotePeerId);
+      if (audioRef.current && data.stream) {
+        audioRef.current.srcObject = data.stream;
+      }
+    }
+  });
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[Huddle] Remote peer setup:', JSON.stringify({
+      remotePeerId,
+      hasVideo: !!videoStream,
+      hasAudio: !!audioStream,
+      videoState,
+      audioState
+    }, null, 2));
+  }, [remotePeerId, videoStream, audioStream, videoState, audioState]);
+
+  if (!remotePeerId) {
+    return <div>Waiting for peer...</div>;
+  }
 
   return (
     <div>
-      {hasPeerData ? (
-        <>
-          <Video stream={videoStream} />
-          <Audio stream={audioStream} />
-        </>
-      ) : (
-        <div>No Remote Peer</div>
+      {videoStream && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          style={{
+            width: '100%',
+            height: 'auto',
+            display: isVideoOn ? 'block' : 'none',
+            backgroundColor: '#000'
+          }}
+        />
+      )}
+      {audioStream && (
+        <audio
+          ref={audioRef}
+          autoPlay
+          playsInline
+        />
       )}
     </div>
   );

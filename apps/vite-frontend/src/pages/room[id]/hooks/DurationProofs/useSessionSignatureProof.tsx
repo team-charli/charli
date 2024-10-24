@@ -5,7 +5,6 @@ import { useSignatureStorage } from './useSignatureStorage';
 import { SessionDurationData } from '@/types/types';
 import { useSupabaseClient } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
-import { useNotifications } from '@/pages/lounge/hooks/useNotifications';
 import { useSessionsContext } from '@/contexts/SessionsContext';
 
 export const useSessionSignatureProof = (sessionId: string) => {
@@ -14,6 +13,7 @@ export const useSessionSignatureProof = (sessionId: string) => {
 
   const sessionDuration = sessionsContextValue
     .find((session) => session.session_id.toString() === sessionId && session.confirmed_time_date.length > 0)?.requested_session_duration;
+  if (!sessionDuration) throw new Error("sessionDuration undefined");
 
   const { createSignature, createCounterSignature } = useProofSigning();
   const { storeSignatureProof, retrieveExistingProof, recordProofLocation } = useSignatureStorage();
@@ -28,13 +28,13 @@ export const useSessionSignatureProof = (sessionId: string) => {
 
       const { data } = await supabaseClient
         .from('sessions')
-        .select('initial_signature_ipfs_cid, countersignature_ipfs_cid')
+        .select('initial_signed_duration_ipfs_cid, countersignature_duration_ipfs_cid')
         .eq('session_id', sessionId)
         .single();
 
       return {
-        initialProof: data?.initial_signature_ipfs_cid,
-        counterSignature: data?.countersignature_ipfs_cid
+        initialProof: data?.initial_signed_duration_ipfs_cid,
+        counterSignature: data?.countersignature_duration_ipfs_cid
       };
     }
   });

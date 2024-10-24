@@ -37,11 +37,8 @@ export const rootRoute = createRootRouteWithContext<RouterContext>()({
         throw redirect({to: '/login'});
       }
 
-      const supabaseTokenNearEx = await supabaseAtOrNearExp(queryClient, threshold);
-
-      if (supabaseTokenNearEx) {
-        console.log("supabaseTokenNearEx: clear storage and redirect");
-        console.log("signOutComplete")
+      if (supabaseAtOrNearExp(queryClient, threshold)) {
+        console.log("idTokenExpired: clear storage and redirect");
         signOutComplete(queryClient);
         throw redirect({ to: '/login' });
       }

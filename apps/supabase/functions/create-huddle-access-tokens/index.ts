@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
         roomId: roomId,
         role: Role.GUEST,
         permissions: {
-          admin: true,
+          admin: false,
           canConsume: true,
           canProduce: true,
           canProduceSources: {
@@ -36,7 +36,9 @@ Deno.serve(async (req) => {
         },
         options: {
           metadata: {
-            // You can add any custom attributes here
+            // Add session tracking info here
+            sessionId: roomId,
+            joinedAt: new Date().toISOString()
           },
         },
       });

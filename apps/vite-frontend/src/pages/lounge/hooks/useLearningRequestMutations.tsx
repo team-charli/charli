@@ -37,7 +37,7 @@ export const useLearningRequestMutations = () => {
     }
 
     if (getControllerKeyClaimDataResponse.data) {
-      console.log('getControllerKeyClaimDataResponse: true')
+      // console.log('getControllerKeyClaimDataResponse: true')
     }
 
     const controllerPubKey = getControllerKeyClaimDataResponse.data.publicKey;
@@ -72,7 +72,6 @@ export const useLearningRequestMutations = () => {
       try {
         const { provider, amountScaled, secureSessionId, sessionIdAndDurationSig, sessionDuration } = params;
         const relayerAddress = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS;
-        console.log('relayerAddress', relayerAddress)
 
         if (!pkpWallet) throw new Error('Wallet not initialized');
         const daiContractAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;

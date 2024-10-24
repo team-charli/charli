@@ -3,20 +3,22 @@ import { ConfirmedLearningRequestProps } from '@/types/types';
 import { useLocalizeAndFormatDateTime } from '@/utils/hooks/utils/useLocalizeAndFormatDateTime';
 import {Link, redirect, useNavigate} from '@tanstack/react-router';
 import { useGenerateHuddleAccessToken } from '../../hooks/QueriesMutations/useGenerateHuddleAccessToken';
+import { useMediaPermissions } from '@/Huddle/useMediaPermissions';
 
 const ConfirmedLearningRequest = ({ notification: sessionData }: ConfirmedLearningRequestProps) => {
 
   const { localTimeAndDate: { displayLocalTime, displayLocalDate } } = useLocalizeAndFormatDateTime(sessionData.confirmed_time_date);
   const navigate = useNavigate({ from: '/lounge' }); // Assume we're navigating from the lounge page
 
+  const { requestPermissions } = useMediaPermissions();
   const { generateAccessToken, isLoading } = useGenerateHuddleAccessToken();
 
   const handleClick = async (event: any) => {
-    console.log("onClick called");
     event.preventDefault();
+    await requestPermissions();
     let accessTokenRes;
     try {
-      await generateAccessToken(sessionData.roomId);
+      await generateAccessToken({roomId: sessionData.roomId, hashedUserAddress: sessionData.hashed_learner_address, role: "learner"});
       navigate({
         to: '/room/$id',
         params: { id: sessionData.roomId ?? '' },
