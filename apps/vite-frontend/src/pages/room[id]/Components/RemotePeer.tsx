@@ -1,5 +1,5 @@
 //RemotePeer.tsx
-import { useRemotePeer, useRemoteVideo, useRemoteAudio, usePeerIds, useLocalPeer } from '@huddle01/react/hooks';
+import { useRemotePeer, useRemoteVideo, useRemoteAudio } from '@huddle01/react/hooks';
 import { useEffect, useRef } from 'react';
 
 type RemotePeerProps = {
@@ -7,18 +7,18 @@ type RemotePeerProps = {
 };
 
 const RemotePeer = ({ remotePeerId }: RemotePeerProps) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Get remote peer details and media
-  const { metadata,  } = useRemotePeer({
+  // Get remote peer details
+  const { metadata } = useRemotePeer({
     peerId: remotePeerId,
     onMetadataUpdate: (data) => {
       console.log('[Huddle] Remote peer metadata update:', JSON.stringify(data.metadata, null, 2));
     }
   });
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
+  // Video handling
   const {
     stream: videoStream,
     state: videoState,
@@ -26,13 +26,15 @@ const RemotePeer = ({ remotePeerId }: RemotePeerProps) => {
   } = useRemoteVideo({
     peerId: remotePeerId,
     onPlayable: (data) => {
-      console.log('[Huddle] Remote video available:', remotePeerId);
-      if (videoRef.current && data.stream) {
-        videoRef.current.srcObject = data.stream;
-      }
+      console.log('[Huddle] Video stream playable:', {
+        peerId: remotePeerId,
+        state: videoState,
+        hasStream: !!data.stream
+      });
     }
   });
 
+  // Audio handling
   const {
     stream: audioStream,
     state: audioState,
@@ -40,52 +42,62 @@ const RemotePeer = ({ remotePeerId }: RemotePeerProps) => {
   } = useRemoteAudio({
     peerId: remotePeerId,
     onPlayable: (data) => {
-      console.log('[Huddle] Remote audio available:', remotePeerId);
-      if (audioRef.current && data.stream) {
-        audioRef.current.srcObject = data.stream;
-      }
+      console.log('[Huddle] Audio stream playable:', {
+        peerId: remotePeerId,
+        state: audioState,
+        hasStream: !!data.stream
+      });
     }
   });
 
-  // Debug logging
+  // Handle video stream connection
   useEffect(() => {
-    console.log('[Huddle] Remote peer setup:', JSON.stringify({
-      remotePeerId,
-      hasVideo: !!videoStream,
-      hasAudio: !!audioStream,
-      videoState,
-      audioState
-    }, null, 2));
-  }, [remotePeerId, videoStream, audioStream, videoState, audioState]);
+    if (videoRef.current && videoStream) {
+      console.log('[Huddle] Setting video stream to element');
+      videoRef.current.srcObject = videoStream;
 
-  if (!remotePeerId) {
-    return <div>Waiting for peer...</div>;
-  }
+      // Ensure video plays
+      videoRef.current.play().catch(e =>
+        console.error('[Huddle] Video play error:', e)
+      );
+    }
+  }, [videoStream]);
 
-  return (
-    <div>
-      {videoStream && (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          style={{
-            width: '100%',
-            height: 'auto',
-            display: isVideoOn ? 'block' : 'none',
-            backgroundColor: '#000'
-          }}
-        />
-      )}
-      {audioStream && (
-        <audio
-          ref={audioRef}
-          autoPlay
-          playsInline
-        />
-      )}
-    </div>
-  );
+  // Handle audio stream connection
+  useEffect(() => {
+    if (audioRef.current && audioStream) {
+      console.log('[Huddle] Setting audio stream to element');
+      audioRef.current.srcObject = audioStream;
+
+      // Ensure audio plays
+      audioRef.current.play().catch(e =>
+        console.error('[Huddle] Audio play error:', e)
+      );
+    }
+  }, [audioStream]);
+
+return (
+  <div className="relative w-full h-full bg-black rounded-lg overflow-hidden">
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      className={`w-full h-full object-cover ${
+        videoStream ? 'block' : 'hidden'
+      }`}
+    />
+    {!videoStream && (
+      <div className="absolute inset-0 flex items-center justify-center text-white">
+        Waiting for video...
+      </div>
+    )}
+    <audio
+      ref={audioRef}
+      autoPlay
+      playsInline
+    />
+  </div>
+);
 };
 
 export default RemotePeer;

@@ -55,20 +55,23 @@ const Room = () => {
   }
 
 return (
-    <>
-      <div className="__localVideo">
-        <LocalPeer roomJoinState={roomJoinState} />
-      </div>
-      <div className="__remoteVideo">
-        {peerIds.length > 0 ? (
-          peerIds.map((remotePeerId) => (
-            <RemotePeer key={remotePeerId} remotePeerId={remotePeerId} />
-          ))
-        ) : (
-          <div>Waiting for remote peers...</div>
-        )}
-      </div>
-    </>
-  );
+  <div className="flex flex-row w-full h-screen gap-4 p-4 bg-gray-900">
+    <div className="flex-1 min-w-0">
+      <LocalPeer roomJoinState={roomJoinState} />
+    </div>
+    <div className="flex-1 min-w-0">
+      {peerIds.length > 0 ? (
+        peerIds.map((remotePeerId) => (
+          <RemotePeer key={remotePeerId} remotePeerId={remotePeerId} />
+        ))
+      ) : (
+        <div className="flex items-center justify-center h-full text-white">
+          Waiting for remote peers...
+        </div>
+      )}
+    </div>
+  </div>
+);
+}
 
 export default Room;

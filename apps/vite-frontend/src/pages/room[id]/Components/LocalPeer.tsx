@@ -114,22 +114,26 @@ const LocalPeer = ({ roomJoinState }: LocalPeerProps) => {
     }
   }, [localAudioStream]);
 
-  return (
-    <div>
-      {localVideoStream && (
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          style={{ width: '100%', height: 'auto' }}
-        />
-      )}
-      {localAudioStream && (
-        <audio ref={audioRef} autoPlay playsInline />
-      )}
-    </div>
-  );
+return (
+  <div className="relative w-full h-full bg-black rounded-lg overflow-hidden">
+    {localVideoStream ? (
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        className="w-full h-full object-cover"
+      />
+    ) : (
+      <div className="absolute inset-0 flex items-center justify-center text-white">
+        Initializing camera...
+      </div>
+    )}
+    {localAudioStream && (
+      <audio ref={audioRef} autoPlay playsInline />
+    )}
+  </div>
+);
 };
 
 export default LocalPeer;
