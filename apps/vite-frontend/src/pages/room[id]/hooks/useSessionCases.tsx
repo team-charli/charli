@@ -26,7 +26,9 @@ const useSessionCases = (messages: Message[]) => {
   useEffect(() => {
     const handleMessage = async (message: Message) => {
       if (message.type === 'message') {
-        const parsedData = JSON.parse(message.data);
+        const parsedData = typeof message.data === 'string'
+          ? JSON.parse(message.data)
+          : message.data;
         if (parsedData.type === 'userData') {
           const signedData = await signTimestampData(parsedData.data);
           const ipfsHash = await postDataToIPFS(signedData);
@@ -56,7 +58,7 @@ const useSessionCases = (messages: Message[]) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
- const signTimestampData = async (sessionData: SessionData): Promise<SessionIPFSData> => {
+  const signTimestampData = async (sessionData: SessionData): Promise<SessionIPFSData> => {
     if (currentAccount && sessionSigs) {
       try {
         const signature = await signMessageMutation.mutateAsync(JSON.stringify(sessionData));

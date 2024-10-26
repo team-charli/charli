@@ -16,7 +16,7 @@ const useSessionManager = ({
   const { data: currentAccount } = useLitAccount();
   const userAddress = currentAccount?.ethAddress;
   const [messages, setMessages] = useState<Message[]>([]);
-  const [ hasConnectedWs, setHasConnectedWs ] = useState(false);
+  const [hasConnectedWs, setHasConnectedWs] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const heartbeatTimerRef = useRef<number | null>(null);
 
@@ -39,6 +39,7 @@ const useSessionManager = ({
       if (!socketRef.current || !sessionSigs || !currentAccount || !pkpWallet) return;
 
       const timestamp = Date.now();
+      console.log('Sending heartbeat:', timestamp);
       const message = `Heartbeat at ${timestamp}`;
 
       signMessageMutation.mutate(message, {
@@ -48,6 +49,7 @@ const useSessionManager = ({
             timestamp,
             signature,
           };
+          console.log('Sending heartbeat message:', heartbeatMessage);
           socketRef.current?.send(JSON.stringify(heartbeatMessage));
         },
         onError: (error) => {
@@ -66,8 +68,15 @@ const useSessionManager = ({
 
   const connectWebSocket = (role: string, roomId: string, workerUrl: string) => {
     console.log('Attempting to connect WebSocket');
-    const websocketUrl = `wss://${workerUrl.replace('https://', '')}/websocket/${roomId}`;
+
+    // Fix URL construction for both dev and prod
+    const wsUrl = workerUrl.startsWith('http://')
+      ? `ws://${workerUrl.replace('http://', '')}`  // Dev environment
+      : `wss://${workerUrl.replace('https://', '')}`; // Prod environment
+
+    const websocketUrl = `${wsUrl}/websocket/${roomId}`;
     console.log('WebSocket URL:', websocketUrl);
+
     const socket = new WebSocket(websocketUrl);
     socketRef.current = socket;
 
@@ -78,6 +87,7 @@ const useSessionManager = ({
         type: 'initConnection',
         data: { role, roomId }
       };
+      console.log('Sending init message:', JSON.stringify(initMessage));
       socket.send(JSON.stringify(initMessage));
     });
 
@@ -85,13 +95,19 @@ const useSessionManager = ({
       console.log('WebSocket message received:', event.data);
       const message = JSON.parse(event.data);
       if (message.type === 'connectionConfirmed') {
-        console.log('WebSocket connection confirmed');
+        console.log('WebSocket connection confirmed, starting heartbeat');
         startHeartbeat();
       }
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { type: 'message', data: message },
-      ]);
+      console.log('Processed message type:', message.type, 'data:', message.data);
+      console.log('Current messages state before update:', messages);
+      setMessages((prevMessages) => {
+        const newMessages = [
+          ...prevMessages,
+          { type: "message" as const, data: message }  // Explicitly type as Message
+        ];
+        console.log('Updated messages state:', newMessages);
+        return newMessages;
+      });
     });
 
     socket.addEventListener('close', (event) => {
@@ -130,7 +146,9 @@ const useSessionManager = ({
     ) {
       const initializeWebhookServer = async () => {
         try {
+          // const workerUrl = import.meta.env.VITE_SESSION_TIMER_WORKER_URL_DEV;
           const workerUrl = import.meta.env.VITE_SESSION_TIMER_WORKER_URL;
+
           if (!workerUrl) throw new Error('VITE_SESSION_TIMER_WORKER_URL is undefined');
 
           const response = await fetch(`${workerUrl}/init`, {

@@ -15,38 +15,42 @@ export class WebSocketManager {
     this.clientData = null;
   }
 
-async fetch(request: Request) {
-  const url = new URL(request.url);
-  const pathname = url.pathname;
+  async fetch(request: Request) {
+    const url = new URL(request.url);
+    const pathname = url.pathname;
 
-  if (pathname.startsWith('/websocket/')) {
-    return this.handleWebSocketUpgrade(request);
-  } else if (pathname === '/init') {
-    return this.handleInitRequest(request);
-  } else if (pathname === '/process-event') {
-    return this.handleProcessEvent(request);
-  } else {
-    return new Response('Not Found', { status: 404 });
-  }
-}
-
-private async handleWebSocketUpgrade(request: Request): Promise<Response> {
-  if (request.headers.get('Upgrade') !== 'websocket') {
-    return new Response('Expected Upgrade: websocket', { status: 426 });
+    if (pathname.startsWith('/websocket/')) {
+      return this.handleWebSocketUpgrade(request);
+    } else if (pathname === '/init') {
+      return this.handleInitRequest(request);
+    } else if (pathname === '/process-event') {
+      return this.handleProcessEvent(request);
+    } else {
+      return new Response('Not Found', { status: 404 });
+    }
   }
 
-  const [client, server] = Object.values(new WebSocketPair());
-  server.accept();
+  private async handleWebSocketUpgrade(request: Request): Promise<Response> {
+    console.log('Handling WebSocket upgrade request');
+    if (request.headers.get('Upgrade') !== 'websocket') {
+      console.log('Missing websocket upgrade header');
+      return new Response('Expected Upgrade: websocket', { status: 426 });
+    }
 
-  this.handleWebSocketConnection(server);
-
-  return new Response(null, { status: 101, webSocket: client });
-}
+    const [client, server] = Object.values(new WebSocketPair());
+    console.log('Created WebSocket pair');
+    server.accept();
+    console.log('Accepted server WebSocket');
+    this.handleWebSocketConnection(server);
+    console.log('Initialized WebSocket connection handler');
+    return new Response(null, { status: 101, webSocket: client });
+  }
 
   private handleWebSocketConnection(ws: WebSocket) {
     let clientEntry: { ws: WebSocket | null; user: User } | undefined;
 
     ws.addEventListener('message', async (event) => {
+      console.log('Server received message:', event.data);
       let messageString: string;
 
       if (typeof event.data === 'string') {
@@ -59,13 +63,15 @@ private async handleWebSocketUpgrade(request: Request): Promise<Response> {
       }
 
       const data = JSON.parse(messageString);
-
+      console.log('Server parsed message:', data);
       if (data.type === 'initConnection') {
+        console.log('Processing initConnection:', data.data);
         const role = data.data.role;
         clientEntry = this.clients.get(role);
         if (clientEntry) {
           clientEntry.ws = ws;
           console.log('WebSocket connection established for role:', role);
+          ws.send(JSON.stringify({ type: 'connectionConfirmed' }));
         } else {
           console.error('No client entry found for role:', role);
           ws.close(1008, 'No client entry found for role');

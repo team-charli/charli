@@ -45,6 +45,7 @@ lit_storage.db
 .env.sentry-build-plugin
 .env.local
 .env.test
+.dev.vars
 
 # Serverless
 .serverless

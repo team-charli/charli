@@ -17,14 +17,6 @@ app.use('/init', cors({
   credentials: true,
 }));
 
-app.use('/webhook', cors({
-  origin: ['http://localhost:5173', 'https://charli.chat'],
-  allowMethods: ['POST', 'GET', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-  exposeHeaders: ['Content-Length'],
-  maxAge: 600,
-  credentials: true,
-}));
 
 app.options('*', (c) => {
   return c.text('', 204)
@@ -59,6 +51,7 @@ app.post('/init', async (c) => {
 });
 
 app.post('/webhook', async (c) => {
+  console.log("webhook route context", c)
   const signatureHeader = c.req.header("huddle01-signature");
 
   if (signatureHeader) {

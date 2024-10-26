@@ -14,7 +14,7 @@ const RemotePeer = ({ remotePeerId }: RemotePeerProps) => {
   const { metadata } = useRemotePeer({
     peerId: remotePeerId,
     onMetadataUpdate: (data) => {
-      console.log('[Huddle] Remote peer metadata update:', JSON.stringify(data.metadata, null, 2));
+      // console.log('[Huddle] Remote peer metadata update:', JSON.stringify(data.metadata, null, 2));
     }
   });
 
@@ -26,11 +26,11 @@ const RemotePeer = ({ remotePeerId }: RemotePeerProps) => {
   } = useRemoteVideo({
     peerId: remotePeerId,
     onPlayable: (data) => {
-      console.log('[Huddle] Video stream playable:', {
-        peerId: remotePeerId,
-        state: videoState,
-        hasStream: !!data.stream
-      });
+      // console.log('[Huddle] Video stream playable:', {
+      //   peerId: remotePeerId,
+      //   state: videoState,
+      //   hasStream: !!data.stream
+      // });
     }
   });
 
@@ -42,11 +42,11 @@ const RemotePeer = ({ remotePeerId }: RemotePeerProps) => {
   } = useRemoteAudio({
     peerId: remotePeerId,
     onPlayable: (data) => {
-      console.log('[Huddle] Audio stream playable:', {
-        peerId: remotePeerId,
-        state: audioState,
-        hasStream: !!data.stream
-      });
+      // console.log('[Huddle] Audio stream playable:', {
+      //   peerId: remotePeerId,
+      //   state: audioState,
+      //   hasStream: !!data.stream
+      // });
     }
   });
 
@@ -66,7 +66,7 @@ const RemotePeer = ({ remotePeerId }: RemotePeerProps) => {
   // Handle audio stream connection
   useEffect(() => {
     if (audioRef.current && audioStream) {
-      console.log('[Huddle] Setting audio stream to element');
+      // console.log('[Huddle] Setting audio stream to element');
       audioRef.current.srcObject = audioStream;
 
       // Ensure audio plays

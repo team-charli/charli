@@ -28,22 +28,22 @@ const LocalPeer = ({ roomJoinState }: LocalPeerProps) => {
 
   // Stabilize the media control functions
   const enableVideo = useCallback(async () => {
-    console.log('Enabling video...');
+    // console.log('Enabling video...');
     await enableVideoRaw();
   }, [enableVideoRaw]);
 
   const enableAudio = useCallback(async () => {
-    console.log('Enabling audio...');
+    // console.log('Enabling audio...');
     await enableAudioRaw();
   }, [enableAudioRaw]);
 
   const disableVideo = useCallback(async () => {
-    console.log('Disabling video...');
+    // console.log('Disabling video...');
     await disableVideoRaw();
   }, [disableVideoRaw]);
 
   const disableAudio = useCallback(async () => {
-    console.log('Disabling audio...');
+    // console.log('Disabling audio...');
     await disableAudioRaw();
   }, [disableAudioRaw]);
 
@@ -52,19 +52,19 @@ const LocalPeer = ({ roomJoinState }: LocalPeerProps) => {
     let mounted = true;
 
     const initializeDevices = async () => {
-      console.log('Initialize devices called. State:', JSON.stringify({
-        roomJoinState,
-        permissionsGranted,
-        isVideoOn,
-        isAudioOn
-      }));
+      // console.log('Initialize devices called. State:', JSON.stringify({
+      //   roomJoinState,
+      //   permissionsGranted,
+      //   isVideoOn,
+      //   isAudioOn
+      // }));
 
       if (roomJoinState === 'connected') {
         try {
           if (!permissionsGranted) {
-            console.log('Requesting permissions...');
+            // console.log('Requesting permissions...');
             const granted = await requestPermissions();
-            console.log('Permissions granted:', granted);
+            // console.log('Permissions granted:', granted);
             if (!mounted || !granted) return;
           }
 
@@ -75,7 +75,7 @@ const LocalPeer = ({ roomJoinState }: LocalPeerProps) => {
             await enableAudio();
           }
 
-          console.log('Devices initialized successfully');
+          // console.log('Devices initialized successfully');
         } catch (error) {
           console.error('Error initializing devices:', error);
         }

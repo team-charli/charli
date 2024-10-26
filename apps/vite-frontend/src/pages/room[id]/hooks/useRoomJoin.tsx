@@ -1,11 +1,11 @@
 // useRoomJoin.ts
 import { useRoom, usePeerIds } from "@huddle01/react";
+import useLocalStorage from "@rehooks/local-storage";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 export const useRoomJoin = (
   roomId: string,
-  huddleAccessToken: string | null,
   options: {
     verifiedRoleAndAddressData: {
       verifiedRole: string | null;
@@ -16,22 +16,24 @@ export const useRoomJoin = (
   }
 ) => {
   const queryClient = useQueryClient();
+  const [huddleAccessToken] = useLocalStorage<string>('huddle-access-token');
+
   const { joinRoom, state: roomJoinState } = useRoom({
     onJoin: () => {
-      console.log('[Huddle] Room joined:', {
-        role: options.verifiedRoleAndAddressData?.verifiedRole,
-        state: 'connected',
-      });
+      // console.log('[Huddle] Room joined:', {
+      //   role: options.verifiedRoleAndAddressData?.verifiedRole,
+      //   state: 'connected',
+      // });
       queryClient.setQueryData(['roomJoinState'], 'connected');
     },
     onLeave: () => {
-      console.log('[Huddle] Room left');
+      // console.log('[Huddle] Room left');
       queryClient.setQueryData(['roomJoinState'], 'left');
     },
   });
 
   useEffect(() => {
-    console.log('[Huddle] Room state:', roomJoinState);
+    // console.log('[Huddle] Room state:', roomJoinState);
   }, [roomJoinState]);
 
   const canJoinRoom = useMemo(() => {
@@ -59,10 +61,10 @@ export const useRoomJoin = (
       });
     },
     onSuccess: (room) => {
-      console.log('[Huddle] Successfully joined room:', {
-        role: options.verifiedRoleAndAddressData?.verifiedRole,
-        room: room.roomId,
-      });
+      // console.log('[Huddle] Successfully joined room:', {
+      //   role: options.verifiedRoleAndAddressData?.verifiedRole,
+      //   room: room.roomId,
+      // });
       queryClient.setQueryData(['roomJoinState'], 'joined');
     },
     onError: (error) => {
