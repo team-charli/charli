@@ -51,7 +51,6 @@ app.post('/init', async (c) => {
 });
 
 app.post('/webhook', async (c) => {
-  console.log("webhook route context", c)
   const signatureHeader = c.req.header("huddle01-signature");
 
   if (signatureHeader) {
