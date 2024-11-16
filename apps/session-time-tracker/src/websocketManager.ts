@@ -1,16 +1,14 @@
 // websocketManager.ts
 import { WebhookEvents, WebhookData } from './types';
-import { Wallet, keccak256, getAddress, verifyMessage } from 'ethers';
+import { Wallet, keccak256, getAddress } from 'ethers';
 
 export class WebSocketManager {
   private clients: Map<string, { ws: WebSocket | null; user: User }> = new Map();
   private wallet: Wallet;
   private clientData: ClientData | null;
-  private userHeartbeats: Map<string, number> = new Map();
-  private readonly heartbeatThreshold = 35000; // 35 seconds
 
-  constructor(private state: DurableObjectState, private env: any) {
-    const privateKey = env.PRIVATE_KEY_USER_TIME_SIGNER;
+  constructor(private state: DurableObjectState, private env: Env) {
+    const privateKey = env.PRIVATE_KEY_SESSION_TIME_SIGNER;
     this.wallet = new Wallet(privateKey);
     this.clientData = null;
   }
@@ -18,27 +16,41 @@ export class WebSocketManager {
   async fetch(request: Request) {
     const url = new URL(request.url);
     const pathname = url.pathname;
-
-    if (pathname.startsWith('/websocket/')) {
+    if (pathname === '/sessionTimerEvent' && request.method === 'POST') {
+      const { message, data } = (await request.json()) as SessionTimerEvent;
+      await this.handleSessionTimerEvent(message, data);
+      return new Response('OK');
+    } else if (pathname.startsWith('/websocket/')) {
       return this.handleWebSocketUpgrade(request);
     } else if (pathname === '/init') {
       return this.handleInitRequest(request);
-    } else if (pathname === '/process-event') {
-      return this.handleProcessEvent(request);
+    } else if (pathname === '/handleWebhook') {
+      return this.handleWebhook(request);
     } else {
       return new Response('Not Found', { status: 404 });
     }
   }
 
+  private async handleSessionTimerEvent(message: SessionTimerMessage, data?: SessionTimerData) {
+    const broadcastMessage: Message = {
+      type: message.type, // 'initiated', 'warning', or 'expired'
+      data: {
+        message: message.message,
+        timestampMs: data?.timestampMs,
+        signature: data?.signature,
+      },
+    };
+    this.broadcast(broadcastMessage);
+  }
   private async handleWebSocketUpgrade(request: Request): Promise<Response> {
-    console.log('Handling WebSocket upgrade request');
+    console.log(`[WSM-UPGRADE] Attempting upgrade for request: ${request.url}`);
     if (request.headers.get('Upgrade') !== 'websocket') {
-      console.log('Missing websocket upgrade header');
+      console.log('[WSM-UPGRADE-FAIL] Missing websocket upgrade header');
       return new Response('Expected Upgrade: websocket', { status: 426 });
     }
 
     const [client, server] = Object.values(new WebSocketPair());
-    console.log('Created WebSocket pair');
+    console.log('[WSM-UPGRADE-SUCCESS] Created WebSocket pair');
     server.accept();
     console.log('Accepted server WebSocket');
     this.handleWebSocketConnection(server);
@@ -51,6 +63,7 @@ export class WebSocketManager {
 
     ws.addEventListener('message', async (event) => {
       console.log('Server received message:', event.data);
+
       let messageString: string;
 
       if (typeof event.data === 'string') {
@@ -78,12 +91,8 @@ export class WebSocketManager {
           return;
         }
       } else {
-        if (clientEntry) {
-          await this.handleWebSocketMessage(ws, messageString);
-        } else {
-          console.error('WebSocket not initialized properly.');
-          ws.close(1008, 'WebSocket not initialized properly');
-        }
+        console.error('Unexpected message type received:', data.type);
+        throw new Error('Unexpected message')
       }
     });
 
@@ -102,11 +111,16 @@ export class WebSocketManager {
   }
 
   private async handleInitRequest(request: Request): Promise<Response> {
-    if (request.method !== 'POST') {
-      return new Response('Method Not Allowed', { status: 405 });
-    }
-
+    if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+    console.log('[WSM-INIT] Received init request');
     const clientData: ClientData = await request.json();
+    console.log('[WSM-INIT] Client data:', {
+      roomId: clientData.clientSideRoomId,
+      userAddress: clientData.userAddress,
+      // hash values truncated for logging
+      hashedTeacher: clientData.hashedTeacherAddress.slice(0, 10),
+      hashedLearner: clientData.hashedLearnerAddress.slice(0, 10)
+    });
     this.clientData = clientData;
 
     const userAddressHash = keccak256(getAddress(clientData.userAddress));
@@ -133,22 +147,23 @@ export class WebSocketManager {
     };
     this.clients.set(role, { ws: null, user });
 
+    await this.sendParticipantInfoToConnectionManager(user.peerId, user.role);
+
     return new Response(JSON.stringify({ status: 'OK', role, roomId: user.roomId }), {
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  private async handleProcessEvent(request: Request): Promise<Response> {
-    if (request.method !== 'POST') {
+  private async handleWebhook(request: Request): Promise<Response> {
+    if (request.method !== 'POST')
       return new Response('Method Not Allowed', { status: 405 });
-    }
 
     const event = (await request.json()) as WebhookData;
-    await this.processEvent(event);
+    await this.processWebhook(event);
     return new Response('OK');
   }
 
-  async processEvent(event: WebhookData) {
+  async processWebhook(event: WebhookData) {
     if (event.event === 'peer:joined') {
       const { id: peerId, roomId: webhookRoomId, joinedAt } = event.payload as WebhookEvents['peer:joined'][0];
       const clientEntry = Array.from(this.clients.values()).find((entry) => entry.user.role && !entry.user.peerId);
@@ -161,9 +176,9 @@ export class WebSocketManager {
           joinedAt,
           joinedAtSig: signature,
         };
-
         // Store the user data in the Durable Object's storage
         await this.state.storage.put(`user:${clientEntry.user.role}`, clientEntry.user);
+        await this.sendParticipantInfoToConnectionManager(peerId, clientEntry.user.role);
 
         const message: Message = {
           type: 'userJoined',
@@ -187,6 +202,9 @@ export class WebSocketManager {
             },
           };
           this.broadcast(bothJoinedMessage);
+          // Start the session timer
+
+          await this.startSessionTimer();
         }
       }
     } else if (event.event === 'peer:left') {
@@ -201,7 +219,6 @@ export class WebSocketManager {
           duration,
         };
 
-        // Store the updated user data in the Durable Object's storage
         await this.state.storage.put(`user:${clientEntry.user.role}`, clientEntry.user);
 
         const message: Message = {
@@ -213,10 +230,18 @@ export class WebSocketManager {
         };
         this.broadcast(message);
 
+        // Check for faults after participant has left
+        await this.handleFault(clientEntry.user);
+
         // Check if both users have left
         const teacherLeftData = (await this.state.storage.get('user:teacher')) as User | null;
         const learnerLeftData = (await this.state.storage.get('user:learner')) as User | null;
-        if (teacherLeftData && learnerLeftData && teacherLeftData.leftAt && learnerLeftData.leftAt) {
+        if (
+          teacherLeftData &&
+            learnerLeftData &&
+            teacherLeftData.leftAt &&
+            learnerLeftData.leftAt
+        ) {
           // Both users have left, broadcast a message
           const bothLeftMessage: Message = {
             type: 'bothLeft',
@@ -231,105 +256,58 @@ export class WebSocketManager {
     }
   }
 
-  async handleWebSocketMessage(ws: WebSocket, message: string) {
-    const data = JSON.parse(message);
-    if (data.type === 'heartbeat') {
-      const { timestamp, signature } = data;
-      const clientEntry = Array.from(this.clients.values()).find((entry) => entry.ws === ws);
-      if (clientEntry && clientEntry.user.peerId) {
-        const address = verifyMessage(timestamp.toString(), signature);
-        if (address === this.clientData?.userAddress) {
-          this.userHeartbeats.set(clientEntry.user.peerId, timestamp);
-        }
-      }
-    } else if (data.type === 'getUserData') {
-      const teacherData = (await this.state.storage.get('user:teacher')) as User | null;
-      const learnerData = (await this.state.storage.get('user:learner')) as User | null;
-      const userData: UserData = {
-        teacher: teacherData,
-        learner: learnerData,
-      };
-      await this.sendMessage(ws, { type: 'userData', data: userData });
+  private async startSessionTimer() {
+    if (!this.clientData) {
+      console.error('Client data is not initialized.');
+      throw new Error('Client data is not initialized.');
     }
+    const sessionId = this.clientData.clientSideRoomId;
+    const sessionDuration = 3600000; // For example, 1 hour
+
+    const sessionTimerId = this.env.SESSION_TIMER.idFromName(sessionId);
+    const sessionTimerStub = this.env.SESSION_TIMER.get(sessionTimerId);
+
+    const payload = {
+      duration: sessionDuration,
+      hashedTeacherAddress: this.clientData!.hashedTeacherAddress,
+      hashedLearnerAddress: this.clientData!.hashedLearnerAddress,
+    };
+
+    await sessionTimerStub.fetch('http://session-timer/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
-  async checkHeartbeats() {
-    const currentTimestamp = Date.now();
-    for (const [peerId, lastHeartbeat] of this.userHeartbeats) {
-      if (currentTimestamp - lastHeartbeat > this.heartbeatThreshold) {
-        // Heartbeat missed, initiate fault handling
-        const clientEntry = Array.from(this.clients.values()).find((entry) => entry.user.peerId === peerId);
-        if (clientEntry) {
-          await this.handleFault(clientEntry.user, clientEntry.ws);
-        }
-      }
-    }
-  }
 
-  async handleFault(user: User, ws: WebSocket | null) {
+  async handleFault(user: User) {
     // Check if the user is the teacher or learner
     const isTeacher = user.role === 'teacher';
     const isLearner = user.role === 'learner';
 
-    // Check if the user is the first to join
+    // Get all joinedAt timestamps from clients
     const joinedAtValues = Array.from(this.clients.values())
     .map((entry) => entry.user.joinedAt)
     .filter((joinedAt): joinedAt is number => joinedAt !== null);
 
-    const isFirstUser = user.joinedAt !== null && user.joinedAt === Math.min(...joinedAtValues);
+    if (user.joinedAt === null) {
+      console.error('User has not joined yet.');
+      return;
+    }
+
+    const isFirstUser = user.joinedAt === Math.min(...joinedAtValues);
 
     if (isFirstUser) {
       // First user fault, check if the second user joined within 3 minutes
       const secondUserJoinedAt = Math.max(...joinedAtValues);
-      if (secondUserJoinedAt - user.joinedAt! > 180000) {
+      if (secondUserJoinedAt - user.joinedAt > 180000) {
         if (isTeacher) {
-          // Learner fault
-          const faultType = 'learnerFault_didnt_join';
-          const faultTime = Date.now();
-          const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
-          const clientEntry = this.clients.get('learner');
-          if (clientEntry) {
-            clientEntry.user = {
-              ...clientEntry.user,
-              faultTime,
-              faultTimeSig,
-            };
-          }
-          const message: Message = {
-            type: 'fault',
-            data: {
-              faultType,
-              user: clientEntry?.user,
-              timestamp: faultTime,
-              signature: faultTimeSig,
-            },
-          };
-          if (!ws) throw new Error('WebSocket should not be null');
-          await this.sendMessage(ws, message);
+          // Learner fault: didn't join
+          await this.handleFaultForRole('learner', 'learnerFault_didnt_join');
         } else if (isLearner) {
-          // Teacher fault
-          const faultType = 'teacherFault_didnt_join';
-          const faultTime = Date.now();
-          const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
-          const clientEntry = this.clients.get('teacher');
-          if (clientEntry) {
-            clientEntry.user = {
-              ...clientEntry.user,
-              faultTime,
-              faultTimeSig,
-            };
-          }
-          const message: Message = {
-            type: 'fault',
-            data: {
-              faultType,
-              user: clientEntry?.user,
-              timestamp: faultTime,
-              signature: faultTimeSig,
-            },
-          };
-          if (!ws) throw new Error('WebSocket should not be null');
-          await this.sendMessage(ws, message);
+          // Teacher fault: didn't join
+          await this.handleFaultForRole('teacher', 'teacherFault_didnt_join');
         }
       }
     } else {
@@ -339,57 +317,39 @@ export class WebSocketManager {
         const disconnectionDuration = currentTimestamp - user.leftAt;
         if (disconnectionDuration > 180000) {
           if (isTeacher) {
-            // Teacher fault
-            const faultType = 'teacherFault_connection_timeout';
-            const faultTime = Date.now();
-            const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
-            const clientEntry = this.clients.get('teacher');
-            if (clientEntry) {
-              clientEntry.user = {
-                ...clientEntry.user,
-                faultTime,
-                faultTimeSig,
-              };
-            }
-            const message: Message = {
-              type: 'fault',
-              data: {
-                faultType,
-                user: clientEntry?.user,
-                timestamp: faultTime,
-                signature: faultTimeSig,
-              },
-            };
-            if (!ws) throw new Error('WebSocket should not be null');
-            await this.sendMessage(ws, message);
+            // Teacher fault: connection timeout
+            await this.handleFaultForRole('teacher', 'teacherFault_connection_timeout');
           } else if (isLearner) {
-            // Learner fault
-            const faultType = 'learnerFault_connection_timeout';
-            const faultTime = Date.now();
-            const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
-            const clientEntry = this.clients.get('learner');
-            if (clientEntry) {
-              clientEntry.user = {
-                ...clientEntry.user,
-                faultTime,
-                faultTimeSig,
-              };
-            }
-            const message: Message = {
-              type: 'fault',
-              data: {
-                faultType,
-                user: clientEntry?.user,
-                timestamp: faultTime,
-                signature: faultTimeSig,
-              },
-            };
-            if (!ws) throw new Error('WebSocket should not be null');
-            await this.sendMessage(ws, message);
+            // Learner fault: connection timeout
+            await this.handleFaultForRole('learner', 'learnerFault_connection_timeout');
           }
         }
       }
     }
+  }
+
+  private async handleFaultForRole(role: 'teacher' | 'learner', faultType: FaultType) {
+    const faultTime = Date.now();
+    const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
+    const clientEntry = this.clients.get(role);
+    if (clientEntry) {
+      clientEntry.user = {
+        ...clientEntry.user,
+        faultTime,
+        faultTimeSig,
+      };
+    }
+    const message: Message = {
+      type: 'fault',
+      data: {
+        faultType,
+        user: clientEntry?.user,
+        timestamp: faultTime,
+        signature: faultTimeSig,
+      },
+    };
+    // Send the fault message to all connected clients
+    this.broadcast(message);
   }
 
   async sendMessage(ws: WebSocket, message: Message) {
@@ -403,35 +363,57 @@ export class WebSocketManager {
       }
     }
   }
+  private async sendParticipantInfoToConnectionManager(peerId: string | null, role: 'teacher' | 'learner' | null) {
+    if (peerId === null) throw new Error("peedId is null");
+    if (role === null) throw new Error("role is null");
+    const connectionManagerId = this.env.CONNECTION_MANAGER.idFromName(this.clientData!.clientSideRoomId);
+    const connectionManagerStub = this.env.CONNECTION_MANAGER.get(connectionManagerId);
+
+    await connectionManagerStub.fetch('http://connection-manager/updateParticipantRole', {
+      method: 'POST',
+      body: JSON.stringify({ peerId, role }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }
 
-interface ClientData {
+type ClientData = {
   clientSideRoomId: string;
   hashedTeacherAddress: string;
   hashedLearnerAddress: string;
   userAddress: string;
 }
 
+// Update the Message interface
 interface Message {
-  type: 'fault' | 'userJoined' | 'userLeft' | 'bothJoined' | 'bothLeft' | 'userData';
+  type:
+  | 'fault'
+  | 'userJoined'
+  | 'userLeft'
+  | 'bothJoined'
+  | 'bothLeft'
+  | 'userData'
+  | 'initiated'
+  | 'warning'
+  | 'expired';
   data: {
-    faultType?:
-    | 'learnerFault_didnt_join'
-    | 'teacherFault_didnt_join'
-    | 'learnerFault_connection_timeout'
-    | 'teacherFault_connection_timeout';
+    faultType?: FaultType;
     user?: User;
     timestamp?: number;
     signature?: string;
     teacher?: User | null;
     learner?: User | null;
+    message?: string;
+    timestampMs?: string;
   };
 }
 
-interface UserData {
-  teacher: User | null;
-  learner: User | null;
-}
+type FaultType =
+| 'learnerFault_didnt_join'
+| 'teacherFault_didnt_join'
+| 'learnerFault_connection_timeout'
+| 'teacherFault_connection_timeout';
+
 
 interface User {
   role: 'teacher' | 'learner' | null;
@@ -447,3 +429,25 @@ interface User {
   hashedTeacherAddress: string;
   hashedLearnerAddress: string;
 }
+
+interface SessionTimerEvent {
+  message: SessionTimerMessage;
+  data?: SessionTimerData;
+}
+
+interface SessionTimerMessage {
+  type: 'initiated' | 'warning' | 'expired';
+  message: string;
+}
+
+interface SessionTimerData {
+  timestampMs?: string;
+  signature?: string;
+}
+
+interface Env {
+  SESSION_TIMER: DurableObjectNamespace;
+  PRIVATE_KEY_SESSION_TIME_SIGNER: string;
+  CONNECTION_MANAGER: DurableObjectNamespace;
+}
+
