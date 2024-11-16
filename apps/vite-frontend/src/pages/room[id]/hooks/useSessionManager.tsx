@@ -1,6 +1,5 @@
 // useSessionManager.tsx
 import { useState, useEffect, useRef } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { Message, UseSessionManagerOptions } from '@/types/types';
 import { useLitAccount, usePkpWallet, useSessionSigs } from '@/contexts/AuthContext';
 
@@ -17,54 +16,9 @@ const useSessionManager = ({
   const userAddress = currentAccount?.ethAddress;
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasConnectedWs, setHasConnectedWs] = useState(false);
+  const [initializationComplete, setInitializationComplete] = useState(false);
+
   const socketRef = useRef<WebSocket | null>(null);
-  const heartbeatTimerRef = useRef<number | null>(null);
-
-  const signMessageMutation = useMutation({
-    mutationFn: async (message: string) => {
-      if (!pkpWallet) throw new Error('pkpWallet is undefined');
-      return await pkpWallet.signMessage(message);
-    },
-    retry: 3,
-    retryDelay: (attemptIndex) => 1000 * 2 ** attemptIndex,
-    onError: (error) => {
-      console.error("Error signing message:", error);
-    }
-  });
-
-  const startHeartbeat = () => {
-    if (heartbeatTimerRef.current !== null) return;
-
-    heartbeatTimerRef.current = window.setInterval(() => {
-      if (!socketRef.current || !sessionSigs || !currentAccount || !pkpWallet) return;
-
-      const timestamp = Date.now();
-      console.log('Sending heartbeat:', timestamp);
-      const message = `Heartbeat at ${timestamp}`;
-
-      signMessageMutation.mutate(message, {
-        onSuccess: (signature) => {
-          const heartbeatMessage = {
-            type: 'heartbeat',
-            timestamp,
-            signature,
-          };
-          console.log('Sending heartbeat message:', heartbeatMessage);
-          socketRef.current?.send(JSON.stringify(heartbeatMessage));
-        },
-        onError: (error) => {
-          console.error('Error in heartbeat:', error);
-        }
-      });
-    }, 30000);
-  };
-
-  const stopHeartbeat = () => {
-    if (heartbeatTimerRef.current) {
-      clearInterval(heartbeatTimerRef.current);
-      heartbeatTimerRef.current = null;
-    }
-  };
 
   const connectWebSocket = (role: string, roomId: string, workerUrl: string) => {
     console.log('Attempting to connect WebSocket');
@@ -89,14 +43,15 @@ const useSessionManager = ({
       };
       console.log('Sending init message:', JSON.stringify(initMessage));
       socket.send(JSON.stringify(initMessage));
+      setInitializationComplete(true); // Set initialization complete here
+
     });
 
     socket.addEventListener('message', (event) => {
       console.log('WebSocket message received:', event.data);
       const message = JSON.parse(event.data);
       if (message.type === 'connectionConfirmed') {
-        console.log('WebSocket connection confirmed, starting heartbeat');
-        startHeartbeat();
+        console.log('WebSocket connection confirmed');
       }
       console.log('Processed message type:', message.type, 'data:', message.data);
       console.log('Current messages state before update:', messages);
@@ -112,7 +67,6 @@ const useSessionManager = ({
 
     socket.addEventListener('close', (event) => {
       console.log('WebSocket connection closed', event.code, event.reason);
-      stopHeartbeat();
     });
 
     socket.addEventListener('error', (error) => {
@@ -146,9 +100,7 @@ const useSessionManager = ({
     ) {
       const initializeWebhookServer = async () => {
         try {
-          // const workerUrl = import.meta.env.VITE_SESSION_TIMER_WORKER_URL_DEV;
           const workerUrl = import.meta.env.VITE_SESSION_TIMER_WORKER_URL;
-
           if (!workerUrl) throw new Error('VITE_SESSION_TIMER_WORKER_URL is undefined');
 
           const response = await fetch(`${workerUrl}/init`, {
@@ -224,7 +176,6 @@ initData.status === 'OK' ? 'successful' : 'failed'
 
       return () => {
         console.log('Cleanup function called');
-        stopHeartbeat();
         if (socketRef.current) {
           console.log('Closing WebSocket connection');
           socketRef.current.close();
@@ -243,7 +194,7 @@ initData.status === 'OK' ? 'successful' : 'failed'
       pkpWallet,
     ]);
 
-  return {messages, hasConnectedWs};
+  return {messages, hasConnectedWs, initializationComplete};
 };
 
 export default useSessionManager;

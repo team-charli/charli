@@ -15,7 +15,7 @@ const Room = () => {
   const { id: roomId } = useParams({ from: '/room/$id' });
   const { roomRole, sessionId, hashedLearnerAddress, hashedTeacherAddress } = useSearch({ from: '/room/$id' });
 
-
+  // 0. Get additional
   // 1. Verify role and address
   const {
     data: verifiedRoleAndAddressData,
@@ -26,10 +26,14 @@ const Room = () => {
   const { isProcessing, processedDurationProof } = useSessionSignatureProof(sessionId);
 
   // 3. connect ws
-  const { messages, hasConnectedWs } = useSessionManager({
+  const { messages, hasConnectedWs, initializationComplete } = useSessionManager({
     clientSideRoomId: roomId,
     hashedLearnerAddress,
     hashedTeacherAddress,
+    sessionDuration,
+    sessionDataLearnerSig,
+    sessionDataTeacherSig,
+    secureSessionId
   });
 
   // 4. Join Room
@@ -39,6 +43,8 @@ const Room = () => {
       verifiedRoleAndAddressData,
       processedDurationProof,
       hasConnectedWs,
+      initializationComplete, // Wait for server initialization
+
     }
   );
 

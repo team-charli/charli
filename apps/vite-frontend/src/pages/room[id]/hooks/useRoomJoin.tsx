@@ -13,6 +13,8 @@ export const useRoomJoin = (
     } | undefined;
     processedDurationProof: boolean;
     hasConnectedWs: boolean;
+    initializationComplete: boolean;
+
   }
 ) => {
   const queryClient = useQueryClient();
@@ -41,7 +43,8 @@ export const useRoomJoin = (
       options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
       options.verifiedRoleAndAddressData?.verifiedRole &&
       options.processedDurationProof &&
-      options.hasConnectedWs
+      options.hasConnectedWs &&
+      options.initializationComplete
     );
   }, [options]);
 
@@ -54,10 +57,6 @@ export const useRoomJoin = (
       return joinRoom({
         roomId,
         token: huddleAccessToken,
-        metadata: JSON.stringify({
-          role: options.verifiedRoleAndAddressData?.verifiedRole,
-          isVerified: options.verifiedRoleAndAddressData?.verifiedRoleAndAddress,
-        }),
       });
     },
     onSuccess: (room) => {

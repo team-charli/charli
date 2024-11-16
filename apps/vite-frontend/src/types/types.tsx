@@ -342,6 +342,10 @@ export interface UseSessionManagerOptions {
   clientSideRoomId: string | undefined;
   hashedTeacherAddress: string | undefined;
   hashedLearnerAddress: string | undefined;
+  sessionDuration: number | undefined;
+  sessionDataLearnerSig: SignatureLike;
+  sessionDataTeacherSig: SignatureLike;
+  secureSessionId: string | null;
 }
 
 export type SupabaseError = {
