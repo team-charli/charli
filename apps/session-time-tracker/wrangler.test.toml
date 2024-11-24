@@ -1,0 +1,15 @@
+name = "session-time-tracker-test"
+workers_dev = true
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = [ "nodejs_compat" ]
+
+[durable_objects]
+bindings = [
+  {name = "WEBSOCKET_MANAGER", class_name = "WebSocketManager"},
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["WebSocketManager"]
+

@@ -1,5 +1,5 @@
 //sessionTimer.ts
-import { Wallet } from 'ethers';
+import { Env } from './env';
 
 export class SessionTimer {
   private duration!: number;
@@ -65,10 +65,8 @@ export class SessionTimer {
 
   private async broadcastInitiationMessage() {
     try {
-      const wallet = new Wallet(this.env.PRIVATE_KEY_SESSION_TIME_SIGNER);
       const timestampMs = String(Date.now());
-      const signature = await wallet.signMessage(timestampMs);
-      await this.broadcastMessage({ type: 'initiated', message: 'Timer initiated' }, { timestampMs, signature });
+      await this.broadcastMessage({ type: 'initiated', message: 'Timer initiated' }, { timestampMs });
     } catch (error) {
       console.error(error);
       throw new Error('Error signing initiation message');
@@ -81,10 +79,8 @@ export class SessionTimer {
 
   private async broadcastExpirationMessage() {
     try {
-      const wallet = new Wallet(this.env.PRIVATE_KEY_SESSION_TIME_SIGNER);
       const timestampMs = String(Date.now());
-      const signature = await wallet.signMessage(timestampMs);
-      await this.broadcastMessage({ type: 'expired', message: 'Time expired' }, { timestampMs, signature });
+      await this.broadcastMessage({ type: 'expired', message: 'Time expired' }, { timestampMs });
     } catch (error) {
       console.error(error);
       throw new Error('Error signing expiration message');
@@ -100,11 +96,6 @@ export class SessionTimer {
       headers: { 'Content-Type': 'application/json' },
     });
   }
-}
-
-interface Env {
-  WEBSOCKET_MANAGER: DurableObjectNamespace;
-  PRIVATE_KEY_SESSION_TIME_SIGNER: string;
 }
 
 interface RequestPayload {

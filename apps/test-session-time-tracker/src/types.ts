@@ -63,3 +63,19 @@ export type WebhookData = {
   event: keyof WebhookEvents;
   payload: WebhookEvents[keyof WebhookEvents][0];
 };
+
+export interface User {
+  role: 'teacher' | 'learner' | null;
+  peerId: string | null;
+  roomId: string | null;
+  joinedAt: number | null;
+  leftAt: number | null;
+  joinedAtSig: string | null;
+  leftAtSig: string | null;
+  faultTime?: number;
+  faultTimeSig?: string;
+  duration: number | null;
+  hashedTeacherAddress: string;
+  hashedLearnerAddress: string;
+}
+

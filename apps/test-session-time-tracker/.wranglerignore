@@ -1,0 +1,21 @@
+# Exclude test directories
+tests/
+__tests__/
+
+# Exclude test files
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js
+
+# Exclude config and lock files not needed in production
+tsconfig.json
+tsconfig.*.json
+package-lock.json
+bun.lockb
+project.json
+
+# Exclude local environment files
+.env
+.env.*
+

@@ -1,34 +1,46 @@
 //index.ts
-import https from "node:https";
 import { cors } from 'hono/cors';
 import { Hono } from 'hono';
 import { WebhookReceiver } from "@huddle01/server-sdk/webhooks";
 export {WebSocketManager} from './websocketManager'
+export { SessionTimer } from './sessionTimer';
+export { ConnectionManager } from './connectionManager';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.post('/init', async (c) => {
-  const data = await c.req.json();
-  const { clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress } = data;
+  try {
+    const data = await c.req.json();
+    const { clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress } = data;
 
-  console.log('[INIT] Received init request:', {
-    roomId: data.clientSideRoomId,
-    timestamp: new Date().toISOString()
-  });
-  const durableObject = await getDurableObject(c.env.WEBSOCKET_MANAGER, clientSideRoomId);
-  const response = await durableObject.fetch('http://websocket-manager/init', {
-    method: 'POST',
-    body: JSON.stringify({
-      clientSideRoomId,
-      hashedTeacherAddress,
-      hashedLearnerAddress,
-      userAddress,
-    }),
-  });
-  const responseText = await response.text();
-  const status = response.status;
-  const contentType = response.headers.get('Content-Type') || 'application/json';
-  return new Response(responseText, { status, headers: { 'Content-Type': contentType } });
+    const durableObject = await getDurableObject(c.env.WEBSOCKET_MANAGER, clientSideRoomId);
+    const response = await durableObject.fetch('http://websocket-manager/init', {
+      method: 'POST',
+      body: JSON.stringify({
+        clientSideRoomId,
+        hashedTeacherAddress,
+        hashedLearnerAddress,
+        userAddress,
+      }),
+    });
+
+    const responseData = await response.text();
+    return new Response(responseData, {
+      status: response.status,
+      headers: { 'Content-Type': response.headers.get('Content-Type') || 'application/json' }
+    });
+  } catch (error) {
+    if (error.message === "User address doesn't match teacher or learner address") {
+      return new Response(JSON.stringify({
+        status: 'error',
+        message: error.message
+      }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+    }
+    throw error;
+  }
 });
 
 app.all('/websocket/:roomId', async (c) => {
@@ -41,7 +53,6 @@ app.all('/websocket/:roomId', async (c) => {
 });
 
 
-// index.ts (Hono Worker)
 
 app.post('/webhook', async (c) => {
   console.log('[WEBHOOK] Received webhook event:', {
@@ -56,13 +67,18 @@ app.post('/webhook', async (c) => {
 
     try {
       const event = receiver.receive(data, signatureHeader);
-
+      if (!['meeting:started', 'meeting:ended', 'peer:joined', 'peer:left'].includes(event.event)) {
+        return c.json({
+          status: 'error',
+          message: 'Unsupported event type'
+        }, 400);
+      }
       let roomId: string | undefined;
       if (
         event.event === 'meeting:started' ||
-        event.event === 'meeting:ended' ||
-        event.event === 'peer:joined' ||
-        event.event === 'peer:left'
+          event.event === 'meeting:ended' ||
+          event.event === 'peer:joined' ||
+          event.event === 'peer:left'
       ) {
         const typedData = receiver.createTypedWebhookData(event.event, event.payload);
         roomId = typedData.data.roomId;
@@ -88,7 +104,10 @@ app.post('/webhook', async (c) => {
       return c.text("Webhook processed successfully", 200);
     } catch (error) {
       console.error(error);
-      return c.text("Error processing webhook", 400);
+      if (error.message === "Invalid headers") {
+        return c.json({ status: 'error', message: 'Invalid signature' }, 401);
+      }
+      return c.json({ status: 'error', message: 'Error processing webhook' }, 400);
     }
   }
 

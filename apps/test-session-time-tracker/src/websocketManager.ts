@@ -1,16 +1,24 @@
 // websocketManager.ts
-import { WebhookEvents, WebhookData } from './types.js';
-import { Wallet, keccak256} from 'ethers';
+import { WebhookEvents, WebhookData, User } from './types.js';
+import { keccak256 } from 'ethereum-cryptography/keccak';
+import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
+import { Env } from './env';
 
 export class WebSocketManager {
   private clients: Map<string, { ws: WebSocket | null; user: User }> = new Map();
-  private wallet: Wallet;
-  private clientData: ClientData | null;
+  private clientData: ClientData | null = null; // Initialize as null
 
   constructor(private state: DurableObjectState, private env: Env) {
-    const privateKey = env.PRIVATE_KEY_SESSION_TIME_SIGNER;
-    this.wallet = new Wallet(privateKey);
-    this.clientData = null;
+    this.clients = new Map();
+    // Initialize from storage
+    this.state.blockConcurrencyWhile(async () => {
+      const storedClients = await this.state.storage.get('clients') as Map<string, User> | undefined;
+      if (storedClients) {
+        for (const [role, user] of storedClients.entries()) {
+          this.clients.set(role, { ws: null, user });
+        }
+      }
+    });
   }
 
   async fetch(request: Request) {
@@ -110,27 +118,36 @@ export class WebSocketManager {
     });
   }
 
-  private async handleInitRequest(request: Request): Promise<Response> {
+private async handleInitRequest(request: Request): Promise<Response> {
     if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     console.log('[WSM-INIT] Received init request');
+
     const clientData: ClientData = await request.json();
     console.log('[WSM-INIT] Client data:', {
-      roomId: clientData.clientSideRoomId,
-      userAddress: clientData.userAddress,
-      // hash values truncated for logging
-      hashedTeacher: clientData.hashedTeacherAddress.slice(0, 10),
-      hashedLearner: clientData.hashedLearnerAddress.slice(0, 10)
+        roomId: clientData.clientSideRoomId,
+        userAddress: clientData.userAddress,
+        hashedTeacher: clientData.hashedTeacherAddress.slice(0, 10),
+        hashedLearner: clientData.hashedLearnerAddress.slice(0, 10)
     });
-    this.clientData = clientData;
 
-    const userAddressHash = keccak256(clientData.userAddress);
+    this.clientData = clientData;
+    await this.state.storage.put(`room:${clientData.clientSideRoomId}`, clientData);
+
+    const userAddressHashBytes = keccak256(hexToBytes(clientData.userAddress));
+    const userAddressHash = toHex(userAddressHashBytes);
     let role: 'teacher' | 'learner';
     if (userAddressHash === clientData.hashedTeacherAddress) {
       role = 'teacher';
     } else if (userAddressHash === clientData.hashedLearnerAddress) {
       role = 'learner';
     } else {
-      throw new Error("User address doesn't match teacher or learner address");
+      return new Response(JSON.stringify({
+        status: 'error',
+        message: "User address doesn't match teacher or learner address"
+      }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
     }
 
     const user: User = {
@@ -145,13 +162,21 @@ export class WebSocketManager {
       leftAtSig: null,
       duration: null,
     };
+
+    // Store in DO storage
+    await this.state.storage.put(`user:${role}`, user);
     this.clients.set(role, { ws: null, user });
 
-    await this.sendParticipantInfoToConnectionManager(user.peerId, user.role);
+    // Critical: Send participant info to ConnectionManager
+    // await this.sendParticipantInfoToConnectionManager(user.peerId, user.role);
 
-    return new Response(JSON.stringify({ status: 'OK', role, roomId: user.roomId }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({
+      status: 'OK',
+      role,
+      roomId: user.roomId
+    }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
   }
 
   private async handleWebhook(request: Request): Promise<Response> {
@@ -168,13 +193,11 @@ export class WebSocketManager {
       const { id: peerId, roomId: webhookRoomId, joinedAt } = event.payload as WebhookEvents['peer:joined'][0];
       const clientEntry = Array.from(this.clients.values()).find((entry) => entry.user.role && !entry.user.peerId);
       if (clientEntry) {
-        const signature = await this.wallet.signMessage(String(joinedAt));
         clientEntry.user = {
           ...clientEntry.user,
           peerId,
           roomId: webhookRoomId,
           joinedAt,
-          joinedAtSig: signature,
         };
         // Store the user data in the Durable Object's storage
         await this.state.storage.put(`user:${clientEntry.user.role}`, clientEntry.user);
@@ -211,11 +234,9 @@ export class WebSocketManager {
       const { id: peerId, leftAt, duration } = event.payload as WebhookEvents['peer:left'][0];
       const clientEntry = Array.from(this.clients.values()).find((entry) => entry.user.peerId === peerId);
       if (clientEntry) {
-        const signature = await this.wallet.signMessage(String(leftAt));
         clientEntry.user = {
           ...clientEntry.user,
           leftAt,
-          leftAtSig: signature,
           duration,
         };
 
@@ -330,13 +351,11 @@ export class WebSocketManager {
 
   private async handleFaultForRole(role: 'teacher' | 'learner', faultType: FaultType) {
     const faultTime = Date.now();
-    const faultTimeSig = await this.wallet.signMessage(JSON.stringify({ faultType, faultTime }));
     const clientEntry = this.clients.get(role);
     if (clientEntry) {
       clientEntry.user = {
         ...clientEntry.user,
         faultTime,
-        faultTimeSig,
       };
     }
     const message: Message = {
@@ -345,7 +364,6 @@ export class WebSocketManager {
         faultType,
         user: clientEntry?.user,
         timestamp: faultTime,
-        signature: faultTimeSig,
       },
     };
     // Send the fault message to all connected clients
@@ -363,20 +381,35 @@ export class WebSocketManager {
       }
     }
   }
-  private async sendParticipantInfoToConnectionManager(peerId: string | null, role: 'teacher' | 'learner' | null) {
-    if (peerId === null) throw new Error("peedId is null");
+private async sendParticipantInfoToConnectionManager(peerId: string | null, role: 'teacher' | 'learner' | null) {
+    if (peerId === null) throw new Error("peerId is null");
     if (role === null) throw new Error("role is null");
-    const connectionManagerId = this.env.CONNECTION_MANAGER.idFromName(this.clientData!.clientSideRoomId);
+
+    const clientData = await this.getClientData();
+    const connectionManagerId = this.env.CONNECTION_MANAGER.idFromName(clientData.clientSideRoomId);
     const connectionManagerStub = this.env.CONNECTION_MANAGER.get(connectionManagerId);
 
     await connectionManagerStub.fetch('http://connection-manager/updateParticipantRole', {
-      method: 'POST',
-      body: JSON.stringify({ peerId, role }),
-      headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        body: JSON.stringify({ peerId, role }),
+        headers: { 'Content-Type': 'application/json' },
     });
-  }
 }
+  private async getClientData(): Promise<ClientData> {
+    if (this.clientData) return this.clientData;
 
+    // Try to get from storage if not in memory
+    const roomKeys = await this.state.storage.list<ClientData>({ prefix: 'room:' });
+    const [, clientData] = roomKeys.entries().next().value;
+
+    if (!clientData) {
+        throw new Error('No client data found');
+    }
+
+    this.clientData = clientData;
+    return clientData;
+}
+}
 type ClientData = {
   clientSideRoomId: string;
   hashedTeacherAddress: string;
@@ -415,20 +448,6 @@ type FaultType =
 | 'teacherFault_connection_timeout';
 
 
-export interface User {
-  role: 'teacher' | 'learner' | null;
-  peerId: string | null;
-  roomId: string | null;
-  joinedAt: number | null;
-  leftAt: number | null;
-  joinedAtSig: string | null;
-  leftAtSig: string | null;
-  faultTime?: number;
-  faultTimeSig?: string;
-  duration: number | null;
-  hashedTeacherAddress: string;
-  hashedLearnerAddress: string;
-}
 
 interface SessionTimerEvent {
   message: SessionTimerMessage;
@@ -445,9 +464,4 @@ interface SessionTimerData {
   signature?: string;
 }
 
-interface Env {
-  SESSION_TIMER: DurableObjectNamespace;
-  PRIVATE_KEY_SESSION_TIME_SIGNER: string;
-  CONNECTION_MANAGER: DurableObjectNamespace;
-}
 
