@@ -1,11 +1,15 @@
 // types.ts
 
+import { Fetcher } from "@cloudflare/workers-types";
+
 export type Env = {
   HUDDLE_API_KEY: string;
   WEBSOCKET_MANAGER: DurableObjectNamespace;
   CONNECTION_MANAGER: DurableObjectNamespace;
+  SESSION_MANAGER: DurableObjectNamespace;
   SESSION_TIMER: DurableObjectNamespace;
   PRIVATE_KEY_SESSION_TIME_SIGNER: string;
+  WORKER: Fetcher;
 };
 export type WebhookEvents = {
   'meeting:started': [
@@ -79,3 +83,23 @@ export interface User {
   hashedLearnerAddress: string;
 }
 
+export type ClientData = {
+  clientSideRoomId: string;
+  hashedTeacherAddress: string;
+  hashedLearnerAddress: string;
+  userAddress: string;
+}
+
+export interface Message {
+  type: 'fault' | 'userJoined' | 'userLeft' | 'bothJoined' | 'bothLeft' | 'userData' | 'initiated' | 'warning' | 'expired';
+  data: {
+    faultType?: string;
+    user?: User;
+    timestamp?: number;
+    signature?: string;
+    teacher?: User | null;
+    learner?: User | null;
+    message?: string;
+    timestampMs?: string;
+  };
+}

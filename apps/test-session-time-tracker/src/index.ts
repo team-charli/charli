@@ -1,146 +1,165 @@
 //index.ts
-import { cors } from 'hono/cors';
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { WebhookReceiver } from "@huddle01/server-sdk/webhooks";
-export {WebSocketManager} from './websocketManager'
-export { SessionTimer } from './sessionTimer';
-export { ConnectionManager } from './connectionManager';
+import { ConnectionManager } from './connectionManager';
+import {SessionManager} from './sessionManager';
+import { SessionTimer } from './sessionTimer';
+import { streamSSE } from 'hono/streaming';
+import { Message } from './types';
 
-const app = new Hono<{ Bindings: Bindings }>();
+// Define environment type for the main worker
+type Env = {
+  Bindings: {
+    HUDDLE_API_KEY: string;
+    SESSION_MANAGER: DurableObjectNamespace;
+    CONNECTION_MANAGER: DurableObjectNamespace;
+    SESSION_TIMER: DurableObjectNamespace;
+    WORKER: Fetcher;
+  }
+}
 
+const app = new Hono<Env>();
+
+// Track active SSE streams
+type MessageQueue = {
+  push: (message: Message) => Promise<void>;
+  messages: Message[];
+  stream: any;
+};
+const activeStreams = new Map<string, MessageQueue>();
+
+// Set up SSE endpoint
+app.get('/events/:roomId', (c) => {
+  const roomId = c.req.param('roomId');
+
+  return streamSSE(c, async (stream) => {
+    const messageQueue: MessageQueue = {
+      messages: [],
+      stream,
+      push: async (message: Message) => {
+        await stream.writeSSE({
+          data: JSON.stringify(message),
+          event: message.type,
+          id: String(Date.now())
+        });
+      }
+    };
+
+    activeStreams.set(roomId, messageQueue);
+
+    stream.onAbort(() => {
+      activeStreams.delete(roomId);
+    });
+
+    while (true) {
+      await stream.sleep(30000);
+      await stream.writeSSE({
+        data: 'heartbeat',
+        event: 'ping',
+        id: String(Date.now())
+      });
+    }
+  });
+});
+
+// Endpoint for DOs to broadcast messages
+app.post('/broadcast/:roomId', async (c) => {
+  const roomId = c.req.param('roomId');
+  const message = await c.req.json<Message>();
+
+  const messageQueue = activeStreams.get(roomId);
+  if (messageQueue) {
+    messageQueue.push(message);
+    return c.json({ status: 'ok' });
+  }
+  return c.json({ status: 'no_active_stream' }, 404);
+});
+
+// Session initialization endpoint
 app.post('/init', async (c) => {
   try {
     const data = await c.req.json();
-    const { clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress } = data;
+    const { clientSideRoomId } = data;
 
-    const durableObject = await getDurableObject(c.env.WEBSOCKET_MANAGER, clientSideRoomId);
-    const response = await durableObject.fetch('http://websocket-manager/init', {
+    const sessionManager = c.env.SESSION_MANAGER.get(
+      c.env.SESSION_MANAGER.idFromName(clientSideRoomId)
+    );
+
+    const response = await sessionManager.fetch('http://session-manager/init', {
       method: 'POST',
-      body: JSON.stringify({
-        clientSideRoomId,
-        hashedTeacherAddress,
-        hashedLearnerAddress,
-        userAddress,
-      }),
+      body: JSON.stringify(data)
     });
 
-    const responseData = await response.text();
-    return new Response(responseData, {
+    return new Response(await response.text(), {
       status: response.status,
       headers: { 'Content-Type': response.headers.get('Content-Type') || 'application/json' }
     });
   } catch (error) {
     if (error.message === "User address doesn't match teacher or learner address") {
-      return new Response(JSON.stringify({
+      return c.json({
         status: 'error',
         message: error.message
-      }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
+      }, 403);
     }
     throw error;
   }
 });
 
-app.all('/websocket/:roomId', async (c) => {
-  const roomId = c.req.param('roomId');
-  const durableObject = await getDurableObject(c.env.WEBSOCKET_MANAGER, roomId);
-
-  // Forward the original request to the Durable Object
-  const resp = await durableObject.fetch(c.req.raw);
-  return resp;
-});
-
-
-
+// Webhook handler
 app.post('/webhook', async (c) => {
-  console.log('[WEBHOOK] Received webhook event:', {
-    signature: c.req.header("huddle01-signature")?.slice(0, 10),
-    headers: c.req.header()
-  });
   const signatureHeader = c.req.header("huddle01-signature");
-
-  if (signatureHeader) {
-    const receiver = new WebhookReceiver({ apiKey: c.env.HUDDLE_API_KEY });
-    const data = await c.req.text();
-
-    try {
-      const event = receiver.receive(data, signatureHeader);
-      if (!['meeting:started', 'meeting:ended', 'peer:joined', 'peer:left'].includes(event.event)) {
-        return c.json({
-          status: 'error',
-          message: 'Unsupported event type'
-        }, 400);
-      }
-      let roomId: string | undefined;
-      if (
-        event.event === 'meeting:started' ||
-          event.event === 'meeting:ended' ||
-          event.event === 'peer:joined' ||
-          event.event === 'peer:left'
-      ) {
-        const typedData = receiver.createTypedWebhookData(event.event, event.payload);
-        roomId = typedData.data.roomId;
-      }
-
-      if (roomId) {
-        const websocketManager = await getDurableObject(c.env.WEBSOCKET_MANAGER, roomId);
-        const connectionManager = await getDurableObject(c.env.CONNECTION_MANAGER, roomId);
-
-        // Forward to WebSocketManager
-        await websocketManager.fetch('http://websocket-manager/handleWebhook', {
-          method: 'POST',
-          body: JSON.stringify({ event }),
-        });
-
-        // Forward to ConnectionManager
-        await connectionManager.fetch('http://connection-manager/handleWebhook', {
-          method: 'POST',
-          body: JSON.stringify({ event }),
-        });
-      }
-
-      return c.text("Webhook processed successfully", 200);
-    } catch (error) {
-      console.error(error);
-      if (error.message === "Invalid headers") {
-        return c.json({ status: 'error', message: 'Invalid signature' }, 401);
-      }
-      return c.json({ status: 'error', message: 'Error processing webhook' }, 400);
-    }
+  if (!signatureHeader) {
+    return c.text("Missing signature", 401);
   }
 
-  return c.text("Webhook processed successfully", 200);
+  const receiver = new WebhookReceiver({ apiKey: c.env.HUDDLE_API_KEY });
+  const data = await c.req.text();
+
+  try {
+    const event = receiver.receive(data, signatureHeader);
+    let roomId: string | undefined;
+
+    if (['meeting:started', 'meeting:ended', 'peer:joined', 'peer:left'].includes(event.event)) {
+      const typedData = receiver.createTypedWebhookData(event.event, event.payload);
+      roomId = (typedData.data as { roomId: string }).roomId;
+    } else {
+      return c.json({
+        status: 'error',
+        message: 'Unsupported event type'
+      }, 400);
+    }
+
+    if (roomId) {
+      const sessionManager = c.env.SESSION_MANAGER.get(
+        c.env.SESSION_MANAGER.idFromName(roomId)
+      );
+
+      await sessionManager.fetch('http://session-manager/webhook', {
+        method: 'POST',
+        body: JSON.stringify({ event })
+      });
+    }
+
+    return c.text("Webhook processed successfully");
+  } catch (error) {
+    if (error.message === "Invalid headers") {
+      return c.json({ status: 'error', message: 'Invalid signature' }, 401);
+    }
+    return c.json({ status: 'error', message: 'Error processing webhook' }, 400);
+  }
 });
 
-
-app.use('/init', cors({
+// CORS setup
+app.use('*', cors({
   origin: ['http://localhost:5173', 'https://charli.chat'],
   allowMethods: ['POST', 'GET', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: ['Content-Type', 'Authorization', 'huddle01-signature'],
   exposeHeaders: ['Content-Length'],
   maxAge: 600,
   credentials: true,
 }));
 
-app.options('*', (c) => {
-  return c.text('', 204)
-})
-
-async function getDurableObject(namespace: DurableObjectNamespace, roomId: string) {
-  const durableObjectId = namespace.idFromName(roomId);
-  return namespace.get(durableObjectId);
-}
+export { SessionManager, ConnectionManager, SessionTimer };
 
 export default app;
-
-type Bindings = {
-  HUDDLE_API_KEY: string;
-  WEBSOCKET_MANAGER: DurableObjectNamespace;
-  CONNECTION_MANAGER: DurableObjectNamespace;
-  JWT_SECRET: string;
-};
-
-
-

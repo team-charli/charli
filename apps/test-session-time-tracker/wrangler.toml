@@ -6,7 +6,7 @@ compatibility_flags = [ "nodejs_compat" ]
 
 [durable_objects]
 bindings = [
-{name = "WEBSOCKET_MANAGER", class_name = "WebSocketManager"},
+{name = "SESSION_MANAGER", class_name = "SessionManager"},
 ]
 
 [[migrations]]
@@ -27,3 +27,8 @@ new_classes = ["ConnectionManager", "SessionTimer"]
 tag= "v6"
 deleted_classes= ["SessionTimer", "SessionState", "ConnectionManager", "TimerObject", "DisconnectionManager"]
 new_classes= ["WebSocketManager"]
+
+[[migrations ]]
+tag="v7"
+deleted_classes=["WebSocketManager"]
+new_classes=["SessionManager"]

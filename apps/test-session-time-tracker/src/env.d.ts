@@ -1,10 +1,13 @@
 ///Users/zm/Projects/charli/apps/session-time-tracker/src/env.d.ts
+import { Fetcher } from "@cloudflare/workers-types";
 import { DurableObjectNamespace } from "@cloudflare/workers-types/experimental";
+import { Hono } from "hono";
 
 export interface Env {
-  WEBSOCKET_MANAGER: DurableObjectNamespace;
+  SESSION_MANAGER: DurableObjectNamespace;
   CONNECTION_MANAGER: DurableObjectNamespace;
   SESSION_TIMER: DurableObjectNamespace;
+  WORKER: Fetcher ;
   HUDDLE_API_KEY: string;
   PRIVATE_KEY_SESSION_TIME_SIGNER: string;
 }
