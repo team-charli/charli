@@ -117,15 +117,19 @@ export class SessionTimer extends DurableObject<Env> {
     await this.state.storage.delete('firstJoinRole');
   }
 
-  private async broadcast(message: Message): Promise<void> {
-    await this.env.WORKER.fetch(`http://worker/broadcast/${this.roomId}`, {
+  // Similar changes in SessionTimer:
+  private async broadcast(message: Message) {
+    const messageRelay = this.env.MESSAGE_RELAY.get(
+      this.env.MESSAGE_RELAY.idFromName(this.roomId)
+    );
+
+    await messageRelay.fetch('http://message-relay/broadcast/' + this.roomId, {
       method: 'POST',
       body: JSON.stringify(message),
       headers: { 'Content-Type': 'application/json' }
     });
   }
 }
-
 interface RequestPayload {
   duration: number;
   hashedTeacherAddress: string;

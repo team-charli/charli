@@ -16,7 +16,7 @@ type AppEnv = {
 export class SessionManager extends DurableObject<Env> {  // Pass Env type to DurableObject
   private app = new Hono<AppEnv>();
   private roomId: string;
-  protected state: DurableObjectState;  // Make state protected
+  protected state: DurableObjectState;
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
@@ -27,7 +27,7 @@ export class SessionManager extends DurableObject<Env> {  // Pass Env type to Du
     // Handle initialization
     this.app.post('/init', async (c) => {
       const clientData = await c.req.json<ClientData>();
-      const { userAddress, hashedTeacherAddress, hashedLearnerAddress } = clientData;
+      const { userAddress, hashedTeacherAddress, hashedLearnerAddress, sessionDuration } = clientData;
 
       // Validate user and assign role
       const userAddressHashBytes = keccak256(hexToBytes(userAddress));
@@ -55,6 +55,7 @@ export class SessionManager extends DurableObject<Env> {  // Pass Env type to Du
         joinedAt: null,
         leftAt: null,
         duration: null,
+        sessionDuration,
         joinedAtSig: null,
         leftAtSig: null,
       };

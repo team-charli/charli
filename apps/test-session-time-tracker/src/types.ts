@@ -6,6 +6,7 @@ export type Env = {
   HUDDLE_API_KEY: string;
   WEBSOCKET_MANAGER: DurableObjectNamespace;
   CONNECTION_MANAGER: DurableObjectNamespace;
+  MESSAGE_RELAY: DurableObjectNamespace;
   SESSION_MANAGER: DurableObjectNamespace;
   SESSION_TIMER: DurableObjectNamespace;
   PRIVATE_KEY_SESSION_TIME_SIGNER: string;
@@ -81,6 +82,7 @@ export interface User {
   duration: number | null;
   hashedTeacherAddress: string;
   hashedLearnerAddress: string;
+  sessionDuration: number;
 }
 
 export type ClientData = {
@@ -88,6 +90,7 @@ export type ClientData = {
   hashedTeacherAddress: string;
   hashedLearnerAddress: string;
   userAddress: string;
+  sessionDuration: number;
 }
 
 export interface Message {

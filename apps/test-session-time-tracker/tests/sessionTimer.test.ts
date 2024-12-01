@@ -1,191 +1,218 @@
-// tests/sessionTimer.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { env, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
-import { SessionTimer } from '../src/sessionTimer';
-import type { Message } from '../src/websocketManager';
+import { env, runInDurableObject, runDurableObjectAlarm } from "cloudflare:test";
+import { describe, it, expect, beforeEach } from "vitest";
+import { SessionTimer } from "../src/sessionTimer";
 
-vi.mock('ethers', () => ({
-  Wallet: class MockWallet {
-    signMessage = vi.fn().mockResolvedValue('test-signature');
-    constructor(public privateKey: string) {}
-  }
-}));
-
-describe('SessionTimer Durable Object', () => {
-  let sessionTimerStub: DurableObjectStub;
-  let webSocketManagerStub: DurableObjectStub;
-  const roomId = 'test-room';
+describe("Session Timer", () => {
+  const roomId = "test-room";
+  const firstJoinTime = Date.now();
+  const duration = 3600000; // 1 hour
+  let sessionTimer: DurableObjectStub;
+  let messageRelay: DurableObjectStub;
+  let ws: WebSocket;
 
   beforeEach(async () => {
-    const id = env.SESSION_TIMER.idFromName(roomId);
-    sessionTimerStub = env.SESSION_TIMER.get(id);
+    sessionTimer = env.SESSION_TIMER.get(
+      env.SESSION_TIMER.idFromName(roomId)
+    );
 
-    // Get WebSocket Manager stub for message verification
-    const wsId = env.WEBSOCKET_MANAGER.idFromName(roomId);
-    webSocketManagerStub = env.WEBSOCKET_MANAGER.get(wsId);
+    // Set up MessageRelay to catch broadcasts
+    messageRelay = env.MESSAGE_RELAY.get(
+      env.MESSAGE_RELAY.idFromName(roomId)
+    );
+    const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`);
+    ws = wsResponse.webSocket;
+    ws.accept();
+  });
 
-    // Create WebSocket connection to receive broadcasts
-    const wsResponse = await webSocketManagerStub.fetch(`http://localhost/websocket/${roomId}`, {
-      headers: {
-        'Upgrade': 'websocket',
-        'Connection': 'Upgrade'
-      }
+  it("should initialize timer with correct phases", async () => {
+    await sessionTimer.fetch('http://session-timer/', {
+      method: 'POST',
+      body: JSON.stringify({
+        duration,
+        firstJoinTime,
+        firstJoinRole: 'teacher',
+        hashedTeacherAddress: '0x123',
+        hashedLearnerAddress: '0x456'
+      })
     });
-    const ws = wsResponse.webSocket!;
 
-    // Initialize WebSocket connection
-    ws.send(JSON.stringify({
-      type: 'initConnection',
-      data: { role: 'teacher' }
-    }));
-    // Wait for connection confirmation
-    await new Promise(resolve => {
-      ws.addEventListener('message', event => {
-        const data = parseWSMessage(event.data);
-        if (data.type === 'connectionConfirmed') resolve(data);
-      });
+    await runInDurableObject(sessionTimer, async (instance: SessionTimer, state) => {
+      expect(await state.storage.get('alarmType')).toBe('joinWindow');
+      expect(await state.storage.get('firstJoinRole')).toBe('teacher');
+      expect(await state.storage.get('warningTime')).toBe(firstJoinTime + duration - 180000);
+      expect(await state.storage.get('expirationTime')).toBe(firstJoinTime + duration);
     });
   });
 
-    it('should start session timer and broadcast initiation message', async () => {
-      // Create promise to capture broadcast
-      const broadcastPromise = new Promise(resolve => {
-        webSocketManagerStub.fetch(`http://localhost/websocket/${roomId}`).then(response => {
-          const ws = response.webSocket!;
-          ws.addEventListener('message', event => {
-            const data = parseWSMessage(event.data);
-            if (data.type === 'initiated') resolve(data);
-          });
-        });
-      });
-
-      const duration = 3600000; // 1 hour
-      await sessionTimerStub.fetch('http://localhost/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          duration,
-          hashedTeacherAddress: 'test-teacher-hash',
-          hashedLearnerAddress: 'test-learner-hash',
-        }),
-      });
-
-      // Verify initiation broadcast
-      const initiationMessage = await broadcastPromise as Message;
-      expect(initiationMessage).toMatchObject({
-        type: 'initiated',
-        data: {
-          message: 'Timer initiated',
-          timestampMs: expect.any(String),
-          signature: 'test-signature'
-        }
-      });
-
-      // Verify storage state
-      await runInDurableObject(sessionTimerStub, async (instance: SessionTimer) => {
-        const alarmType = await instance.state.storage.get('alarmType');
-        const expirationTime = await instance.state.storage.get<number>('expirationTime');
-
-        expect(alarmType).toBe('warning');
-        expect(expirationTime).toBeGreaterThan(Date.now());
-        expect(expirationTime).toBe(Date.now() + duration);
-      });
+  it("should broadcast initialization message", async () => {
+    let receivedMessage: any;
+    ws.addEventListener('message', (event) => {
+      receivedMessage = JSON.parse(event.data);
     });
 
-    it('should handle warning alarm and setup expiration', async () => {
-      // Setup session timer
-      const duration = 300000; // 5 minutes
-      await sessionTimerStub.fetch('http://localhost/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          duration,
-          hashedTeacherAddress: 'test-teacher-hash',
-          hashedLearnerAddress: 'test-learner-hash',
-        }),
-      });
-
-      // Create promise to capture warning broadcast
-      const warningPromise = new Promise(resolve => {
-        webSocketManagerStub.fetch(`http://localhost/websocket/${roomId}`).then(response => {
-          const ws = response.webSocket!;
-          ws.addEventListener('message', event => {
-            const data = parseWSMessage(event.data);
-            if (data.type === 'warning') resolve(data);
-          });
-        });
-      });
-
-      // Trigger warning alarm
-      const ran = await runDurableObjectAlarm(sessionTimerStub);
-      expect(ran).toBe(true);
-
-      // Verify warning broadcast
-      const warningMessage = await warningPromise as Message;
-      expect(warningMessage).toMatchObject({
-        type: 'warning',
-        data: {
-          message: '3-minute warning'
-        }
-      });
-
-      // Verify state transition
-      await runInDurableObject(sessionTimerStub, async (instance: SessionTimer) => {
-        const alarmType = await instance.state.storage.get('alarmType');
-        expect(alarmType).toBe('expired');
-      });
+    await sessionTimer.fetch('http://session-timer/', {
+      method: 'POST',
+      body: JSON.stringify({
+        duration,
+        firstJoinTime,
+        firstJoinRole: 'teacher'
+      })
     });
 
-    it('should handle expiration alarm and cleanup', async () => {
-      // Setup timer in expired state
-      await runInDurableObject(sessionTimerStub, async (instance: SessionTimer) => {
-        await instance.state.storage.put('alarmType', 'expired');
-        await instance.state.storage.put('expirationTime', Date.now());
-      });
+    // Wait for message processing
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Create promise to capture expiration broadcast
-      const expirationPromise = new Promise(resolve => {
-        webSocketManagerStub.fetch(`http://localhost/websocket/${roomId}`).then(response => {
-          const ws = response.webSocket!;
-          ws.addEventListener('message', event => {
-            const data = parseWSMessage(event.data);
-            if (data.type === 'expired') resolve(data);
-          });
-        });
-      });
-
-      // Trigger expiration alarm
-      const ran = await runDurableObjectAlarm(sessionTimerStub);
-      expect(ran).toBe(true);
-
-      // Verify expiration broadcast
-      const expirationMessage = await expirationPromise as Message;
-      expect(expirationMessage).toMatchObject({
-        type: 'expired',
-        data: {
-          message: 'Time expired',
-          timestampMs: expect.any(String),
-          signature: 'test-signature'
-        }
-      });
-
-      // Verify cleanup
-      await runInDurableObject(sessionTimerStub, async (instance: SessionTimer) => {
-        const alarmType = await instance.state.storage.get('alarmType');
-        const expirationTime = await instance.state.storage.get('expirationTime');
-
-        expect(alarmType).toBeUndefined();
-        expect(expirationTime).toBeUndefined();
-      });
-
-      // Verify no more alarms
-      const noMoreAlarms = await runDurableObjectAlarm(sessionTimerStub);
-      expect(noMoreAlarms).toBe(false);
+    expect(receivedMessage).toMatchObject({
+      type: 'initiated',
+      data: {
+        message: 'Session timer started'
+      }
     });
-  function parseWSMessage(data: string | ArrayBuffer): any {
-    if (data instanceof ArrayBuffer) {
-      return JSON.parse(new TextDecoder().decode(data));
-    }
-    return JSON.parse(data);
-  }
-})
+  });
+
+  it("should handle join window alarm correctly when both users joined", async () => {
+    // Set up initial state
+    await sessionTimer.fetch('http://session-timer/', {
+      method: 'POST',
+      body: JSON.stringify({
+        duration,
+        firstJoinTime,
+        firstJoinRole: 'teacher'
+      })
+    });
+
+    // Mock ConnectionManager response
+    const connectionManager = env.CONNECTION_MANAGER.get(
+      env.CONNECTION_MANAGER.idFromName(roomId)
+    );
+
+    // Simulate both users joined
+    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
+      method: 'POST',
+      body: JSON.stringify({ peerId: 'peer1', role: 'teacher' })
+    });
+    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
+      method: 'POST',
+      body: JSON.stringify({ peerId: 'peer2', role: 'learner' })
+    });
+
+    // Execute join window alarm
+    const ran = await runDurableObjectAlarm(sessionTimer);
+    expect(ran).toBe(true);
+
+    // Verify state transition to warning phase
+    await runInDurableObject(sessionTimer, async (instance: SessionTimer, state) => {
+      expect(await state.storage.get('alarmType')).toBe('warning');
+    });
+  });
+
+  it("should handle join window alarm correctly when second user missing", async () => {
+    let receivedMessage: any;
+    ws.addEventListener('message', (event) => {
+      receivedMessage = JSON.parse(event.data);
+    });
+
+    // Set up initial state
+    await sessionTimer.fetch('http://session-timer/', {
+      method: 'POST',
+      body: JSON.stringify({
+        duration,
+        firstJoinTime,
+        firstJoinRole: 'teacher'
+      })
+    });
+
+    // Execute join window alarm
+    await runDurableObjectAlarm(sessionTimer);
+
+    // Wait for message processing
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Verify cleanup occurred
+    await runInDurableObject(sessionTimer, async (instance: SessionTimer, state) => {
+      expect(await state.storage.get('alarmType')).toBeUndefined();
+      expect(await state.storage.get('warningTime')).toBeUndefined();
+      expect(await state.storage.get('expirationTime')).toBeUndefined();
+      expect(await state.storage.get('firstJoinRole')).toBeUndefined();
+    });
+  });
+
+  it("should broadcast warning message at warning phase", async () => {
+    let messages: any[] = [];
+    ws.addEventListener('message', (event) => {
+      messages.push(JSON.parse(event.data));
+    });
+
+    // Set up state in warning phase
+    await sessionTimer.fetch('http://session-timer/', {
+      method: 'POST',
+      body: JSON.stringify({
+        duration,
+        firstJoinTime,
+        firstJoinRole: 'teacher'
+      })
+    });
+
+    await runInDurableObject(sessionTimer, async (instance: SessionTimer, state) => {
+      await state.storage.put('alarmType', 'warning');
+    });
+
+    // Execute warning alarm
+    await runDurableObjectAlarm(sessionTimer);
+
+    // Wait for message processing
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    expect(messages.some(m =>
+      m.type === 'warning' &&
+      m.data.message === '3-minute warning'
+    )).toBe(true);
+
+    // Verify transition to expired phase
+    await runInDurableObject(sessionTimer, async (instance: SessionTimer, state) => {
+      expect(await state.storage.get('alarmType')).toBe('expired');
+    });
+  });
+
+  it("should handle session expiration correctly", async () => {
+    let receivedMessage: any;
+    ws.addEventListener('message', (event) => {
+      receivedMessage = JSON.parse(event.data);
+    });
+
+    // Set up state in expired phase
+    await sessionTimer.fetch('http://session-timer/', {
+      method: 'POST',
+      body: JSON.stringify({
+        duration,
+        firstJoinTime,
+        firstJoinRole: 'teacher'
+      })
+    });
+
+    await runInDurableObject(sessionTimer, async (instance: SessionTimer, state) => {
+      await state.storage.put('alarmType', 'expired');
+    });
+
+    // Execute expiration alarm
+    await runDurableObjectAlarm(sessionTimer);
+
+    // Wait for message processing
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    expect(receivedMessage).toMatchObject({
+      type: 'expired',
+      data: {
+        message: 'Session expired'
+      }
+    });
+
+    // Verify cleanup
+    await runInDurableObject(sessionTimer, async (instance: SessionTimer, state) => {
+      expect(await state.storage.get('alarmType')).toBeUndefined();
+      expect(await state.storage.get('warningTime')).toBeUndefined();
+      expect(await state.storage.get('expirationTime')).toBeUndefined();
+      expect(await state.storage.get('firstJoinRole')).toBeUndefined();
+    });
+  });
+});

@@ -7,6 +7,7 @@ export interface Env {
   SESSION_MANAGER: DurableObjectNamespace;
   CONNECTION_MANAGER: DurableObjectNamespace;
   SESSION_TIMER: DurableObjectNamespace;
+  MESSAGE_RELAY: DurableObjectNamespace;
   WORKER: Fetcher ;
   HUDDLE_API_KEY: string;
   PRIVATE_KEY_SESSION_TIME_SIGNER: string;

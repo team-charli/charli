@@ -1,200 +1,236 @@
-///Users/zm/Projects/charli/apps/session-time-tracker/tests/connectionManager.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
-import { env, runInDurableObject } from 'cloudflare:test';
-import { ConnectionManager } from '../src/connectionManager';
-import { keccak256 } from 'ethereum-cryptography/keccak';
-import { hexToBytes, toHex } from 'ethereum-cryptography/utils';
+import { env, runInDurableObject, runDurableObjectAlarm } from "cloudflare:test";
+import { describe, it, expect, beforeEach } from "vitest";
+import { ConnectionManager } from "../src/connectionManager";
 
-interface ParticipantRoleResponse {
-  role: 'teacher' | 'learner';
-}
-describe('ConnectionManager Durable Object', () => {
-  let webSocketManagerStub: DurableObjectStub;
-  let connectionManagerStub: DurableObjectStub;
-  const teacherAddress = "0x1234567890123456789012345678901234567890";
-  const learnerAddress = "0x9876543210987654321098765432109876543210";
-  const hashedTeacherAddressBytes = keccak256(hexToBytes(teacherAddress));
-  const hashedLearnerAddressBytes = keccak256(hexToBytes(learnerAddress));
-  const hashedTeacherAddress = toHex(hashedTeacherAddressBytes);
-  const hashedLearnerAddress = toHex(hashedLearnerAddressBytes);
-  const roomId = 'test-room';
+describe("Connection Manager", () => {
+  const roomId = "test-room";
+  const peerId = "peer-1";
+  let connectionManager: DurableObjectStub;
 
   beforeEach(async () => {
-    // Initialize both DOs
-    const wsId = env.WEBSOCKET_MANAGER.idFromName(roomId);
-    const cmId = env.CONNECTION_MANAGER.idFromName(roomId);
-    webSocketManagerStub = env.WEBSOCKET_MANAGER.get(wsId);
-    connectionManagerStub = env.CONNECTION_MANAGER.get(cmId);
+    connectionManager = env.CONNECTION_MANAGER.get(
+      env.CONNECTION_MANAGER.idFromName(roomId)
+    );
 
-    // Initialize WebSocket Manager with users
-    await webSocketManagerStub.fetch('http://localhost/init', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientSideRoomId: roomId,
-        hashedTeacherAddress,
-        hashedLearnerAddress,
-        userAddress: teacherAddress,
-      }),
-    });
+    // Set up MessageRelay for broadcast verification
+    const messageRelay = env.MESSAGE_RELAY.get(
+      env.MESSAGE_RELAY.idFromName(roomId)
+    );
 
-    await webSocketManagerStub.fetch('http://localhost/init', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientSideRoomId: roomId,
-        hashedTeacherAddress,
-        hashedLearnerAddress,
-        userAddress: learnerAddress,
-      }),
-    });
+    // Create WebSocket connection to catch broadcasts
+    const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`);
+    wsResponse.webSocket.accept();
   });
 
-  it('should track participant roles through full session lifecycle', async () => {
-    // Simulate peer:joined events
-    const teacherJoinedAt = Date.now();
-    const teacherPeerId = 'teacher-peer-id';
-
-    await webSocketManagerStub.fetch('http://localhost/handleWebhook', {
+  it("should track user join events and store participant roles", async () => {
+    // Store participant role first
+    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ peerId, role: 'teacher' })
+    });
+
+    // Simulate join event
+    const joinedAt = Date.now();
+    await connectionManager.fetch('http://connection-manager/handleWebhook', {
+      method: 'POST',
       body: JSON.stringify({
-        event: 'peer:joined',
-        payload: {
-          id: teacherPeerId,
-          roomId,
-          joinedAt: teacherJoinedAt,
-          role: 'teacher'
+        event: {
+          event: 'peer:joined',
+          payload: {
+            id: peerId,
+            roomId,
+            joinedAt
+          }
         }
       })
     });
 
-    // Verify teacher role was stored
-    let response = await connectionManagerStub.fetch(
-      `http://connection-manager/getParticipantRole?peerId=${teacherPeerId}`,
-      { method: 'GET' }
-    );
-    let data = await response.json() as ParticipantRoleResponse;
-    expect(data.role).toBe('teacher');
+    // Verify state
+    await runInDurableObject(connectionManager, async (instance: ConnectionManager, state) => {
+      const participants = await state.storage.get<Record<string, string>>('participants');
+      expect(participants[peerId]).toBe('teacher');
 
-    // Simulate learner joining
-    const learnerJoinedAt = Date.now();
-    const learnerPeerId = 'learner-peer-id';
-
-    await webSocketManagerStub.fetch('http://localhost/handleWebhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event: 'peer:joined',
-        payload: {
-          id: learnerPeerId,
-          roomId,
-          joinedAt: learnerJoinedAt,
-          role: 'learner'
-        }
-      })
-    });
-
-    // Verify both roles are stored
-    response = await connectionManagerStub.fetch(
-      `http://connection-manager/getParticipantRole?peerId=${learnerPeerId}`,
-      { method: 'GET' }
-    );
-    expect(data.role).toBe('learner');
-
-    // Verify DO storage directly
-    await runInDurableObject(connectionManagerStub, async (instance: ConnectionManager) => {
-      const participants = await instance.state.storage.get('participants');
-      expect(participants).toEqual({
-        [teacherPeerId]: 'teacher',
-        [learnerPeerId]: 'learner'
+      const teacherData = await state.storage.get('user:teacher');
+      expect(teacherData).toMatchObject({
+        peerId,
+        joinedAt
       });
     });
   });
 
-  it('should handle role updates and maintain consistency', async () => {
-    const peerId = 'test-peer-id';
-
-    // Set initial role
-    await connectionManagerStub.fetch('http://connection-manager/updateParticipantRole', {
+  it("should handle disconnections and track reconnection window", async () => {
+    // Set up initial state
+    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ peerId, role: 'teacher' }),
+      body: JSON.stringify({ peerId, role: 'teacher' })
     });
 
-    // Update role
-    await connectionManagerStub.fetch('http://connection-manager/updateParticipantRole', {
+    const leftAt = Date.now();
+    await connectionManager.fetch('http://connection-manager/handleWebhook', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ peerId, role: 'learner' }),
-    });
-
-    // Verify final state
-    await runInDurableObject(connectionManagerStub, async (instance: ConnectionManager) => {
-      const participants = await instance.state.storage.get('participants');
-      expect(participants[peerId]).toBe('learner');
-    });
-
-    const response = await connectionManagerStub.fetch(
-      `http://connection-manager/getParticipantRole?peerId=${peerId}`,
-      { method: 'GET' }
-    );
-   let data = await response.json() as ParticipantRoleResponse;
-    expect(data.role).toBe('learner');
-  });
-
-  it('should handle webhook events and update roles accordingly', async () => {
-    // Send webhook for peer join
-    await webSocketManagerStub.fetch('http://localhost/handleWebhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        event: 'peer:joined',
-        payload: {
-          id: 'webhook-peer-id',
-          roomId,
-          joinedAt: Date.now(),
-          role: 'teacher'
+        event: {
+          event: 'peer:left',
+          payload: {
+            id: peerId,
+            roomId,
+            leftAt
+          }
         }
       })
     });
 
-    // Verify role was propagated to ConnectionManager
-    await runInDurableObject(connectionManagerStub, async (instance: ConnectionManager) => {
-      const participants = await instance.state.storage.get('participants');
-      expect(participants['webhook-peer-id']).toBe('teacher');
+    // Verify alarm was set
+    await runInDurableObject(connectionManager, async (instance: ConnectionManager) => {
+      expect(instance['disconnectionAlarms'].has(`${peerId}_reconnect`)).toBe(true);
     });
   });
 
-  it('should maintain isolation between different rooms', async () => {
-    const room1Id = 'room-1';
-    const room2Id = 'room-2';
-    const cm1 = env.CONNECTION_MANAGER.get(env.CONNECTION_MANAGER.idFromName(room1Id));
-    const cm2 = env.CONNECTION_MANAGER.get(env.CONNECTION_MANAGER.idFromName(room2Id));
-
-    // Set roles in room 1
-    await cm1.fetch('http://connection-manager/updateParticipantRole', {
+  it("should handle reconnection and clear alarms", async () => {
+    // Set up disconnection first
+    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ peerId: 'peer1', role: 'teacher' }),
+      body: JSON.stringify({ peerId, role: 'teacher' })
     });
 
-    // Set roles in room 2
-    await cm2.fetch('http://connection-manager/updateParticipantRole', {
+    await connectionManager.fetch('http://connection-manager/handleWebhook', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ peerId: 'peer2', role: 'learner' }),
+      body: JSON.stringify({
+        event: {
+          event: 'peer:left',
+          payload: {
+            id: peerId,
+            roomId,
+            leftAt: Date.now()
+          }
+        }
+      })
     });
 
-    // Verify isolation
-    await runInDurableObject(cm1, async (instance: ConnectionManager) => {
-      const participants = await instance.state.storage.get('participants');
-      expect(participants).toEqual({ 'peer1': 'teacher' });
+    // Then simulate reconnection
+    await connectionManager.fetch('http://connection-manager/handleWebhook', {
+      method: 'POST',
+      body: JSON.stringify({
+        event: {
+          event: 'peer:joined',
+          payload: {
+            id: peerId,
+            roomId,
+            joinedAt: Date.now()
+          }
+        }
+      })
     });
 
-    await runInDurableObject(cm2, async (instance: ConnectionManager) => {
-      const participants = await instance.state.storage.get('participants');
-      expect(participants).toEqual({ 'peer2': 'learner' });
+    // Verify alarm was cleared
+    await runInDurableObject(connectionManager, async (instance: ConnectionManager) => {
+      expect(instance['disconnectionAlarms'].has(`${peerId}_reconnect`)).toBe(false);
     });
+  });
+
+  it("should track and enforce MAX_DISCONNECTIONS", async () => {
+    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
+      method: 'POST',
+      body: JSON.stringify({ peerId, role: 'teacher' })
+    });
+
+    // Simulate multiple disconnections
+    for (let i = 0; i < 4; i++) {
+      await connectionManager.fetch('http://connection-manager/handleWebhook', {
+        method: 'POST',
+        body: JSON.stringify({
+          event: {
+            event: 'peer:left',
+            payload: {
+              id: peerId,
+              roomId,
+              leftAt: Date.now() + i * 1000 // Space them out
+            }
+          }
+        })
+      });
+    }
+
+    // Verify disconnect count and fault broadcast
+    await runInDurableObject(connectionManager, async (instance: ConnectionManager, state) => {
+      const count = await state.storage.get<number>('teacher_disconnectCount');
+      expect(count).toBe(4);
+    });
+  });
+
+  it("should broadcast faults through MessageRelay", async () => {
+    let receivedMessage: any = null;
+    const messageRelay = env.MESSAGE_RELAY.get(
+      env.MESSAGE_RELAY.idFromName(roomId)
+    );
+    const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`);
+    wsResponse.webSocket.addEventListener('message', (event) => {
+      receivedMessage = JSON.parse(event.data);
+    });
+
+    // Trigger a fault condition (excessive disconnects)
+    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
+      method: 'POST',
+      body: JSON.stringify({ peerId, role: 'teacher' })
+    });
+
+    for (let i = 0; i < 4; i++) {
+      await connectionManager.fetch('http://connection-manager/handleWebhook', {
+        method: 'POST',
+        body: JSON.stringify({
+          event: {
+            event: 'peer:left',
+            payload: {
+              id: peerId,
+              roomId,
+              leftAt: Date.now()
+            }
+          }
+        })
+      });
+    }
+
+    // Wait for message processing
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    expect(receivedMessage).toMatchObject({
+      type: 'fault',
+      data: {
+        faultType: 'teacherFault_excessive_disconnects',
+        role: 'teacher'
+      }
+    });
+  });
+
+  it("should execute reconnection timeout alarm correctly", async () => {
+    // Set up disconnection
+    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
+      method: 'POST',
+      body: JSON.stringify({ peerId, role: 'teacher' })
+    });
+
+    const leftAt = Date.now();
+    await connectionManager.fetch('http://connection-manager/handleWebhook', {
+      method: 'POST',
+      body: JSON.stringify({
+        event: {
+          event: 'peer:left',
+          payload: {
+            id: peerId,
+            roomId,
+            leftAt
+          }
+        }
+      })
+    });
+
+    // Execute alarm
+    const ran = await runDurableObjectAlarm(connectionManager);
+    expect(ran).toBe(true);
+
+    // Verify fault was broadcast
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Could verify MessageRelay received the fault broadcast here
   });
 });

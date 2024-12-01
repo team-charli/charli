@@ -217,7 +217,15 @@ export class ConnectionManager extends DurableObject<Env> {
       }
     };
 
-    await this.env.WORKER.fetch(`http://worker/broadcast/${this.roomId}`, {
+    // Instead of calling the Worker
+    // await this.env.WORKER.fetch(`http://worker/broadcast/${this.roomId}`...
+
+    // Get MessageRelay DO instance for this room
+    const messageRelay = this.env.MESSAGE_RELAY.get(
+      this.env.MESSAGE_RELAY.idFromName(this.roomId)
+    );
+
+    await messageRelay.fetch('http://message-relay/broadcast/' + this.roomId, {
       method: 'POST',
       body: JSON.stringify(faultMessage),
       headers: { 'Content-Type': 'application/json' }
