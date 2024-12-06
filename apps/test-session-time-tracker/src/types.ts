@@ -1,17 +1,6 @@
 // types.ts
 
-import { Fetcher } from "@cloudflare/workers-types";
 
-export type Env = {
-  HUDDLE_API_KEY: string;
-  WEBSOCKET_MANAGER: DurableObjectNamespace;
-  CONNECTION_MANAGER: DurableObjectNamespace;
-  MESSAGE_RELAY: DurableObjectNamespace;
-  SESSION_MANAGER: DurableObjectNamespace;
-  SESSION_TIMER: DurableObjectNamespace;
-  PRIVATE_KEY_SESSION_TIME_SIGNER: string;
-  WORKER: Fetcher;
-};
 export type WebhookEvents = {
   'meeting:started': [
   data: {

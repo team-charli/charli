@@ -6,46 +6,107 @@ import { ConnectionManager } from './connectionManager';
 import {SessionManager} from './sessionManager';
 import { SessionTimer } from './sessionTimer';
 import { MessageRelay} from './messageRelay';
+import { Env } from './env';
 
 // Define environment type for the main worker
 const app = new Hono<Env>();
 
-// Session initialization endpoint
+//websocket handler
+app.get('/connect/:roomId', async (c) => {
+  // Verify WebSocket upgrade request
+  if (c.req.header('upgrade') !== 'websocket') {
+    return c.text('Expected Upgrade: websocket', 426);
+  }
+
+  const roomId = c.req.param('roomId');
+
+  // Establish WebSocket connection via MessageRelay
+  const messageRelay = c.env.MESSAGE_RELAY.get(
+    c.env.MESSAGE_RELAY.idFromName(roomId)
+  );
+
+  const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`, {
+    method: 'GET',
+    headers: {
+      'Upgrade': 'websocket',
+      'Connection': 'Upgrade'
+    }
+  });
+
+  // If connection successful, return WebSocket to client
+  if (wsResponse.webSocket) {
+    return new Response(null, {
+      status: 101,
+      webSocket: wsResponse.webSocket
+    });
+  }
+
+  // Handle connection failure
+  return c.text('Failed to establish WebSocket connection', 500);
+});
+
 app.post('/init', async (c) => {
   try {
-    const data = await c.req.json();
-    const { clientSideRoomId, sessionDuration } = data;
+    const reqData = await c.req.json();
+    const { clientSideRoomId } = reqData;
 
+    // Check connection first
+    const messageRelay = c.env.MESSAGE_RELAY.get(
+      c.env.MESSAGE_RELAY.idFromName(clientSideRoomId)
+    );
+    const connectionCheck = await messageRelay.fetch(
+      'http://message-relay/checkConnection/' + clientSideRoomId
+    );
+    if (!connectionCheck.ok) {
+      return c.json({
+        status: 'error',
+        message: 'No WebSocket connection established'
+      }, 400);
+    }
+
+    // Process session init
     const sessionManager = c.env.SESSION_MANAGER.get(
       c.env.SESSION_MANAGER.idFromName(clientSideRoomId)
     );
-
     const response = await sessionManager.fetch('http://session-manager/init', {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(reqData)
     });
-    // If session init successful, set up WebSocket connection
-    if (response.ok) {
-      const messageRelay = c.env.MESSAGE_RELAY.get(
-        c.env.MESSAGE_RELAY.idFromName(clientSideRoomId)
-      );
 
-      await messageRelay.fetch('http://message-relay/connect/' + clientSideRoomId, {
-        method: 'GET'
-      });
-    }
-    return new Response(await response.text(), {
-      status: response.status,
-      headers: { 'Content-Type': response.headers.get('Content-Type') || 'application/json' }
-    });
-  } catch (error) {
-    if (error.message === "User address doesn't match teacher or learner address") {
+    // Get response data before attempting broadcast
+    const responseData = await response.json();
+
+    // Attempt broadcast
+    const broadcastResponse = await messageRelay.fetch(
+      'http://message-relay/broadcast/' + clientSideRoomId,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'initiated',
+          data: {
+            status: response.ok ? 'success' : 'error',
+            response: responseData
+          }
+        })
+      }
+    );
+
+    if (!broadcastResponse.ok) {
+      // Connection was lost during processing
       return c.json({
         status: 'error',
-        message: error.message
-      }, 403);
+        message: 'Lost WebSocket connection during initialization'
+      }, 500);
     }
-    throw error;
+
+    return c.json({ status: 'ok' });
+
+  } catch (error) {
+    // Return HTTP error - don't try to broadcast
+    return c.json({
+      status: 'error',
+      message: error.message || 'Internal server error'
+    }, 500);
   }
 });
 
@@ -102,16 +163,6 @@ app.use('*', cors({
   maxAge: 600,
   credentials: true,
 }));
-
-type Env = {
-  Bindings: {
-    HUDDLE_API_KEY: string;
-    SESSION_MANAGER: DurableObjectNamespace;
-    MESSAGE_RELAY: DurableObjectNamespace;
-    CONNECTION_MANAGER: DurableObjectNamespace;
-    SESSION_TIMER: DurableObjectNamespace;
-  }
-}
 
 
 export { SessionManager, ConnectionManager, SessionTimer, MessageRelay };

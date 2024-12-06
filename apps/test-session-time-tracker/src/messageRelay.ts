@@ -1,6 +1,7 @@
+//messageRelay.ts
 import { DurableObject } from "cloudflare:workers";
 import { Hono } from "hono";
-import { Env } from "./types";
+import { Env } from "./env";
 
 export class MessageRelay extends DurableObject {
   private connections = new Map<string, WebSocket>();
@@ -26,6 +27,16 @@ export class MessageRelay extends DurableObject {
         status: 101,
         webSocket: client
       });
+    });
+
+    // connection check endpoint
+    this.app.get('/checkConnection/:roomId', (c) => {
+      const roomId = c.req.param('roomId');
+      const hasConnection = this.connections.has(roomId);
+
+      return c.json({
+        connected: hasConnection
+      }, hasConnection ? 200 : 404);
     });
 
     // Endpoint for other DOs to broadcast messages

@@ -1,42 +1,27 @@
 // connectionManager.ts
-
 import { Hono } from 'hono';
-import { WebhookEvents, WebhookData, Env } from './types';
+import { WebhookEvents, WebhookData } from './types';
 import { DurableObject } from 'cloudflare:workers';
+import { DOEnv, Env } from './env';
 
-type AppEnv = {
-  Bindings: Env
-  Variables: {
-    state: DurableObjectState
-    role?: 'teacher' | 'learner'
-    alarm?: number
-  }
-}
-
-export class ConnectionManager extends DurableObject<Env> {
+export class ConnectionManager extends DurableObject<DOEnv> {
   private disconnectionAlarms: Map<string, number> = new Map();
   private readonly MAX_DISCONNECTIONS = 3;
   private roomId: string;
-  private app = new Hono<AppEnv>();
+  private app = new Hono<Env>();
   protected state: DurableObjectState;
 
-  constructor(state: DurableObjectState, env: Env) {
+  constructor(state: DurableObjectState, env: DOEnv) {
     super(state, env);
     this.state = state;
     this.roomId = state.id.toString();
-    // Handle webhook events
+
     this.app.post('/handleWebhook', async (c) => {
       const { event } = await c.req.json<{ event: WebhookData }>();
-      await this.handleAllFaultTypes(event);
+      await this.handleWebhookEvent(event);
       return c.text('OK');
     });
 
-    // Handle participant role updates
-    this.app.post('/updateParticipantRole', async (c) => {
-      const { peerId, role } = await c.req.json<{ peerId: string; role: 'teacher' | 'learner' }>();
-      await this.storeParticipantRole(peerId, role);
-      return c.text('OK');
-    });
 
     // Check if both users have joined (for SessionTimer)
     this.app.get('/checkBothJoined', async (c) => {
@@ -53,6 +38,8 @@ export class ConnectionManager extends DurableObject<Env> {
       await this.handleSessionTimerFault(faultType, data);
       return c.text('OK');
     });
+
+
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -95,36 +82,89 @@ export class ConnectionManager extends DurableObject<Env> {
       });
     }
   }
+
   private async getParticipantRole(peerId: string): Promise<'teacher' | 'learner' | null> {
     const participants = (await this.state.storage.get<Record<string, string>>('participants')) || {};
     return participants[peerId] as 'teacher' | 'learner' || null;
   }
 
-  async handleAllFaultTypes(event: WebhookData) {
-    if (event.event === 'peer:joined') {
-      const { id: peerId, joinedAt } = event.payload as WebhookEvents['peer:joined'][0];
-      const role = await this.getParticipantRole(peerId);
 
+  async handleWebhookEvent(event: WebhookData) {
+    if (event.event === 'peer:joined') {
+      const { id: peerId, joinedAt, metadata } = event.payload as WebhookEvents['peer:joined'][0];
+
+      // Validate and verify metadata
+      const verifiedPeer = await this.validateAndVerifyPeerMetadata(peerId, metadata);
+
+      // Store verified peer-role mapping once
+      const participants = (await this.state.storage.get<Record<string, string>>('participants')) || {};
+      if (participants[peerId]) {
+        throw new Error(`Peer ${peerId} already has an assigned role`);
+      }
+      participants[peerId] = verifiedPeer.role;
+      await this.state.storage.put('participants', participants);
+
+      // Update user state with peerId and joinedAt
       await this.storeUserState({
-        role,
+        role: verifiedPeer.role,
         peerId,
         joinedAt,
       });
 
-      // Handles Fault Case #1: Late join detection
+      // Proceed with existing fault detection logic
       await this.checkJoinSequence();
-
-      // Handles part of Fault Case #3: Reconnection tracking
       await this.handleReconnectionEvent(peerId);
 
     } else if (event.event === 'peer:left') {
+      // Existing peer:left logic remains unchanged
       const { id: peerId, leftAt } = event.payload as WebhookEvents['peer:left'][0];
-
-      // Handles Fault Cases #3 and #4: Disconnection tracking
       await this.handleDisconnectionEvent(peerId, leftAt);
-
       await this.updateUserState(peerId, leftAt);
     }
+  }
+
+  private async validateAndVerifyPeerMetadata(
+    peerId: string,
+    metadata: string | undefined
+  ): Promise<{ role: 'teacher' | 'learner', peerId: string, hashedAddress: string }> {
+    // Validate metadata exists
+    if (!metadata) {
+      throw new Error('Missing metadata in peer:joined webhook');
+    }
+
+    // Parse metadata
+    let parsedMetadata: { role: 'teacher' | 'learner', hashedAddress: string };
+    try {
+      parsedMetadata = JSON.parse(metadata);
+    } catch (e) {
+      throw new Error('Failed to parse metadata in peer:joined webhook');
+    }
+
+    // Validate required fields
+    if (!parsedMetadata.role || !parsedMetadata.hashedAddress) {
+      throw new Error('Metadata missing required fields: role and hashedAddress');
+    }
+
+    // Verify role matches stored hash
+    const teacherData = await this.state.storage.get('user:teacher') as User;
+    const learnerData = await this.state.storage.get('user:learner') as User;
+
+    let verifiedRole: 'teacher' | 'learner' | null = null;
+    if (parsedMetadata.role === 'teacher' &&
+      parsedMetadata.hashedAddress === teacherData?.hashedTeacherAddress) {
+      verifiedRole = 'teacher';
+    } else if (parsedMetadata.role === 'learner' &&
+      parsedMetadata.hashedAddress === learnerData?.hashedLearnerAddress) {
+      verifiedRole = 'learner';
+    } else {
+      throw new Error(`Role verification failed for peer ${peerId}`);
+    }
+
+    return {
+      role: verifiedRole,
+      peerId,
+      hashedAddress: parsedMetadata.hashedAddress
+    };
   }
 
   private async handleReconnectionEvent(peerId: string) {
@@ -216,9 +256,6 @@ export class ConnectionManager extends DurableObject<Env> {
         role
       }
     };
-
-    // Instead of calling the Worker
-    // await this.env.WORKER.fetch(`http://worker/broadcast/${this.roomId}`...
 
     // Get MessageRelay DO instance for this room
     const messageRelay = this.env.MESSAGE_RELAY.get(

@@ -1,30 +1,23 @@
 // sessionManager.ts
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
-import { WebhookData, User, ClientData, Env } from './types';
+import { WebhookData, User, ClientData } from './types';
 import { keccak256 } from 'ethereum-cryptography/keccak';
 import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
 import { WebhookEvents } from '@huddle01/server-sdk/webhooks';
+import { DOEnv, Env } from './env';
 
-type AppEnv = {
-  Bindings: Env
-  Variables: {
-    state: DurableObjectState
-  }
-}
-
-export class SessionManager extends DurableObject<Env> {  // Pass Env type to DurableObject
-  private app = new Hono<AppEnv>();
+export class SessionManager extends DurableObject<DOEnv> {
+  private app = new Hono<Env>();
   private roomId: string;
   protected state: DurableObjectState;
 
-  constructor(state: DurableObjectState, env: Env) {
+  constructor(state: DurableObjectState, env: DOEnv) {
     super(state, env);
-    this.state = state;  // Store state
-    this.env = env;      // Store env
+    this.state = state;
+    this.env = env;
     this.roomId = state.id.toString();
 
-    // Handle initialization
     this.app.post('/init', async (c) => {
       const clientData = await c.req.json<ClientData>();
       const { userAddress, hashedTeacherAddress, hashedLearnerAddress, sessionDuration } = clientData;
@@ -60,17 +53,8 @@ export class SessionManager extends DurableObject<Env> {  // Pass Env type to Du
         leftAtSig: null,
       };
 
-      // Store and forward to ConnectionManager
+      // Only store locally - remove ConnectionManager call
       await this.state.storage.put(`user:${role}`, user);
-
-      const connectionManager = c.env.CONNECTION_MANAGER.get(
-        c.env.CONNECTION_MANAGER.idFromName(this.roomId)
-      );
-
-      await connectionManager.fetch('http://connection-manager/updateUser', {
-        method: 'POST',
-        body: JSON.stringify({ user })
-      });
 
       return c.json({
         status: 'OK',
@@ -111,18 +95,19 @@ export class SessionManager extends DurableObject<Env> {  // Pass Env type to Du
     return this.app.fetch(request, this.env);
   }
 
-private async getJoinedUsers() {
-  const teacher = await this.state.storage.get('user:teacher') as User;
-  const learner = await this.state.storage.get('user:learner') as User;
-  const users: Record<string, User> = {};
+  private async getJoinedUsers() {
+    const teacher = await this.state.storage.get('user:teacher') as User;
+    const learner = await this.state.storage.get('user:learner') as User;
+    const users: Record<string, User> = {};
 
-  if (teacher?.joinedAt) users['teacher'] = teacher;
-  if (learner?.joinedAt) users['learner'] = learner;
+    if (teacher?.joinedAt) users['teacher'] = teacher;
+    if (learner?.joinedAt) users['learner'] = learner;
 
-  return users;
-}
+    return users;
+  }
 
   private async startSessionTimer(c: any, firstJoinTime: number, firstJoinRole: 'teacher' | 'learner') {
+
     const sessionTimer = c.env.SESSION_TIMER.get(
       c.env.SESSION_TIMER.idFromName(this.roomId)
     );

@@ -2,18 +2,33 @@
 import { Fetcher } from "@cloudflare/workers-types";
 import { DurableObjectNamespace } from "@cloudflare/workers-types/experimental";
 import { Hono } from "hono";
+import { SessionManager } from "./sessionManager";
+import { ConnectionManager } from "./connectionManager";
+import { SessionTimer } from "./sessionTimer";
+import { MessageRelay } from "./messageRelay";
 
-export interface Env {
+// The base interface for bindings
+export interface Bindings {
+  HUDDLE_API_KEY: string;
   SESSION_MANAGER: DurableObjectNamespace;
+  MESSAGE_RELAY: DurableObjectNamespace;
   CONNECTION_MANAGER: DurableObjectNamespace;
   SESSION_TIMER: DurableObjectNamespace;
-  MESSAGE_RELAY: DurableObjectNamespace;
-  WORKER: Fetcher ;
-  HUDDLE_API_KEY: string;
+  WORKER: Fetcher;
   PRIVATE_KEY_SESSION_TIME_SIGNER: string;
+  [key: string]: unknown;  // Add index signature for Hono compatibility
+
 }
 
-// tests/env.d.ts
+// For Hono
+export interface Env {
+  Bindings: Bindings;
+}
+
+// For DurableObjects
+export interface DOEnv extends Bindings {}
+
+// tests/env.d.ts remains the same
 declare module "cloudflare:test" {
   interface ProvidedEnv extends Env {}
 }

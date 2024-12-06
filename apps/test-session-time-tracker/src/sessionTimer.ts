@@ -1,21 +1,14 @@
 //sessionTimer.ts
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
-import { Env } from './types';
+import { DOEnv, Env } from './env';
 
-type AppEnv = {
-  Bindings: Env
-  Variables: {
-    state: DurableObjectState
-  }
-}
-
-export class SessionTimer extends DurableObject<Env> {
-  private app = new Hono<AppEnv>();
+export class SessionTimer extends DurableObject<DOEnv> {
+  private app = new Hono();
   private roomId: string;
   protected state: DurableObjectState;
 
-  constructor(state: DurableObjectState, env: Env) {
+  constructor(state: DurableObjectState, env: DOEnv) {
     super(state, env);
     this.state = state;
     this.roomId = state.id.toString();
