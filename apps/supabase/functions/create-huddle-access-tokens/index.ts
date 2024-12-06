@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
 
   if (req.method === "POST") {
     try {
-      const { roomId } = await req.json();
+      const { roomId, role, hashedUserAddress } = await req.json();
       console.log('Received roomId:', roomId);
 
       const accessToken = new AccessToken({
@@ -36,9 +36,9 @@ Deno.serve(async (req) => {
         },
         options: {
           metadata: {
-            // Add session tracking info here
             sessionId: roomId,
-            joinedAt: new Date().toISOString()
+            role,
+            hashedAddress: hashedUserAddress
           },
         },
       });
