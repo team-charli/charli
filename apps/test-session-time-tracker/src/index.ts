@@ -116,14 +116,16 @@ app.post('/webhook', async (c) => {
   if (!signatureHeader) {
     return c.text("Missing signature", 401);
   }
-
-  const receiver = new WebhookReceiver({ apiKey: c.env.HUDDLE_API_KEY });
+  console.log("TEST_HUDDLE_API_KEY", c.env.TEST_HUDDLE_API_KEY )
+  const receiver = new WebhookReceiver({ apiKey: c.env.TEST_HUDDLE_API_KEY });
   const data = await c.req.text();
+  console.log("Main worker received webhook data:", data);
 
   try {
     const event = receiver.receive(data, signatureHeader);
+    console.log("Main worker parsed event:", event);
     let roomId: string | undefined;
-
+    console.log("Extracted roomId:", roomId);
     if (['meeting:started', 'meeting:ended', 'peer:joined', 'peer:left'].includes(event.event)) {
       const typedData = receiver.createTypedWebhookData(event.event, event.payload);
       roomId = (typedData.data as { roomId: string }).roomId;
@@ -138,15 +140,16 @@ app.post('/webhook', async (c) => {
       const sessionManager = c.env.SESSION_MANAGER.get(
         c.env.SESSION_MANAGER.idFromName(roomId)
       );
-
+      console.log("Sending webhook to SessionManager for room:", roomId);
       await sessionManager.fetch('http://session-manager/webhook', {
         method: 'POST',
-        body: JSON.stringify({ event })
+        body: JSON.stringify(event)
       });
     }
 
     return c.text("Webhook processed successfully");
   } catch (error) {
+    console.error("Main worker webhook error:", error);
     if (error.message === "Invalid headers") {
       return c.json({ status: 'error', message: 'Invalid signature' }, 401);
     }

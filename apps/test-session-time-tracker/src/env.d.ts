@@ -9,7 +9,7 @@ import { MessageRelay } from "./messageRelay";
 
 // The base interface for bindings
 export interface Bindings {
-  HUDDLE_API_KEY: string;
+  TEST_HUDDLE_API_KEY: string;
   SESSION_MANAGER: DurableObjectNamespace;
   MESSAGE_RELAY: DurableObjectNamespace;
   CONNECTION_MANAGER: DurableObjectNamespace;

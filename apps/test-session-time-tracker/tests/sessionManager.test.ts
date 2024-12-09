@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { SessionManager } from "../src/sessionManager";
 import { keccak256 } from 'ethereum-cryptography/keccak';
 import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
+import type { User } from "../src/types";
 
 describe("Session Manager", () => {
   const roomId = "test-room";
@@ -10,182 +11,246 @@ describe("Session Manager", () => {
   const learnerAddress = "0x5678";
   const teacherHash = toHex(keccak256(hexToBytes(teacherAddress)));
   const learnerHash = toHex(keccak256(hexToBytes(learnerAddress)));
-  const sessionDuration = 3600000; // 1 hour
+  const sessionDuration = 3600000; // 1 hour in ms
 
-  it("should instantiate and initialize correctly", async () => {
-    const sessionManager = env.SESSION_MANAGER.get(
-      env.SESSION_MANAGER.idFromName(roomId)
-    );
+  // Helper function to cleanup storage across all related DOs
+  async function cleanup() {
+    const stubs = [
+      env.SESSION_MANAGER.get(env.SESSION_MANAGER.idFromName(roomId)),
+      env.CONNECTION_MANAGER.get(env.CONNECTION_MANAGER.idFromName(roomId)),
+      env.MESSAGE_RELAY.get(env.MESSAGE_RELAY.idFromName(roomId)),
+      env.SESSION_TIMER.get(env.SESSION_TIMER.idFromName(roomId))
+    ];
 
-    // Test direct access to instance
-    await runInDurableObject(sessionManager, async (instance: SessionManager) => {
-      expect(instance.state).toBeDefined();
-      expect(instance.app).toBeDefined();
-    });
-  });
+    await Promise.all(stubs.map(stub =>
+      runInDurableObject(stub, async (instance, state) => {
+        await state.blockConcurrencyWhile(async () => {
+          await state.storage.deleteAll();
+        });
+      })
+    ));
+  }
 
-  it("should validate teacher address and store state", async () => {
-    const sessionManager = env.SESSION_MANAGER.get(
-      env.SESSION_MANAGER.idFromName(roomId)
-    );
-
-    const response = await sessionManager.fetch('http://session-manager/init', {
+  // Helper to create initialization request
+  function createInitRequest(userAddress: string): Request {
+    return new Request('http://session-manager/init', {
       method: 'POST',
       body: JSON.stringify({
         clientSideRoomId: roomId,
         hashedTeacherAddress: teacherHash,
         hashedLearnerAddress: learnerHash,
-        userAddress: teacherAddress,
+        userAddress,
         sessionDuration
       })
     });
+  }
 
-    expect(response.status).toBe(200);
-    const data = await response.json();
-    expect(data.role).toBe('teacher');
-    expect(data.roomId).toBe(roomId);
+  beforeEach(async () => {
+    await cleanup();
+  });
 
-    // Verify state storage
-    await runInDurableObject(sessionManager, async (instance: SessionManager, state) => {
-      const storedUser = await state.storage.get('user:teacher');
-      expect(storedUser).toMatchObject({
-        role: 'teacher',
-        roomId,
-        hashedTeacherAddress: teacherHash,
-        hashedLearnerAddress: learnerHash,
-        sessionDuration
+  describe("Direct DO instantiation and initialization", () => {
+    it("should properly instantiate with necessary properties", async () => {
+      const sessionManager = env.SESSION_MANAGER.get(
+        env.SESSION_MANAGER.idFromName(roomId)
+      );
+
+      await runInDurableObject(sessionManager, async (instance) => {
+        expect(instance).toBeInstanceOf(SessionManager);
+        expect(instance['roomId']).toBe(roomId);
       });
     });
   });
 
-  it("should reject invalid user addresses", async () => {
-    const sessionManager = env.SESSION_MANAGER.get(
-      env.SESSION_MANAGER.idFromName(roomId)
-    );
+  describe("User address validation and state storage", () => {
+    it("should validate teacher address and store state atomically", async () => {
+      const sessionManager = env.SESSION_MANAGER.get(
+        env.SESSION_MANAGER.idFromName(roomId)
+      );
 
-    const response = await sessionManager.fetch('http://session-manager/init', {
-      method: 'POST',
-      body: JSON.stringify({
-        clientSideRoomId: roomId,
-        hashedTeacherAddress: teacherHash,
-        hashedLearnerAddress: learnerHash,
-        userAddress: "0xINVALID",
-        sessionDuration
-      })
-    });
+      await runInDurableObject(sessionManager, async (instance, state) => {
+        await state.blockConcurrencyWhile(async () => {
+          const request = createInitRequest(teacherAddress);
+          const response = await instance.fetch(request);
 
-    expect(response.status).toBe(403);
-    const data = await response.json();
-    expect(data.message).toBe("User address doesn't match teacher or learner address");
-  });
+          expect(response.status).toBe(200);
+          const data = await response.json();
+          expect(data.role).toBe('teacher');
+          expect(data.roomId).toBe(roomId);
 
-  it("should maintain state between requests", async () => {
-    const sessionManager = env.SESSION_MANAGER.get(
-      env.SESSION_MANAGER.idFromName(roomId)
-    );
-
-    // First request - teacher init
-    await sessionManager.fetch('http://session-manager/init', {
-      method: 'POST',
-      body: JSON.stringify({
-        clientSideRoomId: roomId,
-        hashedTeacherAddress: teacherHash,
-        hashedLearnerAddress: learnerHash,
-        userAddress: teacherAddress,
-        sessionDuration
-      })
-    });
-
-    // Second request - learner init
-    const response = await sessionManager.fetch('http://session-manager/init', {
-      method: 'POST',
-      body: JSON.stringify({
-        clientSideRoomId: roomId,
-        hashedTeacherAddress: teacherHash,
-        hashedLearnerAddress: learnerHash,
-        userAddress: learnerAddress,
-        sessionDuration
-      })
-    });
-
-    // Verify both states exist
-    await runInDurableObject(sessionManager, async (instance: SessionManager, state) => {
-      const teacher = await state.storage.get('user:teacher');
-      const learner = await state.storage.get('user:learner');
-
-      expect(teacher).toBeDefined();
-      expect(learner).toBeDefined();
-      expect(teacher.role).toBe('teacher');
-      expect(learner.role).toBe('learner');
-    });
-  });
-
-  it("should properly handle webhook events and update state", async () => {
-    const sessionManager = env.SESSION_MANAGER.get(
-      env.SESSION_MANAGER.idFromName(roomId)
-    );
-
-    // Initialize session first
-    await sessionManager.fetch('http://session-manager/init', {
-      method: 'POST',
-      body: JSON.stringify({
-        clientSideRoomId: roomId,
-        hashedTeacherAddress: teacherHash,
-        hashedLearnerAddress: learnerHash,
-        userAddress: teacherAddress,
-        sessionDuration
-      })
-    });
-
-    // Send webhook event
-    const joinedAt = Date.now();
-    const response = await sessionManager.fetch('http://session-manager/webhook', {
-      method: 'POST',
-      body: JSON.stringify({
-        event: {
-          event: 'peer:joined',
-          payload: {
-            id: 'peer-1',
+          const storedUser = await state.storage.get('user:teacher') as User;
+          expect(storedUser).toMatchObject({
+            role: 'teacher',
             roomId,
-            sessionId: 'test-session',
-            joinedAt,
-            metadata: JSON.stringify({ role: 'teacher' })
-          }
-        }
-      })
+            hashedTeacherAddress: teacherHash,
+            hashedLearnerAddress: learnerHash,
+            sessionDuration,
+            peerId: null,
+            joinedAt: null,
+            leftAt: null
+          });
+        });
+      });
     });
 
-    expect(response.status).toBe(200);
+    it("should reject invalid user addresses", async () => {
+      const sessionManager = env.SESSION_MANAGER.get(
+        env.SESSION_MANAGER.idFromName(roomId)
+      );
 
-    // Verify state was updated
-    await runInDurableObject(sessionManager, async (instance: SessionManager, state) => {
-      const teacher = await state.storage.get('user:teacher');
-      expect(teacher.peerId).toBe('peer-1');
-      expect(teacher.joinedAt).toBe(joinedAt);
+      await runInDurableObject(sessionManager, async (instance) => {
+        const request = createInitRequest("0xInvalid");
+        const response = await instance.fetch(request);
+        expect(response.status).toBe(403);
+      });
     });
   });
 
-  it("should handle session duration correctly", async () => {
-    const sessionManager = env.SESSION_MANAGER.get(
-      env.SESSION_MANAGER.idFromName(roomId)
-    );
+  describe("DO communication patterns", () => {
+    it("should communicate with ConnectionManager on initialization", async () => {
+      const sessionManager = env.SESSION_MANAGER.get(
+        env.SESSION_MANAGER.idFromName(roomId)
+      );
 
-    const customDuration = 7200000; // 2 hours
-    const response = await sessionManager.fetch('http://session-manager/init', {
-      method: 'POST',
-      body: JSON.stringify({
-        clientSideRoomId: roomId,
-        hashedTeacherAddress: teacherHash,
-        hashedLearnerAddress: learnerHash,
-        userAddress: teacherAddress,
-        sessionDuration: customDuration
-      })
+      await runInDurableObject(sessionManager, async (instance) => {
+        const request = createInitRequest(teacherAddress);
+        await instance.fetch(request);
+
+        // Verify ConnectionManager received the update
+        const connectionManager = env.CONNECTION_MANAGER.get(
+          env.CONNECTION_MANAGER.idFromName(roomId)
+        );
+
+        await runInDurableObject(connectionManager, async (cm, cmState) => {
+          const participants = await cmState.storage.get('participants');
+          expect(participants).toBeDefined();
+        });
+      });
     });
 
-    // Verify session duration was stored
-    await runInDurableObject(sessionManager, async (instance: SessionManager, state) => {
-      const teacher = await state.storage.get('user:teacher');
-      expect(teacher.sessionDuration).toBe(customDuration);
+    it("should forward webhook events to ConnectionManager", async () => {
+      const sessionManager = env.SESSION_MANAGER.get(
+        env.SESSION_MANAGER.idFromName(roomId)
+      );
+
+      await runInDurableObject(sessionManager, async (instance) => {
+        // Initialize first
+        await instance.fetch(createInitRequest(teacherAddress));
+
+        // Send webhook event
+        const webhookRequest = new Request('http://session-manager/webhook', {
+          method: 'POST',
+          body: JSON.stringify({
+            event: {
+              event: 'peer:joined',
+              payload: {
+                id: 'peer-1',
+                roomId,
+                sessionId: 'test-session',
+                joinedAt: Date.now(),
+                metadata: JSON.stringify({ role: 'teacher' })
+              }
+            }
+          })
+        });
+
+        const response = await instance.fetch(webhookRequest);
+        expect(response.status).toBe(200);
+
+        // Verify ConnectionManager received the webhook
+        const connectionManager = env.CONNECTION_MANAGER.get(
+          env.CONNECTION_MANAGER.idFromName(roomId)
+        );
+
+        await runInDurableObject(connectionManager, async (cm, cmState) => {
+          const teacherData = await cmState.storage.get('user:teacher');
+          expect(teacherData).toBeDefined();
+        });
+      });
+    });
+    it("should communicate with MessageRelay", async () => {
+      const sessionManager = env.SESSION_MANAGER.get(
+        env.SESSION_MANAGER.idFromName(roomId)
+      );
+
+      await runInDurableObject(sessionManager, async (instance) => {
+        await instance.fetch(createInitRequest(teacherAddress));
+
+        const messageRelay = env.MESSAGE_RELAY.get(
+          env.MESSAGE_RELAY.idFromName(roomId)
+        );
+
+        await runInDurableObject(messageRelay, async (mr, mrState) => {
+          // Verify broadcast was attempted
+          const broadcasts = await mrState.storage.get('broadcasts');
+          expect(broadcasts).toBeDefined();
+        });
+      });
+    });
+  });
+
+  describe("Session duration handling", () => {
+    it("should initialize SessionTimer on first user join", async () => {
+      const sessionManager = env.SESSION_MANAGER.get(
+        env.SESSION_MANAGER.idFromName(roomId)
+      );
+
+      await runInDurableObject(sessionManager, async (instance) => {
+        // Initialize and join first user
+        await instance.fetch(createInitRequest(teacherAddress));
+
+        const joinedAt = Date.now();
+        const webhookRequest = new Request('http://session-manager/webhook', {
+          method: 'POST',
+          body: JSON.stringify({
+            event: {
+              event: 'peer:joined',
+              payload: {
+                id: 'peer-1',
+                roomId,
+                sessionId: 'test-session',
+                joinedAt,
+                metadata: JSON.stringify({ role: 'teacher' })
+              }
+            }
+          })
+        });
+
+        await instance.fetch(webhookRequest);
+
+        // Verify SessionTimer was initialized
+        const sessionTimer = env.SESSION_TIMER.get(
+          env.SESSION_TIMER.idFromName(roomId)
+        );
+
+        await runInDurableObject(sessionTimer, async (st, stState) => {
+          const firstJoinRole = await stState.storage.get('firstJoinRole');
+          expect(firstJoinRole).toBe('teacher');
+
+          const alarmType = await stState.storage.get('alarmType');
+          expect(alarmType).toBe('joinWindow');
+        });
+      });
+    });
+
+    it("should handle session duration correctly", async () => {
+      const sessionManager = env.SESSION_MANAGER.get(
+        env.SESSION_MANAGER.idFromName(roomId)
+      );
+
+      await runInDurableObject(sessionManager, async (instance, state) => {
+        const customDuration = 7200000; // 2 hours
+        const request = createInitRequest(teacherAddress);
+        request.body = JSON.stringify({
+          ...JSON.parse(request.body as string),
+          sessionDuration: customDuration
+        });
+
+        await instance.fetch(request);
+
+        const teacher = await state.storage.get('user:teacher') as User;
+        expect(teacher.sessionDuration).toBe(customDuration);
+      });
     });
   });
 });

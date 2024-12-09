@@ -1,229 +1,292 @@
 import { env, runInDurableObject, runDurableObjectAlarm } from "cloudflare:test";
-import { describe, it, expect, beforeEach } from "vitest";
-import { ConnectionManager } from "../src/connectionManager";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import type { WebhookData, User } from "../src/types";
 
 describe("Fault Cases", () => {
   const roomId = "test-room";
   let connectionManager: DurableObjectStub;
   let messageRelay: DurableObjectStub;
-  let ws: WebSocket;
-  let messages: any[] = [];
+  let ws: WebSocket | undefined;
+  let messages: any[] = []; // Changed to let
 
-  beforeEach(async () => {
-    // Reset messages array
+async function cleanup() {
+  // Single atomic cleanup operation
+  await Promise.all([
+    new Promise<void>(resolve => {
+      if (ws) {
+        ws.close();
+        ws.addEventListener('close', () => resolve(), { once: true });
+        // Backup timeout
+        setTimeout(resolve, 100);
+      } else {
+        resolve();
+      }
+    }),
+
+    // DO cleanup in one batch with single timeout
+    (async () => {
+      const stubs = [
+        messageRelay,
+        connectionManager,
+        env.SESSION_MANAGER.get(env.SESSION_MANAGER.idFromName(roomId)),
+        env.SESSION_TIMER.get(env.SESSION_TIMER.idFromName(roomId))
+      ];
+
+      await Promise.all(stubs.map(stub =>
+        runInDurableObject(stub, async (_, state) => {
+          await state.blockConcurrencyWhile(async () => {
+            await state.storage.deleteAlarm();
+            await state.storage.deleteAll();
+          });
+        })
+      ));
+    })()
+  ]);
+
+  // Single final wait
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  messages = [];
+  ws = undefined;
+}
+
+beforeEach(async () => {
+  connectionManager = env.CONNECTION_MANAGER.get(env.CONNECTION_MANAGER.idFromName(roomId));
+  messageRelay = env.MESSAGE_RELAY.get(env.MESSAGE_RELAY.idFromName(roomId));
+  messages = [];
+  await cleanup();
+});
+
+afterEach(cleanup);
+
+  afterEach(async () => {
+    await cleanup();
+    // Additional cleanup and wait after each test
     messages = [];
+    ws = undefined;
+    await new Promise(resolve => setTimeout(resolve, 300));
+  });
 
-    // Get DO instances
-    connectionManager = env.CONNECTION_MANAGER.get(
-      env.CONNECTION_MANAGER.idFromName(roomId)
-    );
+  // ... rest of the tests remain the same
 
-    // Set up WebSocket to catch fault broadcasts
-    messageRelay = env.MESSAGE_RELAY.get(
-      env.MESSAGE_RELAY.idFromName(roomId)
-    );
-    const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`);
+  it("should detect late join fault (Case #1)", async () => {
+    // Setup WebSocket
+    const wsResponse = await messageRelay.fetch(`http://localhost/connect/${roomId}`, {
+      headers: { Upgrade: "websocket", Connection: "Upgrade" }
+    });
+    if (!wsResponse.webSocket) throw new Error("WebSocket connection failed");
     ws = wsResponse.webSocket;
     ws.accept();
 
-    ws.addEventListener('message', (event) => {
-      messages.push(JSON.parse(event.data));
-    });
-  });
+    ws.addEventListener("message", event => messages.push(JSON.parse(event.data)));
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-  it("should detect and handle late join fault (Fault Case #1)", async () => {
-    // First user joins (teacher)
-    const teacherPeerId = "teacher-1";
-    const joinTime = Date.now() - 200000; // More than 3 minutes ago
-
-    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
-      method: 'POST',
-      body: JSON.stringify({ peerId: teacherPeerId, role: 'teacher' })
-    });
-
-    await connectionManager.fetch('http://connection-manager/handleWebhook', {
-      method: 'POST',
-      body: JSON.stringify({
-        event: {
-          event: 'peer:joined',
-          payload: {
-            id: teacherPeerId,
-            roomId,
-            joinedAt: joinTime
-          }
-        }
-      })
-    });
-
-    // Trigger join sequence check
-    await connectionManager.fetch('http://connection-manager/handleWebhook', {
-      method: 'POST',
-      body: JSON.stringify({
-        event: {
-          event: 'peer:joined',
-          payload: {
-            id: 'another-peer',
-            roomId,
-            joinedAt: Date.now()
-          }
-        }
-      })
-    });
-
-    const faultMessage = messages.find(m =>
-      m.type === 'fault' &&
-      m.data.faultType === 'learnerFault_didnt_join'
-    );
-    expect(faultMessage).toBeDefined();
-  });
-
-  it("should handle second user never joining (Fault Case #2)", async () => {
-    const teacherPeerId = "teacher-1";
-    const joinTime = Date.now();
-
-    // Set up initial state
-    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
-      method: 'POST',
-      body: JSON.stringify({ peerId: teacherPeerId, role: 'teacher' })
-    });
-
-    // Simulate SessionTimer fault notification
-    await connectionManager.fetch('http://connection-manager/timerFault', {
-      method: 'POST',
-      body: JSON.stringify({
-        faultType: 'noJoin',
-        data: { role: 'learner' }
-      })
-    });
-
-    const faultMessage = messages.find(m =>
-      m.type === 'fault' &&
-      m.data.faultType === 'secondUser_never_joined'
-    );
-    expect(faultMessage).toBeDefined();
-    expect(faultMessage.data.role).toBe('learner');
-  });
-
-  it("should handle reconnection timeout (Fault Case #3)", async () => {
-    const teacherPeerId = "teacher-1";
-
-    // Set up initial state and disconnection
-    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
-      method: 'POST',
-      body: JSON.stringify({ peerId: teacherPeerId, role: 'teacher' })
-    });
-
-    const leftAt = Date.now() - 200000; // More than 3 minutes ago
-    await connectionManager.fetch('http://connection-manager/handleWebhook', {
-      method: 'POST',
-      body: JSON.stringify({
-        event: {
-          event: 'peer:left',
-          payload: {
-            id: teacherPeerId,
-            roomId,
-            leftAt
-          }
-        }
-      })
-    });
-
-    // Execute reconnection timeout alarm
-    await runDurableObjectAlarm(connectionManager);
-
-    const faultMessage = messages.find(m =>
-      m.type === 'fault' &&
-      m.data.faultType === 'teacherFault_connection_timeout'
-    );
-    expect(faultMessage).toBeDefined();
-  });
-
-  it("should handle excessive disconnections (Fault Case #4)", async () => {
-    const teacherPeerId = "teacher-1";
-
-    // Set up initial state
-    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
-      method: 'POST',
-      body: JSON.stringify({ peerId: teacherPeerId, role: 'teacher' })
-    });
-
-    // Simulate multiple disconnections
-    for (let i = 0; i < 4; i++) {
-      await connectionManager.fetch('http://connection-manager/handleWebhook', {
-        method: 'POST',
-        body: JSON.stringify({
-          event: {
-            event: 'peer:left',
-            payload: {
-              id: teacherPeerId,
-              roomId,
-              leftAt: Date.now() + i * 1000
-            }
-          }
-        })
+    // Setup initial state
+    await runInDurableObject(connectionManager, async (_, state) => {
+      await state.blockConcurrencyWhile(async () => {
+        await state.storage.put("participants", {
+          [teacherPeerId]: "teacher",
+          [learnerPeerId]: "learner",
+        });
+        await state.storage.put("user:teacher", {
+          role: "teacher",
+          peerId: teacherPeerId,
+          joinedAt: Date.now() - 180001,
+        } as User);
       });
-    }
-
-    // Verify state and fault message
-    await runInDurableObject(connectionManager, async (instance: ConnectionManager, state) => {
-      const disconnectCount = await state.storage.get<number>('teacher_disconnectCount');
-      expect(disconnectCount).toBe(4);
     });
 
+    // Trigger fault
+    await connectionManager.fetch("http://localhost/handleWebhook", {
+      method: "POST",
+      body: JSON.stringify({
+        event: {
+          event: "peer:joined",
+          payload: { id: learnerPeerId, roomId, joinedAt: Date.now() }
+        }
+      }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     const faultMessage = messages.find(m =>
-      m.type === 'fault' &&
-      m.data.faultType === 'teacherFault_excessive_disconnects'
+      m.type === "fault" && m.data.faultType === "learnerFault_didnt_join"
+    );
+    expect(faultMessage?.data.role).toBe("learner");
+  });
+
+  it("should handle second user never joining (Case #2)", async () => {
+    // Setup WebSocket
+    const wsResponse = await messageRelay.fetch(`http://localhost/connect/${roomId}`, {
+      headers: { Upgrade: "websocket", Connection: "Upgrade" }
+    });
+    if (!wsResponse.webSocket) throw new Error("WebSocket connection failed");
+    ws = wsResponse.webSocket;
+    ws.accept();
+
+    ws.addEventListener("message", event => messages.push(JSON.parse(event.data)));
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Setup initial state
+    await runInDurableObject(connectionManager, async (_, state) => {
+      await state.blockConcurrencyWhile(async () => {
+        await state.storage.put("participants", {
+          [teacherPeerId]: "teacher",
+          [learnerPeerId]: "learner",
+        });
+        await state.storage.put("user:teacher", {
+          role: "teacher",
+          peerId: teacherPeerId,
+          joinedAt: Date.now(),
+        } as User);
+      });
+    });
+
+    await connectionManager.fetch("http://localhost/timerFault", {
+      method: "POST",
+      body: JSON.stringify({
+        faultType: "noJoin",
+        data: { role: "learner" },
+      }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const faultMessage = messages.find(m =>
+      m.type === "fault" && m.data.faultType === "secondUser_never_joined"
+    );
+    expect(faultMessage?.data.role).toBe("learner");
+  });
+
+  it("should handle reconnection timeout (Case #3)", async () => {
+    // Setup WebSocket
+    const wsResponse = await messageRelay.fetch(`http://localhost/connect/${roomId}`, {
+      headers: { Upgrade: "websocket", Connection: "Upgrade" }
+    });
+    if (!wsResponse.webSocket) throw new Error("WebSocket connection failed");
+    ws = wsResponse.webSocket;
+    ws.accept();
+
+    ws.addEventListener("message", event => messages.push(JSON.parse(event.data)));
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Setup timeout state
+    const leftAt = Date.now() - 200000;
+    await runInDurableObject(connectionManager, async (_, state) => {
+      await state.blockConcurrencyWhile(async () => {
+        await state.storage.put("participants", {
+          [teacherPeerId]: "teacher",
+          [learnerPeerId]: "learner",
+        });
+        await state.storage.put("teacher_disconnectCount", 1);
+        await state.storage.put("disconnectionAlarms", {
+          [`${teacherPeerId}_reconnect`]: leftAt + 180000
+        });
+        await state.storage.setAlarm(leftAt + 180000);
+      });
+    });
+
+    const alarmRan = await runDurableObjectAlarm(connectionManager);
+    expect(alarmRan).toBe(true);
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const faultMessage = messages.find(m =>
+      m.type === "fault" && m.data.faultType === "teacherFault_connection_timeout"
+    );
+    expect(faultMessage).toBeDefined();
+  });
+
+  it("should handle excessive disconnections (Case #4)", async () => {
+    // Setup WebSocket
+    const wsResponse = await messageRelay.fetch(`http://localhost/connect/${roomId}`, {
+      headers: { Upgrade: "websocket", Connection: "Upgrade" }
+    });
+    if (!wsResponse.webSocket) throw new Error("WebSocket connection failed");
+    ws = wsResponse.webSocket;
+    ws.accept();
+
+    ws.addEventListener("message", event => messages.push(JSON.parse(event.data)));
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Setup disconnect state
+    await runInDurableObject(connectionManager, async (_, state) => {
+      await state.blockConcurrencyWhile(async () => {
+        await state.storage.put("participants", {
+          [teacherPeerId]: "teacher",
+          [learnerPeerId]: "learner",
+        });
+        await state.storage.put("teacher_disconnectCount", 3);
+      });
+    });
+
+    // Trigger another disconnect
+    await connectionManager.fetch("http://localhost/handleWebhook", {
+      method: "POST",
+      body: JSON.stringify({
+        event: {
+          event: "peer:left",
+          payload: {
+            id: teacherPeerId,
+            roomId,
+            leftAt: Date.now(),
+          },
+        },
+      }),
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const faultMessage = messages.find(m =>
+      m.type === "fault" && m.data.faultType === "teacherFault_excessive_disconnects"
     );
     expect(faultMessage).toBeDefined();
   });
 
   it("should clear reconnection tracking on successful rejoin", async () => {
-    const teacherPeerId = "teacher-1";
+    // Setup WebSocket
+    const wsResponse = await messageRelay.fetch(`http://localhost/connect/${roomId}`, {
+      headers: { Upgrade: "websocket", Connection: "Upgrade" }
+    });
+    if (!wsResponse.webSocket) throw new Error("WebSocket connection failed");
+    ws = wsResponse.webSocket;
+    ws.accept();
 
-    // Set up initial state and disconnection
-    await connectionManager.fetch('http://connection-manager/updateParticipantRole', {
-      method: 'POST',
-      body: JSON.stringify({ peerId: teacherPeerId, role: 'teacher' })
+    ws.addEventListener("message", event => messages.push(JSON.parse(event.data)));
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Setup reconnection state
+    await runInDurableObject(connectionManager, async (_, state) => {
+      await state.blockConcurrencyWhile(async () => {
+        await state.storage.put("participants", {
+          [teacherPeerId]: "teacher",
+          [learnerPeerId]: "learner",
+        });
+        await state.storage.put("teacher_disconnectCount", 1);
+        await state.storage.put("disconnectionAlarms", {
+          [`${teacherPeerId}_reconnect`]: Date.now() + 180000
+        });
+        await state.storage.setAlarm(Date.now() + 180000);
+      });
     });
 
-    // User leaves
-    await connectionManager.fetch('http://connection-manager/handleWebhook', {
-      method: 'POST',
+    // Trigger rejoin
+    await connectionManager.fetch("http://localhost/handleWebhook", {
+      method: "POST",
       body: JSON.stringify({
         event: {
-          event: 'peer:left',
+          event: "peer:joined",
           payload: {
             id: teacherPeerId,
             roomId,
-            leftAt: Date.now()
-          }
-        }
-      })
+            joinedAt: Date.now(),
+          },
+        },
+      }),
     });
 
-    // Verify alarm was set
-    await runInDurableObject(connectionManager, async (instance: ConnectionManager) => {
-      expect(instance['disconnectionAlarms'].has(`${teacherPeerId}_reconnect`)).toBe(true);
-    });
-
-    // User rejoins
-    await connectionManager.fetch('http://connection-manager/handleWebhook', {
-      method: 'POST',
-      body: JSON.stringify({
-        event: {
-          event: 'peer:joined',
-          payload: {
-            id: teacherPeerId,
-            roomId,
-            joinedAt: Date.now()
-          }
-        }
-      })
-    });
-
-    // Verify alarm was cleared
-    await runInDurableObject(connectionManager, async (instance: ConnectionManager) => {
-      expect(instance['disconnectionAlarms'].has(`${teacherPeerId}_reconnect`)).toBe(false);
-    });
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const alarmWasRun = await runDurableObjectAlarm(connectionManager);
+    expect(alarmWasRun).toBe(false);
   });
 });

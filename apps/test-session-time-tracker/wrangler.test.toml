@@ -6,12 +6,12 @@ compatibility_flags = ["nodejs_compat"]
 
 [durable_objects]
 bindings = [
-  { name = "SESSION_MANAGER", class_name = "SessionManager" },
-  { name = "CONNECTION_MANAGER", class_name = "ConnectionManager" },
-  { name = "SESSION_TIMER", class_name = "SessionTimer" },
+{ name = "SESSION_MANAGER", class_name = "SessionManager" },
+{ name = "CONNECTION_MANAGER", class_name = "ConnectionManager" },
+{ name = "SESSION_TIMER", class_name = "SessionTimer" },
+{ name = "MESSAGE_RELAY", class_name = "MessageRelay" }
 ]
 
 [[migrations]]
 tag = "v1"
-new_classes = ["SessionManager", "ConnectionManager", "SessionTimer" ]
-
+new_classes = ["SessionManager", "ConnectionManager", "SessionTimer", "MessageRelay"]

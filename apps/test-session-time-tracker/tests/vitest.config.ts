@@ -7,6 +7,9 @@ export default defineWorkersProject({
     include: ['**/tests/**/*.{test,spec}.ts'],
     poolOptions: {
       workers: {
+        isolatedStorage: false,
+        singleWorker: true,
+
         wrangler: { configPath: path.resolve(__dirname, '../wrangler.test.toml') },
       },
     },
