@@ -63,6 +63,7 @@ export class SessionTimer extends DurableObject<DOEnv> {
         // Notify ConnectionManager of the fault
         await connectionManager.fetch('http://connection-manager/timerFault', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             faultType: 'noJoin',
             data: { role: faultedRole }
@@ -118,8 +119,8 @@ export class SessionTimer extends DurableObject<DOEnv> {
 
     await messageRelay.fetch('http://message-relay/broadcast/' + this.roomId, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(message),
-      headers: { 'Content-Type': 'application/json' }
     });
   }
 }

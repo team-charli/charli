@@ -43,9 +43,11 @@ export class MessageRelay extends DurableObject {
     this.app.post('/broadcast/:roomId', async (c) => {
       const roomId = c.req.param('roomId');
       const message = await c.req.json<Message>();
+      // console.log('MessageRelay received broadcast request:', message);
 
       const socket = this.connections.get(roomId);
       if (socket) {
+        // console.log('MessageRelay sending message to WS:', JSON.stringify(message));
         socket.send(JSON.stringify(message));
         return c.json({ status: 'ok' });
       }

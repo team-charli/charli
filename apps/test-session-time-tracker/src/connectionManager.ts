@@ -29,42 +29,77 @@ export class ConnectionManager extends DurableObject<DOEnv> {
   constructor(state: DurableObjectState, env: DOEnv) {
     super(state, env);
     this.state = state;
-    this.roomId = state.id.toString();
 
     // New peer joined endpoint - replaces peer:joined webhook handling
     this.app.post('/handlePeer', async (c) => {
-      const { peerId, role, joinedAt } = await c.req.json();
 
-      // Store minimal connection data
+      const { peerId, role, joinedAt, roomId } = await c.req.json();
+      this.roomId = roomId;
+      console.log('ConnectionManager received handlePeer:', {peerId,role, joinedAt, roomId} );
       const participants = (await this.state.storage.get<Record<string, string>>('participants')) || {};
-      if (participants[peerId]) {
-        throw new Error(`Peer ${peerId} already has an assigned role`);
-      }
+      if (participants[peerId]) throw new Error(`Peer ${peerId} already has an assigned role`);
       participants[peerId] = role;
       await this.state.storage.put('participants', participants);
-
       // Store join timestamp for fault detection
       const joinTimes = (await this.state.storage.get<Record<string, number>>('joinTimes')) || {};
       joinTimes[role] = joinedAt;
       await this.state.storage.put('joinTimes', joinTimes);
+      if (await this.areBothJoined()) {
+        await this.broadcastBothJoined();
+      }
+
+      // Broadcast userJoined message
+      const messageRelay = this.env.MESSAGE_RELAY.get( this.env.MESSAGE_RELAY.idFromName(this.roomId));
+
+      await messageRelay.fetch('http://message-relay/broadcast/' + this.roomId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'userJoined',
+          data: {
+            role,
+            joinedAt
+          }
+        })
+      });
 
       // Handle existing fault logic
       await this.handleReconnectionEvent(peerId);
       await this.checkJoinSequence();
     });
 
-    // New peer left endpoint - replaces peer:left webhook handling
+    // New peer left endpoint
     this.app.post('/handlePeerLeft', async (c) => {
-      const { peerId, role, leftAt } = await c.req.json();
+      const { peerId, leftAt, role} = await c.req.json();
+      console.log('handlePeerLeft request:', { peerId, leftAt, role });
+
+      if (!role) return c.text('Unknown peer', 400);
+
+      // Broadcast userLeft message
+      const messageRelay = this.env.MESSAGE_RELAY.get(
+        this.env.MESSAGE_RELAY.idFromName(this.roomId)
+      );
+
+      await messageRelay.fetch('http://message-relay/broadcast/' + this.roomId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'userLeft',
+          data: {
+            leftAt
+          }
+        })
+      });
+
+      // Handle disconnection tracking
       await this.handleDisconnectionEvent(peerId, leftAt);
+      return c.text('OK');
     });
 
     // Keep existing timer integration endpoints
     this.app.get('/checkBothJoined', async (c) => {
-      const joinTimes = await this.state.storage.get<Record<string, number>>('joinTimes');
-      return c.json({
-        bothJoined: !!(joinTimes?.['teacher'] && joinTimes?.['learner'])
-      });
+      const bothJoined = await this.areBothJoined();
+      return c.json({ bothJoined });
     });
 
     // Keep existing timer fault handling
@@ -85,29 +120,11 @@ export class ConnectionManager extends DurableObject<DOEnv> {
   // 4. User disconnects more than 3 times
 
 
-  private async storeUserState(user: Partial<User>) {
-    const existingUser = await this.state.storage.get(`user:${user.role}`) as User;
-    await this.state.storage.put(`user:${user.role}`, {
-      ...existingUser,
-      ...user
-    });
-  }
-
   private async incrementDisconnectCount(role: 'teacher' | 'learner'): Promise<number> {
     const key = `${role}_disconnectCount`;
     const count = ((await this.state.storage.get<number>(key)) || 0) + 1;
     await this.state.storage.put(key, count);
     return count;
-  }
-
-  private async updateUserState(peerId: string, leftAt: number) {
-    const role = await this.getParticipantRole(peerId);
-    if (role) {
-      await this.storeUserState({
-        role,
-        leftAt
-      });
-    }
   }
 
   private async getParticipantRole(peerId: string): Promise<'teacher' | 'learner' | null> {
@@ -128,23 +145,13 @@ export class ConnectionManager extends DurableObject<DOEnv> {
         }
       }
 
-      // Validate and verify peer
-      const verifiedRole = await this.validateAndVerifyPeer( peerId, parsedMetadata.role, parsedMetadata.hashedAddress);
-
       // Store verified peer-role mapping
       const participants = (await this.state.storage.get<Record<string, string>>('participants')) || {};
       if (participants[peerId]) {
         throw new Error(`Peer ${peerId} already has an assigned role`);
       }
-      participants[peerId] = verifiedRole;
+      participants[peerId] = role;
       await this.state.storage.put('participants', participants);
-
-      // Update user state
-      await this.storeUserState({
-        role: verifiedRole,
-        peerId,
-        joinedAt,
-      });
 
       await this.checkJoinSequence();
       await this.handleReconnectionEvent(peerId);
@@ -152,27 +159,7 @@ export class ConnectionManager extends DurableObject<DOEnv> {
     } else if (event.event === 'peer:left') {
       const { id: peerId, leftAt } = event.payload as WebhookEvents['peer:left'][0];
       await this.handleDisconnectionEvent(peerId, leftAt);
-      await this.updateUserState(peerId, leftAt);
     }
-  }
-
-  private async validateAndVerifyPeer(
-    peerId: string,
-    role: string,
-    hashedAddress: string
-  ): Promise<'teacher' | 'learner'> {
-    // Get stored user data
-    const teacherData = await this.state.storage.get('user:teacher') as User;
-    const learnerData = await this.state.storage.get('user:learner') as User;
-
-    // Verify role matches stored hash
-    if (role === 'teacher' && hashedAddress === teacherData?.hashedTeacherAddress) {
-      return 'teacher';
-    } else if (role === 'learner' && hashedAddress === learnerData?.hashedLearnerAddress) {
-      return 'learner';
-    }
-
-    throw new Error(`Role verification failed for peer ${peerId}`);
   }
 
   private async handleReconnectionEvent(peerId: string) {
@@ -181,6 +168,20 @@ export class ConnectionManager extends DurableObject<DOEnv> {
       await this.state.storage.deleteAlarm();
       this.disconnectionAlarms.delete(alarmId);
     }
+  }
+
+  private async areBothJoined(): Promise<boolean> {
+    const joinTimes = await this.state.storage.get<Record<string, number>>('joinTimes');
+    return !!(joinTimes?.['teacher'] && joinTimes?.['learner']);
+  }
+
+  private async broadcastBothJoined(): Promise<void> {
+    const messageRelay = this.env.MESSAGE_RELAY.get( this.env.MESSAGE_RELAY.idFromName(this.roomId));
+    await messageRelay.fetch('http://message-relay/broadcast/' + this.roomId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'bothJoined', data: { timestamp: Date.now() } })
+    });
   }
 
   // Fault Case #1: Late join detection
