@@ -20,5 +20,7 @@ export const generateAccessToken = async (
       console.log('generated Huddle AccessToken')
       setHuddleAccessToken(data.accessToken);
     }
+  } else {
+    throw new Error(`no supabaseClient or roomId`)
   }
 }

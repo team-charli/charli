@@ -1,5 +1,4 @@
 //ConfirmedTeachingSession.tsx
-import { generateAccessToken } from '@/Huddle/generateAccessToken';
 import { NotificationIface } from '@/types/types';
 import { formatUtcTimestampToLocalStrings } from '@/utils/app';
 import {Link, useNavigate} from '@tanstack/react-router';
