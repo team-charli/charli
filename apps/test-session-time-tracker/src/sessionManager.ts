@@ -5,6 +5,7 @@ import { User, ClientData } from './types';
 import { keccak256 } from 'ethereum-cryptography/keccak';
 import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
 import { DOEnv, Env } from './env';
+import { cloneElement } from 'hono/jsx';
 
 export class SessionManager extends DurableObject<DOEnv> {
   private app = new Hono<Env>();
@@ -43,13 +44,13 @@ export class SessionManager extends DurableObject<DOEnv> {
 
     this.app.post('/init', async (c) => {
       const clientData = await c.req.json<ClientData>();
-      console.log('clientData sessionManager', {clientData})
+      // console.log('clientData sessionManager', {clientData})
       const { userAddress, hashedTeacherAddress, hashedLearnerAddress, sessionDuration, clientSideRoomId} = clientData;
       this.roomId = clientSideRoomId;
       // Validate user and assign role
       const userAddressHashBytes = keccak256(hexToBytes(userAddress));
       const userAddressHash = toHex(userAddressHashBytes);
-      console.log('/init hashes:', { userAddressHash, hashedTeacherAddress, hashedLearnerAddress });
+      // console.log('/init hashes:', { userAddressHash, hashedTeacherAddress, hashedLearnerAddress });
 
       let role: 'teacher' | 'learner';
       if (userAddressHash === hashedTeacherAddress) {
@@ -89,7 +90,7 @@ export class SessionManager extends DurableObject<DOEnv> {
 
     this.app.post('/webhook', async (c) => {
       const webhookData = await c.req.text();
-      console.log('SessionManager received webhook:', webhookData);
+      // console.log('SessionManager received webhook:', webhookData);
 
       try {
         const event = JSON.parse(webhookData);
@@ -98,27 +99,36 @@ export class SessionManager extends DurableObject<DOEnv> {
         if (event.event === 'peer:joined') {
           const peerData = event.payload[0].data;
           const metadata = JSON.parse(peerData.metadata || '{}');
-          console.log('Peer metadata:', metadata);
 
           // Get stored user data for validation
-          const teacherData = await this.state.storage.get('user:teacher') as User;
-          const learnerData = await this.state.storage.get('user:learner') as User;
+          let teacherData = await this.state.storage.get('user:teacher') as User;
+          let learnerData = await this.state.storage.get('user:learner') as User;
 
           // Validate and determine role
-          console.log('Validation data:', {
-            incomingHash: metadata.hashedAddress,
-            storedTeacherHash: teacherData?.hashedTeacherAddress,
-            storedLearnerHash: learnerData?.hashedLearnerAddress,
-            teacherData,
-            learnerData
-          });
+          // console.log('Validation data:', {
+          //   incomingHash: metadata.hashedAddress,
+          //   storedTeacherHash: teacherData?.hashedTeacherAddress,
+          //   storedLearnerHash: learnerData?.hashedLearnerAddress,
+          //   teacherData,
+          //   learnerData
+          // });
           const validatedRole = this.validateRole(metadata, teacherData, learnerData);
+          console.log(`SessionManager: Received ${event.event} event for roomId=${metadata.roomId}, peerId=${peerData.id}`);
+          console.log(`SessionManager: Validate Role => metadata.hashedAddress=${metadata.hashedAddress}, teacherHash=${teacherData?.hashedTeacherAddress}, learnerHash=${learnerData?.hashedLearnerAddress}`);
+          console.log(`SessionManager: Assigned role=${validatedRole} to peerId=${peerData.id}`);
+
           const userData = validatedRole === 'teacher' ? teacherData : learnerData;
           userData.peerId = peerData.id;
           userData.joinedAt = peerData.joinedAt;
 
-          console.log(`Updating ${validatedRole} data:`, userData);
+
+          // console.log(`Updating ${validatedRole} data:`, userData);
           await this.state.storage.put(`user:${validatedRole}`, userData);
+          teacherData = await this.state.storage.get('user:teacher') as User;
+
+          console.log("teacherData", teacherData)
+          learnerData = await this.state.storage.get('user:learner') as User;
+          console.log("learnerData", learnerData);
 
           // Forward validated data to ConnectionManager
           try {
@@ -126,7 +136,7 @@ export class SessionManager extends DurableObject<DOEnv> {
             const connectionManager = c.env.CONNECTION_MANAGER.get(
               c.env.CONNECTION_MANAGER.idFromName(this.roomId)
             );
-            console.log("sessionManager call to http://connection-manager/handlePeer", {peerId: peerData.id, role: validatedRole, joinedAt: peerData.joinedAt, roomId: this.roomId})
+            // console.log("sessionManager call to http://connection-manager/handlePeer", {peerId: peerData.id, role: validatedRole, joinedAt: peerData.joinedAt, roomId: this.roomId})
 
             const response = await connectionManager.fetch('http://connection-manager/handlePeer', {
               method: 'POST',
@@ -135,7 +145,9 @@ export class SessionManager extends DurableObject<DOEnv> {
                 peerId: peerData.id,
                 role: validatedRole,
                 joinedAt: peerData.joinedAt,
-                roomId: this.roomId
+                roomId: this.roomId,
+                teacherData,
+                learnerData
               })
             });
 
@@ -153,9 +165,12 @@ export class SessionManager extends DurableObject<DOEnv> {
           }
         } else if (event.event === 'peer:left') {
           const peerData = event.payload[0].data;
-          const teacherData = await this.state.storage.get('user:teacher') as User;
-          const learnerData = await this.state.storage.get('user:learner') as User;
+          let teacherData = await this.state.storage.get('user:teacher') as User;
+          let learnerData = await this.state.storage.get('user:learner') as User;
           let role: 'teacher' | 'learner';
+
+          const metadata = JSON.parse(peerData.metadata || '{}');
+          const validatedRole = this.validateRole(metadata, teacherData, learnerData);
 
           if (teacherData?.peerId === peerData.id) {
             role = 'teacher';
@@ -174,6 +189,9 @@ export class SessionManager extends DurableObject<DOEnv> {
             return c.json({ error: 'Unknown peer' }, 400);
           }
 
+          teacherData = await this.state.storage.get('user:teacher') as User;
+
+          learnerData = await this.state.storage.get('user:learner') as User;
 
           // Forward to ConnectionManager
           const connectionManager = c.env.CONNECTION_MANAGER.get(
@@ -186,7 +204,9 @@ export class SessionManager extends DurableObject<DOEnv> {
             body: JSON.stringify({
               peerId: peerData.id,
               leftAt: peerData.leftAt,
-              role
+              role: validatedRole,
+              teacherData,
+              learnerData
             })
           });
         }
@@ -204,7 +224,7 @@ export class SessionManager extends DurableObject<DOEnv> {
   }
   private validateRole = (metadata, teacherData, learnerData): ('teacher' | 'learner' | null) => {
 
-    let validatedRole
+    let validatedRole: 'teacher' | 'learner'
     if (metadata.hashedAddress === teacherData?.hashedTeacherAddress) {
       validatedRole = 'teacher';
     } else if (metadata.hashedAddress === learnerData?.hashedLearnerAddress) {
@@ -241,7 +261,8 @@ export class SessionManager extends DurableObject<DOEnv> {
       body: JSON.stringify({
         duration: 3600000, // 1 hour
         firstJoinTime,
-        firstJoinRole
+        firstJoinRole,
+        roomId: this.roomId
       })
     });
   }

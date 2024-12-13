@@ -5,14 +5,13 @@ import { DurableObject } from 'cloudflare:workers';
 import { DOEnv, Env } from './env';
 
 export class ConnectionManager extends DurableObject<DOEnv> {
-  private disconnectionAlarms: Map<string, number> = new Map();
   private readonly MAX_DISCONNECTIONS = 3;
   private roomId: string;
   private app = new Hono<Env>();
   /**
    * Storage Schema:
    * {
-   *   // Maps peer IDs to their validated roles
+   *   // Maps peer IDs to their validated roles (currently connected peers)
    *   'participants': Record<string, 'teacher' | 'learner'>,
    *
    *   // Tracks disconnect counts for fault detection
@@ -20,7 +19,11 @@ export class ConnectionManager extends DurableObject<DOEnv> {
    *   'learner_disconnectCount': number,
    *
    *   // Join timestamps for sequencing checks
-   *   'joinTimes': Record<'teacher' | 'learner', number>
+   *   'joinTimes': Record<'teacher' | 'learner', number>,
+   *
+   *   // For each disconnected peer, an alarm record stored as:
+   *   `alarm:${peerId}`: { alarmTime: number, role: 'teacher' | 'learner' }
+   *   //
    * }
    */
 
@@ -30,27 +33,74 @@ export class ConnectionManager extends DurableObject<DOEnv> {
     super(state, env);
     this.state = state;
 
-    // New peer joined endpoint - replaces peer:joined webhook handling
     this.app.post('/handlePeer', async (c) => {
-
-      const { peerId, role, joinedAt, roomId } = await c.req.json();
+      const { peerId, role, joinedAt, roomId, teacherData, learnerData } = await c.req.json();
       this.roomId = roomId;
-      console.log('ConnectionManager received handlePeer:', {peerId,role, joinedAt, roomId} );
+
+      console.log({
+        component: "ConnectionManager",
+        method: "handlePeer",
+        roomId: this.roomId,
+        action: "receivedPeerJoinedData",
+        peerId,
+        role,
+        joinedAt
+      });
+
       const participants = (await this.state.storage.get<Record<string, string>>('participants')) || {};
-      if (participants[peerId]) throw new Error(`Peer ${peerId} already has an assigned role`);
+      if (participants[peerId]) {
+        console.error({
+          component: "ConnectionManager",
+          method: "handlePeer",
+          action: "error",
+          roomId: this.roomId,
+          message: `Peer ${peerId} already has an assigned role ${participants[peerId]}`
+        });
+        throw new Error(`Peer ${peerId} already has an assigned role`);
+      }
+
       participants[peerId] = role;
       await this.state.storage.put('participants', participants);
+      console.log({
+        component: "ConnectionManager",
+        method: "handlePeer",
+        roomId: this.roomId,
+        action: "participantsUpdated",
+        participants
+      });
+
       // Store join timestamp for fault detection
       const joinTimes = (await this.state.storage.get<Record<string, number>>('joinTimes')) || {};
       joinTimes[role] = joinedAt;
       await this.state.storage.put('joinTimes', joinTimes);
+      console.log({
+        component: "ConnectionManager",
+        method: "handlePeer",
+        roomId: this.roomId,
+        action: "joinTimesUpdated",
+        joinTimes
+      });
+
       if (await this.areBothJoined()) {
+        console.log({
+          component: "ConnectionManager",
+          method: "handlePeer",
+          roomId: this.roomId,
+          action: "bothJoinedDetected"
+        });
         await this.broadcastBothJoined();
       }
 
       // Broadcast userJoined message
-      const messageRelay = this.env.MESSAGE_RELAY.get( this.env.MESSAGE_RELAY.idFromName(this.roomId));
-
+      console.log({
+        component: "ConnectionManager",
+        method: "handlePeer",
+        roomId: this.roomId,
+        action: "broadcastUserJoined",
+        role,
+        joinedAt
+      });
+      const messageRelay = this.env.MESSAGE_RELAY.get(this.env.MESSAGE_RELAY.idFromName(this.roomId));
       await messageRelay.fetch('http://message-relay/broadcast/' + this.roomId, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,17 +115,56 @@ export class ConnectionManager extends DurableObject<DOEnv> {
 
       // Handle existing fault logic
       await this.handleReconnectionEvent(peerId);
-      await this.checkJoinSequence();
+      await this.checkJoinSequence(teacherData, learnerData);
+
+      return c.text('OK');
     });
 
-    // New peer left endpoint
     this.app.post('/handlePeerLeft', async (c) => {
-      const { peerId, leftAt, role} = await c.req.json();
-      console.log('handlePeerLeft request:', { peerId, leftAt, role });
+      const { peerId, leftAt, role } = await c.req.json();
+      console.log({
+        component: "ConnectionManager",
+        method: "handlePeerLeft",
+        roomId: this.roomId,
+        action: "peerLeftEventReceived",
+        peerId,
+        role,
+        leftAt
+      });
 
-      if (!role) return c.text('Unknown peer', 400);
+      if (!role) {
+        console.warn({
+          component: "ConnectionManager",
+          method: "handlePeerLeft",
+          roomId: this.roomId,
+          message: "Unknown peer role in peerLeft event",
+          peerId
+        });
+        return c.text('Unknown peer', 400);
+      }
+
+      // Get participants map
+      const participants = (await this.state.storage.get<Record<string, string>>('participants')) || {};
+      delete participants[peerId];
+      await this.state.storage.put('participants', participants);
+
+      console.log({
+        component: "ConnectionManager",
+        method: "handlePeerLeft",
+        roomId: this.roomId,
+        action: "participantsUpdatedAfterLeave",
+        participants
+      });
 
       // Broadcast userLeft message
+      console.log({
+        component: "ConnectionManager",
+        method: "handlePeerLeft",
+        roomId: this.roomId,
+        action: "broadcastUserLeft",
+        peerId,
+        leftAt
+      });
       const messageRelay = this.env.MESSAGE_RELAY.get(
         this.env.MESSAGE_RELAY.idFromName(this.roomId)
       );
@@ -92,19 +181,31 @@ export class ConnectionManager extends DurableObject<DOEnv> {
       });
 
       // Handle disconnection tracking
-      await this.handleDisconnectionEvent(peerId, leftAt);
+      await this.handleDisconnectionEvent(peerId, role, leftAt);
       return c.text('OK');
     });
 
-    // Keep existing timer integration endpoints
     this.app.get('/checkBothJoined', async (c) => {
       const bothJoined = await this.areBothJoined();
+      console.log({
+        component: "ConnectionManager",
+        method: "checkBothJoined",
+        roomId: this.roomId,
+        bothJoined
+      });
       return c.json({ bothJoined });
     });
 
-    // Keep existing timer fault handling
     this.app.post('/timerFault', async (c) => {
       const { faultType, data } = await c.req.json<{ faultType: 'noJoin'; data: any }>();
+      console.log({
+        component: "ConnectionManager",
+        method: "timerFault",
+        roomId: this.roomId,
+        action: "receivedTimerFault",
+        faultType,
+        data
+      });
       await this.handleSessionTimerFault(faultType, data);
       return c.text('OK');
     });
@@ -113,70 +214,160 @@ export class ConnectionManager extends DurableObject<DOEnv> {
   async fetch(request: Request): Promise<Response> {
     return this.app.fetch(request, this.env);
   }
-  // FAULT CASES:
-  // 1. Second user doesn't join within 3 minutes of first user
-  // 2. Second user never joins (new case)
-  // 3. User disconnects and doesn't reconnect within 3 minutes
-  // 4. User disconnects more than 3 times
-
 
   private async incrementDisconnectCount(role: 'teacher' | 'learner'): Promise<number> {
     const key = `${role}_disconnectCount`;
-    const count = ((await this.state.storage.get<number>(key)) || 0) + 1;
+    const current = (await this.state.storage.get<number>(key)) || 0;
+    const count = current + 1;
     await this.state.storage.put(key, count);
+    console.log({
+      component: "ConnectionManager",
+      method: "incrementDisconnectCount",
+      roomId: this.roomId,
+      role,
+      newCount: count
+    });
     return count;
   }
 
   private async getParticipantRole(peerId: string): Promise<'teacher' | 'learner' | null> {
     const participants = (await this.state.storage.get<Record<string, string>>('participants')) || {};
-    return participants[peerId] as 'teacher' | 'learner' || null;
+    const role = participants[peerId] as 'teacher' | 'learner' || null;
+    console.log({
+      component: "ConnectionManager",
+      method: "getParticipantRole",
+      roomId: this.roomId,
+      peerId,
+      role
+    });
+    return role;
   }
 
   async handleWebhookEvent(event: WebhookData) {
+    console.log({
+      component: "ConnectionManager",
+      method: "handleWebhookEvent",
+      roomId: this.roomId,
+      event: event.event,
+      payload: event.payload
+    });
+
     if (event.event === 'peer:joined') {
-      const { id: peerId, joinedAt, role, metadata } = event.payload[0].data;  // Note the [0].data access
+      const { id: peerId, role, metadata, teacherData, learnerData} = event.payload[0].data;
+      console.log({
+        component: "ConnectionManager",
+        method: "handleWebhookEvent",
+        roomId: this.roomId,
+        action: "peerJoinedFromWebhook",
+        peerId,
+        role,
+        metadata
+      });
 
       let parsedMetadata: any;
       if (metadata) {
         try {
           parsedMetadata = JSON.parse(metadata);
         } catch (e) {
+          console.error({
+            component: "ConnectionManager",
+            method: "handleWebhookEvent",
+            action: "invalidMetadata",
+            peerId,
+            error: e.message
+          });
           throw new Error(`Invalid metadata format for peer ${peerId}`);
         }
       }
 
-      // Store verified peer-role mapping
       const participants = (await this.state.storage.get<Record<string, string>>('participants')) || {};
       if (participants[peerId]) {
+        console.error({
+          component: "ConnectionManager",
+          method: "handleWebhookEvent",
+          action: "error",
+          message: `Peer ${peerId} already has an assigned role`,
+          roomId: this.roomId,
+          peerId,
+          roleAssigned: participants[peerId]
+        });
         throw new Error(`Peer ${peerId} already has an assigned role`);
       }
       participants[peerId] = role;
       await this.state.storage.put('participants', participants);
+      console.log({
+        component: "ConnectionManager",
+        method: "handleWebhookEvent",
+        roomId: this.roomId,
+        action: "participantsUpdatedViaWebhook",
+        participants
+      });
 
-      await this.checkJoinSequence();
+      await this.checkJoinSequence(teacherData, learnerData);
       await this.handleReconnectionEvent(peerId);
 
     } else if (event.event === 'peer:left') {
-      const { id: peerId, leftAt } = event.payload as WebhookEvents['peer:left'][0];
-      await this.handleDisconnectionEvent(peerId, leftAt);
+      const { id: peerId, leftAt, role, teacherData, learnerData } = event.payload['peer:left'][0];
+      console.log({
+        component: "ConnectionManager",
+        method: "handleWebhookEvent",
+        roomId: this.roomId,
+        action: "peerLeftFromWebhook",
+        peerId,
+        leftAt,
+        role
+      });
+
+      await this.checkJoinSequence(teacherData, learnerData);
+      await this.handleDisconnectionEvent(peerId, role, leftAt);
     }
   }
 
   private async handleReconnectionEvent(peerId: string) {
-    const alarmId = `${peerId}_reconnect`;
-    if (this.disconnectionAlarms.has(alarmId)) {
+    const alarmData = await this.state.storage.get<{alarmTime: number, role: 'teacher'|'learner'}>(`alarm:${peerId}`);
+    if (alarmData) {
+      console.log({
+        component: "ConnectionManager",
+        method: "handleReconnectionEvent",
+        roomId: this.roomId,
+        action: "clearingAlarm",
+        peerId,
+        alarmData
+      });
+      await this.state.storage.delete(`alarm:${peerId}`);
       await this.state.storage.deleteAlarm();
-      this.disconnectionAlarms.delete(alarmId);
+    } else {
+      console.log({
+        component: "ConnectionManager",
+        method: "handleReconnectionEvent",
+        roomId: this.roomId,
+        action: "noAlarmFound",
+        peerId
+      });
     }
   }
 
   private async areBothJoined(): Promise<boolean> {
     const joinTimes = await this.state.storage.get<Record<string, number>>('joinTimes');
-    return !!(joinTimes?.['teacher'] && joinTimes?.['learner']);
+    const bothJoined = !!(joinTimes?.['teacher'] && joinTimes?.['learner']);
+    console.log({
+      component: "ConnectionManager",
+      method: "areBothJoined",
+      roomId: this.roomId,
+      joinTimes,
+      bothJoined
+    });
+    return bothJoined;
   }
 
   private async broadcastBothJoined(): Promise<void> {
-    const messageRelay = this.env.MESSAGE_RELAY.get( this.env.MESSAGE_RELAY.idFromName(this.roomId));
+    console.log({
+      component: "ConnectionManager",
+      method: "broadcastBothJoined",
+      roomId: this.roomId,
+      action: "broadcasting"
+    });
+    const messageRelay = this.env.MESSAGE_RELAY.get(this.env.MESSAGE_RELAY.idFromName(this.roomId));
     await messageRelay.fetch('http://message-relay/broadcast/' + this.roomId, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -185,17 +376,38 @@ export class ConnectionManager extends DurableObject<DOEnv> {
   }
 
   // Fault Case #1: Late join detection
-  private async checkJoinSequence() {
-    const teacherData = await this.state.storage.get('user:teacher') as User;
-    const learnerData = await this.state.storage.get('user:learner') as User;
+  private async checkJoinSequence(teacherData: User, learnerData: User) {
+    console.log({
+      component: "ConnectionManager",
+      method: "checkJoinSequence",
+      roomId: this.roomId,
+      teacherData,
+      learnerData
+    });
 
     if ((teacherData?.joinedAt || learnerData?.joinedAt) &&
       !(teacherData?.joinedAt && learnerData?.joinedAt)) {
       const firstJoinTime = teacherData?.joinedAt || learnerData?.joinedAt;
       const timeSinceFirstJoin = Date.now() - firstJoinTime;
 
+      console.log({
+        component: "ConnectionManager",
+        method: "checkJoinSequence",
+        roomId: this.roomId,
+        firstJoinTime,
+        timeSinceFirstJoin,
+        threshold: 180000
+      });
+
       if (timeSinceFirstJoin > 180000) { // 3 minutes
         const faultedRole = teacherData ? 'learner' : 'teacher';
+        console.log({
+          component: "ConnectionManager",
+          method: "checkJoinSequence",
+          roomId: this.roomId,
+          action: "lateJoinFaultDetected",
+          faultedRole
+        });
         await this.broadcastFault(
           `${faultedRole}Fault_didnt_join`,
           faultedRole,
@@ -206,12 +418,35 @@ export class ConnectionManager extends DurableObject<DOEnv> {
   }
 
   // Fault Cases #3 and #4: Disconnection handling
-  private async handleDisconnectionEvent(peerId: string, leftAt: number) {
-    const role = await this.getParticipantRole(peerId);
+  private async handleDisconnectionEvent(peerId: string, role: 'teacher' | 'learner', leftAt: number) {
+    console.log({
+      component: "ConnectionManager",
+      method: "handleDisconnectionEvent",
+      roomId: this.roomId,
+      peerId,
+      role,
+      leftAt
+    });
 
     // Fault Case #4: Track disconnect count
     const disconnectCount = await this.incrementDisconnectCount(role);
+    console.log({
+      component: "ConnectionManager",
+      method: "handleDisconnectionEvent",
+      roomId: this.roomId,
+      action: "disconnectCountUpdated",
+      role,
+      disconnectCount
+    });
+
     if (disconnectCount > this.MAX_DISCONNECTIONS) {
+      console.log({
+        component: "ConnectionManager",
+        method: "handleDisconnectionEvent",
+        roomId: this.roomId,
+        action: "excessiveDisconnectionsDetected",
+        role
+      });
       await this.broadcastFault(
         `${role}Fault_excessive_disconnects` as FaultType,
         role,
@@ -222,13 +457,26 @@ export class ConnectionManager extends DurableObject<DOEnv> {
 
     // Fault Case #3: Set reconnection window alarm
     const alarmTime = leftAt + 180000; // 3 minutes
+    console.log({
+      component: "ConnectionManager",
+      method: "handleDisconnectionEvent",
+      roomId: this.roomId,
+      action: "settingReconnectionAlarm",
+      peerId,
+      alarmTime: new Date(alarmTime).toISOString()
+    });
+    await this.state.storage.put(`alarm:${peerId}`, { alarmTime, role });
     await this.state.storage.setAlarm(alarmTime);
-    this.disconnectionAlarms.set(`${peerId}_reconnect`, alarmTime);
   }
 
-
-  // Handle SessionTimer notifications for Fault Cases #2
   async handleSessionTimerFault(faultType: 'noJoin' | 'sessionExpired', data: any) {
+    console.log({
+      component: "ConnectionManager",
+      method: "handleSessionTimerFault",
+      roomId: this.roomId,
+      faultType,
+      data
+    });
     if (faultType === 'noJoin') {
       // Fault Case #2: Second user never joined
       await this.broadcastFault(
@@ -240,22 +488,58 @@ export class ConnectionManager extends DurableObject<DOEnv> {
   }
 
   async alarm() {
-    // Handle Fault Case #3: Reconnection timeout
+    console.log({
+      component: "ConnectionManager",
+      method: "alarm",
+      roomId: this.roomId,
+      action: "alarmTriggered"
+    });
+
     const currentTime = Date.now();
-    for (const [alarmId, alarmTime] of this.disconnectionAlarms) {
-      if (currentTime >= alarmTime) {
-        const [peerId] = alarmId.split('_');
-        const role = await this.getParticipantRole(peerId);
+    const alarmEntries = await this.state.storage.list<{ alarmTime: number; role: 'teacher' | 'learner' }>({
+      prefix: 'alarm:'
+    });
+
+    console.log({
+      component: "ConnectionManager",
+      method: "alarm",
+      roomId: this.roomId,
+      alarmEntries: Object.fromEntries(alarmEntries)
+    });
+
+    for (const [name, alarmData] of alarmEntries) {
+      const peerId = name.slice('alarm:'.length);
+
+      if (alarmData && currentTime >= alarmData.alarmTime) {
+        console.log({
+          component: "ConnectionManager",
+          method: "alarm",
+          roomId: this.roomId,
+          action: "overdueAlarm",
+          peerId,
+          alarmData
+        });
         await this.broadcastFault(
-          `${role}Fault_connection_timeout` as FaultType,
-          role,
-          `${role} failed to reconnect within 3 minutes`
+          `${alarmData.role}Fault_connection_timeout` as FaultType,
+          alarmData.role,
+          `${alarmData.role} failed to reconnect within 3 minutes`
         );
+        await this.state.storage.delete(name);
       }
     }
   }
 
   private async broadcastFault(faultType: FaultType, role: 'teacher' | 'learner', message: string) {
+    console.log({
+      component: "ConnectionManager",
+      method: "broadcastFault",
+      roomId: this.roomId,
+      action: "broadcastingFault",
+      faultType,
+      role,
+      message
+    });
+
     const faultMessage: Message = {
       type: 'fault',
       data: {
@@ -278,8 +562,6 @@ export class ConnectionManager extends DurableObject<DOEnv> {
   }
 }
 
-
-
 type FaultType =
 | 'learnerFault_didnt_join'      // Fault Case #1
 | 'teacherFault_didnt_join'      // Fault Case #1
@@ -287,4 +569,4 @@ type FaultType =
 | 'learnerFault_connection_timeout'  // Fault Case #3
 | 'teacherFault_connection_timeout'  // Fault Case #3
 | 'learnerFault_excessive_disconnects'  // Fault Case #4
-| 'teacherFault_excessive_disconnects'  // Fault Case #4
+| 'teacherFault_excessive_disconnects'; // Fault Case #4

@@ -11,13 +11,12 @@ export class SessionTimer extends DurableObject<DOEnv> {
   constructor(state: DurableObjectState, env: DOEnv) {
     super(state, env);
     this.state = state;
-    this.roomId = state.id.toString();
 
     // Initialize timer
     this.app.post('/', async (c) => {
       const data = await c.req.json<RequestPayload>();
-      const { duration, firstJoinTime, firstJoinRole } = data;
-
+      const { duration, firstJoinTime, firstJoinRole, roomId } = data;
+      this.roomId = roomId;
       const joinWindowTime = firstJoinTime + (3 * 60 * 1000);
       const warningTime = firstJoinTime + duration - (3 * 60 * 1000);
       const expirationTime = firstJoinTime + duration;
@@ -130,6 +129,7 @@ interface RequestPayload {
   hashedLearnerAddress: string;
   firstJoinTime: number;
   firstJoinRole: 'teacher' | 'learner';
+  roomId: string;
 }
 
 interface Message {

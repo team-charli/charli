@@ -118,7 +118,7 @@ app.post('/webhook', async (c) => {
   }
   const receiver = new WebhookReceiver({ apiKey: c.env.TEST_HUDDLE_API_KEY });
   const data = await c.req.text();
-  console.log("Main worker received webhook data:", data);
+  // console.log("Main worker received webhook data:", data);
 
   try {
     const event = receiver.receive(data, signatureHeader);
@@ -157,14 +157,24 @@ app.post('/webhook', async (c) => {
 });
 
 // CORS setup
-app.use('*', cors({
-  origin: ['http://localhost:5173', 'https://charli.chat'],
-  allowMethods: ['POST', 'GET', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'huddle01-signature'],
-  exposeHeaders: ['Content-Length'],
-  maxAge: 600,
-  credentials: true,
-}));
+const allowedOrigins = ['http://localhost:5173', 'https://charli.chat'];
+
+app.use('*', async (c, next) => {
+  const requestOrigin = c.req.header('origin');
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    // Apply CORS headers since this origin is allowed
+    return cors({
+      origin: requestOrigin,
+      allowMethods: ['POST', 'GET', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization', 'huddle01-signature'],
+      exposeHeaders: ['Content-Length'],
+      maxAge: 600,
+      credentials: true,
+    })(c, next);
+  }
+  // If the origin isn't allowed, proceed without adding CORS headers
+  return next();
+});
 
 
 export { SessionManager, ConnectionManager, SessionTimer, MessageRelay };

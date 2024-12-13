@@ -426,7 +426,7 @@ describe("Webhook Handler", () => {
       const messages: any[] = [];
       ws.addEventListener('message', (event) => {
         const data = JSON.parse(event.data);
-        console.log('Received WebSocket message:', data);
+        // console.log('Received WebSocket message:', data);
         messages.push(data);
       });
 
@@ -483,14 +483,14 @@ describe("Webhook Handler", () => {
       // Verify teacher state in both DOs
       await runInDurableObject(sessionManagerStub, async (instance, state) => {
         const teacherData = await state.storage.get('user:teacher') as User;
-        console.log('SessionManager teacher state:', teacherData);
+        // console.log('SessionManager teacher state:', teacherData);
         expect(teacherData.peerId).toBe('peer-1');
       });
 
       await runInDurableObject(connectionManagerStub, async (instance, state) => {
         const participants = await state.storage.get<Record<string, string>>('participants');
         const joinTimes = await state.storage.get<Record<string, number>>('joinTimes');
-        console.log('ConnectionManager state after teacher:', { participants, joinTimes });
+        // console.log('ConnectionManager state after teacher:', { participants, joinTimes });
         expect(participants?.['peer-1']).toBe('teacher');
         expect(joinTimes?.['teacher']).toBe(startTime);
       });
@@ -527,7 +527,7 @@ describe("Webhook Handler", () => {
           if (predicate(messages)) return true;
           await new Promise(resolve => setTimeout(resolve, 50));
         }
-        console.log('Current messages after timeout:', messages);
+        // console.log('Current messages after timeout:', messages);
         return false;
       };
 
@@ -535,7 +535,7 @@ describe("Webhook Handler", () => {
       await runInDurableObject(connectionManagerStub, async (instance, state) => {
         const participants = await state.storage.get<Record<string, string>>('participants');
         const joinTimes = await state.storage.get<Record<string, number>>('joinTimes');
-        console.log('ConnectionManager final state:', { participants, joinTimes });
+        // console.log('ConnectionManager final state:', { participants, joinTimes });
         expect(participants?.['peer-1']).toBe('teacher');
         expect(participants?.['peer-2']).toBe('learner');
         expect(joinTimes?.['teacher']).toBe(startTime);
