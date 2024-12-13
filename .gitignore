@@ -35,6 +35,7 @@ yarn-error.log
 testem.log
 /typings
 **/*.env
+.config/.wrangler/config/default.toml
 # System Files
 .DS_Store
 Thumbs.db
@@ -51,3 +52,5 @@ lit_storage.db
 # Serverless
 .serverless
 .webpack
+
+
