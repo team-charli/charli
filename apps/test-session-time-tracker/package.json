@@ -9,9 +9,10 @@
   "dependencies": {
     "@huddle01/server-sdk": "^2.2.2",
     "ethereum-cryptography": "^3.0.0",
+    "ethers": "^6.13.4",
     "hono": "^4.2.2",
     "tslib": "^2.8.1",
-    "wrangler": "3.83"
+    "wrangler": "^3.95.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.5.28",

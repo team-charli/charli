@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { WebhookEvents, WebhookData, User, Message } from './types';
 import { DurableObject } from 'cloudflare:workers';
 import { DOEnv, Env } from './env';
+import {ethers} from 'ethers';
 
 export class ConnectionManager extends DurableObject<DOEnv> {
   private readonly MAX_DISCONNECTIONS = 3;
