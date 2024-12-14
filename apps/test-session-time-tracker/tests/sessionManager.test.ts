@@ -491,7 +491,7 @@ describe("Session Manager", () => {
 
         // Verify room 1 state
         const room1Teacher = await state1.storage.get('user:teacher');
-        console.log("room1Teacher", room1Teacher);
+        // console.log("room1Teacher", room1Teacher);
         expect(room1Teacher.roomId).toBe(roomId1);
         // Fix: Use hashedTeacherAddress instead of hashedTeacherAddress1
         expect(room1Teacher.hashedTeacherAddress).toBe(hashedTeacherAddress1);
@@ -513,11 +513,11 @@ describe("Session Manager", () => {
         });
 
         const response2 = await instance2.fetch(initRequest2);
-        console.log("room2 init response:", await response2.clone().json());
+        // console.log("room2 init response:", await response2.clone().json());
 
         // Verify room 2 state
         const room2Teacher = await state2.storage.get('user:teacher') as User;
-        console.log("room2Teacher", room2Teacher);
+        // console.log("room2Teacher", room2Teacher);
         expect(room2Teacher.roomId).toBe(roomId2);
         expect(room2Teacher.hashedTeacherAddress).toBe(hashedTeacherAddress2);
       });

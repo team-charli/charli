@@ -1,15 +1,14 @@
 // sessionManager.ts
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
-import { User, ClientData } from './types';
+import { User, ClientData, PinataResponse, UserFinalRecord } from './types';
 import { keccak256 } from 'ethereum-cryptography/keccak';
 import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
 import { DOEnv, Env } from './env';
-import { cloneElement } from 'hono/jsx';
 
 export class SessionManager extends DurableObject<DOEnv> {
   private app = new Hono<Env>();
-  private roomId: string;
+  private roomId!: string;
   /**
    * Storage Schema:
    * {
@@ -75,8 +74,6 @@ export class SessionManager extends DurableObject<DOEnv> {
         leftAt: null,
         duration: null,
         sessionDuration,
-        joinedAtSig: null,
-        leftAtSig: null,
       };
 
       await this.state.storage.put(`user:${role}`, user);
@@ -87,7 +84,6 @@ export class SessionManager extends DurableObject<DOEnv> {
         roomId: clientSideRoomId
       });
     });
-
     this.app.post('/webhook', async (c) => {
       const webhookData = await c.req.text();
       // console.log('SessionManager received webhook:', webhookData);
@@ -98,7 +94,13 @@ export class SessionManager extends DurableObject<DOEnv> {
 
         if (event.event === 'peer:joined') {
           const peerData = event.payload[0].data;
-          const metadata = JSON.parse(peerData.metadata || '{}');
+          const metadataStr = peerData.metadata || '{}';
+          let metadataObj: Record<string, unknown>;
+          try {
+            metadataObj = JSON.parse(metadataStr);
+          } catch {
+            metadataObj = {};
+          }
 
           // Get stored user data for validation
           let teacherData = await this.state.storage.get('user:teacher') as User;
@@ -112,10 +114,10 @@ export class SessionManager extends DurableObject<DOEnv> {
           //   teacherData,
           //   learnerData
           // });
-          const validatedRole = this.validateRole(metadata, teacherData, learnerData);
-          console.log(`SessionManager: Received ${event.event} event for roomId=${metadata.roomId}, peerId=${peerData.id}`);
-          console.log(`SessionManager: Validate Role => metadata.hashedAddress=${metadata.hashedAddress}, teacherHash=${teacherData?.hashedTeacherAddress}, learnerHash=${learnerData?.hashedLearnerAddress}`);
-          console.log(`SessionManager: Assigned role=${validatedRole} to peerId=${peerData.id}`);
+          const validatedRole = this.validateRole(metadataObj, teacherData, learnerData);
+          // console.log(`SessionManager: Received ${event.event} event for roomId=${metadata.roomId}, peerId=${peerData.id}`);
+          // console.log(`SessionManager: Validate Role => metadata.hashedAddress=${metadata.hashedAddress}, teacherHash=${teacherData?.hashedTeacherAddress}, learnerHash=${learnerData?.hashedLearnerAddress}`);
+          // console.log(`SessionManager: Assigned role=${validatedRole} to peerId=${peerData.id}`);
 
           const userData = validatedRole === 'teacher' ? teacherData : learnerData;
           userData.peerId = peerData.id;
@@ -126,9 +128,9 @@ export class SessionManager extends DurableObject<DOEnv> {
           await this.state.storage.put(`user:${validatedRole}`, userData);
           teacherData = await this.state.storage.get('user:teacher') as User;
 
-          console.log("teacherData", teacherData)
+          // console.log("teacherData", teacherData)
           learnerData = await this.state.storage.get('user:learner') as User;
-          console.log("learnerData", learnerData);
+          // console.log("learnerData", learnerData);
 
           // Forward validated data to ConnectionManager
           try {
@@ -169,8 +171,14 @@ export class SessionManager extends DurableObject<DOEnv> {
           let learnerData = await this.state.storage.get('user:learner') as User;
           let role: 'teacher' | 'learner';
 
-          const metadata = JSON.parse(peerData.metadata || '{}');
-          const validatedRole = this.validateRole(metadata, teacherData, learnerData);
+          const metadataStr = peerData.metadata || '{}';
+          let metadataObj: Record<string, unknown>;
+          try {
+            metadataObj = JSON.parse(metadataStr);
+          } catch {
+            metadataObj = {};
+          }
+          const validatedRole = this.validateRole(metadataObj, teacherData, learnerData);
 
           if (teacherData?.peerId === peerData.id) {
             role = 'teacher';
@@ -217,12 +225,127 @@ export class SessionManager extends DurableObject<DOEnv> {
         return c.json({ error: 'Error processing webhook' }, 400);
       }
     });
+
+    this.app.post('/finalizeSession', async (c) => {
+      // scenario='fault' or 'non_fault'
+      const { scenario, faultType, faultedRole } = await c.req.json<{
+        scenario: 'fault' | 'non_fault',
+        faultType?: string,
+        faultedRole?: 'teacher' | 'learner'
+      }>();
+
+      // Retrieve original user data
+      const teacherData = await this.state.storage.get<User>('user:teacher');
+      const learnerData = await this.state.storage.get<User>('user:learner');
+
+      // Construct final records
+      let teacherDataComplete: UserFinalRecord;
+      let learnerDataComplete: UserFinalRecord;
+
+      if (scenario === 'non_fault') {
+        teacherDataComplete = {
+          ...teacherData,
+          sessionSuccess: true,
+          faultType: null,
+          sessionComplete: true
+        };
+        learnerDataComplete = {
+          ...learnerData,
+          sessionSuccess: true,
+          faultType: null,
+          sessionComplete: true
+        };
+      } else {
+        // Fault scenario
+        // faultType and faultedRole must be provided
+        const finalFaultType = faultType || 'unknown_fault';
+        // In a fault scenario, both user records reflect the session ended in fault,
+        // but you may choose to differentiate the user who caused the fault by their role.
+        teacherDataComplete = {
+          ...teacherData,
+          sessionSuccess: false,
+          faultType: finalFaultType,
+          sessionComplete: true
+        };
+        learnerDataComplete = {
+          ...learnerData,
+          sessionSuccess: false,
+          faultType: finalFaultType,
+          sessionComplete: true
+        };
+      }
+
+      const pinataPayload = {
+        teacherData: teacherDataComplete,
+        learnerData: learnerDataComplete,
+        scenario,
+        timestamp: Date.now()
+      };
+
+      // Post final data to IPFS via Pinata
+      const pinataRes = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'pinata_api_key': c.env.PINATA_API_KEY,
+          'pinata_secret_api_key': c.env.PINATA_SECRET_API_KEY
+        },
+        body: JSON.stringify({ pinataContent: pinataPayload })
+      });
+
+      let ipfsHash = null;
+      if (pinataRes.ok) {
+        const result = (await pinataRes.json()) as PinataResponse;
+        ipfsHash = result.IpfsHash;
+      }
+
+      // Broadcast finalization to clients
+      const messageRelay = c.env.MESSAGE_RELAY.get(
+        c.env.MESSAGE_RELAY.idFromName(this.roomId)
+      );
+
+      const broadcastData: any = {
+        status: scenario === 'non_fault' ? 'success' : 'fault',
+        ipfsHash,
+        timestamp: Date.now()
+      };
+
+      if (scenario === 'fault' && faultType && faultedRole) {
+        broadcastData.faultType = faultType;
+        broadcastData.faultedRole = faultedRole;
+      }
+
+      await messageRelay.fetch(`http://message-relay/broadcast/${this.roomId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'finalized',
+          data: broadcastData
+        })
+      });
+
+      // Cleanup SessionManager
+      await this.state.storage.deleteAll();
+
+      // Instruct other DOs to cleanup
+      const sessionTimer = c.env.SESSION_TIMER.get(c.env.SESSION_TIMER.idFromName(this.roomId));
+      await sessionTimer.fetch('http://session-timer/cleanup', { method: 'POST' });
+
+      const connectionManager = c.env.CONNECTION_MANAGER.get(
+        c.env.CONNECTION_MANAGER.idFromName(this.roomId)
+      );
+      await connectionManager.fetch('http://connection-manager/cleanup', { method: 'POST' });
+
+      return c.json({ status: 'finalized' });
+    });
+
   }
 
   async fetch(request: Request) {
     return this.app.fetch(request, this.env);
   }
-  private validateRole = (metadata, teacherData, learnerData): ('teacher' | 'learner' | null) => {
+
+  private validateRole = (metadata:  Record<string, unknown>, teacherData: User, learnerData: User): ('teacher' | 'learner' | null) => {
 
     let validatedRole: 'teacher' | 'learner'
     if (metadata.hashedAddress === teacherData?.hashedTeacherAddress) {

@@ -301,7 +301,7 @@ describe("SessionTimer", () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Verify warning message broadcast
-    console.log("receivedMessages", receivedMessages)
+    // console.log("receivedMessages", receivedMessages)
     expect(
       receivedMessages.some(
         (msg) =>

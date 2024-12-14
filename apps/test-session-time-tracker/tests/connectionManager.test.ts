@@ -329,7 +329,7 @@ describe("ConnectionManager", () => {
       // 5. Verify disconnect count and fault message
       await runInDurableObject(connectionManagerStub, async (instance, state) => {
         const disconnectCount = await state.storage.get<number>("teacher_disconnectCount");
-        console.log("disconnectCount", disconnectCount);
+        // console.log("disconnectCount", disconnectCount);
         expect(disconnectCount).toBe(4);
       });
 
@@ -388,7 +388,7 @@ describe("ConnectionManager", () => {
       expect(joinResponse.ok).toBe(true);
 
       const pastTime = Date.now() - 200000; // 200 seconds in the past
-      console.log("pastTime", pastTime);
+      // console.log("pastTime", pastTime);
       const leaveResponse = await connectionManagerStub.fetch("http://connection-manager/handlePeerLeft", {
         method: "POST",
         body: JSON.stringify({
@@ -403,7 +403,7 @@ describe("ConnectionManager", () => {
       await runDurableObjectAlarm(connectionManagerStub);
 
       await new Promise(resolve => setTimeout(resolve, 100));
-      console.log("receivedMessages", receivedMessages);
+      // console.log("receivedMessages", receivedMessages);
       expect(receivedMessages).toContainEqual(expect.objectContaining({
         type: "fault",
         data: expect.objectContaining({

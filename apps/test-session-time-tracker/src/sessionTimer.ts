@@ -91,12 +91,15 @@ export class SessionTimer extends DurableObject<DOEnv> {
       await this.state.storage.setAlarm(expirationTime);
 
     } else if (alarmType === 'expired') {
-      await this.broadcast({
-        type: 'expired',
-        data: {
-          message: 'Session expired',
-          timestampMs: String(Date.now())
-        }
+      // Session duration fully elapsed, no faults detected by now
+      const sessionManager = this.env.SESSION_MANAGER.get(
+        this.env.SESSION_MANAGER.idFromName(this.roomId)
+      );
+
+      await sessionManager.fetch('http://session-manager/finalizeSession', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario: 'non_fault' })
       });
 
       await this.cleanup();
