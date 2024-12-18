@@ -1,12 +1,6 @@
 // types.ts
 
-export type Env = {
-  HUDDLE_API_KEY: string;
-  WEBSOCKET_MANAGER: DurableObjectNamespace;
-  CONNECTION_MANAGER: DurableObjectNamespace;
-  SESSION_TIMER: DurableObjectNamespace;
-  PRIVATE_KEY_SESSION_TIME_SIGNER: string;
-};
+
 export type WebhookEvents = {
   'meeting:started': [
   data: {
@@ -63,3 +57,50 @@ export type WebhookData = {
   event: keyof WebhookEvents;
   payload: WebhookEvents[keyof WebhookEvents][0];
 };
+
+
+export interface User {
+  role: 'teacher' | 'learner' | null;
+  peerId: string | null;
+  roomId: string | null;
+  joinedAt: number | null;
+  leftAt: number | null;
+  faultTime?: number;
+  duration: number | null;
+  hashedTeacherAddress: string;
+  hashedLearnerAddress: string;
+  sessionDuration: number;
+}
+
+export interface UserFinalRecord extends User {
+  sessionSuccess: boolean;
+  faultType: string | null;
+  sessionComplete: boolean;
+}
+
+export type ClientData = {
+  clientSideRoomId: string;
+  hashedTeacherAddress: string;
+  hashedLearnerAddress: string;
+  userAddress: string;
+  sessionDuration: number;
+}
+
+export interface Message {
+  type: 'fault' | 'userJoined' | 'userLeft' | 'bothJoined' | 'bothLeft' | 'userData' | 'initiated' | 'warning' | 'expired';
+  data: {
+    faultType?: string;
+    user?: User;
+    timestamp?: number;
+    teacher?: User | null;
+    learner?: User | null;
+    message?: string;
+    timestampMs?: string;
+  };
+}
+
+export interface PinataResponse {
+  IpfsHash: string;
+  PinSize: number;
+  Timestamp: string;
+}

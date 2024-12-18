@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "@huddle01/server-sdk": "^2.2.2",
-    "ethers": "^6.11.1",
+    "ethereum-cryptography": "3.0.0",
     "hono": "^4.2.2",
     "wrangler": "3.83"
   },
@@ -15,6 +15,7 @@
     "@cloudflare/vitest-pool-workers": "^0.5.28",
     "@cloudflare/workers-types": "^4.20241112.0",
     "@types/bun": "^1.1.13",
+    "tslib": "2.8.1",
     "vitest": "^2.1.5"
   }
 }

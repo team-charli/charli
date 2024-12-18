@@ -1,127 +1,179 @@
 //index.ts
-import https from "node:https";
-import { cors } from 'hono/cors';
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { WebhookReceiver } from "@huddle01/server-sdk/webhooks";
-export {WebSocketManager} from './websocketManager'
+import { ConnectionManager } from './connectionManager';
+import {SessionManager} from './sessionManager';
+import { SessionTimer } from './sessionTimer';
+import { MessageRelay} from './messageRelay';
+import { Env } from './env';
 
-const app = new Hono<{ Bindings: Bindings }>();
+// Define environment type for the main worker
+const app = new Hono<Env>();
 
-app.post('/init', async (c) => {
-  const data = await c.req.json();
-  const { clientSideRoomId, hashedTeacherAddress, hashedLearnerAddress, userAddress } = data;
-
-  console.log('[INIT] Received init request:', {
-    roomId: data.clientSideRoomId,
-    timestamp: new Date().toISOString()
-  });
-  const durableObject = await getDurableObject(c.env.WEBSOCKET_MANAGER, clientSideRoomId);
-  const response = await durableObject.fetch('http://websocket-manager/init', {
-    method: 'POST',
-    body: JSON.stringify({
-      clientSideRoomId,
-      hashedTeacherAddress,
-      hashedLearnerAddress,
-      userAddress,
-    }),
-  });
-  const responseText = await response.text();
-  const status = response.status;
-  const contentType = response.headers.get('Content-Type') || 'application/json';
-  return new Response(responseText, { status, headers: { 'Content-Type': contentType } });
-});
-
-app.all('/websocket/:roomId', async (c) => {
-  const roomId = c.req.param('roomId');
-  const durableObject = await getDurableObject(c.env.WEBSOCKET_MANAGER, roomId);
-
-  // Forward the original request to the Durable Object
-  const resp = await durableObject.fetch(c.req.raw);
-  return resp;
-});
-
-
-// index.ts (Hono Worker)
-
-app.post('/webhook', async (c) => {
-  console.log('[WEBHOOK] Received webhook event:', {
-    signature: c.req.header("huddle01-signature")?.slice(0, 10),
-    headers: c.req.header()
-  });
-  const signatureHeader = c.req.header("huddle01-signature");
-
-  if (signatureHeader) {
-    const receiver = new WebhookReceiver({ apiKey: c.env.HUDDLE_API_KEY });
-    const data = await c.req.text();
-
-    try {
-      const event = receiver.receive(data, signatureHeader);
-
-      let roomId: string | undefined;
-      if (
-        event.event === 'meeting:started' ||
-        event.event === 'meeting:ended' ||
-        event.event === 'peer:joined' ||
-        event.event === 'peer:left'
-      ) {
-        const typedData = receiver.createTypedWebhookData(event.event, event.payload);
-        roomId = typedData.data.roomId;
-      }
-
-      if (roomId) {
-        const websocketManager = await getDurableObject(c.env.WEBSOCKET_MANAGER, roomId);
-        const connectionManager = await getDurableObject(c.env.CONNECTION_MANAGER, roomId);
-
-        // Forward to WebSocketManager
-        await websocketManager.fetch('http://websocket-manager/handleWebhook', {
-          method: 'POST',
-          body: JSON.stringify({ event }),
-        });
-
-        // Forward to ConnectionManager
-        await connectionManager.fetch('http://connection-manager/handleWebhook', {
-          method: 'POST',
-          body: JSON.stringify({ event }),
-        });
-      }
-
-      return c.text("Webhook processed successfully", 200);
-    } catch (error) {
-      console.error(error);
-      return c.text("Error processing webhook", 400);
-    }
+//websocket handler
+app.get('/connect/:roomId', async (c) => {
+  // Verify WebSocket upgrade request
+  if (c.req.header('upgrade') !== 'websocket') {
+    return c.text('Expected Upgrade: websocket', 426);
   }
 
-  return c.text("Webhook processed successfully", 200);
+  const roomId = c.req.param('roomId');
+
+  // Establish WebSocket connection via MessageRelay
+  const messageRelay = c.env.MESSAGE_RELAY.get(
+    c.env.MESSAGE_RELAY.idFromName(roomId)
+  );
+
+  const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`, {
+    method: 'GET',
+    headers: {
+      'Upgrade': 'websocket',
+      'Connection': 'Upgrade'
+    }
+  });
+
+  // If connection successful, return WebSocket to client
+  if (wsResponse.webSocket) {
+    return new Response(null, {
+      status: 101,
+      webSocket: wsResponse.webSocket
+    });
+  }
+
+  // Handle connection failure
+  return c.text('Failed to establish WebSocket connection', 500);
+});
+
+app.post('/init', async (c) => {
+  try {
+    const reqData = await c.req.json();
+    const { clientSideRoomId } = reqData;
+
+    // Check connection first
+    const messageRelay = c.env.MESSAGE_RELAY.get(
+      c.env.MESSAGE_RELAY.idFromName(clientSideRoomId)
+    );
+    const connectionCheck = await messageRelay.fetch(
+      'http://message-relay/checkConnection/' + clientSideRoomId
+    );
+    if (!connectionCheck.ok) {
+      return c.json({
+        status: 'error',
+        message: 'No WebSocket connection established'
+      }, 400);
+    }
+
+    // Process session init
+    const sessionManager = c.env.SESSION_MANAGER.get(
+      c.env.SESSION_MANAGER.idFromName(clientSideRoomId)
+    );
+    const response = await sessionManager.fetch('http://session-manager/init', {
+      method: 'POST',
+      body: JSON.stringify(reqData)
+    });
+
+    // Get response data before attempting broadcast
+    const responseData = await response.json();
+
+    // Attempt broadcast
+    const broadcastResponse = await messageRelay.fetch(
+      'http://message-relay/broadcast/' + clientSideRoomId,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'initiated',
+          data: {
+            status: response.ok ? 'success' : 'error',
+            response: responseData
+          }
+        })
+      }
+    );
+
+    if (!broadcastResponse.ok) {
+      // Connection was lost during processing
+      return c.json({
+        status: 'error',
+        message: 'Lost WebSocket connection during initialization'
+      }, 500);
+    }
+
+    return c.json({ status: 'ok' });
+
+  } catch (error) {
+    // Return HTTP error - don't try to broadcast
+    return c.json({
+      status: 'error',
+      message: error.message || 'Internal server error'
+    }, 500);
+  }
+});
+
+// Webhook handler
+app.post('/webhook', async (c) => {
+  const signatureHeader = c.req.header("huddle01-signature");
+  if (!signatureHeader) {
+    return c.text("Missing signature", 401);
+  }
+  const receiver = new WebhookReceiver({ apiKey: c.env.TEST_HUDDLE_API_KEY });
+  const data = await c.req.text();
+
+  try {
+    const event = receiver.receive(data, signatureHeader);
+    let roomId: string | undefined;
+    if (['meeting:started', 'meeting:ended', 'peer:joined', 'peer:left'].includes(event.event)) {
+      const typedData = receiver.createTypedWebhookData(event.event, event.payload);
+      roomId = typedData.data[0].data.roomId;
+    } else {
+      return c.json({
+        status: 'error',
+        message: 'Unsupported event type'
+      }, 400);
+    }
+
+    if (roomId) {
+      const sessionManager = c.env.SESSION_MANAGER.get(
+        c.env.SESSION_MANAGER.idFromName(roomId)
+      );
+      // console.log("Sending webhook to SessionManager for room:", roomId);
+      await sessionManager.fetch('http://session-manager/webhook', {
+        method: 'POST',
+        body: JSON.stringify(event)
+      });
+    }
+
+    return c.text("Webhook processed successfully");
+  } catch (error) {
+    console.error("Main worker webhook error:", error);
+    if (error.message === "Invalid headers") {
+      return c.json({ status: 'error', message: 'Invalid signature' }, 401);
+    }
+    return c.json({ status: 'error', message: 'Error processing webhook' }, 400);
+  }
+});
+
+// CORS setup
+const allowedOrigins = ['http://localhost:5173', 'https://charli.chat'];
+
+app.use('*', async (c, next) => {
+  const requestOrigin = c.req.header('origin');
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    // Apply CORS headers since this origin is allowed
+    return cors({
+      origin: requestOrigin,
+      allowMethods: ['POST', 'GET', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization', 'huddle01-signature'],
+      exposeHeaders: ['Content-Length'],
+      maxAge: 600,
+      credentials: true,
+    })(c, next);
+  }
+  // If the origin isn't allowed, proceed without adding CORS headers
+  return next();
 });
 
 
-app.use('/init', cors({
-  origin: ['http://localhost:5173', 'https://charli.chat'],
-  allowMethods: ['POST', 'GET', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-  exposeHeaders: ['Content-Length'],
-  maxAge: 600,
-  credentials: true,
-}));
-
-app.options('*', (c) => {
-  return c.text('', 204)
-})
-
-async function getDurableObject(namespace: DurableObjectNamespace, roomId: string) {
-  const durableObjectId = namespace.idFromName(roomId);
-  return namespace.get(durableObjectId);
-}
+export { SessionManager, ConnectionManager, SessionTimer, MessageRelay };
 
 export default app;
-
-type Bindings = {
-  HUDDLE_API_KEY: string;
-  WEBSOCKET_MANAGER: DurableObjectNamespace;
-  CONNECTION_MANAGER: DurableObjectNamespace;
-  JWT_SECRET: string;
-};
-
-
-
