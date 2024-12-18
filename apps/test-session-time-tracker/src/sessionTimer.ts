@@ -12,11 +12,23 @@ export class SessionTimer extends DurableObject<DOEnv> {
     super(state, env);
     this.state = state;
 
-    // Initialize timer
+    /**
+ * Storage Schema
+ * {
+ *   'firstJoinRole': 'teacher' | 'learner',
+ *   'alarmType': 'joinWindow' | 'warning' | 'expired',
+ *   'warningTime': number,
+ *   'expirationTime': number
+ *   'roomId': string;
+ * }
+ */
+
+    // Initialize timer endpoint
     this.app.post('/', async (c) => {
       const data = await c.req.json<RequestPayload>();
       const { duration, firstJoinTime, firstJoinRole, roomId } = data;
       this.roomId = roomId;
+      await this.state.storage.put('roomId', roomId)
       const joinWindowTime = firstJoinTime + (3 * 60 * 1000);
       const warningTime = firstJoinTime + duration - (3 * 60 * 1000);
       const expirationTime = firstJoinTime + duration;
@@ -38,6 +50,32 @@ export class SessionTimer extends DurableObject<DOEnv> {
 
       return c.text('OK');
     });
+
+    // Cancel no-join check endpoint
+    this.app.post('/cancelNoJoinCheck', async (c) => {
+      const alarmType = await this.state.storage.get<string>('alarmType');
+      if (alarmType === 'joinWindow') {
+        // Since both have joined, we no longer need the no-join logic.
+        const warningTime = await this.state.storage.get<number>('warningTime');
+        const expirationTime = await this.state.storage.get<number>('expirationTime');
+
+        if (warningTime) {
+          await this.state.storage.put('alarmType', 'warning');
+          await this.state.storage.setAlarm(warningTime);
+        } else if (expirationTime) {
+          // No warning phase, jump straight to expiration
+          await this.state.storage.put('alarmType', 'expired');
+          await this.state.storage.setAlarm(expirationTime);
+        } else {
+          throw new Error('No warning or expiration time set; cannot cancel no-join check properly.');
+        }
+      } else {
+        // If we are not in joinWindow phase, no change needed
+        //console.log('cancelNoJoinCheck: alarmType not joinWindow, no action taken.');
+      }
+
+      return c.text('OK');
+    });
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -45,39 +83,53 @@ export class SessionTimer extends DurableObject<DOEnv> {
   }
 
   async alarm() {
+    //console.log("SessionTimer.alarm() called", { roomId: this.roomId, storedRoomId: await this.state.storage.get('roomId') });
     const alarmType = await this.state.storage.get<'joinWindow' | 'warning' | 'expired'>('alarmType');
 
     if (alarmType === 'joinWindow') {
-      // Check with ConnectionManager about second user
+      // Double-check if both joined now
+      if (!this.roomId) {
+        this.roomId = await this.state.storage.get('roomId')
+      }
       const connectionManagerId = this.env.CONNECTION_MANAGER.idFromName(this.roomId);
       const connectionManager = this.env.CONNECTION_MANAGER.get(connectionManagerId);
-
       const response = await connectionManager.fetch('http://connection-manager/checkBothJoined');
-      const { bothJoined } = await response.json();
+      const { bothJoined } = await response.json() as { bothJoined: boolean };
 
-      if (!bothJoined) {
-        const firstJoinRole = await this.state.storage.get<'teacher' | 'learner'>('firstJoinRole');
-        const faultedRole = firstJoinRole === 'teacher' ? 'learner' : 'teacher';
-
-        // Notify ConnectionManager of the fault
-        await connectionManager.fetch('http://connection-manager/timerFault', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            faultType: 'noJoin',
-            data: { role: faultedRole }
-          })
-        });
-
-        await this.cleanup();
+      if (bothJoined) {
+        // Both users are present, so no no-join fault. Move to warning/expired.
+        const warningTime = await this.state.storage.get<number>('warningTime');
+        if (warningTime) {
+          await this.state.storage.put('alarmType', 'warning');
+          await this.state.storage.setAlarm(warningTime);
+        } else {
+          const expirationTime = await this.state.storage.get<number>('expirationTime');
+          await this.state.storage.put('alarmType', 'expired');
+          await this.state.storage.setAlarm(expirationTime);
+        }
         return;
       }
 
-      const warningTime = await this.state.storage.get<number>('warningTime');
-      await this.state.storage.put('alarmType', 'warning');
-      await this.state.storage.setAlarm(warningTime);
+      // Not both joined, trigger no-join fault
+      const firstJoinRole = await this.state.storage.get<'teacher' | 'learner'>('firstJoinRole');
+      const faultedRole = firstJoinRole === 'teacher' ? 'learner' : 'teacher';
 
+      await connectionManager.fetch('http://connection-manager/timerFault', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          faultType: 'noJoin',
+          data: { role: faultedRole }
+        })
+      });
+
+      await this.cleanup();
+      await connectionManager.fetch('http://connection-manager/cleanupConnectionManager', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
     } else if (alarmType === 'warning') {
+      // Warning phase
       await this.broadcast({
         type: 'warning',
         data: {
@@ -91,7 +143,11 @@ export class SessionTimer extends DurableObject<DOEnv> {
       await this.state.storage.setAlarm(expirationTime);
 
     } else if (alarmType === 'expired') {
-      // Session duration fully elapsed, no faults detected by now
+      // Session fully elapsed, finalize as non_fault
+      if (!this.roomId) {
+        console.trace();
+        throw new Error('this.roomId === undefined')
+      }
       const sessionManager = this.env.SESSION_MANAGER.get(
         this.env.SESSION_MANAGER.idFromName(this.roomId)
       );
@@ -103,17 +159,21 @@ export class SessionTimer extends DurableObject<DOEnv> {
       });
 
       await this.cleanup();
+      const connectionManagerId = this.env.CONNECTION_MANAGER.idFromName(this.roomId);
+      const connectionManager = this.env.CONNECTION_MANAGER.get(connectionManagerId);
+
+      await connectionManager.fetch('http://connection-manager/cleanupConnectionManager', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
     }
   }
 
   private async cleanup() {
-    await this.state.storage.delete('alarmType');
-    await this.state.storage.delete('warningTime');
-    await this.state.storage.delete('expirationTime');
-    await this.state.storage.delete('firstJoinRole');
+      await this.state.storage.deleteAll();
   }
 
-  // Similar changes in SessionTimer:
   private async broadcast(message: Message) {
     const messageRelay = this.env.MESSAGE_RELAY.get(
       this.env.MESSAGE_RELAY.idFromName(this.roomId)
@@ -126,6 +186,7 @@ export class SessionTimer extends DurableObject<DOEnv> {
     });
   }
 }
+
 interface RequestPayload {
   duration: number;
   hashedTeacherAddress: string;
@@ -145,3 +206,4 @@ interface Message {
     timestamp?: number;
   };
 }
+

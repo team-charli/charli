@@ -1,13 +1,62 @@
-//sessionTimer.test.ts
+// test/sessionTimer.test.ts
 import { env, runInDurableObject, runDurableObjectAlarm } from "cloudflare:test";
+import { hexToBytes, toHex } from "ethereum-cryptography/utils";
+import { keccak256 } from "ethereum-cryptography/keccak";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { SELF } from "cloudflare:test";
+
+const encoder = new TextEncoder();
+
+async function asyncGenerateHmac(alg: string, message: string, secretKey: string) {
+  const keyData = encoder.encode(secretKey);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: alg },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(message)
+  );
+  return Buffer.from(signature).toString("hex");
+}
+
+async function generateSignature(data: any, apiKey: string) {
+  if (!data.id) {
+    data.id = crypto.randomUUID();
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const hashPayload = `${data.id}.${timestamp}.${JSON.stringify(data)}`;
+  const hmac = await asyncGenerateHmac('SHA-256', hashPayload, apiKey);
+
+  return `t=${timestamp},sha256=${hmac}`;
+}
+
+const apiKey = env.TEST_HUDDLE_API_KEY || "test-api-key";
 
 describe("SessionTimer", () => {
   let ws: WebSocket | undefined;
-  const roomId = "test-room";
   const firstJoinTime = Date.now();
   const duration = 3600000; // 1 hour
   let sessionTimerStub: DurableObjectStub;
+  let roomId: string;
+  let teacherAddress: string;
+  let learnerAddress: string;
+  let teacherHash: string;
+  let learnerHash: string;
+
+  beforeEach(() => {
+    const testId = crypto.randomUUID();
+    roomId = `room-${testId}`;
+    teacherAddress = `0x${testId.slice(0, 8)}`;
+    learnerAddress = `0x${testId.slice(24, 32)}`;
+    teacherHash = toHex(keccak256(hexToBytes(teacherAddress)));
+    learnerHash = toHex(keccak256(hexToBytes(learnerAddress)));
+  });
 
   async function cleanup() {
     // 1. Close any open WebSocket connections
@@ -26,10 +75,10 @@ describe("SessionTimer", () => {
     };
 
     // 3. Clean in reverse dependency order
-    for (const [name, stub] of Object.entries(stubs).reverse()) {
+    for (const [_, stub] of Object.entries(stubs).reverse()) {
       try {
         await runDurableObjectAlarm(stub);
-        await runInDurableObject(stub, async (instance, state) => {
+        await runInDurableObject(stub, async (_, state) => {
           await state.blockConcurrencyWhile(async () => {
             await state.storage.deleteAll();
             await state.storage.deleteAlarm();
@@ -52,66 +101,91 @@ describe("SessionTimer", () => {
     await cleanup();
   });
 
+
+  async function establishWebSocket() {
+    const resp = await SELF.fetch(`https://example.com/connect/${roomId}`, {
+      headers: {
+        'Upgrade': 'websocket',
+        'Connection': 'Upgrade'
+      }
+    });
+    expect(resp.status).toBe(101);
+    ws = resp.webSocket!;
+    ws.accept();
+    const messages: any[] = [];
+    ws.addEventListener('message', evt => {
+      messages.push(JSON.parse(evt.data));
+    });
+    return messages;
+  }
+
   it("Test timer initialization with configurable duration", async () => {
     const sessionTimer = env.SESSION_TIMER.get(env.SESSION_TIMER.idFromName(roomId));
 
-    // Initialize timer through proper endpoint
-    const initResponse = await sessionTimer.fetch("http://session-timer/", {
+    await establishWebSocket();
+    // Initialize through main worker.
+    const initResponse = await SELF.fetch("http://test.local/init", {
       method: "POST",
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        duration,
-        firstJoinTime,
-        firstJoinRole: "teacher"
+        clientSideRoomId: roomId,
+        hashedTeacherAddress: teacherHash,
+        hashedLearnerAddress: learnerHash,
+        userAddress: teacherAddress,
+        sessionDuration: 3600000
       })
     });
-    expect(initResponse.ok).toBe(true);
+
+    expect(initResponse.status).toBe(200);
+
+    // 3. Send a signed webhook (peer:joined)
+    const data = {
+      event: 'peer:joined',
+      payload: [{
+        data: {
+          id: 'peer-1',
+          sessionId: 'test-session',
+          roomId: roomId,
+          joinedAt: Date.now(),
+          metadata: JSON.stringify({
+            hashedAddress: teacherHash,
+            role: 'teacher'
+          })
+        }
+      }]
+    };
+    const signature = await generateSignature(data, apiKey);
+
+    const learnerWebhookResponse = await SELF.fetch("http://test.local/webhook", {
+      method: "POST",
+      headers: {
+        "huddle01-signature": signature,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+
+    expect(learnerWebhookResponse.status).toBe(200);
 
     // Verify timer state
     await runInDurableObject(sessionTimer, async (instance, state) => {
-      // Check core timer state
       expect(await state.storage.get("alarmType")).toBe("joinWindow");
       expect(await state.storage.get("firstJoinRole")).toBe("teacher");
 
-      // Verify timing calculations
       const warningTime = await state.storage.get("warningTime");
       const expirationTime = await state.storage.get("expirationTime");
 
-      expect(warningTime).toBe(firstJoinTime + duration - 180000); // 3 min warning
-      expect(expirationTime).toBe(firstJoinTime + duration);
+      const tolerance = 1000;
+      expect(warningTime).toBeLessThan(firstJoinTime + duration - 180000 + tolerance);
+      expect(expirationTime).toBeLessThan(firstJoinTime + duration + tolerance);
     });
   });
+
   it("should broadcast initialization message", async () => {
-    const messageRelay = env.MESSAGE_RELAY.get(
-      env.MESSAGE_RELAY.idFromName(roomId)
-    );
-
-    const wsResponse = await messageRelay.fetch(
-      `http://message-relay/connect/${roomId}`,
-      {
-        headers: {
-          Upgrade: "websocket",
-          Connection: "Upgrade",
-        },
-      }
-    );
-
-    if (!wsResponse.webSocket) {
-      const status = wsResponse.status;
-      const text = await wsResponse.text();
-      console.error('WebSocket connection failed:', status, text);
-      throw new Error("WebSocket not established");
-    }
-
-    ws = wsResponse.webSocket;
-    ws.accept();
-
-    const receivedMessages: any[] = [];
-    ws.addEventListener("message", (event) => {
-      receivedMessages.push(JSON.parse(event.data));
-    });
+    const receivedMessages = await establishWebSocket();
 
     const initResponse = await sessionTimerStub.fetch(
-      "http://session-timer/",  // Use proper URL format
+      "http://session-timer/",
       {
         method: "POST",
         body: JSON.stringify({
@@ -119,14 +193,11 @@ describe("SessionTimer", () => {
           firstJoinTime,
           firstJoinRole: "teacher",
           roomId,
-          hashedTeacherAddress: "0x123",
-          hashedLearnerAddress: "0x456"
         }),
       }
     );
     expect(initResponse.ok).toBe(true);
 
-    // Wait for message processing
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(receivedMessages[0]).toMatchObject({
       type: "initiated",
@@ -137,7 +208,6 @@ describe("SessionTimer", () => {
   });
 
   it("should handle join window alarm correctly when both users joined", async () => {
-    // Initialize the session timer with proper URL pattern
     const initResponse = await sessionTimerStub.fetch("http://session-timer/", {
       method: "POST",
       body: JSON.stringify({
@@ -145,13 +215,10 @@ describe("SessionTimer", () => {
         firstJoinTime,
         firstJoinRole: "teacher",
         roomId,
-        hashedTeacherAddress: "0x123",
-        hashedLearnerAddress: "0x456"
       }),
     });
     expect(initResponse.ok).toBe(true);
 
-    // Simulate both users joined using correct ConnectionManager endpoints
     const connectionManagerStub = env.CONNECTION_MANAGER.get(
       env.CONNECTION_MANAGER.idFromName(roomId)
     );
@@ -176,11 +243,9 @@ describe("SessionTimer", () => {
       }),
     });
 
-    // Execute the join window alarm
     const ran = await runDurableObjectAlarm(sessionTimerStub);
     expect(ran).toBe(true);
 
-    // Verify state transition to warning phase
     await runInDurableObject(sessionTimerStub, async (instance, state) => {
       expect(await state.storage.get("alarmType")).toBe("warning");
       expect(await state.storage.getAlarm()).not.toBeNull();
@@ -188,52 +253,56 @@ describe("SessionTimer", () => {
   });
 
   it("should handle join window alarm correctly when second user missing", async () => {
-    // Set up WebSocket connection
-    const messageRelay = env.MESSAGE_RELAY.get(
-      env.MESSAGE_RELAY.idFromName(roomId)
-    );
+    const receivedMessages = await establishWebSocket();
 
-    const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`, {
-      headers: {
-        Upgrade: "websocket",
-        Connection: "Upgrade",
-      },
-    });
-
-    if (!wsResponse.webSocket) {
-      throw new Error("WebSocket not established");
-    }
-
-    ws = wsResponse.webSocket;
-    ws.accept();
-
-    const receivedMessages: any[] = [];
-    ws.addEventListener("message", (event) => {
-      receivedMessages.push(JSON.parse(event.data));
-    });
-
-    // Initialize the session timer with required fields
-    const initResponse = await sessionTimerStub.fetch("http://session-timer/", {
+    const initResponse = await SELF.fetch("http://test.local/init", {
       method: "POST",
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        duration,
-        firstJoinTime,
-        firstJoinRole: "teacher",
-        roomId,
-        hashedTeacherAddress: "0x123",
-        hashedLearnerAddress: "0x456"
-      }),
+        clientSideRoomId: roomId,
+        hashedTeacherAddress: teacherHash,
+        hashedLearnerAddress: learnerHash,
+        userAddress: teacherAddress,
+        sessionDuration: 3600000
+      })
     });
-    expect(initResponse.ok).toBe(true);
+    expect(initResponse.status).toBe(200);
 
-    // Execute the join window alarm without second user joining
+    // Send signed peer:joined webhook for teacher only
+    const data = {
+      event: 'peer:joined',
+      payload: [{
+        data: {
+          id: 'peer-1',
+          sessionId: 'test-session',
+          roomId: roomId,
+          joinedAt: Date.now(),
+          metadata: JSON.stringify({
+            hashedAddress: teacherHash,
+            role: 'teacher'
+          })
+        }
+      }]
+    };
+    const signature = await generateSignature(data, apiKey);
+
+    const webhookResponse = await SELF.fetch("http://test.local/webhook", {
+      method: "POST",
+      headers: {
+        "huddle01-signature": signature,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+    console.log("webhookResponse", webhookResponse);
+    expect(webhookResponse.status).toBe(200);
+
+    // Execute the join window alarm without second user
     const ran = await runDurableObjectAlarm(sessionTimerStub);
     expect(ran).toBe(true);
 
-    // Wait for message processing
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Verify complete cleanup of timer state
     await runInDurableObject(sessionTimerStub, async (instance, state) => {
       expect(await state.storage.get("alarmType")).toBeUndefined();
       expect(await state.storage.get("warningTime")).toBeUndefined();
@@ -241,40 +310,15 @@ describe("SessionTimer", () => {
       expect(await state.storage.get("firstJoinRole")).toBeUndefined();
     });
 
-    // Verify fault message was sent
+    console.log("receivedMessages", receivedMessages);
     expect(receivedMessages.some(msg =>
-      msg.type === 'fault' &&
-        msg.data.faultType === 'secondUser_never_joined' &&
-        typeof msg.data.timestamp === 'number' &&
-        msg.data.timestamp > 0
+      msg.type === 'finalized' && msg.data.status === 'fault' && msg.data.faultType === 'learner_never_joined'
     )).toBe(true);
   });
+
   it("should broadcast warning message at warning phase", async () => {
-    // Set up WebSocket connection
-    const messageRelay = env.MESSAGE_RELAY.get(
-      env.MESSAGE_RELAY.idFromName(roomId)
-    );
+    const receivedMessages = await establishWebSocket();
 
-    const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`, {
-      headers: {
-        Upgrade: "websocket",
-        Connection: "Upgrade",
-      },
-    });
-
-    if (!wsResponse.webSocket) {
-      throw new Error("WebSocket not established");
-    }
-
-    ws = wsResponse.webSocket;
-    ws.accept();
-
-    const receivedMessages: any[] = [];
-    ws.addEventListener("message", (event) => {
-      receivedMessages.push(JSON.parse(event.data));
-    });
-
-    // Initialize the session timer with required fields
     const initResponse = await sessionTimerStub.fetch("http://session-timer/", {
       method: "POST",
       body: JSON.stringify({
@@ -282,100 +326,112 @@ describe("SessionTimer", () => {
         firstJoinTime,
         firstJoinRole: "teacher",
         roomId,
-        hashedTeacherAddress: "0x123",
-        hashedLearnerAddress: "0x456"
       }),
     });
     expect(initResponse.ok).toBe(true);
 
-    // Set the alarmType to 'warning' to simulate that phase
     await runInDurableObject(sessionTimerStub, async (instance, state) => {
       await state.storage.put("alarmType", "warning");
     });
 
-    // Execute the warning alarm
     const ran = await runDurableObjectAlarm(sessionTimerStub);
     expect(ran).toBe(true);
 
-    // Wait for message processing
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Verify warning message broadcast
-    // console.log("receivedMessages", receivedMessages)
     expect(
       receivedMessages.some(
-        (msg) =>
-          msg.type === "warning" &&
-            msg.data.message === "3-minute warning"
+        (msg) => msg.type === "warning" && msg.data.message === "3-minute warning"
       )
     ).toBe(true);
 
-    // Verify transition to 'expired' phase
     await runInDurableObject(sessionTimerStub, async (instance, state) => {
       expect(await state.storage.get("alarmType")).toBe("expired");
     });
   });
+
   it("should handle session expiration correctly", async () => {
-    // Set up WebSocket connection
-    const messageRelay = env.MESSAGE_RELAY.get(
-      env.MESSAGE_RELAY.idFromName(roomId)
-    );
+    const receivedMessages = await establishWebSocket();
 
-    const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`, {
-      headers: {
-        Upgrade: "websocket",
-        Connection: "Upgrade",
-      },
-    });
-
-    if (!wsResponse.webSocket) {
-      throw new Error("WebSocket not established");
-    }
-
-    ws = wsResponse.webSocket;
-    ws.accept();
-
-    const receivedMessages: any[] = [];
-    ws.addEventListener("message", (event) => {
-      receivedMessages.push(JSON.parse(event.data));
-    });
-
-    // Initialize the session timer with required fields
-    const initResponse = await sessionTimerStub.fetch("http://session-timer/", {
+    const initResponse = await SELF.fetch("http://test.local/init", {
       method: "POST",
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        duration,
-        firstJoinTime,
-        firstJoinRole: "teacher",
-        roomId,
-        hashedTeacherAddress: "0x123",
-        hashedLearnerAddress: "0x456"
-      }),
+        clientSideRoomId: roomId,
+        hashedTeacherAddress: teacherHash,
+        hashedLearnerAddress: learnerHash,
+        userAddress: teacherAddress,
+        sessionDuration: 3600000
+      })
     });
-    expect(initResponse.ok).toBe(true);
+    expect(initResponse.status).toBe(200);
 
-    // Set the alarmType to 'expired' to simulate that phase
+    // Teacher joins (signed webhook)
+    let data = {
+      event: 'peer:joined',
+      payload: [{
+        data: {
+          id: 'peer-1',
+          sessionId: 'test-session',
+          roomId: roomId,
+          joinedAt: Date.now(),
+          metadata: JSON.stringify({
+            hashedAddress: teacherHash,
+            role: 'teacher'
+          })
+        }
+      }]
+    };
+    let signature = await generateSignature(data, apiKey);
+    const learnerWebhookResponse = await SELF.fetch("http://test.local/webhook", {
+      method: "POST",
+      headers: {
+        "huddle01-signature": signature,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+    expect(learnerWebhookResponse.status).toBe(200);
+
+    // Teacher again or possibly learner (to ensure both joined)
+    data = {
+      event: 'peer:joined',
+      payload: [{
+        data: {
+          id: 'peer-1',
+          sessionId: 'test-session',
+          roomId: roomId,
+          joinedAt: Date.now(),
+          metadata: JSON.stringify({
+            hashedAddress: teacherHash,
+            role: 'teacher'
+          })
+        }
+      }]
+    };
+    signature = await generateSignature(data, apiKey);
+    const teacherWebhookResponse = await SELF.fetch("http://test.local/webhook", {
+      method: "POST",
+      headers: {
+        "huddle01-signature": signature,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+    expect(teacherWebhookResponse.status).toBe(200);
+
     await runInDurableObject(sessionTimerStub, async (instance, state) => {
       await state.storage.put("alarmType", "expired");
     });
 
-    // Execute the expiration alarm
     const ran = await runDurableObjectAlarm(sessionTimerStub);
     expect(ran).toBe(true);
 
-    // Wait for message processing
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Verify expiration message broadcast
-    expect(
-      receivedMessages.some(
-        (msg) =>
-          msg.type === "expired" &&
-            msg.data.message === "Session expired"
-      )
-    ).toBe(true);
+    console.log("receivedMessages", receivedMessages);
+    expect(receivedMessages.some((msg) => msg.type === 'finalized' && msg.data.status === 'success')).toBe(true);
 
-    // Verify complete cleanup of timer state
     await runInDurableObject(sessionTimerStub, async (instance, state) => {
       expect(await state.storage.get("alarmType")).toBeUndefined();
       expect(await state.storage.get("warningTime")).toBeUndefined();

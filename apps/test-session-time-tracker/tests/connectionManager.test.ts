@@ -3,6 +3,7 @@ import { env, runInDurableObject, runDurableObjectAlarm } from "cloudflare:test"
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { hexToBytes, toHex } from "ethereum-cryptography/utils";
 import { keccak256 } from "ethereum-cryptography/keccak";
+import { SELF } from "cloudflare:test";
 
 describe("ConnectionManager", () => {
   let ws: WebSocket | undefined;
@@ -26,15 +27,14 @@ describe("ConnectionManager", () => {
     learnerHash = toHex(keccak256(hexToBytes(learnerAddress)));
   });
 
-
-
-  async function cleanup() {
-    // 1. Close any open WebSocket connections
-    if (ws) {
-      ws.close();
-      await new Promise(resolve => setTimeout(resolve, 100));
-      ws = undefined;
-    }
+async function cleanup() {
+  if (ws) {
+    // Wait for any pending messages
+    await new Promise(resolve => setTimeout(resolve, 500));
+    ws.close();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    ws = undefined;
+  }
 
     // 2. Get stubs in dependency order
     const stubs = {
@@ -75,6 +75,23 @@ describe("ConnectionManager", () => {
     await cleanup();
   });
 
+  async function establishWebSocket() {
+    const resp = await SELF.fetch(`https://example.com/connect/${roomId}`, {
+      headers: {
+        'Upgrade': 'websocket',
+        'Connection': 'Upgrade'
+      }
+    });
+    expect(resp.status).toBe(101);
+    ws = resp.webSocket!;
+    ws.accept();
+    const messages: any[] = [];
+    ws.addEventListener('message', evt => {
+      messages.push(JSON.parse(evt.data));
+    });
+    return messages;
+  }
+
   describe("Participant tracking", () => {
     it("should properly track user joins and store roles", async () => {
       // 1. First initialize SessionManager (needed for state setup)
@@ -94,23 +111,7 @@ describe("ConnectionManager", () => {
       });
 
       // 2. Set up WebSocket connection
-      const wsResponse = await messageRelayStub.fetch(`http://message-relay/connect/${roomId}`, {
-        headers: {
-          Upgrade: "websocket",
-          Connection: "Upgrade",
-        },
-      });
-
-      if (!wsResponse.webSocket) {
-        throw new Error("WebSocket not established");
-      }
-      ws = wsResponse.webSocket;
-      ws.accept();
-
-      const receivedMessages: any[] = [];
-      ws.addEventListener("message", (event) => {
-        receivedMessages.push(JSON.parse(event.data));
-      });
+      const receivedMessages = await establishWebSocket();
 
       // 3. Make the direct call that we know works
       const response = await connectionManagerStub.fetch("http://connection-manager/handlePeer", {
@@ -302,45 +303,49 @@ describe("ConnectionManager", () => {
 
       // 3. Establish participant
       const joinAt = Date.now();
-      const joinResponse = await connectionManagerStub.fetch("http://connection-manager/handlePeer", {
+      await connectionManagerStub.fetch("http://connection-manager/handlePeer", {
         method: "POST",
         body: JSON.stringify({
           peerId,
           role: "teacher",
           joinedAt: joinAt,
-          roomId
+          roomId,
+          teacherData: { joinedAt: joinAt },
+          learnerData: { joinedAt: null }
         })
       });
-      expect(joinResponse.ok).toBe(true);
 
       // 4. Simulate multiple disconnections exceeding MAX_DISCONNECTIONS
+      // After the maximum limit is exceeded, the session will be finalized,
+      // clearing the storage and broadcasting a finalization message.
       for (let i = 0; i < 4; i++) {
-        const leaveResponse = await connectionManagerStub.fetch("http://connection-manager/handlePeerLeft", {
+        await connectionManagerStub.fetch("http://connection-manager/handlePeerLeft", {
           method: "POST",
           body: JSON.stringify({
             peerId,
             leftAt: Date.now() + i * 1000,
-            role: "teacher"
+            role: "teacher",
+            teacherData: { joinedAt: joinAt },
+            learnerData: { joinedAt: null }
           })
         });
-        expect(leaveResponse.ok).toBe(true);
       }
 
-      // 5. Verify disconnect count and fault message
-      await runInDurableObject(connectionManagerStub, async (instance, state) => {
-        const disconnectCount = await state.storage.get<number>("teacher_disconnectCount");
-        // console.log("disconnectCount", disconnectCount);
-        expect(disconnectCount).toBe(4);
-      });
+      // 5. Wait a bit for messages
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      await new Promise(resolve => setTimeout(resolve, 100));
-      expect(receivedMessages).toContainEqual(expect.objectContaining({
-        type: "fault",
-        data: expect.objectContaining({
-          faultType: "teacherFault_excessive_disconnects",
-          message: "teacher exceeded maximum disconnections"
+      // Instead of checking disconnectCount (which is cleared after finalization),
+      // we verify that a final 'finalized' message was broadcast with the expected fault.
+      expect(receivedMessages).toContainEqual(
+        expect.objectContaining({
+          type: "finalized",
+          data: expect.objectContaining({
+            status: "fault",
+            faultType: "teacher_excessive_disconnects",
+            faultedRole: "teacher"
+          })
         })
-      }));
+      );
     });
 
     it("should handle reconnection timeout alarms", async () => {
@@ -375,42 +380,50 @@ describe("ConnectionManager", () => {
         receivedMessages.push(JSON.parse(event.data));
       });
 
-      // 3. Setup participant and simulate a single disconnection
-      const joinResponse = await connectionManagerStub.fetch("http://connection-manager/handlePeer", {
+      // 3. Setup participant and simulate a single disconnection far in the past
+      const joinTime = Date.now();
+      await connectionManagerStub.fetch("http://connection-manager/handlePeer", {
         method: "POST",
         body: JSON.stringify({
           peerId,
           role: "teacher",
-          joinedAt: Date.now(),
-          roomId
+          joinedAt: joinTime,
+          roomId,
+          teacherData: { joinedAt: joinTime },
+          learnerData: { joinedAt: null }
         })
       });
-      expect(joinResponse.ok).toBe(true);
 
       const pastTime = Date.now() - 200000; // 200 seconds in the past
-      // console.log("pastTime", pastTime);
-      const leaveResponse = await connectionManagerStub.fetch("http://connection-manager/handlePeerLeft", {
+      await connectionManagerStub.fetch("http://connection-manager/handlePeerLeft", {
         method: "POST",
         body: JSON.stringify({
           peerId,
           leftAt: pastTime,
-          role: "teacher"
+          role: "teacher",
+          teacherData: { joinedAt: joinTime },
+          learnerData: { joinedAt: null }
         })
       });
-      expect(leaveResponse.ok).toBe(true);
 
-      // 4. Trigger alarm manually since reconnection didn't occur
+      // 4. Trigger alarm manually since reconnection didn't occur, causing fault finalization.
       await runDurableObjectAlarm(connectionManagerStub);
 
-      await new Promise(resolve => setTimeout(resolve, 100));
-      // console.log("receivedMessages", receivedMessages);
-      expect(receivedMessages).toContainEqual(expect.objectContaining({
-        type: "fault",
-        data: expect.objectContaining({
-          faultType: "teacherFault_connection_timeout",
-          message: "teacher failed to reconnect within 3 minutes"
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log("receivedMessages", receivedMessages);
+
+      // Instead of expecting a direct "fault" message, we now expect a "finalized" message
+      // indicating that the session ended in a fault scenario because the teacher failed to reconnect.
+      expect(receivedMessages).toContainEqual(
+        expect.objectContaining({
+          type: "finalized",
+          data: expect.objectContaining({
+            status: "fault",
+            faultType: "teacher_failed_to_reconnect",
+            faultedRole: "teacher"
+          })
         })
-      }));
+      );
     });
   });
 })

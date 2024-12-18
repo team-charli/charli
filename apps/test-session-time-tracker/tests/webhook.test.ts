@@ -1,11 +1,40 @@
 // test/webhook.test.ts
 import { SELF, env, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
-import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { keccak256 } from 'ethereum-cryptography/keccak';
 import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
-import { SessionManager } from "../src";
 import { User } from "../src/types";
-import { cloneElement } from "hono/jsx";
+
+const encoder = new TextEncoder();
+
+async function asyncGenerateHmac(alg: string, message: string, secretKey: string) {
+  const keyData = encoder.encode(secretKey);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: alg },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(message)
+  );
+  return Buffer.from(signature).toString("hex");
+}
+
+async function generateSignature(data: any, apiKey: string) {
+  if (!data.id) {
+    data.id = crypto.randomUUID();
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
+  const hashPayload = `${data.id}.${timestamp}.${JSON.stringify(data)}`;
+  const hmac = await asyncGenerateHmac('SHA-256', hashPayload, apiKey);
+
+  return `t=${timestamp},sha256=${hmac}`;
+}
 
 describe("Webhook Handler", () => {
   let ws: WebSocket | undefined;
@@ -14,7 +43,7 @@ describe("Webhook Handler", () => {
   let learnerAddress: string;
   let teacherHash: string;
   let learnerHash: string;
-  const mockApiKey = "test-api-key";
+  const apiKey = env.TEST_HUDDLE_API_KEY || "test-api-key";
 
   // Generate fresh IDs before each test
   beforeEach(() => {
@@ -25,18 +54,6 @@ describe("Webhook Handler", () => {
     teacherHash = toHex(keccak256(hexToBytes(teacherAddress)));
     learnerHash = toHex(keccak256(hexToBytes(learnerAddress)));
   });
-
-  vi.mock('@huddle01/server-sdk/webhooks', () => ({
-    WebhookReceiver: class {
-      constructor() {}
-      receive(body: string) {
-        return typeof body === 'string' ? JSON.parse(body) : body;
-      }
-      createTypedWebhookData(event: string, payload: any) {
-        return { event, data: payload[0].data };
-      }
-    }
-  }));
 
   async function cleanup() {
     // 1. Close any open WebSocket connections
@@ -55,25 +72,16 @@ describe("Webhook Handler", () => {
     };
 
     // 3. Clean in reverse dependency order
-    for (const [name, stub] of Object.entries(stubs).reverse()) {
+    for (const [_, stub] of Object.entries(stubs).reverse()) {
       try {
-        // console.log(`Cleaning up ${name}...`);
-
-        // Run any pending alarms
         await runDurableObjectAlarm(stub);
-
-        // Clear storage
-        await runInDurableObject(stub, async (instance, state) => {
+        await runInDurableObject(stub, async (_, state) => {
           await state.blockConcurrencyWhile(async () => {
-            const keys = await state.storage.list();
-            // console.log(`${name} storage keys:`, keys);
-
             await state.storage.deleteAll();
             await state.storage.deleteAlarm();
           });
         });
       } catch (error) {
-        // console.error(`Error cleaning up ${name}:`, error);
         throw error;
       } finally {
         stub[Symbol.dispose]?.();
@@ -82,33 +90,52 @@ describe("Webhook Handler", () => {
   }
 
   beforeEach(async () => {
-    // vi.resetModules();
     await cleanup();
   });
   afterEach(async () => {
     await cleanup();
   });
 
+  async function establishWebSocket() {
+    const resp = await SELF.fetch(`https://example.com/connect/${roomId}`, {
+      headers: {
+        'Upgrade': 'websocket',
+        'Connection': 'Upgrade'
+      }
+    });
+    expect(resp.status).toBe(101);
+    ws = resp.webSocket!;
+    ws.accept();
+    const messages: any[] = [];
+    ws.addEventListener('message', evt => {
+      messages.push(JSON.parse(evt.data));
+    });
+    return messages;
+  }
+
+  async function sendWebhook(event: string, payloadData: any) {
+    const data = { id: 'test-id', event, payload: [{ data: payloadData }] };
+    const signatureHeader = await generateSignature(data, apiKey);
+
+    const resp = await SELF.fetch("http://test.local/webhook", {
+      method: "POST",
+      headers: {
+        "huddle01-signature": signatureHeader,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+    return resp;
+  }
+
   it("should establish session and handle webhook events", async () => {
-    const sessionManagerStub = env.SESSION_MANAGER.get(
-      env.SESSION_MANAGER.idFromName(roomId)
-    );
+    const sessionManagerStub = env.SESSION_MANAGER.get(env.SESSION_MANAGER.idFromName(roomId));
 
     try {
       // First establish WebSocket connection
-      const wsResponse = await SELF.fetch(`http://test.local/connect/${roomId}`, {
-        headers: {
-          'Upgrade': 'websocket',
-          'Connection': 'Upgrade'
-        }
-      });
-      expect(wsResponse.status).toBe(101); // WebSocket upgrade successful
-      ws = wsResponse.webSocket;
-      expect(ws).toBeDefined();
-      ws.accept(); // Accept the WebSocket connection from the client side
-
+      await establishWebSocket();
       // 1. First verify initial state by direct DO access
-      await runInDurableObject(sessionManagerStub, async (instance, state) => {
+      await runInDurableObject(sessionManagerStub, async (_, state) => {
         const teacherData = await (state.storage.get('user:teacher')) as User;
         expect(teacherData).toBeUndefined();
       });
@@ -128,40 +155,28 @@ describe("Webhook Handler", () => {
       expect(initResponse.status).toBe(200);
 
       // 3. Send webhook through main worker
-      const webhookResponse = await SELF.fetch("http://test.local/webhook", {
-        method: "POST",
-        headers: {
-          "huddle01-signature": mockApiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          event: 'peer:joined',
-          payload: [{
-            data: {
-              id: 'peer-1',
-              sessionId: 'test-session',
-              roomId: roomId,
-              joinedAt: Date.now(),
-              metadata: JSON.stringify({
-                hashedAddress: teacherHash,
-                role: 'teacher'
-              })
-            }
-          }]
+      const webhookResponse = await sendWebhook('peer:joined', {
+        id: 'peer-1',
+        sessionId: 'test-session',
+        roomId: roomId,
+        joinedAt: Date.now(),
+        metadata: JSON.stringify({
+          hashedAddress: teacherHash,
+          role: 'teacher'
         })
       });
       expect(webhookResponse.status).toBe(200);
 
       // 4. Verify final state
-      await runInDurableObject(sessionManagerStub, async (instance, state) => {
+      await runInDurableObject(sessionManagerStub, async (_, state) => {
         const teacherData = await state.storage.get('user:teacher') as User;
-        // console.log('Final teacher data:', teacherData);
         expect(teacherData.peerId).toBe('peer-1');
       });
     } finally {
       sessionManagerStub[Symbol.dispose]?.();
     }
   });
+
   it("should require WebSocket connection before init", async () => {
     try {
       // First attempt - without WebSocket - should fail
@@ -178,17 +193,7 @@ describe("Webhook Handler", () => {
       });
       expect(initResponse.status).toBe(400);
 
-      // Establish WebSocket connection
-      const wsResponse = await SELF.fetch(`http://test.local/connect/${roomId}`, {
-        headers: {
-          'Upgrade': 'websocket',
-          'Connection': 'Upgrade'
-        }
-      });
-      expect(wsResponse.status).toBe(101);
-      ws = wsResponse.webSocket;
-      expect(ws).toBeDefined();
-      ws.accept();
+      await establishWebSocket();
 
       // Test with WebSocket established
       const successResponse = await SELF.fetch("http://test.local/init", {
@@ -213,21 +218,7 @@ describe("Webhook Handler", () => {
 
     try {
       // Establish WebSocket
-      const wsResponse = await SELF.fetch(`http://test.local/connect/${roomId}`, {
-        headers: {
-          'Upgrade': 'websocket',
-          'Connection': 'Upgrade'
-        }
-      });
-      expect(wsResponse.status).toBe(101);
-      ws = wsResponse.webSocket;
-      expect(ws).toBeDefined();
-      ws.accept();
-
-      const messages: any[] = [];
-      ws.addEventListener('message', (event) => {
-        messages.push(JSON.parse(event.data));
-      });
+      const messages = await establishWebSocket();
 
       // Initialize session
       const initResponse = await SELF.fetch("http://test.local/init", {
@@ -247,66 +238,36 @@ describe("Webhook Handler", () => {
       const leftAt = joinedAt + 60000;
 
       // Send join webhook
-      await SELF.fetch("http://test.local/webhook", {
-        method: "POST",
-        headers: {
-          "huddle01-signature": mockApiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          id: 'test-id',
-          event: 'peer:joined',
-          payload: [{
-            data: {
-              id: 'peer-1',
-              sessionId: 'test-session',
-              roomId: roomId,
-              joinedAt,
-              metadata: JSON.stringify({
-                hashedAddress: teacherHash,
-                role: 'teacher'
-              })
-            }
-          }]
+      await sendWebhook('peer:joined', {
+        id: 'peer-1',
+        sessionId: 'test-session',
+        roomId: roomId,
+        joinedAt,
+        metadata: JSON.stringify({
+          hashedAddress: teacherHash,
+          role: 'teacher'
         })
       });
 
       // Verify join state
-      await runInDurableObject(sessionManagerStub, async (instance, state) => {
+      await runInDurableObject(sessionManagerStub, async (_, state) => {
         const teacherData = await (state.storage.get('user:teacher')) as User;
         expect(teacherData.peerId).toBe('peer-1');
       });
 
       // Send leave webhook
-      await SELF.fetch("http://test.local/webhook", {
-        method: "POST",
-        headers: {
-          "huddle01-signature": mockApiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          id: 'test-id',
-          event: 'peer:left',
-          payload: [{
-            data: {
-              id: 'peer-1',
-              sessionId: 'test-session',
-              roomId: roomId,
-              leftAt,
-              duration: 60000
-            }
-          }]
-        })
+      await sendWebhook('peer:left', {
+        id: 'peer-1',
+        sessionId: 'test-session',
+        roomId: roomId,
+        leftAt,
+        duration: 60000
       });
 
       // Wait for and verify messages
       await new Promise(resolve => setTimeout(resolve, 100));
-      // console.log("should handle peer:left webhook event: leftAt", leftAt)
-      // console.log("messages", messages);
 
       const leftMessage = messages.find(m => m.type === 'userLeft');
-      // console.log("should handle peer:left webhook event: leftAtMessage", leftMessage)
-
       expect(leftMessage).toBeDefined();
       expect(leftMessage.data.leftAt).toBe(leftAt);
 
@@ -315,122 +276,14 @@ describe("Webhook Handler", () => {
     }
   });
 
-  // it("should handle meeting lifecycle webhooks", async () => {
-  //   const sessionManagerStub = env.SESSION_MANAGER.get(env.SESSION_MANAGER.idFromName(roomId));
-
-  //   try {
-  //     // Establish WebSocket
-  //     const wsResponse = await SELF.fetch(`http://test.local/connect/${roomId}`, {
-  //       headers: {
-  //         'Upgrade': 'websocket',
-  //         'Connection': 'Upgrade'
-  //       }
-  //     });
-  //     expect(wsResponse.status).toBe(101);
-  //     ws = wsResponse.webSocket;
-  //     expect(ws).toBeDefined();
-  //     ws.accept();
-
-  //     const messages: any[] = [];
-  //     ws.addEventListener('message', (event) => {
-  //       messages.push(JSON.parse(event.data));
-  //     });
-
-  //     // Initialize session
-  //     await SELF.fetch("http://test.local/init", {
-  //       method: "POST",
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({
-  //         clientSideRoomId: roomId,
-  //         hashedTeacherAddress: teacherHash,
-  //         hashedLearnerAddress: learnerHash,
-  //         userAddress: teacherAddress,
-  //         sessionDuration: 3600000
-  //       })
-  //     });
-
-  //     const startTime = Date.now();
-  //     const endTime = startTime + 3600000;
-
-  //     // Send meeting started webhook
-  //     await SELF.fetch("http://test.local/webhook", {
-  //       method: "POST",
-  //       headers: {
-  //         "huddle01-signature": mockApiKey,
-  //         "Content-Type": "application/json"
-  //       },
-  //       body: JSON.stringify({
-  //         id: 'test-id',
-  //         event: 'meeting:started',
-  //         payload: [{
-  //           data: {
-  //             roomId,
-  //             sessionId: 'test-session',
-  //             createdAt: startTime
-  //           }
-  //         }]
-  //       })
-  //     });
-
-  //     // Send meeting ended webhook
-  //     await SELF.fetch("http://test.local/webhook", {
-  //       method: "POST",
-  //       headers: {
-  //         "huddle01-signature": mockApiKey,
-  //         "Content-Type": "application/json"
-  //       },
-  //       body: JSON.stringify({
-  //         id: 'test-id',
-  //         event: 'meeting:ended',
-  //         payload: [{
-  //           data: {
-  //             roomId,
-  //             sessionId: 'test-session',
-  //             createdAt: startTime,
-  //             endedAt: endTime,
-  //             duration: 3600000,
-  //             participants: 2,
-  //             maxParticipants: 2
-  //           }
-  //         }]
-  //       })
-  //     });
-
-  //     // Verify meeting events
-  //     await new Promise(resolve => setTimeout(resolve, 100));
-  //     expect(messages.some(m => m.type === 'meetingStarted')).toBe(true);
-  //     expect(messages.some(m => m.type === 'meetingEnded')).toBe(true);
-
-  //   } finally {
-  //     sessionManagerStub[Symbol.dispose]?.();
-  //   }
-  // });
-
   it("should handle sequential peer joins and bothJoined state", async () => {
     const sessionManagerStub = env.SESSION_MANAGER.get(env.SESSION_MANAGER.idFromName(roomId));
     const connectionManagerStub = env.CONNECTION_MANAGER.get(env.CONNECTION_MANAGER.idFromName(roomId));
 
     try {
-      // Establish WebSocket
-      const wsResponse = await SELF.fetch(`http://test.local/connect/${roomId}`, {
-        headers: {
-          'Upgrade': 'websocket',
-          'Connection': 'Upgrade'
-        }
-      });
-      expect(wsResponse.status).toBe(101);
-      ws = wsResponse.webSocket;
-      expect(ws).toBeDefined();
-      ws.accept();
+      const messages = await establishWebSocket();
 
-      const messages: any[] = [];
-      ws.addEventListener('message', (event) => {
-        const data = JSON.parse(event.data);
-        // console.log('Received WebSocket message:', data);
-        messages.push(data);
-      });
-
-      // Initialize session
+      // Initialize session for both teacher and learner
       await SELF.fetch("http://test.local/init", {
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
@@ -449,93 +302,64 @@ describe("Webhook Handler", () => {
           clientSideRoomId: roomId,
           hashedTeacherAddress: teacherHash,
           hashedLearnerAddress: learnerHash,
-          userAddress: learnerAddress,  // Learner's address
+          userAddress: learnerAddress,
           sessionDuration: 3600000
         })
       });
+
       const startTime = Date.now();
 
       // Teacher joins
-      await SELF.fetch("http://test.local/webhook", {
-        method: "POST",
-        headers: {
-          "huddle01-signature": mockApiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          id: 'test-id',
-          event: 'peer:joined',
-          payload: [{
-            data: {
-              id: 'peer-1',
-              sessionId: 'test-session',
-              roomId: roomId,
-              joinedAt: startTime,
-              metadata: JSON.stringify({
-                hashedAddress: teacherHash,
-                role: 'teacher'
-              })
-            }
-          }]
+      await sendWebhook('peer:joined', {
+        id: 'peer-1',
+        sessionId: 'test-session',
+        roomId: roomId,
+        joinedAt: startTime,
+        metadata: JSON.stringify({
+          hashedAddress: teacherHash,
+          role: 'teacher'
         })
       });
 
       // Verify teacher state in both DOs
-      await runInDurableObject(sessionManagerStub, async (instance, state) => {
+      await runInDurableObject(sessionManagerStub, async (_, state) => {
         const teacherData = await state.storage.get('user:teacher') as User;
-        // console.log('SessionManager teacher state:', teacherData);
         expect(teacherData.peerId).toBe('peer-1');
       });
 
-      await runInDurableObject(connectionManagerStub, async (instance, state) => {
+      await runInDurableObject(connectionManagerStub, async (_, state) => {
         const participants = await state.storage.get<Record<string, string>>('participants');
         const joinTimes = await state.storage.get<Record<string, number>>('joinTimes');
-        // console.log('ConnectionManager state after teacher:', { participants, joinTimes });
         expect(participants?.['peer-1']).toBe('teacher');
         expect(joinTimes?.['teacher']).toBe(startTime);
       });
 
       // Learner joins
-      await SELF.fetch("http://test.local/webhook", {
-        method: "POST",
-        headers: {
-          "huddle01-signature": mockApiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          id: 'test-id',
-          event: 'peer:joined',
-          payload: [{
-            data: {
-              id: 'peer-2',
-              sessionId: 'test-session',
-              roomId: roomId,
-              joinedAt: startTime + 30000,
-              metadata: JSON.stringify({
-                hashedAddress: learnerHash,
-                role: 'learner'
-              })
-            }
-          }]
+      await sendWebhook('peer:joined', {
+        id: 'peer-2',
+        sessionId: 'test-session',
+        roomId: roomId,
+        joinedAt: startTime + 30000,
+        metadata: JSON.stringify({
+          hashedAddress: learnerHash,
+          role: 'learner'
         })
       });
 
-      // Helper function to wait for messages with polling
+      // Helper function to wait for messages
       const waitForMessages = async (predicate: (messages: any[]) => boolean, timeoutMs = 500) => {
         const startWait = Date.now();
         while (Date.now() - startWait < timeoutMs) {
           if (predicate(messages)) return true;
           await new Promise(resolve => setTimeout(resolve, 50));
         }
-        // console.log('Current messages after timeout:', messages);
         return false;
       };
 
       // Verify final DO states
-      await runInDurableObject(connectionManagerStub, async (instance, state) => {
+      await runInDurableObject(connectionManagerStub, async (_, state) => {
         const participants = await state.storage.get<Record<string, string>>('participants');
         const joinTimes = await state.storage.get<Record<string, number>>('joinTimes');
-        // console.log('ConnectionManager final state:', { participants, joinTimes });
         expect(participants?.['peer-1']).toBe('teacher');
         expect(participants?.['peer-2']).toBe('learner');
         expect(joinTimes?.['teacher']).toBe(startTime);
@@ -546,8 +370,8 @@ describe("Webhook Handler", () => {
       expect(
         await waitForMessages(msgs =>
           msgs.some(m => m.type === 'userJoined' && m.data.role === 'teacher') &&
-            msgs.some(m => m.type === 'userJoined' && m.data.role === 'learner') &&
-            msgs.some(m => m.type === 'bothJoined')
+          msgs.some(m => m.type === 'userJoined' && m.data.role === 'learner') &&
+          msgs.some(m => m.type === 'bothJoined')
         )
       ).toBe(true);
 

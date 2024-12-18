@@ -43,8 +43,9 @@ export class SessionManager extends DurableObject<DOEnv> {
 
     this.app.post('/init', async (c) => {
       const clientData = await c.req.json<ClientData>();
-      // console.log('clientData sessionManager', {clientData})
+       //console.log('clientData sessionManager', {clientData})
       const { userAddress, hashedTeacherAddress, hashedLearnerAddress, sessionDuration, clientSideRoomId} = clientData;
+      this.state.storage.put('roomId', clientSideRoomId )
       this.roomId = clientSideRoomId;
       // Validate user and assign role
       const userAddressHashBytes = keccak256(hexToBytes(userAddress));
@@ -66,7 +67,7 @@ export class SessionManager extends DurableObject<DOEnv> {
       // Store initial user data
       const user: User = {
         role,
-        roomId: this.roomId,
+        roomId: clientSideRoomId,
         hashedTeacherAddress,
         hashedLearnerAddress,
         peerId: null,
@@ -85,8 +86,9 @@ export class SessionManager extends DurableObject<DOEnv> {
       });
     });
     this.app.post('/webhook', async (c) => {
+      this.roomId = await this.state.storage.get('roomId') as string;
       const webhookData = await c.req.text();
-      // console.log('SessionManager received webhook:', webhookData);
+      //console.log('SessionManager received webhook:', webhookData);
 
       try {
         const event = JSON.parse(webhookData);
@@ -107,17 +109,8 @@ export class SessionManager extends DurableObject<DOEnv> {
           let learnerData = await this.state.storage.get('user:learner') as User;
 
           // Validate and determine role
-          // console.log('Validation data:', {
-          //   incomingHash: metadata.hashedAddress,
-          //   storedTeacherHash: teacherData?.hashedTeacherAddress,
-          //   storedLearnerHash: learnerData?.hashedLearnerAddress,
-          //   teacherData,
-          //   learnerData
-          // });
+//console.log('Validation data:', { incomingHash: metadataObj.hashedAddress, storedTeacherHash: teacherData?.hashedTeacherAddress, storedLearnerHash: learnerData?.hashedLearnerAddress, teacherData, learnerData });
           const validatedRole = this.validateRole(metadataObj, teacherData, learnerData);
-          // console.log(`SessionManager: Received ${event.event} event for roomId=${metadata.roomId}, peerId=${peerData.id}`);
-          // console.log(`SessionManager: Validate Role => metadata.hashedAddress=${metadata.hashedAddress}, teacherHash=${teacherData?.hashedTeacherAddress}, learnerHash=${learnerData?.hashedLearnerAddress}`);
-          // console.log(`SessionManager: Assigned role=${validatedRole} to peerId=${peerData.id}`);
 
           const userData = validatedRole === 'teacher' ? teacherData : learnerData;
           userData.peerId = peerData.id;
@@ -135,10 +128,11 @@ export class SessionManager extends DurableObject<DOEnv> {
           // Forward validated data to ConnectionManager
           try {
             // Forward validated data to ConnectionManager
+            //console.log("this.roomId", {"this.roomId": this.roomId, where: "before connectionManager stub"} );
             const connectionManager = c.env.CONNECTION_MANAGER.get(
               c.env.CONNECTION_MANAGER.idFromName(this.roomId)
             );
-            // console.log("sessionManager call to http://connection-manager/handlePeer", {peerId: peerData.id, role: validatedRole, joinedAt: peerData.joinedAt, roomId: this.roomId})
+            // console.log("sessionManager call to http://connection-manager/handlePeer", {peerId: peerData.id, role: validatedRole, joinedAt: peerData.joinedAt, "this.roomId": this.roomId})
 
             const response = await connectionManager.fetch('http://connection-manager/handlePeer', {
               method: 'POST',
@@ -164,6 +158,17 @@ export class SessionManager extends DurableObject<DOEnv> {
           const users = await this.getJoinedUsers();
           if (Object.keys(users).length === 1) {
             await this.startSessionTimer(c, peerData.joinedAt, validatedRole);
+          }
+          if (Object.keys(users).length === 2) {
+            // Both users have joined
+            //console.log("this.roomId", {"this.roomId": this.roomId, where: "sessionManager stub {both users joined}"} );
+
+            const sessionTimer = c.env.SESSION_TIMER.get(
+              c.env.SESSION_TIMER.idFromName(this.roomId)
+            );
+            await sessionTimer.fetch('http://session-timer/cancelNoJoinCheck', {
+              method: 'POST'
+            });
           }
         } else if (event.event === 'peer:left') {
           const peerData = event.payload[0].data;
@@ -214,7 +219,8 @@ export class SessionManager extends DurableObject<DOEnv> {
               leftAt: peerData.leftAt,
               role: validatedRole,
               teacherData,
-              learnerData
+              learnerData,
+              roomId: this.roomId
             })
           });
         }
@@ -228,11 +234,14 @@ export class SessionManager extends DurableObject<DOEnv> {
 
     this.app.post('/finalizeSession', async (c) => {
       // scenario='fault' or 'non_fault'
-      const { scenario, faultType, faultedRole } = await c.req.json<{
+      const { scenario, faultType, faultedRole} = await c.req.json<{
         scenario: 'fault' | 'non_fault',
         faultType?: string,
-        faultedRole?: 'teacher' | 'learner'
+        faultedRole?: 'teacher' | 'learner',
       }>();
+      if (!this.roomId) this.roomId = await this.state.storage.get("roomId") as string;
+
+      //console.log(`SessionManager: finalizeSession called with scenario=${scenario}, faultType=${faultType}, faultedRole=${faultedRole}, this.roomId=${this.roomId}`);
 
       // Retrieve original user data
       const teacherData = await this.state.storage.get<User>('user:teacher');
@@ -255,6 +264,9 @@ export class SessionManager extends DurableObject<DOEnv> {
           faultType: null,
           sessionComplete: true
         };
+        //console.log("SessionManager: teacherDataComplete:", teacherDataComplete);
+        //console.log("SessionManager: learnerDataComplete:", learnerDataComplete);
+
       } else {
         // Fault scenario
         // faultType and faultedRole must be provided
@@ -314,6 +326,8 @@ export class SessionManager extends DurableObject<DOEnv> {
         broadcastData.faultType = faultType;
         broadcastData.faultedRole = faultedRole;
       }
+      //console.log("SessionManager: Call MESSAGE-RELAY/broadcast finalized data:", {broadcastData});
+      //console.log("SessionManager: Call MESSAGE-RELAY/broadcast this.roomId: ", this.roomId )
 
       await messageRelay.fetch(`http://message-relay/broadcast/${this.roomId}`, {
         method: 'POST',
@@ -325,8 +339,8 @@ export class SessionManager extends DurableObject<DOEnv> {
       });
 
       // Cleanup SessionManager
-      await this.state.storage.deleteAll();
 
+      await this.state.storage.deleteAll();
       // Instruct other DOs to cleanup
       const sessionTimer = c.env.SESSION_TIMER.get(c.env.SESSION_TIMER.idFromName(this.roomId));
       await sessionTimer.fetch('http://session-timer/cleanup', { method: 'POST' });
@@ -336,6 +350,7 @@ export class SessionManager extends DurableObject<DOEnv> {
       );
       await connectionManager.fetch('http://connection-manager/cleanup', { method: 'POST' });
 
+      await this.state.storage.delete('roomId')
       return c.json({ status: 'finalized' });
     });
 
@@ -348,11 +363,17 @@ export class SessionManager extends DurableObject<DOEnv> {
   private validateRole = (metadata:  Record<string, unknown>, teacherData: User, learnerData: User): ('teacher' | 'learner' | null) => {
 
     let validatedRole: 'teacher' | 'learner'
-    if (metadata.hashedAddress === teacherData?.hashedTeacherAddress) {
+    if (metadata?.hashedAddress === teacherData?.hashedTeacherAddress) {
       validatedRole = 'teacher';
-    } else if (metadata.hashedAddress === learnerData?.hashedLearnerAddress) {
+    } else if (metadata?.hashedAddress === learnerData?.hashedLearnerAddress) {
       validatedRole = 'learner';
+    } else {
+      console.error("metadata", {metadataHashedAddress: metadata?.hashedAddress, storedTeacherHash: teacherData?.hashedTeacherAddress, storedLearnerHash: learnerData?.hashedLearnerAddress});
     }
+    //console.log("SessionManager: validateRole called");
+    //console.log("SessionManager: metadata=", metadata);
+    //console.log("SessionManager: teacherData=", teacherData);
+    //console.log("SessionManager: learnerData=", learnerData);
 
     if (!validatedRole) {
       console.log('Invalid peer - metadata did not match any user');
@@ -373,6 +394,8 @@ export class SessionManager extends DurableObject<DOEnv> {
   }
 
   private async startSessionTimer(c: any, firstJoinTime: number, firstJoinRole: 'teacher' | 'learner') {
+    if (!this.roomId) this.roomId = await this.state.storage.get('roomId') as string;
+    //console.log("startSessionTimer called by: ", firstJoinRole)
 
     const sessionTimer = c.env.SESSION_TIMER.get(
       c.env.SESSION_TIMER.idFromName(this.roomId)

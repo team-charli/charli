@@ -118,16 +118,13 @@ app.post('/webhook', async (c) => {
   }
   const receiver = new WebhookReceiver({ apiKey: c.env.TEST_HUDDLE_API_KEY });
   const data = await c.req.text();
-  // console.log("Main worker received webhook data:", data);
 
   try {
     const event = receiver.receive(data, signatureHeader);
-    // console.log("Main worker parsed event:", event);
     let roomId: string | undefined;
-    // console.log("Extracted roomId:", roomId);
     if (['meeting:started', 'meeting:ended', 'peer:joined', 'peer:left'].includes(event.event)) {
       const typedData = receiver.createTypedWebhookData(event.event, event.payload);
-      roomId = (typedData.data as { roomId: string }).roomId;
+      roomId = typedData.data[0].data.roomId;
     } else {
       return c.json({
         status: 'error',

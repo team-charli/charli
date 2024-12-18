@@ -14,6 +14,8 @@ describe("Fault Cases", () => {
   let connectionManagerStub: DurableObjectStub;
   let messageRelayStub: DurableObjectStub;
   let sessionManagerStub: DurableObjectStub;
+  let sessionTimerStub: DurableObjectStub;
+  const mockApiKey = "test-api-key";
 
   const duration = 3600000; // 1 hour
   const teacherPeerId = "test-teacher-peer";
@@ -30,10 +32,11 @@ describe("Fault Cases", () => {
       sessionTimer: env.SESSION_TIMER.get(env.SESSION_TIMER.idFromName(roomId)),
       connectionManager: env.CONNECTION_MANAGER.get(env.CONNECTION_MANAGER.idFromName(roomId)),
       sessionManager: env.SESSION_MANAGER.get(env.SESSION_MANAGER.idFromName(roomId)),
-      messageRelay: env.MESSAGE_RELAY.get(env.MESSAGE_RELAY.idFromName(roomId))
+      messageRelay: env.MESSAGE_RELAY.get(env.MESSAGE_RELAY.idFromName(roomId)),
+      sessionTimerStub: env.SESSION_TIMER.get(env.SESSION_TIMER.idFromName(roomId))
     };
 
-    for (const [_, stub] of Object.entries(stubs).reverse()) {
+    for (const [name, stub] of Object.entries(stubs).reverse()) {
       try {
         await runDurableObjectAlarm(stub);
         await runInDurableObject(stub, async (instance, state) => {
@@ -42,6 +45,13 @@ describe("Fault Cases", () => {
             await state.storage.deleteAlarm();
           });
         });
+
+        // Check storage after cleanup to ensure it's empty
+        const storageEntries = await runInDurableObject(stub, async (instance, state) => {
+          const entries = await state.storage.list();
+          return Object.fromEntries(entries);
+        });
+        //console.log(`>>> cleanup: Storage after clearing for ${name} (roomId=${roomId}):`, storageEntries);
       } finally {
         stub[Symbol.dispose]?.();
       }
@@ -51,21 +61,29 @@ describe("Fault Cases", () => {
   beforeEach(() => {
     const testId = crypto.randomUUID();
     roomId = `room-${testId}`;
-    teacherAddress = `0x${testId.slice(0, 8)}`;
-    learnerAddress = `0x${testId.slice(24, 32)}`;
+    teacherAddress = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    learnerAddress  = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
     teacherHash = toHex(keccak256(hexToBytes(teacherAddress)));
     learnerHash = toHex(keccak256(hexToBytes(learnerAddress)));
   });
 
   beforeEach(async () => {
-    await cleanup();
+    //console.log(`>>> beforeEach: Starting cleanup for roomId=${roomId}`);
+     await cleanup();
+    //console.log(`>>> beforeEach: Finished cleanup for roomId=${roomId}`);
     connectionManagerStub = env.CONNECTION_MANAGER.get(env.CONNECTION_MANAGER.idFromName(roomId));
     messageRelayStub = env.MESSAGE_RELAY.get(env.MESSAGE_RELAY.idFromName(roomId));
     sessionManagerStub = env.SESSION_MANAGER.get(env.SESSION_MANAGER.idFromName(roomId));
   });
 
+
   afterEach(async () => {
-    await cleanup();
+    //console.log(`>>> afterEach: Starting cleanup for roomId=${roomId}`);
+     await cleanup();
+    //console.log(`>>> afterEach: Finished cleanup for roomId=${roomId}`);
+
+    // Give some time for any asynchronous tasks or delayed alarms
+    await new Promise(resolve => setTimeout(resolve, 200));
   });
 
   /**
@@ -118,154 +136,109 @@ describe("Fault Cases", () => {
 
     return receivedMessages;
   }
+  // Fault Case #1: User Never Joins (e.g., learner never joins after teacher does)
+it("should finalize with a 'learner_never_joined' fault if the learner never joins within the join window", { timeout: 15000 }, async () => {
+  const receivedMessages = await commonSetup();
 
-  it("should detect late join fault (Case #1)", async () => {
-    const receivedMessages = await commonSetup();
+  // Set the teacher join time sufficiently in the past so that the joinWindow alarm fires immediately.
+  const baseline = Date.now() - 4 * 60 * 1000; // 4 minutes ago
+  const teacherJoinTime = baseline;
 
-    // Simulate teacher joined over 3 minutes ago (peer:joined webhook)
-    const oldJoinTime = Date.now() - 180001; // More than 3 minutes ago
-    const teacherJoinedEvent = {
-      event: "peer:joined",
-      payload: [
-        {
-          data: {
-            id: teacherPeerId,
-            joinedAt: oldJoinTime,
-            metadata: JSON.stringify({ hashedAddress: teacherHash }),
-            roomId
-          }
+  // Teacher joined event (in the past)
+  const teacherJoinedEvent = {
+    event: "peer:joined",
+    payload: [
+      {
+        data: {
+          id: teacherPeerId,
+          joinedAt: teacherJoinTime,
+          metadata: JSON.stringify({
+            hashedAddress: teacherHash,
+            sessionId: roomId,
+            role: "teacher",
+          }),
+          roomId,
         }
-      ]
-    };
+      }
+    ]
+  };
 
-    let resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(teacherJoinedEvent)
-    });
-    expect(resp.ok).toBe(true);
-
-    // Wait to ensure updates propagate
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Now the learner joins at the current time (late)
-    const learnerJoinedEvent = {
-      event: "peer:joined",
-      payload: [
-        {
-          data: {
-            id: learnerPeerId,
-            joinedAt: Date.now(),
-            metadata: JSON.stringify({ hashedAddress: learnerHash }),
-            roomId
-          }
-        }
-      ]
-    };
-
-    resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(learnerJoinedEvent)
-    });
-    expect(resp.ok).toBe(true);
-
-    // Wait for fault message
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Check for the late join fault message
-    const faultMessage = receivedMessages.find(m =>
-      m.type === "fault" && m.data.faultType === "learnerFault_didnt_join"
-    );
-
-    // Assert the fault message is received
-    expect(faultMessage).toBeDefined();
-    expect(faultMessage.data.faultType).toBe("learnerFault_didnt_join");
+  let resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "huddle01-signature": mockApiKey },
+    body: JSON.stringify(teacherJoinedEvent)
   });
-  it("should detect second user never joined (Case #2)", async () => {
-    const receivedMessages = await commonSetup();
+  expect(resp.ok).toBe(true);
 
-    // Teacher joins now (no learner joins)
-    const teacherJoinedTime = Date.now();
-    const teacherJoinedEvent = {
-      event: "peer:joined",
-      payload: [
-        {
-          data: {
-            id: teacherPeerId,
-            joinedAt: teacherJoinedTime,
-            metadata: JSON.stringify({ hashedAddress: teacherHash }),
-            roomId
-          }
-        }
-      ]
-    };
+  // Do NOT send a learner joined event.
+  // The session timer should detect that the learner never joined and finalize as a fault.
 
-    let resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(teacherJoinedEvent)
-    });
-    expect(resp.ok).toBe(true);
-
-    // Simulate time passing for the join window (3+ minutes)
-    // Instead of actually waiting 3+ minutes, just trigger the alarm:
-    await runDurableObjectAlarm(env.SESSION_TIMER.get(env.SESSION_TIMER.idFromName(roomId)));
-    await runDurableObjectAlarm(connectionManagerStub);
-
-    // Check for the "secondUser_never_joined" fault message
-    const faultMessage = receivedMessages.find(m =>
-      m.type === "fault" && m.data.faultType === "secondUser_never_joined"
+  // Poll for the finalized message
+  let finalizedMessage: any;
+  for (let i = 0; i < 20; i++) {
+    finalizedMessage = receivedMessages.find(m =>
+      m.type === "finalized" &&
+      m.data.status === "fault" &&
+      m.data.faultType === "learner_never_joined" &&
+      m.data.faultedRole === "learner"
     );
+    if (finalizedMessage) break;
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
 
-    expect(faultMessage).toBeDefined();
-    expect(faultMessage.data.faultType).toBe("secondUser_never_joined");
-  });
+  expect(finalizedMessage).toBeDefined();
+  expect(finalizedMessage.data.status).toBe("fault");
+  expect(finalizedMessage.data.faultType).toBe("learner_never_joined");
+  expect(finalizedMessage.data.faultedRole).toBe("learner");
+});
 
-  it("should detect user not reconnecting within 3 minutes (Case #3)", { timeout: 15000 }, async () => {
+  it("should detect user not reconnecting within 3 minutes (Case #2)", { timeout: 15000 }, async () => {
     const receivedMessages = await commonSetup();
 
-    const now = Date.now();
+    // Use current timestamps so the initial joining doesn't cause immediate faults
+    const baseline = Date.now();
+    const teacherJoinTime = baseline;
+    const learnerJoinTime = baseline + 1000; // Learner joins 1 second after teacher
 
-    // Set times so that by the time we run alarms, the alarm is already overdue:
-    // teacherJoinedAt ~3.5 minutes ago
-    const teacherJoinedAt = now - 210000;
-    // learnerJoinedAt ~3.25 minutes ago
-    const learnerJoinedAt = now - 205000;
-    // leftAt ~3.33 minutes ago (which is after the learner joined, ensuring logical order)
-    // leftAt + 180000 = alarm time will be about 20 seconds in the past, guaranteeing it's overdue.
-    const leftAt = now - 200000;
-
+    // Teacher joins now
     const teacherJoinedEvent = {
       event: "peer:joined",
       payload: [
         {
           data: {
             id: teacherPeerId,
-            joinedAt: teacherJoinedAt,
-            metadata: JSON.stringify({ hashedAddress: teacherHash }),
-            roomId
+            joinedAt: teacherJoinTime,
+            metadata: JSON.stringify({
+              hashedAddress: teacherHash,
+              sessionId: roomId,
+              role: "teacher",
+            }),
+            roomId,
           }
         }
       ]
     };
-
     let resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "huddle01-signature": mockApiKey },
       body: JSON.stringify(teacherJoinedEvent)
     });
     expect(resp.ok).toBe(true);
 
+    // Learner joins 1 second later
     const learnerJoinedEvent = {
       event: "peer:joined",
       payload: [
         {
           data: {
             id: learnerPeerId,
-            joinedAt: learnerJoinedAt,
-            metadata: JSON.stringify({ hashedAddress: learnerHash }),
-            roomId
+            joinedAt: learnerJoinTime,
+            metadata: JSON.stringify({
+              hashedAddress: learnerHash,
+              sessionId: roomId,
+              role: "learner",
+            }),
+            roomId,
           }
         }
       ]
@@ -273,23 +246,115 @@ describe("Fault Cases", () => {
 
     resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "huddle01-signature": mockApiKey },
       body: JSON.stringify(learnerJoinedEvent)
     });
     expect(resp.ok).toBe(true);
 
-    await new Promise(r => setTimeout(r, 100));
+    // Allow some time for cancelNoJoinCheck to take effect
+    await new Promise(resolve => setTimeout(resolve, 500));
 
+    // Now that both users have joined, we simulate the learner leaving 4 minutes in the past.
+    // This ensures that the "3 minutes after leaving" reconnection deadline is already missed.
+    const learnerLeftTime = Date.now() - 240000; // 4 minutes ago
     const learnerLeftEvent = {
       event: "peer:left",
       payload: [
         {
           data: {
             id: learnerPeerId,
-            leftAt: leftAt,
-            duration: leftAt - learnerJoinedAt,
-            metadata: JSON.stringify({ hashedAddress: learnerHash }),
-            roomId
+            leftAt: learnerLeftTime,
+            duration: learnerLeftTime - learnerJoinTime,
+            metadata: JSON.stringify({
+              hashedAddress: learnerHash,
+              role: "learner",
+              sessionId: roomId
+            }),
+            roomId,
+          }
+        }
+      ]
+    };
+
+    await sessionManagerStub.fetch('http://session-manager/webhook', {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "huddle01-signature": mockApiKey },
+      body: JSON.stringify(learnerLeftEvent)
+    });
+
+    // Trigger the alarm. The learner failed to reconnect within 3 minutes, so the session should finalize as a fault.
+    await runDurableObjectAlarm(connectionManagerStub);
+
+    // Wait a bit for the finalize message to propagate through the WebSocket
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Poll for the finalized message (in case there's still a minor delay)
+    let finalizedMessage: any;
+    for (let i = 0; i < 10; i++) {
+      finalizedMessage = receivedMessages.find(m =>
+        m.type === "finalized" &&
+          m.data.status === "fault" &&
+          m.data.faultType === "learner_failed_to_reconnect" &&
+          m.data.faultedRole === "learner"
+      );
+      if (finalizedMessage) break;
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    expect(finalizedMessage).toBeDefined();
+    expect(finalizedMessage.data.status).toBe("fault");
+    expect(finalizedMessage.data.faultType).toBe("learner_failed_to_reconnect");
+    expect(finalizedMessage.data.faultedRole).toBe("learner");
+  });
+
+
+  // Fault Case #3: Excessive Disconnections
+  it("should finalize with a '{role}_excessive_disconnects' fault if a user exceeds the disconnection limit", async () => {
+    const receivedMessages = await commonSetup();
+
+    // Both teacher and learner join normally
+    const baseline = Date.now();
+    const teacherJoinTime = baseline;
+    const learnerJoinTime = baseline + 1000; // join 1s later
+
+    const teacherJoinedEvent = {
+      event: "peer:joined",
+      payload: [
+        {
+          data: {
+            id: teacherPeerId,
+            joinedAt: teacherJoinTime,
+            metadata: JSON.stringify({
+              hashedAddress: teacherHash,
+              sessionId: roomId,
+              role: "teacher",
+            }),
+            roomId,
+          }
+        }
+      ]
+    };
+
+    let resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "huddle01-signature": mockApiKey },
+      body: JSON.stringify(teacherJoinedEvent)
+    });
+    expect(resp.ok).toBe(true);
+
+    const learnerJoinedEvent = {
+      event: "peer:joined",
+      payload: [
+        {
+          data: {
+            id: learnerPeerId,
+            joinedAt: learnerJoinTime,
+            metadata: JSON.stringify({
+              hashedAddress: learnerHash,
+              sessionId: roomId,
+              role: "learner",
+            }),
+            roomId,
           }
         }
       ]
@@ -297,88 +362,60 @@ describe("Fault Cases", () => {
 
     resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(learnerLeftEvent)
+      headers: { "Content-Type": "application/json", "huddle01-signature": mockApiKey },
+      body: JSON.stringify(learnerJoinedEvent)
     });
     expect(resp.ok).toBe(true);
 
-    // Now alarm time = leftAt + 180000 = now - 200000 + 180000 = now - 20000 (20 seconds in the past)
-    // runDurableObjectAlarm should immediately trigger the alarm since it's overdue.
-    await runDurableObjectAlarm(connectionManagerStub);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    const faultMessage = receivedMessages.find(m =>
-      m.type === "fault" && m.data.faultType === "learnerFault_connection_timeout"
-    );
-
-    expect(faultMessage).toBeDefined();
-    expect(faultMessage.data.faultType).toBe("learnerFault_connection_timeout");
-  });
-
-  it("should trigger fault when user exceeds maximum disconnections (Case #4)", { timeout: 15000 }, async () => {
-    const receivedMessages = await commonSetup();
-
-    // Simulate the teacher joining
-    const teacherJoinedTime = Date.now();
-    const teacherJoinedEvent = {
-      event: "peer:joined",
-      payload: [
-        {
-          data: {
-            id: teacherPeerId,
-            joinedAt: teacherJoinedTime,
-            metadata: JSON.stringify({ hashedAddress: teacherHash }),
-            roomId
-          }
-        }
-      ]
-    };
-
-    let resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(teacherJoinedEvent)
-    });
-    expect(resp.ok).toBe(true);
-
-    await new Promise(r => setTimeout(r, 100)); // small delay to let state propagate
-
-    // Simulate multiple disconnections for the teacher
-    // MAX_DISCONNECTIONS = 3, so 4 disconnections triggers the fault
-    for (let i = 0; i < 4; i++) {
-      const leaveAt = Date.now() + i * 1000;
-      const teacherLeftEvent = {
+    // Let the user disconnect multiple times to exceed the limit
+    // Each 'peer:left' event increments the disconnect count.
+    const maxDisconnects = 3;
+    for (let i = 1; i <= maxDisconnects + 1; i++) {
+      const leftTime = Date.now() + i * 1000; // staggered disconnect times
+      const learnerLeftEvent = {
         event: "peer:left",
         payload: [
           {
             data: {
-              id: teacherPeerId,
-              leftAt: leaveAt,
-              duration: leaveAt - teacherJoinedTime,
-              metadata: JSON.stringify({ hashedAddress: teacherHash }),
-              roomId
+              id: learnerPeerId,
+              leftAt: leftTime,
+              duration: leftTime - learnerJoinTime,
+              metadata: JSON.stringify({
+                hashedAddress: learnerHash,
+                role: "learner",
+                sessionId: roomId
+              }),
+              roomId,
             }
           }
         ]
       };
 
-      resp = await sessionManagerStub.fetch('http://session-manager/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(teacherLeftEvent)
+      await sessionManagerStub.fetch('http://session-manager/webhook', {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "huddle01-signature": mockApiKey },
+        body: JSON.stringify(learnerLeftEvent)
       });
-      expect(resp.ok).toBe(true);
     }
 
-    // Give time for the fault message to broadcast
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // The last disconnection should trigger immediate fault finalization
+    // Wait a moment for finalization to propagate
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Check that we received the fault message for excessive disconnects
-    const faultMessage = receivedMessages.find(m =>
-      m.type === "fault" && m.data.faultType === "teacherFault_excessive_disconnects"
+    // Check the messages for the finalized fault scenario
+    const finalizedMessage = receivedMessages.find(m =>
+      m.type === "finalized" &&
+        m.data.status === "fault" &&
+        m.data.faultType === "learner_excessive_disconnects" &&
+        m.data.faultedRole === "learner"
     );
-    expect(faultMessage).toBeDefined();
-    expect(faultMessage.data.faultType).toBe("teacherFault_excessive_disconnects");
+
+    expect(finalizedMessage).toBeDefined();
+    expect(finalizedMessage.data.status).toBe("fault");
+    expect(finalizedMessage.data.faultType).toBe("learner_excessive_disconnects");
+    expect(finalizedMessage.data.faultedRole).toBe("learner");
   });
 
-});
+
+  // In the failing test #3 case, adjust the timing and event order
+})

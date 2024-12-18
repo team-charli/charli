@@ -15,7 +15,6 @@ describe("Session Manager", () => {
   let learnerAddress: string;
   let teacherHash: string;
   let learnerHash: string;
-  const mockApiKey = "test-api-key";
 
   const firstJoinTime = Date.now();
   const duration = 3600000; // 1 hour
@@ -25,8 +24,8 @@ describe("Session Manager", () => {
   beforeEach(() => {
     const testId = crypto.randomUUID();
     roomId = `room-${testId}`;
-    teacherAddress = `0x${testId.slice(0, 8)}`;
-    learnerAddress = `0x${testId.slice(24, 32)}`;
+    teacherAddress = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    learnerAddress  = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
     teacherHash = toHex(keccak256(hexToBytes(teacherAddress)));
     learnerHash = toHex(keccak256(hexToBytes(learnerAddress)));
   });
@@ -74,39 +73,56 @@ describe("Session Manager", () => {
     await cleanup();
   });
 
+  async function establishWebSocket() {
+    const resp = await SELF.fetch(`https://example.com/connect/${roomId}`, {
+      headers: {
+        'Upgrade': 'websocket',
+        'Connection': 'Upgrade'
+      }
+    });
+    expect(resp.status).toBe(101);
+    ws = resp.webSocket!;
+    ws.accept();
+    const messages: any[] = [];
+    ws.addEventListener('message', evt => {
+      messages.push(JSON.parse(evt.data));
+    });
+    return messages;
+  }
+
+  async function initSession(userAddress: string) {
+    const initResp = await SELF.fetch("https://example.com/init", {
+      method: "POST",
+      body: JSON.stringify({
+        clientSideRoomId: roomId,
+        hashedTeacherAddress: teacherHash,
+        hashedLearnerAddress: learnerHash,
+        userAddress,
+        sessionDuration: duration
+      })
+    });
+    expect(initResp.ok).toBe(true);
+    return initResp.json();
+  }
+
   describe("Direct DO instantiation and initialization", () => {
     it("should properly instantiate with necessary properties", async () => {
 
-      // 1. Setup WebSocket connection with correct URL pattern
-      const messageRelay = env.MESSAGE_RELAY.get(
-        env.MESSAGE_RELAY.idFromName(roomId)
-      );
-
-      const wsResponse = await messageRelay.fetch(`http://message-relay/connect/${roomId}`, {
-        headers: {
-          Upgrade: "websocket",
-          Connection: "Upgrade",
-        },
+      // 1. Setup WebSocket connection with correct URL pattern / Setup message listener
+      await establishWebSocket();
+      const initResp = await SELF.fetch("https://example.com/init", {
+        method: "POST",
+        body: JSON.stringify({
+          clientSideRoomId: roomId,
+          hashedTeacherAddress: teacherHash,
+          hashedLearnerAddress: learnerHash,
+          userAddress: teacherAddress,
+          sessionDuration: duration
+        })
       });
-
-      if (!wsResponse.webSocket) {
-        throw new Error("WebSocket not established");
-      }
-
-      ws = wsResponse.webSocket;
-      ws.accept();
-
-      // 2. Setup message listener
-      const receivedMessages: any[] = [];
-      ws.addEventListener("message", (event) => {
-        receivedMessages.push(JSON.parse(event.data));
-      });
-
-      // 3. Verify connection with correct URL pattern
-      const connectionCheck = await messageRelay.fetch(`http://message-relay/checkConnection/${roomId}`);
-      expect(connectionCheck.ok).toBe(true);
-
-      // 4. Test SessionManager with correct URL pattern
+      expect(initResp.ok).toBe(true);
+      //await initSession(learnerAddress);
+      // 2. Test SessionManager with correct URL pattern
       const sessionManager = env.SESSION_MANAGER.get(
         env.SESSION_MANAGER.idFromName(roomId)
       );
@@ -209,6 +225,7 @@ describe("Session Manager", () => {
 
           // Verify stored state
           const storedUser = await state.storage.get('user:teacher') as User;
+          console.log("storedUser __", storedUser);
           expect(storedUser).toMatchObject({
             role: 'teacher',
             roomId,
@@ -219,8 +236,6 @@ describe("Session Manager", () => {
             joinedAt: null,
             leftAt: null,
             duration: null,
-            joinedAtSig: null,
-            leftAtSig: null
           });
         });
       });
