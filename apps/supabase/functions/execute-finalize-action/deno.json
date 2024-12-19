@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "test": "deno test --allow-env --allow-read --allow-net",
+    "dev:deps": {
+      "imports": {
+        "testing/": "https://deno.land/std/testing/",
+        "asserts": "https://deno.land/std/assert/mod.ts"
+      }
+    }
+  }
+}
