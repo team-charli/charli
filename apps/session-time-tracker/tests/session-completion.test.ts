@@ -104,22 +104,27 @@ describe("Session Completion Tests", () => {
     learnerHash = toHex(keccak256(hexToBytes(learnerAddress)));
   });
 
-  beforeEach(async () => {
-    await cleanup();
-    // Mock Pinata IPFS endpoint
-    // Any call to 'https://api.pinata.cloud/pinning/pinJSONToIPFS' returns a dummy IPFS hash
-    vi.stubGlobal('fetch', async (input: RequestInfo, init?: RequestInit) => {
-      if (typeof input === 'string' && input.includes('pinata.cloud/pinning/pinJSONToIPFS')) {
-        return new Response(JSON.stringify({
-          IpfsHash: "QmTestHash",
-          PinSize: 1234,
-          Timestamp: new Date().toISOString()
-        }), {status: 200});
-      }
-      // fallback to actual fetch for other URLs
-      return globalThis.fetch(input, init);
-    });
+beforeEach(async () => {
+  await cleanup();
+  const originalFetch = globalThis.fetch;
+  vi.stubGlobal('fetch', async (input: RequestInfo, init?: RequestInit) => {
+    const url = input.toString();
+    if (url.includes('pinata.cloud/pinning/pinJSONToIPFS')) {
+      return new Response(JSON.stringify({
+        IpfsHash: "QmTestHash",
+        PinSize: 1234,
+        Timestamp: new Date().toISOString()
+      }), {status: 200});
+    }
+    if (url === env.EXECUTE_FINALIZE_ACTION_URL) {
+      return new Response(JSON.stringify({
+        transactionHash: "0xmockTransactionHash",
+        litActionIpfsHash: "QmMockActionHash"
+      }), {status: 200});
+    }
+    return originalFetch(input, init);
   });
+});
 
   afterEach(async () => {
     vi.restoreAllMocks();

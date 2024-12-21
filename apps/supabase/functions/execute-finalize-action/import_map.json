@@ -1,8 +1,0 @@
-{"imports":{
-    "@lit-protocol/lit-node-client-nodejs": "https://esm.sh/@lit-protocol/lit-node-client-nodejs",
-    "@lit-protocol/core": "https://esm.sh/@lit-protocol/core",
-    "multiformats/codecs/json": "https://esm.sh/multiformats/codecs/json",
-    "multiformats/hashes/sha2": "https://esm.sh/multiformats/hashes/sha2",
-    "multiformats/cid": "https://esm.sh/multiformats/cid",
-    "dotenv": "https://deno.land/std/dotenv/mod.ts"
-}}

@@ -1,9 +1,10 @@
+///Users/zm/Projects/charli/apps/supabase/functions/execute-finalize-action/index.ts
 // @ts-ignore cross-fetch polyfill type resolution issue
-import { LitNodeClientNodeJs } from "@lit-protocol/lit-node-client-nodejs";
+import { LitNodeClient } from "https://esm.sh/@lit-protocol/lit-node-client";
 import { corsHeaders } from '../_shared/cors.ts';
-import * as json from "multiformats/codecs/json";
-import { sha256 } from "multiformats/hashes/sha2";
-import { CID } from "multiformats/cid";
+import * as json from "https://esm.sh/multiformats/codecs/json";
+import { sha256 } from "https://esm.sh/multiformats/hashes/sha2";
+import { CID } from "https://esm.sh/multiformats/cid";
 
 const PINATA_GATEWAY = "chocolate-deliberate-squirrel-286.mypinata.cloud";
 const FINALIZE_LIT_ACTION_IPFS_CID = Deno.env.get('FINALIZE_LIT_ACTION_IPFS_CID') ?? "";
@@ -45,7 +46,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const { sessionDataIpfsHash, finalizationType, faultData, roomId } = await req.json();
 
     // Initialize Lit Node Client
-    const litNodeClient = new LitNodeClientNodeJs({
+    const litNodeClient = new LitNodeClient({
       litNetwork: 'datil-dev'
     });
 

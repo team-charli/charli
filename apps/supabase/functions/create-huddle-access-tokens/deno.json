@@ -1,9 +1,0 @@
-{
-  "imports": {
-    "@huddle01/server-sdk/auth": "https://esm.sh/@huddle01/server-sdk/auth",
-    "@huddle01/server-sdk/webhooks": "https://esm.sh/@huddle01/server-sdk/webhooks"
-  },
-  "tasks": {
-    "serve": "deno run --allow-net --allow-env index.ts"
-  }
-}

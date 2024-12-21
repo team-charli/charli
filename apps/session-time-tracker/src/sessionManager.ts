@@ -310,7 +310,26 @@ export class SessionManager extends DurableObject<DOEnv> {
         const result = (await pinataRes.json()) as PinataResponse;
         ipfsHash = result.IpfsHash;
       }
+      // call Lit Action
+      const edgeResponse = await fetch(c.env.EXECUTE_FINALIZE_ACTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionDataIpfsHash: ipfsHash,
+          finalizationType: scenario,
+          faultData: scenario === 'fault' ? { faultType, faultedRole } : undefined,
+          roomId: this.roomId
+        })
+      });
 
+      const litActionResult = await edgeResponse.json();
+
+      console.log("litActionResult", litActionResult);
+      // Handle the response
+      if (litActionResult.error) {
+        console.error('Lit Action execution failed:', litActionResult.error);
+        // Implement retry logic or error handling
+      }
       // Broadcast finalization to clients
       const messageRelay = c.env.MESSAGE_RELAY.get(
         c.env.MESSAGE_RELAY.idFromName(this.roomId)
