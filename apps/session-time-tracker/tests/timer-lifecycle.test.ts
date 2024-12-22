@@ -196,7 +196,7 @@ describe("Timer Lifecycle Tests", () => {
     await runDurableObjectAlarm(sessionTimerStub);
     await new Promise(r=>setTimeout(r,200));
 
-    console.log("messages", messages);
+    //console.log("messages", messages);
     const finalizedMsg = messages.find(m=>m.type==='finalized');
     expect(finalizedMsg).toBeDefined();
     expect(finalizedMsg.data.status).toBe('fault');
@@ -262,7 +262,7 @@ describe("Timer Lifecycle Tests", () => {
       return { type, expirationTime, scheduledAlarm };
     });
     expect(alarmType.type).toBe('expired');
-    console.log({"alarmType.scheduledAlarm": alarmType.scheduledAlarm, "alarmType.expirationTime": alarmType.expirationTime })
+    //console.log({"alarmType.scheduledAlarm": alarmType.scheduledAlarm, "alarmType.expirationTime": alarmType.expirationTime })
     expect(alarmType.scheduledAlarm).toBe(alarmType.expirationTime);
   });
 
@@ -360,14 +360,14 @@ describe("Timer Lifecycle Tests", () => {
     await runDurableObjectAlarm(sessionTimerStub);
 
     await new Promise(r=>setTimeout(r,200));
-    console.log("messages", messages);
+    //console.log("messages", messages);
     const finalizedMsg = messages.find(m=>m.type==='finalized');
     expect(finalizedMsg).toBeDefined();
     expect(finalizedMsg.data.status).toBe('success');
 
     // Check sessionTimer storage cleanup
     const entries = await runInDurableObject(sessionTimerStub, async(_,state)=> (await state.storage.list()));
-    console.log("entries", entries);
+    //console.log("entries", entries);
     expect(entries.size).toBe(0);
   });
 });

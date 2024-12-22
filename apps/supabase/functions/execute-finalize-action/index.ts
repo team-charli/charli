@@ -1,4 +1,3 @@
-///Users/zm/Projects/charli/apps/supabase/functions/execute-finalize-action/index.ts
 // @ts-ignore cross-fetch polyfill type resolution issue
 import { LitNodeClient } from "https://esm.sh/@lit-protocol/lit-node-client";
 import { corsHeaders } from '../_shared/cors.ts';

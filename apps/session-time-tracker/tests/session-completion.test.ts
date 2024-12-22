@@ -104,27 +104,27 @@ describe("Session Completion Tests", () => {
     learnerHash = toHex(keccak256(hexToBytes(learnerAddress)));
   });
 
-beforeEach(async () => {
-  await cleanup();
-  const originalFetch = globalThis.fetch;
-  vi.stubGlobal('fetch', async (input: RequestInfo, init?: RequestInit) => {
-    const url = input.toString();
-    if (url.includes('pinata.cloud/pinning/pinJSONToIPFS')) {
-      return new Response(JSON.stringify({
-        IpfsHash: "QmTestHash",
-        PinSize: 1234,
-        Timestamp: new Date().toISOString()
-      }), {status: 200});
-    }
-    if (url === env.EXECUTE_FINALIZE_ACTION_URL) {
-      return new Response(JSON.stringify({
-        transactionHash: "0xmockTransactionHash",
-        litActionIpfsHash: "QmMockActionHash"
-      }), {status: 200});
-    }
-    return originalFetch(input, init);
+  beforeEach(async () => {
+    await cleanup();
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', async (input: RequestInfo, init?: RequestInit) => {
+      const url = input.toString();
+      if (url.includes('pinata.cloud/pinning/pinJSONToIPFS')) {
+        return new Response(JSON.stringify({
+          IpfsHash: "QmTestHash",
+          PinSize: 1234,
+          Timestamp: new Date().toISOString()
+        }), {status: 200});
+      }
+      if (url === env.EXECUTE_FINALIZE_ACTION_URL) {
+        return new Response(JSON.stringify({
+          transactionHash: "0xmockTransactionHash",
+          litActionIpfsHash: "QmMockActionHash"
+        }), {status: 200});
+      }
+      return originalFetch(input, init);
+    });
   });
-});
 
   afterEach(async () => {
     vi.restoreAllMocks();
@@ -220,7 +220,7 @@ beforeEach(async () => {
       const connectionManagerStub = env.CONNECTION_MANAGER.get(env.CONNECTION_MANAGER.idFromName(roomId));
       const storageAfter = await runInDurableObject(connectionManagerStub, async (_, state) => {
         const entries = await state.storage.list();
-        console.log("entries", entries);
+        //console.log("entries", entries);
         return Array.from(entries);
       });
       expect(storageAfter.length).toBe(0);

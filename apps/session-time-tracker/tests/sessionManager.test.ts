@@ -225,7 +225,7 @@ describe("Session Manager", () => {
 
           // Verify stored state
           const storedUser = await state.storage.get('user:teacher') as User;
-          console.log("storedUser __", storedUser);
+          //console.log("storedUser __", storedUser);
           expect(storedUser).toMatchObject({
             role: 'teacher',
             roomId,

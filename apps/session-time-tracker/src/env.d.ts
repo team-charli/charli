@@ -19,6 +19,7 @@ export interface Bindings {
   [key: string]: unknown;  // Add index signature for Hono compatibility
   PINATA_API_KEY: string;
   PINATA_SECRET_API_KEY: string;
+  EXECUTE_FINALIZE_ACTION_URL: string;
 }
 
 // For Hono

@@ -410,7 +410,7 @@ async function cleanup() {
       await runDurableObjectAlarm(connectionManagerStub);
 
       await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log("receivedMessages", receivedMessages);
+      //console.log("receivedMessages", receivedMessages);
 
       // Instead of expecting a direct "fault" message, we now expect a "finalized" message
       // indicating that the session ended in a fault scenario because the teacher failed to reconnect.

@@ -76,6 +76,7 @@ export interface UserFinalRecord extends User {
   sessionSuccess: boolean;
   faultType: string | null;
   sessionComplete: boolean;
+  isFault: boolean | null;
 }
 
 export type ClientData = {
@@ -103,4 +104,31 @@ export interface PinataResponse {
   IpfsHash: string;
   PinSize: number;
   Timestamp: string;
+}
+
+export interface DOToEdgeRequest {
+  // IPFS hash of the session data written by DO
+  sessionDataIpfsHash: string;
+  // Type of finalization (fault or success)
+  finalizationType: 'fault' | 'non_fault';
+  // Additional fault data if applicable
+  faultData?: {
+    faultType: string;
+    faultedRole: 'teacher' | 'learner';
+  };
+  // Room ID for correlation/logging
+  roomId: string;
+}
+
+export interface EdgeFunctionResponse {
+  success?: boolean;
+  // Transaction hash from the Lit Action execution
+  transactionHash?: string;
+  // IPFS hash of any additional data stored by Lit Action
+  litActionIpfsHash?: string;
+  // Error information if the execution failed
+  error?: {
+    message: string;
+    code: string;
+  };
 }

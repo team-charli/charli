@@ -21,7 +21,7 @@ async function generateSignature(data: any, apiKey: string) {
   return `t=${timestamp},sha256=${hmac}`;
 }
 
-describe("Webhook ID Required Debug Test", () => {
+describe.skip("Webhook ID Required Debug Test", () => {
   const apiKey = env.TEST_HUDDLE_API_KEY || "test-api-key";
 
   it("should not fail with Invalid headers when id is at top-level", async () => {

@@ -1,7 +1,7 @@
 // sessionManager.ts
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
-import { User, ClientData, PinataResponse, UserFinalRecord } from './types';
+import { User, ClientData, PinataResponse, UserFinalRecord, EdgeFunctionResponse } from './types';
 import { keccak256 } from 'ethereum-cryptography/keccak';
 import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
 import { DOEnv, Env } from './env';
@@ -256,16 +256,18 @@ export class SessionManager extends DurableObject<DOEnv> {
           ...teacherData,
           sessionSuccess: true,
           faultType: null,
-          sessionComplete: true
+          sessionComplete: true,
+          isFault: null
         };
         learnerDataComplete = {
           ...learnerData,
           sessionSuccess: true,
           faultType: null,
-          sessionComplete: true
+          sessionComplete: true,
+          isFault: null
         };
-        //console.log("SessionManager: teacherDataComplete:", teacherDataComplete);
-        //console.log("SessionManager: learnerDataComplete:", learnerDataComplete);
+        //console.log("sessionmanager: teacherdatacomplete:", teacherdatacomplete);
+        //console.log("sessionmanager: learnerdatacomplete:", learnerdatacomplete);
 
       } else {
         // Fault scenario
@@ -277,13 +279,15 @@ export class SessionManager extends DurableObject<DOEnv> {
           ...teacherData,
           sessionSuccess: false,
           faultType: finalFaultType,
-          sessionComplete: true
+          sessionComplete: true,
+          isFault: faultedRole === 'teacher' ? true : false
         };
         learnerDataComplete = {
           ...learnerData,
           sessionSuccess: false,
           faultType: finalFaultType,
-          sessionComplete: true
+          sessionComplete: true,
+          isFault: faultedRole === 'learner' ? true : false
         };
       }
 
@@ -291,7 +295,8 @@ export class SessionManager extends DurableObject<DOEnv> {
         teacherData: teacherDataComplete,
         learnerData: learnerDataComplete,
         scenario,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        roomId: this.roomId
       };
 
       // Post final data to IPFS via Pinata
@@ -302,27 +307,35 @@ export class SessionManager extends DurableObject<DOEnv> {
           'pinata_api_key': c.env.PINATA_API_KEY,
           'pinata_secret_api_key': c.env.PINATA_SECRET_API_KEY
         },
-        body: JSON.stringify({ pinataContent: pinataPayload })
+        body: JSON.stringify({
+          pinataContent: pinataPayload,
+          pinataOptions: {
+            cidVersion: 1
+          }
+        })
       });
-
       let ipfsHash = null;
       if (pinataRes.ok) {
         const result = (await pinataRes.json()) as PinataResponse;
         ipfsHash = result.IpfsHash;
+        console.log("ipfsHash", ipfsHash);
       }
+
       // call Lit Action
+      console.log("c.env.EXECUTE_FINALIZE_ACTION_URL", c.env.EXECUTE_FINALIZE_ACTION_URL);
       const edgeResponse = await fetch(c.env.EXECUTE_FINALIZE_ACTION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          pinataPayload,
           sessionDataIpfsHash: ipfsHash,
-          finalizationType: scenario,
-          faultData: scenario === 'fault' ? { faultType, faultedRole } : undefined,
-          roomId: this.roomId
+          //finalizationType: scenario,
+          //faultData: scenario === 'fault' ? { faultType, faultedRole } : undefined,
+          //roomId: this.roomId
         })
       });
 
-      const litActionResult = await edgeResponse.json();
+      const litActionResult: EdgeFunctionResponse= await edgeResponse.json();
 
       console.log("litActionResult", litActionResult);
       // Handle the response
@@ -338,6 +351,7 @@ export class SessionManager extends DurableObject<DOEnv> {
       const broadcastData: any = {
         status: scenario === 'non_fault' ? 'success' : 'fault',
         ipfsHash,
+        litActionResult,
         timestamp: Date.now()
       };
 
@@ -395,7 +409,7 @@ export class SessionManager extends DurableObject<DOEnv> {
     //console.log("SessionManager: learnerData=", learnerData);
 
     if (!validatedRole) {
-      console.log('Invalid peer - metadata did not match any user');
+      console.trace();
       throw new Error('Invalid peer - metadata did not match any user');
     }
     return validatedRole;

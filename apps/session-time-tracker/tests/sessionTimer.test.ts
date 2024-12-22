@@ -294,7 +294,7 @@ describe("SessionTimer", () => {
       },
       body: JSON.stringify(data)
     });
-    console.log("webhookResponse", webhookResponse);
+    //console.log("webhookResponse", webhookResponse);
     expect(webhookResponse.status).toBe(200);
 
     // Execute the join window alarm without second user
@@ -310,7 +310,7 @@ describe("SessionTimer", () => {
       expect(await state.storage.get("firstJoinRole")).toBeUndefined();
     });
 
-    console.log("receivedMessages", receivedMessages);
+    //console.log("receivedMessages", receivedMessages);
     expect(receivedMessages.some(msg =>
       msg.type === 'finalized' && msg.data.status === 'fault' && msg.data.faultType === 'learner_never_joined'
     )).toBe(true);
@@ -429,7 +429,7 @@ describe("SessionTimer", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    console.log("receivedMessages", receivedMessages);
+    //console.log("receivedMessages", receivedMessages);
     expect(receivedMessages.some((msg) => msg.type === 'finalized' && msg.data.status === 'success')).toBe(true);
 
     await runInDurableObject(sessionTimerStub, async (instance, state) => {
