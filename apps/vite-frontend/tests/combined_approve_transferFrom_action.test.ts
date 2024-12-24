@@ -14,7 +14,6 @@ const transferFromAction_ipfsId = "QmR1sEv9UHAvXmALKZRpv9zy7gxD6BpGQ8ur4QWDSBQLG
 const approve_ipfsId = "QmSd4PUjGmK9iNcMvBPS118QEWHg8JKgVTaqkqi7DS1dhv"
 const relayerIpfsId = "Qmdg7WDHFddPzB95iKZW69riRCNyXcoWscF3xLva7d6BvT"
 
-
 let inputPublicKey: string;
 let outputPublicKey: string;
 let inputAddress: string;
@@ -246,6 +245,8 @@ test("approve", async () => {
     }
 
     console.log("jsParams", jsParams)
+    if (!learnerSessionSigs) throw new Error('sessionSigs undefined')
+
     approveActionResult = await litNodeClient.executeJs({
       ipfsId: approve_ipfsId,
       sessionSigs: learnerSessionSigs,
