@@ -85,6 +85,11 @@ export type ClientData = {
   hashedLearnerAddress: string;
   userAddress: string;
   sessionDuration: number;
+  teacherAddressCiphertext?: string;
+  teacherAddressEncryptHash?: string;
+  learnerAddressCiphertext?: string;
+  learnerAddressEncryptHash?: string;
+  controllerAddress: string;
 }
 
 export interface Message {
@@ -131,4 +136,11 @@ export interface EdgeFunctionResponse {
     message: string;
     code: string;
   };
+}
+
+export interface AddressDecryptData {
+  teacherAddressCiphertext: string;
+  teacherAddressEncryptHash: string;
+  learnerAddressCiphertext: string;
+  learnerAddressEncryptHash: string;
 }

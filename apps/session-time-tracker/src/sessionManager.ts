@@ -1,7 +1,7 @@
 // sessionManager.ts
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
-import { User, ClientData, PinataResponse, UserFinalRecord, EdgeFunctionResponse } from './types';
+import { User, ClientData, PinataResponse, UserFinalRecord, EdgeFunctionResponse, AddressDecryptData } from './types';
 import { keccak256 } from 'ethereum-cryptography/keccak';
 import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
 import { DOEnv, Env } from './env';
@@ -43,10 +43,41 @@ export class SessionManager extends DurableObject<DOEnv> {
 
     this.app.post('/init', async (c) => {
       const clientData = await c.req.json<ClientData>();
-       //console.log('clientData sessionManager', {clientData})
-      const { userAddress, hashedTeacherAddress, hashedLearnerAddress, sessionDuration, clientSideRoomId} = clientData;
-      this.state.storage.put('roomId', clientSideRoomId )
+      const { userAddress, hashedTeacherAddress, hashedLearnerAddress, sessionDuration, clientSideRoomId, teacherAddressCiphertext, teacherAddressEncryptHash, learnerAddressCiphertext, learnerAddressEncryptHash, controllerAddress } = clientData;
+
+      let addressDecryptData = await this.state.storage.get<Record<string, string>>("addressDecryptData");
+      if (!addressDecryptData) {
+        addressDecryptData = {};
+      }
+
+      if (teacherAddressCiphertext && teacherAddressEncryptHash) {
+        addressDecryptData.teacherAddressCiphertext = teacherAddressCiphertext;
+        addressDecryptData.teacherAddressEncryptHash = teacherAddressEncryptHash;
+      }
+
+      if (learnerAddressCiphertext && learnerAddressEncryptHash) {
+        addressDecryptData.learnerAddressCiphertext = learnerAddressCiphertext;
+        addressDecryptData.learnerAddressEncryptHash = learnerAddressEncryptHash;
+      }
+
+      await this.state.storage.put("addressDecryptData", addressDecryptData);
+      await this.state.storage.put('roomId', clientSideRoomId )
       this.roomId = clientSideRoomId;
+
+      const storedControllerAddress = await this.state.storage.get<string>("controllerAddress");
+
+      if (!storedControllerAddress) {
+        await this.state.storage.put("controllerAddress", controllerAddress);
+      } else {
+        if (storedControllerAddress !== controllerAddress) {
+          return c.json({
+            error: "Mismatching controllerAddress",
+            storedControllerAddress,
+            receivedControllerAddress: controllerAddress,
+          }, 400);
+        }
+      }
+
       // Validate user and assign role
       const userAddressHashBytes = keccak256(hexToBytes(userAddress));
       const userAddressHash = toHex(userAddressHashBytes);
@@ -321,7 +352,9 @@ export class SessionManager extends DurableObject<DOEnv> {
         console.log("ipfsHash", ipfsHash);
       }
 
-      // call Lit Action
+      const addressDecryptData: AddressDecryptData = await this.state.storage.get('addressDecryptData') ;
+      const controllerAddress = this.state.storage.get('controllerAddress')
+      // call Lit Action through function
       console.log("c.env.EXECUTE_FINALIZE_ACTION_URL", c.env.EXECUTE_FINALIZE_ACTION_URL);
       const edgeResponse = await fetch(c.env.EXECUTE_FINALIZE_ACTION_URL, {
         method: 'POST',
@@ -329,9 +362,11 @@ export class SessionManager extends DurableObject<DOEnv> {
         body: JSON.stringify({
           pinataPayload,
           sessionDataIpfsHash: ipfsHash,
-          //finalizationType: scenario,
-          //faultData: scenario === 'fault' ? { faultType, faultedRole } : undefined,
-          //roomId: this.roomId
+          teacherAddressCiphertext: addressDecryptData.teacherAddressCiphertext,
+          teacherAddressEncryptHash: addressDecryptData.teacherAddressEncryptHash,
+          learnerAddressCiphertext: addressDecryptData.learnerAddressCiphertext,
+          learnerAddressEncryptHash: addressDecryptData.teacherAddressEncryptHash,
+          controllerAddress
         })
       });
 
