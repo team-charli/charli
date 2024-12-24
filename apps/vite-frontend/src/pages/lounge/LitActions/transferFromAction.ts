@@ -75,7 +75,18 @@ async () => {
 
     const submitRelayTx = async () => {
       try {
-        await Lit.Actions.call({ipfsId: relayerIpfsId, params: {env, callingActionId: Lit.Auth.actionIpfsIds[0], rpcChain, rpcChainId, accessControlConditions, daiContractAddress, txData, toAddress: controllerAddress }});
+        await Lit.Actions.call({ipfsId: relayerIpfsId,
+          params: {
+            env,
+            callingActionId: Lit.Auth.actionIpfsIds[0],
+            rpcChain,
+            rpcChainId,
+            accessControlConditions,
+            daiContractAddress,
+            txData,
+            learnerAddressCiphertext,
+            learnerAddressEncryptHash,
+          }});
       } catch(error) {
         throw new Error(error);
       }
