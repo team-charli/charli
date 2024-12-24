@@ -11,7 +11,6 @@ export const useRoomJoin = (
       verifiedRole: string | null;
       verifiedRoleAndAddress: boolean;
     } | undefined;
-    processedDurationProof: boolean;
     hasConnectedWs: boolean;
     initializationComplete: boolean;
 
@@ -41,10 +40,9 @@ export const useRoomJoin = (
   const canJoinRoom = useMemo(() => {
     return (
       options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
-      options.verifiedRoleAndAddressData?.verifiedRole &&
-      options.processedDurationProof &&
-      options.hasConnectedWs &&
-      options.initializationComplete
+        options.verifiedRoleAndAddressData?.verifiedRole &&
+        options.hasConnectedWs &&
+        options.initializationComplete
     );
   }, [options]);
 
