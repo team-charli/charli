@@ -1,15 +1,15 @@
+///Users/zm/Projects/charli/apps/supabase/functions/mint-controller-pkp/index.ts
 import { Hono } from 'jsr:@hono/hono'
-import { createClient } from 'jsr:@supabase/supabase-js'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js'
 import { ethers } from "https://esm.sh/ethers@5.7.0";
 import { LitContracts } from "https://esm.sh/@lit-protocol/contracts-sdk";
 import * as LitNodeClient from "https://esm.sh/@lit-protocol/lit-node-client-nodejs";
 import { corsHeaders } from '../_shared/cors.ts';
-
 const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY_MINT_CONTROLLER_PKP") ?? "";
 const LIT_NETWORK = Deno.env.get("LIT_NETWORK") ?? "datil-dev";
-const supabaseUrl = Deno.env.get('SUPABASE_URL') as string
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string
-const supabaseClient = createClient(supabaseUrl, supabaseKey)
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 const pkpContract = {
   dev: {
@@ -57,9 +57,10 @@ app.use('*', async (c, next) => {
  * Main route: POST /
  * Mint and burn PKP based on the sessionId & env passed in request body.
  */
-app.post('/', async (c) => {
+app.post('/mint-controller-pkp', async (c) => {
   try {
     const body = (await c.req.json()) as RequestBody;
+    console.log("Request body parsed:", body);
     validateRequest(body);
 
     const provider = new ethers.providers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
@@ -123,6 +124,168 @@ function restoreSignatures(condensedSigs: string[]): Signature[] {
   });
 }
 
+
+async function mintAndBurnPKP(
+  sessionId: number,
+  litNodeClient: LitNodeClient,
+  wallet: ethers.Wallet,
+  pkpNftContractAddress: ethers.AddressLike
+) {
+  try {
+    console.log("sessionId", sessionId);
+    const { data, error } = await supabaseClient
+      .from('sessions')
+      .select('key_claim_data')
+      .eq('session_id', sessionId);
+
+    console.log("Query result:", { data, error }); // Add this line
+    if (error) throw new Error(error);
+    if (!data || data.length === 0) throw new Error("No data found for the given sessionId");
+
+    const keyClaimData = data[0].key_claim_data;
+    if (!keyClaimData) throw new Error("keyClaimData null or undefined");
+
+    const derivedKeyId = keyClaimData.derivedKeyId;
+    const condensedSigs = keyClaimData.condensedSigs;
+    const signatures = restoreSignatures(condensedSigs);
+    const provider = new ethers.providers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
+
+    const contractClient = new LitContracts({
+      signer: wallet,
+      network: 'datil-dev',
+      provider,
+      debug: false,
+      options: {
+        storeOrUseStorageKey: false,
+      },
+    });
+    await contractClient.connect();
+        const abi = [
+      // 1) The mintCost() function definition:
+      {
+        "inputs": [],
+        "name": "mintCost",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+
+      // 2) The claimAndMint(...) function definition:
+      {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "keyType",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "derivedKeyId",
+            "type": "bytes32"
+          },
+          {
+            "components": [
+              {
+                "internalType": "bytes32",
+                "name": "r",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "s",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "uint8",
+                "name": "v",
+                "type": "uint8"
+              }
+            ],
+            "internalType": "struct IPubkeyRouter.Signature[]",
+            "name": "signatures",
+            "type": "tuple[]"
+          },
+          {
+            "internalType": "address",
+            "name": "stakingContractAddress",
+            "type": "address"
+          }
+        ],
+        "name": "claimAndMint",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "payable",
+        "type": "function"
+      }
+    ];
+
+    const pkpNftAddress = "0x02C4242F72d62c8fEF2b2DB088A35a9F4ec741C7";
+    const pkpNftContract = new ethers.Contract(pkpNftAddress, abi, wallet);
+
+    const pkpMintCost = await pkpNftContract.mintCost();
+    const stakingContractAddress = '0xD4507CD392Af2c80919219d7896508728f6A623F';
+
+    console.log('PKP Mint Cost:', pkpMintCost.toString());
+    console.log('Wallet Balance:', await wallet.getBalance());
+    console.log('Gas Price:', (await wallet.provider.getGasPrice()).toString());
+    console.log("derivedKeyId", derivedKeyId);
+    // Perform the claimAndMint
+    const formattedDerivedKeyId = ethers.utils.hexlify(
+      ethers.utils.hexZeroPad(`0x${derivedKeyId}`, 32)
+    );
+
+    console.log("formatted derivedKeyId", formattedDerivedKeyId);
+    console.log("contractClient.pkpNftContract.write.address", contractClient.pkpNftContract.write.address);
+    const claimAndMintTx = await pkpNftContract.claimAndMint(
+      2,
+      formattedDerivedKeyId,
+      signatures,
+      stakingContractAddress,
+      { value: pkpMintCost }
+    );
+    const claimAndMintReceipt = await claimAndMintTx.wait(1);
+    console.log('claimAndMintTx: ', claimAndMintTx);
+
+    const pkpInfo = await getPkpInfoFromMintReceipt(claimAndMintReceipt, contractClient);
+    console.log("Claim and mint completed", { pkpInfo });
+
+    // Burn the newly minted token
+    const erc721Abi = [
+      "function transferFrom(address from, address to, uint256 tokenId)"
+    ];
+    const contract = new ethers.Contract(pkpNftContractAddress, erc721Abi, wallet);
+    const burnAddress = "0x0000000000000000000000000000000000000001";
+    const burnTx = await contract.transferFrom(wallet.address, burnAddress, pkpInfo.tokenId, {
+      gasLimit: 100000,
+      value: 0
+    });
+    const burnReceipt = await burnTx.wait(1);
+    console.log("Burn transaction completed", { burnReceipt });
+
+    return {
+      mintTxHash: claimAndMintTx.hash,
+      burnTxHash: burnTx.hash,
+      pkpInfo
+    };
+  } catch (error) {
+    console.error("Error in mintAndBurnPKP", { error: error.message, stack: error.stack });
+    throw error;
+  } finally {
+    await litNodeClient.disconnect();
+  }
+}
+
 async function getPkpInfoFromMintReceipt(txReceipt: ethers.ContractReceipt, litContractsClient: LitContracts) {
   // This is the 'PKPMinted' event signature from the contract logs
   const pkpMintedEvent = txReceipt.events?.find(
@@ -144,67 +307,16 @@ async function getPkpInfoFromMintReceipt(txReceipt: ethers.ContractReceipt, litC
   };
 }
 
-async function mintAndBurnPKP(
-  sessionId: number,
-  litNodeClient: LitNodeClient,
-  wallet: ethers.Wallet,
-  pkpNftContractAddress: ethers.AddressLike
-) {
+Deno.serve(async (req) => {
   try {
-    const { data, error } = await supabaseClient
-      .from('sessions')
-      .select('key_claim_data')
-      .eq('session_id', sessionId);
-
-    if (error) throw new Error(error);
-    if (!data || data.length === 0) throw new Error("No data found for the given sessionId");
-
-    const keyClaimData = data[0].key_claim_data;
-    if (!keyClaimData) throw new Error("keyClaimData null or undefined");
-
-    const derivedKeyId = keyClaimData.derivedKeyId;
-    const condensedSigs = keyClaimData.condensedSigs;
-    const signatures = restoreSignatures(condensedSigs);
-
-    const contractClient = new LitContracts({ signer: wallet, network: LIT_NETWORK });
-    await contractClient.connect();
-    const pkpMintCost = await contractClient.pkpNftContract.read.mintCost();
-
-    // Perform the claimAndMint
-    const claimAndMintTx = await contractClient.pkpNftContract.write.claimAndMint(
-      2,
-      `0x${derivedKeyId}`,
-      signatures,
-      { value: pkpMintCost }
-    );
-    const claimAndMintReceipt = await claimAndMintTx.wait(1);
-    console.log('claimAndMintTx: ', claimAndMintTx);
-
-    const pkpInfo = await getPkpInfoFromMintReceipt(claimAndMintReceipt, contractClient);
-    console.log("Claim and mint completed", { pkpInfo });
-
-    // Burn the newly minted token
-    const erc721Abi = [
-      "function transferFrom(address from, address to, uint256 tokenId)"
-    ];
-    const contract = new ethers.Contract(pkpNftContractAddress, erc721Abi, wallet);
-    const burnAddress = "0x0000000000000000000000000000000000000001";
-    const burnTx = await contract.transferFrom(wallet.address, burnAddress, pkpInfo.tokenId);
-    const burnReceipt = await burnTx.wait(1);
-    console.log("Burn transaction completed", { burnReceipt });
-
-    return {
-      mintTxHash: claimAndMintTx.hash,
-      burnTxHash: burnTx.hash,
-      pkpInfo
-    };
+    const response = await app.fetch(req);
+    return response;
   } catch (error) {
-    console.error("Error in mintAndBurnPKP", { error: error.message, stack: error.stack });
-    throw error;
-  } finally {
-    await litNodeClient.disconnect();
+    console.error("Error in request handler:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
   }
-}
+});
 
-// Finally, export the Hono app
-export default app;
