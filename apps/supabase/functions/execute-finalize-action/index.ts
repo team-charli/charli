@@ -1,12 +1,20 @@
 ///Users/zm/Projects/charli/apps/supabase/functions/execute-finalize-action/index.ts
-import { Hono } from 'jsr:@hono/hono'
-import { LitNodeClient } from "https://esm.sh/@lit-protocol/lit-node-client";
+
+import { Hono } from 'jsr:@hono/hono';
+import { LitNodeClientNodeJs } from 'https://esm.sh/@lit-protocol/lit-node-client-nodejs@7';
 import { AccessControlConditions } from "https://esm.sh/@lit-protocol/types";
+import { ethers } from "https://esm.sh/ethers@5.7.0";
 
 import { corsHeaders } from '../_shared/cors.ts'
+import {sessionSigsForDecryptInAction} from  '../_shared/generateControllerWalletSessionSig.ts'
 import * as rawCodec from "https://esm.sh/multiformats/codecs/raw"
 import { sha256 } from "https://esm.sh/multiformats/hashes/sha2"
 import { CID } from "https://esm.sh/multiformats/cid"
+
+const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY_MINT_CONTROLLER_PKP") ?? "";
+const provider = new ethers.providers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
+
+const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
 const PINATA_GATEWAY = "chocolate-deliberate-squirrel-286.mypinata.cloud";
 const FINALIZE_LIT_ACTION_IPFS_CID = Deno.env.get('FINALIZE_LIT_ACTION_IPFS_CID') ?? "";
@@ -42,8 +50,17 @@ interface PinataPayload {
 
 const app = new Hono();
 
+app.use('*', async (c, next) => {
+  for (const [key, value] of Object.entries(corsHeaders)) {
+    c.header(key, value);
+  }
+  if (c.req.method === 'OPTIONS') {
+    return c.text('', 204);
+  }
+  await next();
+});
 /** POST endpoint: Handles session finalization logic */
-app.post('/', async (c) => {
+app.post('/execute-finalize-action', async (c) => {
   try {
     // Expect { pinataPayload, sessionDataIpfsHash, finalizationType, faultData, roomId, ...etc }
     const body = await c.req.json();
@@ -82,24 +99,11 @@ app.post('/', async (c) => {
 
     // Proceed with Lit Action logic:
     // -----------------------------------------------------------
-    const litNodeClient = new LitNodeClient({ litNetwork: 'datil-dev' });
+    const litNodeClient = new LitNodeClientNodeJs({ litNetwork: 'datil-dev' });
     // @ts-ignore: esm litNodeClient types
     await litNodeClient.connect();
-
-    // @ts-ignore: esm litNodeClient types
-    const authSig = await litNodeClient.getWalletSig({
-      chain: 'ethereum',
-      resources: [`litAction://${FINALIZE_LIT_ACTION_IPFS_CID}`],
-    });
-
-    // @ts-ignore: esm litNodeClient types
-    const sessionSigs = await litNodeClient.getSessionSigs({
-      chain: 'ethereum',
-      resources: [`litAction://${FINALIZE_LIT_ACTION_IPFS_CID}`],
-      authSig,
-    });
-
-    const accessControlConditions: AccessControlConditions = [
+    // Obtain session signatures
+        const accessControlConditions: AccessControlConditions = [
       {
         contractAddress: "",
         standardContractType: "",
@@ -112,6 +116,16 @@ app.post('/', async (c) => {
         },
       },
     ];
+
+  const sessionSigs = await sessionSigsForDecryptInAction(
+        wallet,
+        litNodeClient,
+        accessControlConditions,
+        learnerAddressEncryptHash
+      );
+
+    // @ts-ignore: esm litNodeClient types
+
 
     // @ts-ignore: esm litNodeClient types
     const results = await litNodeClient.executeJs({
@@ -189,5 +203,16 @@ function validatePinataPayload(payload: any): payload is PinataPayload {
   );
 }
 
+
 // Use the Hono app with Deno Deploy
-Deno.serve(app.fetch);
+Deno.serve(async (req) => {
+  try {
+    return await app.fetch(req);
+  } catch (error: unknown) {
+    console.error("Error in request handler:", error);
+    return new Response(JSON.stringify({ error: String(error) }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+});
