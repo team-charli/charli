@@ -3,7 +3,7 @@
 import { Hono } from 'jsr:@hono/hono';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { ethers } from "https://esm.sh/ethers@5.7.0";
-import { LitNodeClientNodeJs } from 'https://esm.sh/@lit-protocol/lit-node-client-nodejs@6';
+import { LitNodeClientNodeJs } from 'https://esm.sh/@lit-protocol/lit-node-client-nodejs@7';
 import { LitContracts } from "https://esm.sh/@lit-protocol/contracts-sdk@6";
 import {
   LitActionResource,
@@ -72,7 +72,7 @@ app.post('/get-controller-key-claim-data', async (c) => {
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
     // Connect LitNodeClient
-    const litNodeClient = new LitNodeClientNodeJs({ litNetwork: LIT_NETWORK });
+    const litNodeClient = new LitNodeClientNodeJs({ litNetwork: LIT_NETWORK, debug: false });
     await litNodeClient.connect();
 
     // Obtain session signatures
@@ -156,7 +156,7 @@ async function getControllerKeyClaimData(
 ) {
   try {
     await validateLearnerId(learnerId);
-    const contractClient = new LitContracts({ signer: wallet, network: LIT_NETWORK });
+    const contractClient = new LitContracts({ signer: wallet, network: LIT_NETWORK, debug: false });
     await contractClient.connect();
 
     const claimActionRes = await litNodeClient.executeJs({

@@ -3,11 +3,11 @@ import { AuthCallbackParams, LitResourceAbilityRequest} from "https://esm.sh/@li
 import {
   LitActionResource,
   createSiweMessageWithRecaps,
-  LitAbility,
   LitAccessControlConditionResource,
   generateAuthSig
 } from "https://esm.sh/@lit-protocol/auth-helpers";
 import { ethers, HDNodeWallet } from "https://esm.sh/ethers@5.7.0";
+import {LIT_ABILITY} from "https://esm.sh/@lit-protocol/constants";
 
 const ONE_WEEK_FROM_NOW = new Date(
   Date.now() + 1000 * 60 * 60 * 24 * 7
@@ -72,11 +72,11 @@ export const sessionSigsForDecryptInAction = async (
   const sessionForDecryption = await genSession(wallet, client, [
     {
       resource: new LitActionResource('*'),
-      ability: LitAbility.LitActionExecution,
+      ability: LIT_ABILITY.LitActionExecution,
     },
     {
       resource: new LitAccessControlConditionResource(accsResourceString),
-      ability: LitAbility.AccessControlConditionDecryption,
+      ability: LIT_ABILITY.AccessControlConditionDecryption,
     }
   ]);
 

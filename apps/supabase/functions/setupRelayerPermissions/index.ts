@@ -11,6 +11,8 @@ interface RequestBody {
   transferFromActionIpfsId: string;
   relayerActionIpfsId: string;
   resetPkpNonceIpfsId: string;
+  transferControllerToTeacherActionIpfsId: string;
+
 }
 
 Deno.serve(async (req: Request) => {
@@ -40,7 +42,8 @@ Deno.serve(async (req: Request) => {
     body.permitActionIpfsId,
     body.transferFromActionIpfsId,
     body.relayerActionIpfsId,
-    body.resetPkpNonceIpfsId
+    body.resetPkpNonceIpfsId,
+    body.transferControllerToTeacherActionIpfsId
   );
 
   return new Response(JSON.stringify({ success: result }), {
@@ -53,8 +56,8 @@ function validateInputs(body: RequestBody): void {
   if (!ethers.BigNumber.isBigNumber(body.relayerPkpTokenId) && isNaN(Number(body.relayerPkpTokenId))) {
     throw new Error("Invalid relayerPkpTokenId: Must be a valid BigNumber string.");
   }
-  if (!body.permitActionIpfsId || !body.transferFromActionIpfsId || !body.relayerActionIpfsId || !body.resetPkpNonceIpfsId) {
-    throw new Error("Invalid IPFS IDs: permitActionIpfsId, transferFromActionIpfsId, relayerActionIpfsId, and resetPkpNonceIpfsId are required.");
+  if (!body.permitActionIpfsId || !body.transferFromActionIpfsId || !body.relayerActionIpfsId || !body.resetPkpNonceIpfsId || !body.transferControllerToTeacherActionIpfsId) {
+    throw new Error("Invalid IPFS IDs: permitActionIpfsId, transferFromActionIpfsId, relayerActionIpfsId, transferControllerToTeacherActionIpfsId, and resetPkpNonceIpfsId are required.");
   }
 }
 
@@ -64,7 +67,9 @@ async function setupRelayerPermissions(
   permitActionIpfsId: string,
   transferFromActionIpfsId: string,
   relayerActionIpfsId: string,
-  resetPkpNonceIpfsId: string
+  resetPkpNonceIpfsId: string,
+  transferControllerToTeacherActionIpfsId: string  // Add parameter here
+
 ) {
   console.log("Starting setupRelayerPermissions with inputs:", { relayerPkpTokenId, permitActionIpfsId, transferFromActionIpfsId, relayerActionIpfsId, resetPkpNonceIpfsId });
 
@@ -122,9 +127,24 @@ async function setupRelayerPermissions(
     relayerPkpTokenId,
     resetPkpNonceIpfsId
   );
+  console.log("Adding permitted action for transferControllerToTeacherActionIpfsId");
+await contractClient.pkpPermissionsContractUtils.write.addPermittedAction(
+  relayerPkpTokenId,
+  transferControllerToTeacherActionIpfsId,
+  [1] // SignAnything scope
+);
 
-  const allPermissionsSet = permitPermissionRelayer && transferFromPermissionRelayer && relayerActionPermissionRelayer && resetPkpNoncePermissionRelayer;
+console.log("Verifying permissions for transferControllerToTeacherActionIpfsId");
+const transferControllerPermissionRelayer = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(
+  relayerPkpTokenId,
+  transferControllerToTeacherActionIpfsId
+);
+
+  const allPermissionsSet = permitPermissionRelayer && transferFromPermissionRelayer && relayerActionPermissionRelayer && resetPkpNoncePermissionRelayer && transferControllerPermissionRelayer;  // Include in check
+;
   console.log("All Relayer permissions set correctly:", allPermissionsSet);
+
+
 
   if (!allPermissionsSet) {
     throw new Error("Failed to set all required Relayer permissions");

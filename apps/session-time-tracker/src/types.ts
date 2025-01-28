@@ -1,6 +1,5 @@
 // types.ts
 
-
 export type WebhookEvents = {
   'meeting:started': [
   data: {

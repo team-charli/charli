@@ -43,6 +43,7 @@ Charli
 .nx/cache
 **/PROJECT.md
 lit_storage.db
+lit_storage
 # Sentry Config File
 .env.sentry-build-plugin
 .env.local

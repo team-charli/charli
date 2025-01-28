@@ -1,79 +1,100 @@
 // Room.tsx
-import React, { useEffect } from 'react';
-import { useParams, useSearch, useNavigate } from '@tanstack/react-router';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 
+// Hooks
 import { useVerifiyRoleAndAddress } from './hooks/useVerifiyRoleAndAddress';
+import { useSessionTimeTracker } from './hooks/useSessionTimeTracker';
 import { useRoomJoin } from './hooks/useRoomJoin';
 import { useRoomLeave } from './hooks/useRoomLeave';
-
-import useSessionCases from './hooks/useSessionCases';
 import useBellListener from './hooks/useBellListener';
-import { useSessionTimeTracker } from './hooks/useSessionTimeTracker';
+
+// UI Components
+import LocalPeerView from './Components/LocalPeerView';
+import RemotePeerView from './Components/RemotePeerView';
+import ControlRibbon from './Components/ControlRibbon';
+
+// If your route is /room/$id with query string
+import { useParams, useSearch } from '@tanstack/react-router';
 
 const Room = () => {
   const navigate = useNavigate();
   const { id: roomId } = useParams({ from: '/room/$id' });
   const {
     roomRole,
-    sessionId,
     hashedLearnerAddress,
     hashedTeacherAddress,
   } = useSearch({ from: '/room/$id' });
-
-  // 1. Verify role and address
-  const { data: verifiedRoleAndAddressData, isLoading: isVerifying, } = useVerifiyRoleAndAddress( hashedTeacherAddress, hashedLearnerAddress, roomRole);
+  const [remotePeerId, setRemotePeerId] = useState<string | null>(null);
 
 
-  // 3. Connect to session-time-tracker
-  const { hasConnectedWs, initializationComplete, messages, isFinalized,  } = useSessionTimeTracker({ roomId, hashedTeacherAddress, hashedLearnerAddress, role: roomRole, });
+  /** 1) Verify user role & address */
+  const { data: verifiedRoleAndAddressData, isLoading: isVerifying } =
+    useVerifiyRoleAndAddress(
+      hashedTeacherAddress,
+      hashedLearnerAddress,
+      roomRole
+    );
 
-  // 4. Join Huddle01 room
+  /** 2) Connect to DO-based session-time-tracker */
+  const {
+    hasConnectedWs,
+    initializationComplete,
+    messages,
+    isFinalized,
+  } = useSessionTimeTracker({
+    roomId,
+    hashedTeacherAddress,
+    hashedLearnerAddress,
+    role: roomRole,
+  });
+
+  /** 3) Join the Huddle01 room */
   const { roomJoinState, isJoining, peerIds } = useRoomJoin(roomId, {
     verifiedRoleAndAddressData,
     hasConnectedWs,
     initializationComplete,
   });
 
-  // 5. Once the room is finalized, we leave the Huddle01 room
+  /** 4) If session finalizes, we leave the room and go to summary */
   const { leaveRoom } = useRoomLeave();
-
   useEffect(() => {
     if (isFinalized) {
-      // If session-time-tracker says the session is finalized,
-      // then leave the Huddle01 room and navigate to summary
-      leaveRoom(); // or you can do this inside useSessionTimeTracker if you prefer
-      navigate({
-        to: `/room-summary/${roomId}`,
-      });
+      leaveRoom();
+      navigate({ to: `/room-summary/${roomId}` });
     }
   }, [isFinalized, roomId, leaveRoom, navigate]);
 
-  // 6. Get user IPFS data after joining the room (if you still want your session logic)
-  const userIPFSData = useSessionCases(messages);
-
-  // Bells, whistles, push notifications, etc.
+  /** 5) Listen for ephemeral data-channel signals (like bell rings) */
   useBellListener();
 
-  // Return your main UI, or placeholders.
-  // Just as an example, we show the local peer & remote peers.
+
+  /** 6) Basic loading states */
+  if (isVerifying || isJoining) {
+    return <div>Loading...</div>;
+  }
+
+  // We'll consider the user "connected" if Huddle says "connected"
+  const isRoomConnected = roomJoinState === 'connected';
+
   return (
-    <div className="flex flex-row w-full h-screen gap-4 p-4 bg-gray-900">
-      <div className="flex-1 min-w-0">
-        {/* Example local peer UI */}
-        <div style={{ color: 'white' }}>Local user</div>
+    <div className="relative w-full h-screen bg-gray-900">
+      {/* Main video area */}
+      <div className="flex w-full h-[85%]">
+        {/* Left side: local user */}
+        <div className="flex-1 min-w-0 border-r border-gray-700">
+          <LocalPeerView isRoomConnected={isRoomConnected} />
+        </div>
+
+        {/* Right side: remote peers */}
+        <div className="flex-1 min-w-0 border-l border-gray-700">
+          <RemotePeerView  />
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        {peerIds.length > 0 ? (
-          peerIds.map((remotePeerId) => (
-            <div key={remotePeerId} style={{ color: 'white' }}>
-              Remote Peer: {remotePeerId}
-            </div>
-          ))
-        ) : (
-            <div className="flex items-center justify-center h-full text-white">
-              Waiting for remote peers...
-            </div>
-          )}
+
+      {/* Control Ribbon pinned at the bottom */}
+      <div className="absolute bottom-0 left-0 right-0">
+        <ControlRibbon />
       </div>
     </div>
   );

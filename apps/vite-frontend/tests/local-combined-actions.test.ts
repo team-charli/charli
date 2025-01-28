@@ -1,15 +1,17 @@
 import { LocalStorage } from "node-localstorage";
 import {ethers, AddressLike, SignatureLike, TransactionResponse} from 'ethers'
-import { expect, test, beforeAll, beforeEach, afterAll } from "bun:test";
+import { expect, test, beforeAll, afterAll, afterEach, beforeEach } from "bun:test";
 import { LitNodeClient, encryptString, } from '@lit-protocol/lit-node-client';
 import { LitNetwork } from "@lit-protocol/constants";
-import { AccessControlConditions, SessionSigsMap } from "@lit-protocol/types";
+import { SessionSigsMap } from "@lit-protocol/types";
+import { PinataSDK } from "pinata-web3";
 import { learnerSessionId_DurationSigs, teacherSessionId_DurationSigs } from "./setup/sessionId_duration_sigs";
-import { sessionSigsForDecryptInAction } from "./setup/sessionSigsForDecryptInAction";
 import chalk from 'chalk'
 import { createClient } from '@supabase/supabase-js';
+import { encryptAll, EncryptedData } from "./setup/encryptAll";
+import { genSessionForAction } from "./setup/getSessionForAction";
 
-const supabaseUrl = 'http://127.0.0.1:54321'
+const supabaseUrl = " http://127.0.0.1:54321";
 const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uaGxobW9uZHZ4d3dpd25ydXZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTc0ODg1ODUsImV4cCI6MjAxMzA2NDU4NX0.QjriFvDkfGR8-w_WdTIgMDgcH5EXvs5gyRBOEV880ic";
 
 const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
@@ -23,21 +25,15 @@ let outputAddress: string;
 interface CidPermissionOutput { [cidName: string]: boolean; }
 let relayerPkpApprovedActions: CidPermissionOutput;
 
-const relayerTokenId =  Bun.env.CHARLI_ETHEREUM_RELAYER_PKP_TOKEN_ID!;
-
-// with retry const relayerActionIpfsId="QmUViTAVBCbH4rTKHLYKm2Fjd4s7pTM3qbxASmPhcuWQec";
 let getControllerKeyClaimDataResponse: any;
 let litNodeClient: LitNodeClient;
-let learnerSessionSigs: SessionSigsMap | undefined;
-let teacherSessionSigs: SessionSigsMap | undefined;
-// const relayerActionIpfsId="QmTyFgxGEY1iEoAh9B7H74diQFc3acM5mLiZedY7WUL7HX";
 
 ///// relayerPkpTokenId="79954854284656953966413268915949291963372041247183575496884270979393743813646";
 const permitActionIpfsId="Qmdpu1cdQTHT5bsMo9dufrGFesJRjpA6ic2BgQw4RLw2hW";
 const transferFromActionIpfsId="QmNkMrztHE96zVhsGwQegBUX3xhHj1ML1qhQ2aCWbFqraR";
 const relayerActionIpfsId="QmUNGuq8Azj6sswwhwd2LqLo5MG1GtYue6GcvMjEuMUKYf";
 const resetPkpNonceIpfsId="QmRsxUny7KEu1EEr4ftLJy4K6mz82GxbnUaUFzLYRkRUk7"
-
+const transferControllerToTeacherActionIpfsId="QmcKTje8cSMnbT9gUkoDJRfPFHKYjBTRjNW2yKxSJwHbqC"
 const relayerAddress = Bun.env.CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS!;
 
 let learner_sessionIdAndDurationSig: string;
@@ -53,9 +49,7 @@ let sessionDataTeacherSig: SignatureLike;
 let sessionDuration = 30;
 let hashedLearnerAddress: AddressLike;
 let hashedTeacherAddress: AddressLike;
-let learnerAddressCiphertext: string;
-let learnerAddressEncryptHash: string;
-let accessControlConditions: AccessControlConditions;
+let encryptedData: EncryptedData;
 
 let userId: string;
 const amount = ".001";
@@ -70,6 +64,7 @@ const ethereumRelayerPublicKey = Bun.env.CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
 
 const teacherPrivateKey = Bun.env.TEACHER_PRIVATEKEY;
 const learnerPrivateKey = Bun.env.LEARNER_PRIVATEKEY;
+const workerPrivateKey = Bun.env.PRIVATE_KEY_WORKER_WALLET;
 // Define required environment variables
 const requiredEnvVars = {
   daiContractAddress: daiContractAddress,
@@ -88,9 +83,9 @@ const missingVars = Object.entries(requiredEnvVars)
 if (missingVars.length > 0) {
   throw new Error(`Failed to import bun env. Missing variables: ${missingVars.join(', ')}`);
 }
-const learnerWallet = new ethers.Wallet(learnerPrivateKey!, provider)
-const teacherWallet = new ethers.Wallet(teacherPrivateKey!, provider)
-
+const learnerWallet = new ethers.Wallet(learnerPrivateKey!, provider);
+const teacherWallet = new ethers.Wallet(teacherPrivateKey!, provider);
+const workerWallet = new ethers.Wallet(workerPrivateKey!, provider);
 const secureSessionId = ethers.hexlify(ethers.randomBytes(16))
 type LearnerSignedDataType = {
   sessionData: string;
@@ -106,7 +101,10 @@ let owner: AddressLike;
 let spender: AddressLike;
 let nonce: string;
 
-
+const pinata = new PinataSDK({
+  pinataJwt: Bun.env.PINATA_JWT,
+  pinataGateway: "chocolate-deliberate-squirrel-286.mypinata.cloud",
+});
 
 beforeAll(async () => {
   try {
@@ -114,9 +112,9 @@ beforeAll(async () => {
       alertWhenUnauthorized: false,
       litNetwork: LitNetwork.DatilDev,
       checkNodeAttestation: false,
-      debug: false,
+      debug: true,
       storageProvider: {
-        provider: new LocalStorage("./lit_storage.db"),
+        provider: new LocalStorage(`./lit_storage`),
       },
     });
 
@@ -132,29 +130,15 @@ beforeAll(async () => {
     hashedTeacherAddress = ethers.keccak256(teacherWallet.address);
     hashedLearnerAddress = ethers.keccak256(learnerWallet.address);
 
-    // encrypt learnerAddress
 
-    accessControlConditions = [
-      {
-        contractAddress: '',
-        standardContractType: '',
-        chain: "ethereum",
-        method: '',
-        parameters: [
-          ':userAddress',
-        ],
-        returnValueTest: {
-          comparator: '=',
-          value: teacherWallet.address
-        }
-      }
-    ]
-    const {ciphertext, dataToEncryptHash} = await encryptString({dataToEncrypt: learnerWallet.address, accessControlConditions}, litNodeClient)
-    learnerAddressCiphertext = ciphertext;
-    learnerAddressEncryptHash = dataToEncryptHash;
+    // all encryption
+    try {
+      encryptedData = await encryptAll(litNodeClient, learnerWallet.address, teacherWallet.address, workerWallet.address);
+    } catch(e) {
+      throw new Error(JSON.stringify(e))
+    }
 
-    // sessionSigs
-    learnerSessionSigs = await sessionSigsForDecryptInAction(learnerWallet, litNodeClient, accessControlConditions, learnerAddressEncryptHash);
+
 
     // controllerData for mint
     const uniqueData = `ControllerPKP_${Date.now()}`;
@@ -165,7 +149,7 @@ beforeAll(async () => {
     try {
       // Invoke your Edge Function that returns { publicKey, sessionId }
       const { data, error } = await supabaseClient.functions.invoke('get-controller-key-claim-data', {
-        body: JSON.stringify({ keyId }),
+        body: JSON.stringify({ keyId, learnerId: 18 }),
       });
 
       if (error) {
@@ -203,6 +187,8 @@ beforeAll(async () => {
     let mintClaimResponse: any;
     // Next, call your mint-controller-pkp function (which returns { pkpInfo: {publicKey, tokenId, ethAddress}, ... })
     try {
+      console.log(chalk.green("sessionId"), sessionId);
+
       const { data, error } = await supabaseClient.functions.invoke('mint-controller-pkp', {
         body: JSON.stringify({
           sessionId,
@@ -302,13 +288,14 @@ beforeAll(async () => {
   } catch (error) {
     console.log(error);
   }
-  const checkResetRelayerNonceResult = await litNodeClient.executeJs({jsParams: {env: 'dev', rpcChain: 'baseSepolia', rpcChainId: '84532', forceReset: false}, sessionSigs: learnerSessionSigs!, ipfsId: resetPkpNonceIpfsId})
-  console.log(chalk.blue("checkResetRelayerNonceResult"), checkResetRelayerNonceResult);
+  //const checkResetRelayerNonceResult = await litNodeClient.executeJs({jsParams: {env: 'dev', rpcChain: 'baseSepolia', rpcChainId: '84532', forceReset: false}, sessionSigs: learnerSessionSigs!, ipfsId: resetPkpNonceIpfsId})
+  //console.log(chalk.blue("checkResetRelayerNonceResult"), checkResetRelayerNonceResult);
 })
 
 
 
 test("permit", async () => {
+
   try {
     const jsParams = {
       owner,
@@ -321,17 +308,27 @@ test("permit", async () => {
       s,
       daiContractAddress,
       relayerIpfsId: relayerActionIpfsId,
-      rpcChain: 'baseSepolia',
+      rpcChain,
       rpcChainId,
-      secureSessionId: secureSessionId,
+      secureSessionId,
       sessionIdAndDurationSig: learnerSignedData.learner_sessionIdAndDurationSig,
       learnerAddress: learnerWallet.address,
       duration: sessionDuration,
       env: 'dev',
     };
-
     console.log("jsParams Permit Action", jsParams);
+    await litNodeClient.disconnect();
+    (litNodeClient.config.storageProvider!.provider as LocalStorage).clear();
+    await litNodeClient.connect();
 
+
+    const learnerSessionSigs = await genSessionForAction({
+      client: litNodeClient,
+      wallet: learnerWallet,
+      acc: encryptedData.permit.learnerACC,
+      dataHash: encryptedData.permit.learnerHash,
+      ipfsId: "Qmdpu1cdQTHT5bsMo9dufrGFesJRjpA6ic2BgQw4RLw2hW", // your permit action
+    });
     permitActionResult = await litNodeClient.executeJs({
       ipfsId: permitActionIpfsId,
       sessionSigs: learnerSessionSigs!,
@@ -369,14 +366,14 @@ test("permit", async () => {
 
 test("transferFromLearnerToControllerAction", async () => {
   await litNodeClient.disconnect();
-  (litNodeClient?.config?.storageProvider?.provider as LocalStorage).clear();
   await litNodeClient.connect();
-  teacherSessionSigs = await sessionSigsForDecryptInAction(teacherWallet, litNodeClient, accessControlConditions, learnerAddressEncryptHash);
+  const teacherSessionSigs = await genSessionForAction({client: litNodeClient, wallet: teacherWallet, acc: encryptedData.transferFrom.teacherACC, dataHash: encryptedData.transferFrom.learnerHashForTransferFrom, ipfsId: transferFromActionIpfsId });
+
   const jsParams = {
-    ipfsId: transferFromActionIpfsId,
+    //ipfsId: transferControllerToTeacherActionIpfsId,
     userId,
-    learnerAddressCiphertext,
-    learnerAddressEncryptHash,
+    learnerAddressCiphertext: encryptedData.transferFrom.learnerCipherForTransferFrom,
+    learnerAddressEncryptHash: encryptedData.transferFrom.learnerHashForTransferFrom,
     controllerAddress,
     controllerPubKey: controllerPubKey.startsWith("0x") ? controllerPubKey.slice(2) : controllerPubKey,
     daiContractAddress,
@@ -387,7 +384,7 @@ test("transferFromLearnerToControllerAction", async () => {
     hashedLearnerAddress,
     hashedTeacherAddress,
     amount,
-    accessControlConditions,
+    accessControlConditions: encryptedData.transferFrom.teacherACC,
     rpcChain: 'baseSepolia',
     rpcChainId,
     ethereumRelayerPublicKey,
@@ -400,7 +397,7 @@ test("transferFromLearnerToControllerAction", async () => {
 
     const transferFromActionResult = await litNodeClient.executeJs({
       ipfsId: transferFromActionIpfsId,
-      sessionSigs: teacherSessionSigs,
+      sessionSigs: teacherSessionSigs!,
       jsParams
     })
     console.log("transferFromActionResult ", transferFromActionResult )
@@ -411,6 +408,219 @@ test("transferFromLearnerToControllerAction", async () => {
     expect(true).toBe(false);
   }
 }, 30000);
+
+
+// Finalize with scenario = “non_fault” —————
+
+test("finalizeSession - non_fault scenario", async () => {
+  // 0) Build some final data as the DO would ...
+  const scenario = "non_fault";
+  const teacherDataComplete = {
+    role: 'teacher',
+    peerId: 'teacher-peer-id',
+    roomId: 'testRoom-finalize-123',
+    joinedAt: 1699999999999,
+    leftAt: 1700000030000,
+    duration: 30001,
+    hashedTeacherAddress: encryptedData.transferToTeacher.teacherHashFinal,
+    hashedLearnerAddress: encryptedData.transferToTeacher.learnerHashFinal,
+    sessionDuration: 30,
+    sessionSuccess: true,
+    faultType: null,
+    sessionComplete: true,
+    isFault: null
+  };
+  const learnerDataComplete = {
+    role: 'learner',
+    peerId: 'learner-peer-id',
+    roomId: 'testRoom-finalize-123',
+    joinedAt: 1699999990000,
+    leftAt: 1700000035000,
+    duration: 35000,
+    hashedTeacherAddress: encryptedData.transferToTeacher.teacherHashFinal,
+    hashedLearnerAddress: encryptedData.transferToTeacher.learnerHashFinal,
+    sessionDuration: 30,
+    sessionSuccess: true,
+    faultType: null,
+    sessionComplete: true,
+    isFault: null
+  };
+
+  const pinataPayload = {
+    teacherData: teacherDataComplete,
+    learnerData: learnerDataComplete,
+    scenario,
+    timestamp: Date.now(),
+    roomId: 'testRoom-finalize-123',
+  };
+
+  // Pin the JSON data to IPFS (CID version 1)
+  const pinataRes = await pinata.upload.json(pinataPayload).cidVersion(1);
+  if (!pinataRes.IpfsHash) {
+    throw new Error(`Pinata request failed: ${pinataRes}`);
+  }
+  const ipfsHash = pinataRes.IpfsHash;
+  console.log("Pinned final data to IPFS hash:", ipfsHash);
+
+  // 3) Call your execute-finalize-action Edge Function
+  const finalizeBody = {
+    pinataPayload,
+    sessionDataIpfsHash: ipfsHash,
+    teacherAddressCiphertext: encryptedData.transferToTeacher.teacherCipherFinal,
+    teacherAddressEncryptHash: encryptedData.transferToTeacher.teacherHashFinal,
+    learnerAddressCiphertext: encryptedData.transferToTeacher.learnerCipherFinal,
+    learnerAddressEncryptHash: encryptedData.transferToTeacher.learnerHashFinal,
+    controllerAddress
+  };
+
+  const { data, error } = await supabaseClient.functions.invoke("execute-finalize-action", {
+    body: JSON.stringify(finalizeBody),
+  });
+  if (error) {
+    console.error(error);
+    throw new Error(`Error calling finalize action: ${error.message}`);
+  }
+  console.log("Finalize action response data:", data);
+
+  // 4) Verify the returned transaction hash, wait for it
+  if (!data || !data.transactionHash) {
+    throw new Error(`Missing transactionHash in finalize response: ${JSON.stringify(data)}`);
+  }
+
+  // Step A: read the raw string (which may be double-quoted)
+  const transactionHashRaw = data.transactionHash;
+  // Step B: if it starts with '"', parse once
+  let transactionHash: string;
+  if (transactionHashRaw.startsWith('"')) {
+    transactionHash = JSON.parse(transactionHashRaw); // remove the outer quotes
+  } else {
+    transactionHash = transactionHashRaw;
+  }
+
+  // Wait for 1 confirmation
+  const provider = new ethers.JsonRpcProvider(Bun.env.PROVIDER_URL_BASE_SEPOLIA);
+  console.log(`Waiting for final TX: ${transactionHash}`);
+  const receipt = await provider.waitForTransaction(transactionHash, 1, 60000);
+  if (!receipt || receipt.status === 0) {
+    throw new Error(`Finalize transaction was not mined or reverted: ${transactionHash}`);
+  }
+  console.log(`Finalize transaction mined at block: ${receipt.blockNumber}`);
+
+  // 5) (Optional) Check final DAI distribution
+  const daiAbi = [ 'function balanceOf(address) view returns (uint256)' ];
+  const daiContract = new ethers.Contract(daiContractAddress, daiAbi, provider);
+  const teacherBalanceAfter = await daiContract.balanceOf(teacherWallet.address);
+  const controllerBalanceAfter = await daiContract.balanceOf(controllerAddress);
+
+  console.log(`Teacher DAI after = ${ethers.formatEther(teacherBalanceAfter)}`);
+  console.log(`Controller DAI after = ${ethers.formatEther(controllerBalanceAfter)}`);
+
+  expect(true).toBe(true);
+}, 90000);
+
+
+test("finalizeSession - fault scenario", async () => {
+  const scenario = "fault";
+  // teacher is at fault => teacherData.isFault=true, learnerData.isFault=false
+  const teacherDataComplete = {
+    role: 'teacher',
+    peerId: 'teacher-peer-id',
+    roomId: 'testRoom-finalize-123',
+    joinedAt: 1699999999999,
+    leftAt: 1700000030000,
+    duration: 30001,
+    hashedTeacherAddress: encryptedData.transferToTeacher.teacherHashFinal,
+    hashedLearnerAddress: encryptedData.transferToTeacher.learnerHashFinal,
+    sessionDuration: 30,
+    sessionSuccess: false,
+    faultType: "left_early",
+    sessionComplete: true,
+    isFault: true,
+  };
+  const learnerDataComplete = {
+    role: 'learner',
+    peerId: 'learner-peer-id',
+    roomId: 'testRoom-finalize-123',
+    joinedAt: 1699999990000,
+    leftAt: 1700000035000,
+    duration: 35000,
+    hashedTeacherAddress: encryptedData.transferToTeacher.teacherHashFinal,
+    hashedLearnerAddress: encryptedData.transferToTeacher.learnerHashFinal,
+    sessionDuration: 30,
+    sessionSuccess: false,
+    faultType: "left_early",
+    sessionComplete: true,
+    isFault: false,
+  };
+
+  const pinataPayload = {
+    teacherData: teacherDataComplete,
+    learnerData: learnerDataComplete,
+    scenario,
+    timestamp: Date.now(),
+    roomId: 'testRoom-finalize-fault',
+  };
+
+  // Pin to Pinata
+  const pinataRes = await pinata.upload.json(pinataPayload).cidVersion(1);
+  if (!pinataRes.IpfsHash) {
+    throw new Error(`Pinata request failed: ${pinataRes}`);
+  }
+  const ipfsHash = pinataRes.IpfsHash;
+  console.log("Pinned final data to IPFS hash:", ipfsHash);
+
+  // 2) finalize
+  const finalizeBody = {
+    pinataPayload,
+    sessionDataIpfsHash: ipfsHash,
+    teacherAddressCiphertext: encryptedData.transferToTeacher.teacherCipherFinal,
+    teacherAddressEncryptHash: encryptedData.transferToTeacher.teacherHashFinal,
+    learnerAddressCiphertext: encryptedData.transferToTeacher.learnerCipherFinal,
+    learnerAddressEncryptHash: encryptedData.transferToTeacher.learnerHashFinal,
+    controllerAddress
+  };
+
+  const { data, error } = await supabaseClient.functions.invoke("execute-finalize-action", {
+    body: JSON.stringify(finalizeBody),
+  });
+  if (error) {
+    console.error(error);
+    throw new Error(`Error calling finalize action: ${error.message}`);
+  }
+  console.log("Fault finalize action response:", data);
+
+  // 3) Wait for TX
+  if (!data?.transactionHash) {
+    throw new Error(`Missing transactionHash in finalize fault scenario: ${JSON.stringify(data)}`);
+  }
+
+  // Same double-quote fix:
+  const transactionHashRaw = data.transactionHash;
+  let transactionHash: string;
+  if (transactionHashRaw.startsWith('"')) {
+    transactionHash = JSON.parse(transactionHashRaw);
+  } else {
+    transactionHash = transactionHashRaw;
+  }
+
+  const provider = new ethers.JsonRpcProvider(Bun.env.PROVIDER_URL_BASE_SEPOLIA);
+  const receipt = await provider.waitForTransaction(transactionHash, 1, 60000);
+  if (!receipt || receipt.status === 0) {
+    throw new Error(`Finalize (fault) transaction failed: ${transactionHash}`);
+  }
+  console.log(`Fault finalize TX mined at block ${receipt.blockNumber}`);
+
+  // 4) check final DAI distribution
+  const daiAbi = [ 'function balanceOf(address) view returns (uint256)' ];
+  const daiContract = new ethers.Contract(daiContractAddress, daiAbi, provider);
+  const learnerBalanceAfter = await daiContract.balanceOf(learnerWallet.address);
+  const controllerBalanceAfter = await daiContract.balanceOf(controllerAddress);
+
+  console.log(`Learner DAI after = ${ethers.formatEther(learnerBalanceAfter)}`);
+  console.log(`Controller DAI after = ${ethers.formatEther(controllerBalanceAfter)}`);
+
+  expect(true).toBe(true);
+}, 90000);
 
 
 afterAll(async () => {

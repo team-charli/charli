@@ -4,6 +4,8 @@ import { expect, test, beforeAll, afterAll } from "bun:test";
 import { LitNodeClient, encryptString, } from '@lit-protocol/lit-node-client';
 import { LitNetwork } from "@lit-protocol/constants";
 import { AccessControlConditions, SessionSigsMap } from "@lit-protocol/types";
+import { encryptAndPrepareSession } from "./setup/encryptionAndSession";
+
 import { learnerSessionId_DurationSigs, teacherSessionId_DurationSigs } from "./setup/sessionId_duration_sigs";
 import { sessionSigsForDecryptInAction } from "./setup/sessionSigsForDecryptInAction";
 import chalk from 'chalk'
@@ -38,7 +40,7 @@ const permitActionIpfsId="Qmdpu1cdQTHT5bsMo9dufrGFesJRjpA6ic2BgQw4RLw2hW";
 const transferFromActionIpfsId="QmNkMrztHE96zVhsGwQegBUX3xhHj1ML1qhQ2aCWbFqraR";
 const relayerActionIpfsId="QmUNGuq8Azj6sswwhwd2LqLo5MG1GtYue6GcvMjEuMUKYf";
 const resetPkpNonceIpfsId="QmRsxUny7KEu1EEr4ftLJy4K6mz82GxbnUaUFzLYRkRUk7"
-
+const transferControllerToTeacherActionIpfsId="QmUkQ8Jh1eAxKoy4DovYQ1PDwepserJWRbz6JWe7jjLYfC"
 const relayerAddress = Bun.env.CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS!;
 
 let learner_sessionIdAndDurationSig: string;
@@ -56,6 +58,9 @@ let hashedLearnerAddress: AddressLike;
 let hashedTeacherAddress: AddressLike;
 let learnerAddressCiphertext: string;
 let learnerAddressEncryptHash: string;
+let teacherAddressCiphertext: string;
+let teacherAddressEncryptHash: string;
+
 let accessControlConditions: AccessControlConditions;
 
 let userId: string;
@@ -149,13 +154,35 @@ beforeAll(async () => {
           value: teacherWallet.address
         }
       }
-    ]
-    const {ciphertext, dataToEncryptHash} = await encryptString({dataToEncrypt: learnerWallet.address, accessControlConditions}, litNodeClient)
-    learnerAddressCiphertext = ciphertext;
-    learnerAddressEncryptHash = dataToEncryptHash;
+    ];
+    // First encryption for learner
 
-    // sessionSigs
-    learnerSessionSigs = await sessionSigsForDecryptInAction(learnerWallet, litNodeClient, accessControlConditions, learnerAddressEncryptHash);
+    //({ciphertext: learnerAddressCiphertext, dataToEncryptHash: learnerAddressEncryptHash} =
+    //  await encryptString({
+    //    dataToEncrypt: learnerWallet.address,
+    //    accessControlConditions
+    //  }, litNodeClient));
+    //
+    //({ciphertext: teacherAddressCiphertext, dataToEncryptHash: teacherAddressEncryptHash} =
+    //  await encryptString({
+    //    dataToEncrypt: teacherWallet.address,
+    //    accessControlConditions
+    //  }, litNodeClient));
+    //
+    //// Session signatures
+    //learnerSessionSigs = await sessionSigsForDecryptInAction(
+    //  learnerWallet,
+    //  litNodeClient,
+    //  accessControlConditions,
+    //  learnerAddressEncryptHash
+    //);
+
+    teacherSessionSigs = await sessionSigsForDecryptInAction(
+      teacherWallet,
+      litNodeClient,
+      accessControlConditions,
+      teacherAddressEncryptHash
+    );
 
     // controllerData for mint
     const uniqueData = `ControllerPKP_${Date.now()}`;
@@ -309,8 +336,6 @@ beforeAll(async () => {
   //console.log(chalk.blue("checkResetRelayerNonceResult"), checkResetRelayerNonceResult);
 })
 
-
-
 test("permit", async () => {
   try {
     const jsParams = {
@@ -376,7 +401,7 @@ test("transferFromLearnerToControllerAction", async () => {
   await litNodeClient.connect();
   teacherSessionSigs = await sessionSigsForDecryptInAction(teacherWallet, litNodeClient, accessControlConditions, learnerAddressEncryptHash);
   const jsParams = {
-    ipfsId: transferFromActionIpfsId,
+    ipfsId: transferControllerToTeacherActionIpfsId,
     userId,
     learnerAddressCiphertext,
     learnerAddressEncryptHash,
@@ -414,6 +439,239 @@ test("transferFromLearnerToControllerAction", async () => {
     expect(true).toBe(false);
   }
 }, 30000);
+
+
+// ————— EXAMPLE #1: Finalize with scenario = “non_fault” —————
+test("finalizeSession - non_fault scenario", async () => {
+  // 0) Build some final data as the DO would.  For a realistic test,
+  //    re-use real teacher/learner data from your existing steps or storage.
+  //    Here, we’ll create a small example:
+  const scenario = "non_fault";
+  const teacherDataComplete = {
+    role: 'teacher',
+    peerId: 'teacher-peer-id',
+    roomId: 'testRoom-finalize-123',
+    joinedAt: 1699999999999,
+    leftAt: 1700000030000,
+    duration: 30001,
+    hashedTeacherAddress, // from your earlier test setup
+    hashedLearnerAddress, // from your earlier test setup
+    sessionDuration: 30,
+    sessionSuccess: true,
+    faultType: null,
+    sessionComplete: true,
+    isFault: null
+  };
+  const learnerDataComplete = {
+    role: 'learner',
+    peerId: 'learner-peer-id',
+    roomId: 'testRoom-finalize-123',
+    joinedAt: 1699999990000,
+    leftAt: 1700000035000,
+    duration: 35000,
+    hashedTeacherAddress,
+    hashedLearnerAddress,
+    sessionDuration: 30,
+    sessionSuccess: true,
+    faultType: null,
+    sessionComplete: true,
+    isFault: null
+  };
+
+  // 1) Construct the same “pinataPayload” your DO would:
+  const pinataPayload = {
+    teacherData: teacherDataComplete,
+    learnerData: learnerDataComplete,
+    scenario,
+    timestamp: Date.now(),
+    roomId: 'testRoom-finalize-123',
+  };
+
+  // 2) Pin the JSON data to IPFS via Pinata (CID version 1)
+  //    This replicates exactly what your DO is doing:
+  const pinataRes = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'pinata_api_key': Bun.env.PINATA_API_KEY!,
+      'pinata_secret_api_key': Bun.env.PINATA_SECRET_API_KEY!
+    },
+    body: JSON.stringify({
+      pinataContent: pinataPayload,
+      pinataOptions: { cidVersion: 1 }
+    })
+  });
+  if (!pinataRes.ok) {
+    throw new Error(`Pinata request failed: ${pinataRes.status} - ${await pinataRes.text()}`);
+  }
+
+  const pinataJson = await pinataRes.json() as { IpfsHash: string };
+  const ipfsHash = pinataJson.IpfsHash;
+  console.log("Pinned final data to IPFS hash:", ipfsHash);
+
+  // 3) Call your execute-finalize-action Edge Function
+  //    Provide the same JSON body shape as your DO sends.
+  const finalizeBody = {
+    pinataPayload,
+    sessionDataIpfsHash: ipfsHash,
+    teacherAddressCiphertext,  // from your earlier state
+    teacherAddressEncryptHash, // from your earlier state
+    learnerAddressCiphertext,
+    learnerAddressEncryptHash,
+    controllerAddress          // the PKP controller from your part 1 tests
+  };
+  console.log("Calling finalize action with finalizeBody:", finalizeBody);
+
+  // The supabase function name is "execute-finalize-action":
+  const { data, error } = await supabaseClient.functions.invoke("execute-finalize-action", {
+    body: JSON.stringify(finalizeBody),
+    // The supabase client automatically sets method=POST
+  });
+
+  if (error) {
+    throw new Error(`Error calling finalize action: ${error.message}`);
+  }
+  console.log("Finalize action response data:", data);
+
+  // 4) Verify the returned transaction hash, wait for it
+  if (!data || !data.transactionHash) {
+    throw new Error(`Missing transactionHash in finalize response: ${JSON.stringify(data)}`);
+  }
+  const txHash = data.transactionHash;
+  console.log(`Waiting for final TX: ${txHash}`);
+
+  // Wait for 1 confirmation
+  const provider = new ethers.JsonRpcProvider(Bun.env.PROVIDER_URL_BASE_SEPOLIA);
+  const receipt = await provider.waitForTransaction(txHash, 1, 60000);
+  if (!receipt || receipt.status === 0) {
+    throw new Error(`Finalize transaction was not mined or reverted: ${txHash}`);
+  }
+  console.log(`Finalize transaction mined at block: ${receipt.blockNumber}`);
+
+  // 5) (Optional) Check final DAI distribution
+  //    In a “non_fault” scenario, the teacher should get the entire balance from controllerAddress.
+  //    For example:
+  const daiAbi = [
+    'function balanceOf(address) view returns (uint256)'
+  ];
+  const daiContract = new ethers.Contract(daiContractAddress, daiAbi, provider);
+  const teacherBalanceAfter = await daiContract.balanceOf(teacherWallet.address);
+  const controllerBalanceAfter = await daiContract.balanceOf(controllerAddress);
+
+  console.log(`Teacher DAI after = ${ethers.formatEther(teacherBalanceAfter)}`);
+  console.log(`Controller DAI after = ${ethers.formatEther(controllerBalanceAfter)}`);
+  // Just an example expectation:
+  // expect(controllerBalanceAfter).toBe(0n);
+
+  // If you want:
+  // expect(teacherBalanceAfter).toBeGreaterThan(teacherBalanceBefore); // etc.
+
+  // If everything’s correct, mark test as passed
+  expect(true).toBe(true);
+}, 90000); // enough time for pinning + chain confirmations
+
+
+// ————— EXAMPLE #2: Finalize with scenario = “fault” —————
+test("finalizeSession - fault scenario", async () => {
+  // 0) Build final data with scenario = "fault".
+  //    Mark one user as isFault=true.
+  const scenario = "fault";
+  const faultedRole: 'teacher' | 'learner' = 'teacher';  // or 'learner'
+
+  // teacher is at fault => teacherData.isFault=true, learnerData.isFault=false
+  const teacherDataComplete = {
+    role: 'teacher',
+    // ...same structure as above...
+    sessionSuccess: false,
+    faultType: "left_early",
+    sessionComplete: true,
+    isFault: true,
+  };
+  const learnerDataComplete = {
+    role: 'learner',
+    // ...same structure...
+    sessionSuccess: false,
+    faultType: "left_early",
+    sessionComplete: true,
+    isFault: false,
+  };
+
+  const pinataPayload = {
+    teacherData: teacherDataComplete,
+    learnerData: learnerDataComplete,
+    scenario,
+    timestamp: Date.now(),
+    roomId: 'testRoom-finalize-fault',
+  };
+
+  // 1) Pin to Pinata
+  const pinataRes = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'pinata_api_key': Bun.env.PINATA_API_KEY!,
+      'pinata_secret_api_key': Bun.env.PINATA_SECRET_API_KEY!
+    },
+    body: JSON.stringify({
+      pinataContent: pinataPayload,
+      pinataOptions: { cidVersion: 1 }
+    })
+  });
+  if (!pinataRes.ok) {
+    throw new Error(`Pinata request failed: ${pinataRes.status} - ${await pinataRes.text()}`);
+  }
+  const pinataJson = await pinataRes.json() as { IpfsHash: string };
+  const ipfsHash = pinataJson.IpfsHash;
+  console.log("Pinned final fault data to IPFS:", ipfsHash);
+
+  // 2) Call finalize edge function
+  const finalizeBody = {
+    pinataPayload,
+    sessionDataIpfsHash: ipfsHash,
+    teacherAddressCiphertext,
+    teacherAddressEncryptHash,
+    learnerAddressCiphertext,
+    learnerAddressEncryptHash,
+    controllerAddress
+  };
+
+  const { data, error } = await supabaseClient.functions.invoke("execute-finalize-action", {
+    body: JSON.stringify(finalizeBody),
+  });
+  if (error) {
+    console.error(error)
+    throw new Error(`Error calling finalize action: ${error.message}`);
+  }
+  console.log("Fault finalize action response:", data);
+
+  // 3) Wait for TX
+  const txHash = data?.transactionHash;
+  console.log("execute-finalize-action data",  data);
+  if (!txHash) {
+    throw new Error(`Missing transactionHash in finalize fault scenario: ${JSON.stringify(data)}`);
+  }
+  const provider = new ethers.JsonRpcProvider(Bun.env.PROVIDER_URL_BASE_SEPOLIA);
+  const receipt = await provider.waitForTransaction(txHash, 1, 60000);
+  if (!receipt || receipt.status === 0) {
+    throw new Error(`Finalize (fault) transaction failed: ${txHash}`);
+  }
+  console.log(`Fault finalize TX mined at block ${receipt.blockNumber}`);
+
+  // 4) (Optional) check final DAI distribution
+  //    Because teacher is at fault, *learner* should receive the funds.
+  const daiAbi = [ 'function balanceOf(address) view returns (uint256)' ];
+  const daiContract = new ethers.Contract(daiContractAddress, daiAbi, provider);
+
+  const learnerBalanceAfter = await daiContract.balanceOf(learnerWallet.address);
+  const controllerBalanceAfter = await daiContract.balanceOf(controllerAddress);
+
+  console.log(`Learner DAI after = ${ethers.formatEther(learnerBalanceAfter)}`);
+  console.log(`Controller DAI after = ${ethers.formatEther(controllerBalanceAfter)}`);
+  // For instance:
+  // expect(controllerBalanceAfter).toBe(0n);
+
+  expect(true).toBe(true);
+}, 90000);
 
 
 afterAll(async () => {

@@ -1,5 +1,5 @@
 // useRoomJoin.ts
-import { useRoom, usePeerIds } from "@huddle01/react";
+import { useRoom, usePeerIds, useLocalVideo, useLocalAudio } from "@huddle01/react";
 import useLocalStorage from "@rehooks/local-storage";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -13,55 +13,48 @@ export const useRoomJoin = (
     } | undefined;
     hasConnectedWs: boolean;
     initializationComplete: boolean;
-
   }
 ) => {
   const queryClient = useQueryClient();
   const [huddleAccessToken] = useLocalStorage<string>('huddle-access-token');
 
+  // 1) The standard Huddle "useRoom"
   const { joinRoom, state: roomJoinState } = useRoom({
     onJoin: () => {
-      // console.log('[Huddle] Room joined:', {
-      //   role: options.verifiedRoleAndAddressData?.verifiedRole,
-      //   state: 'connected',
-      // });
       queryClient.setQueryData(['roomJoinState'], 'connected');
     },
     onLeave: () => {
-      // console.log('[Huddle] Room left');
       queryClient.setQueryData(['roomJoinState'], 'left');
     },
   });
+
+  // 2) For local video/audio
+  const { enableVideo, disableVideo, isVideoOn } = useLocalVideo();
+  const { enableAudio, disableAudio, isAudioOn } = useLocalAudio();
 
   useEffect(() => {
     // console.log('[Huddle] Room state:', roomJoinState);
   }, [roomJoinState]);
 
+  // If all conditions are met, we can "joinRoom"
   const canJoinRoom = useMemo(() => {
     return (
       options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
-        options.verifiedRoleAndAddressData?.verifiedRole &&
-        options.hasConnectedWs &&
-        options.initializationComplete
+      options.verifiedRoleAndAddressData?.verifiedRole &&
+      options.hasConnectedWs &&
+      options.initializationComplete
     );
   }, [options]);
 
+  // 3) Actually call joinRoom
   const joinRoomMutation = useMutation({
     mutationFn: () => {
       if (!huddleAccessToken) {
         throw new Error('Huddle access token is not available');
       }
-      // Pass role and metadata when joining
-      return joinRoom({
-        roomId,
-        token: huddleAccessToken,
-      });
+      return joinRoom({ roomId, token: huddleAccessToken });
     },
-    onSuccess: (room) => {
-      // console.log('[Huddle] Successfully joined room:', {
-      //   role: options.verifiedRoleAndAddressData?.verifiedRole,
-      //   room: room.roomId,
-      // });
+    onSuccess: () => {
       queryClient.setQueryData(['roomJoinState'], 'joined');
     },
     onError: (error) => {
@@ -75,13 +68,27 @@ export const useRoomJoin = (
     }
   }, [canJoinRoom, roomJoinState, joinRoomMutation]);
 
-  // Call usePeerIds unconditionally at the top level
-  const { peerIds: allPeerIds } = usePeerIds();
+  // 4) After user is "connected," enable local media automatically
+  useEffect(() => {
+    if (roomJoinState === 'connected') {
+      enableVideo().catch((err) => console.error('enableVideo() failed:', err));
+      enableAudio().catch((err) => console.error('enableAudio() failed:', err));
+    } else if (roomJoinState === 'left') {
+      disableVideo();
+      disableAudio();
+    }
+  }, [
+    roomJoinState,
+    enableVideo,
+    enableAudio,
+    disableVideo,
+    disableAudio,
+  ]);
 
-  // State to hold peer IDs after room is connected
+  // 5) If you need peer IDs
+  const { peerIds: allPeerIds } = usePeerIds();
   const [peerIds, setPeerIds] = useState<string[]>([]);
 
-  // Update peerIds when room is connected and allPeerIds change
   useEffect(() => {
     if (roomJoinState === 'connected') {
       setPeerIds(allPeerIds);
@@ -95,5 +102,7 @@ export const useRoomJoin = (
     joinRoom: joinRoomMutation.mutate,
     isJoining: joinRoomMutation.isPending,
     peerIds,
+    isVideoOn,
+    isAudioOn,
   };
 };

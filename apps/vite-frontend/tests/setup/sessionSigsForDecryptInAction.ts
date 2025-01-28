@@ -1,6 +1,5 @@
-//@ts-nocheck
 import { LitNodeClient } from "@lit-protocol/lit-node-client";
-import { AuthCallbackParams } from "@lit-protocol/types";
+import { AuthCallbackParams, LitResourceAbilityRequest } from "@lit-protocol/types";
 import { LitAbility, LitAccessControlConditionResource, LitActionResource, createSiweMessageWithRecaps, generateAuthSig } from "@lit-protocol/auth-helpers";
 import { ethers, HDNodeWallet } from 'ethers';
 
@@ -9,7 +8,7 @@ const ONE_WEEK_FROM_NOW = new Date(
 ).toISOString();
 
 const genAuthSig = async (
-  wallet: HDNodeWallet,
+  wallet: HDNodeWallet | ethers.Wallet,
   client: LitNodeClient,
   uri: string,
   resources: LitResourceAbilityRequest[]
@@ -32,7 +31,7 @@ const genAuthSig = async (
 };
 
 const genSession = async (
-  wallet: ethers.Wallet,
+  wallet: HDNodeWallet | ethers.Wallet,
   client: LitNodeClient,
   resources: LitResourceAbilityRequest[]
 ) => {
@@ -56,7 +55,7 @@ const genSession = async (
 };
 
 export const sessionSigsForDecryptInAction = async (
-  wallet: ethers.Wallet,
+  wallet: HDNodeWallet | ethers.Wallet,
   client: LitNodeClient,
   accessControlConditions: any,
   dataToEncryptHash: string,
