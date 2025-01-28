@@ -275,8 +275,31 @@ export class SessionManager extends DurableObject<DOEnv> {
       //console.log(`SessionManager: finalizeSession called with scenario=${scenario}, faultType=${faultType}, faultedRole=${faultedRole}, this.roomId=${this.roomId}`);
 
       // Retrieve original user data
-      const teacherData = await this.state.storage.get<User>('user:teacher');
-      const learnerData = await this.state.storage.get<User>('user:learner');
+      // A minimal "safe" default for all required User fields
+      const defaultUser: User = {
+        role: null,
+        peerId: null,
+        roomId: null,
+        joinedAt: null,
+        leftAt: null,
+        duration: null,
+        hashedTeacherAddress: "",
+        hashedLearnerAddress: "",
+        sessionDuration: 0,
+      };
+
+      // A helper function to return a full `User` from partial data
+      function safeMergeUser(partialUser: Partial<User>): User {
+        return { ...defaultUser, ...partialUser };
+      }
+
+      // Then in finalizeSession:
+      const rawTeacher = await this.state.storage.get<User>('user:teacher') || {};
+      const rawLearner = await this.state.storage.get<User>('user:learner') || {};
+
+      // Merge partial data with defaults
+      const teacherData = safeMergeUser(rawTeacher);
+      const learnerData = safeMergeUser(rawLearner);
 
       // Construct final records
       let teacherDataComplete: UserFinalRecord;
