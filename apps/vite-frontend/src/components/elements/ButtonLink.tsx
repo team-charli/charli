@@ -18,7 +18,7 @@ const ButtonLink = ({ path, children, onButtonClick, ...rest }: ButtonLinkPropTy
     <Link
       to={path}
       onClick={handleClick}
-      className="w-44 p-3 rounded-lg bg-gray-300 text-center block"
+      className="w-44 p-3 rounded-lg bg-gray-300 text-center block "
       {...rest}
     >
       {typeof children === 'function'

@@ -1,8 +1,8 @@
 @tailwind base;
-:root {
-  --font-head: "Lekton", sans-serif;
-  --font-sans: "Lekton", sans-serif;
-}
+/*:root {*/
+/*  --font-head: "Lekton", sans-serif;*/
+/*  --font-sans: "Lekton", sans-serif;*/
+/*}*/
 
 @tailwind components;
 @tailwind utilities;
