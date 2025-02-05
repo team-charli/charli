@@ -17,7 +17,7 @@ export interface UserData {
 const UserList = ({ modeView, selectedLang }: UserListProps) => {
   const { data: users, isLoading, error } = useGetUsers(selectedLang, modeView);
 
-  if (isLoading) return <div>Loading...</div>;
+  //if (isLoading) return <div>Loading...</div>;
   if (error) console.error(error)
 
 return (
