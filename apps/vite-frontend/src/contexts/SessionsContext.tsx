@@ -1,3 +1,4 @@
+//SessionsContext.tsx
 import React, { useEffect, useState, useContext, createContext } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import { ExtendedSession, Session, SessionsContextType } from '../types/types';

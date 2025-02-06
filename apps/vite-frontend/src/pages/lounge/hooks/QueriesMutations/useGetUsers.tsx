@@ -12,11 +12,13 @@ export interface UserData {
 
 export function useGetUsers(selectedLang: string, modeView: "Learn" | "Teach"): UseQueryResult<UserData[], Error> {
   const [userId] = useLocalStorage<number>("userID");
+
   const {data: supabaseClient} = useSupabaseClient();
 
   return useQuery({
     queryKey: ['getUsers', userId, selectedLang, modeView] as const,
     queryFn: async () => {
+
       if (!supabaseClient) throw new Error(`supabaseClient is undefined`);
 
       // First, get the language ID for the selected language

@@ -1,5 +1,7 @@
+import { router } from '@/TanstackRouter/router';
 import { AuthMethodPlus, NotificationIface } from '@/types/types';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { QueryClient } from '@tanstack/query-core';
 import bs58 from 'bs58';
 import {ethers} from 'ethers';
 
@@ -239,21 +241,39 @@ export function isTokenExpired(authMethod: AuthMethodPlus, thresholdSeconds: num
     return true; // Assume expired if no ID token is available
   }
 
+  const parts = authMethod.idToken.split('.');
+  if (parts.length !== 3) {
+    console.warn(`Invalid ID token format. Expected 3 parts, got ${parts.length}.`);
+    return true; // Assume expired if the format is invalid
+  }
+
   try {
-    const [, payloadBase64] = authMethod.idToken.split('.');
+    const payloadBase64 = parts[1];
     const payloadJson = atob(payloadBase64);
     const payload = JSON.parse(payloadJson);
 
     if (payload.exp) {
-      const expirationTime = payload.exp * 1000; // Convert to milliseconds
+      const expirationTime = payload.exp * 1000; // Convert to ms
       const currentTime = Date.now();
       return currentTime >= expirationTime - thresholdSeconds * 1000;
     } else {
-      console.warn('No expiration claim found in the ID token.');
-      return true; // Assume expired if no expiration claim is present
+      console.warn('No expiration (exp) claim in the ID token.');
+      return true;
     }
   } catch (error) {
     console.error('Error parsing ID token:', error);
     return true; // Assume expired if parsing fails
   }
+}
+
+export async function handledExpiredTokens(queryClient: QueryClient) {
+  // Clear local storage
+  localStorage.clear();
+
+  //Clear queryClient
+  queryClient.clear();
+
+  //Navigate to login
+  router.navigate({ to: "/login" })
+
 }

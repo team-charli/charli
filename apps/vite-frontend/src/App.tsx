@@ -1,25 +1,27 @@
+//App.tsx
+
 import log from 'loglevel';
 export const authChainLogger = log.getLogger('authChainLogger');
-authChainLogger.setLevel('info');
 export const routingLogger = log.getLogger('routingLogger');
-export const mutationLogger = log.getLogger('mutationLogger')
-routingLogger.setLevel('info');
-mutationLogger.setLevel('info')
+export const mutationLogger = log.getLogger('mutationLogger');
+
 authChainLogger.setLevel('silent');
 routingLogger.setLevel('silent');
+mutationLogger.setLevel('info');
 
-import { Provider } from 'jotai/react';
+import { Provider as JotaiProvider } from 'jotai/react';
 import '@/styles/globals.css';
 import { HuddleProvider } from "@huddle01/react";
 import { RouterProvider } from '@tanstack/react-router';
 import { huddleClient } from './Huddle/huddleClient';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { experimental_createPersister } from '@tanstack/react-query-persist-client';
 import { router, RouterContext } from './TanstackRouter/router';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SessionsProvider from './contexts/SessionsContext';
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -31,43 +33,57 @@ export const queryClient = new QueryClient({
 
 export const persister = experimental_createPersister({
   storage: window.localStorage,
-  deserialize: (cachedString) => {
-    const deserialized = JSON.parse(cachedString);
-    return deserialized;
-  },
-  serialize: (client) => {
-    const serialized = JSON.stringify(client);
-    return serialized;
-  },
+  deserialize: (cachedString) => JSON.parse(cachedString),
+  serialize: (client) => JSON.stringify(client),
 });
-
 
 function CharliApp() {
   return (
-    <QueryClientProvider client={queryClient} >
+    <QueryClientProvider client={queryClient}>
       <AuthProvider>
         {(authContext) => (
-          <Provider>
+          <JotaiProvider>
             <ReactQueryDevtools initialIsOpen={false} />
             <SessionsProvider>
               <HuddleProvider client={huddleClient}>
-                <RouterProvider
-                  router={router}
-                  context={{
-                    auth: authContext,
-                    queryClient,
-                  } as RouterContext}
-                />
+                {/* Only mount the router once we're ready */}
+                <AuthGate>
+                  <RouterProvider
+                    router={router}
+                    context={{
+                      auth: authContext,
+                      queryClient,
+                    } as RouterContext}
+                  />
+                </AuthGate>
               </HuddleProvider>
             </SessionsProvider>
-          </Provider>
+          </JotaiProvider>
         )}
       </AuthProvider>
     </QueryClientProvider>
   );
 }
 
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { isLoading, isError } = useAuth();
 
+  // If your top-level auth is still loading, show a stable screen/spinner.
+  if (isLoading) {
+    return null;
+  }
 
+  // If something’s broken in the auth chain, throw or show an error:
+  if (isError) {
+    // Could do a fallback UI or throw an error.
+    throw new Error(
+      'Error in auth chain. You can handle it with a custom error boundary or try again.'
+    );
+  }
+
+  // Otherwise, the user is either loaded & logged in or not.
+  // Let the route-based logic handle any final redirects:
+  return <>{children}</>;
+}
 
 export default CharliApp;

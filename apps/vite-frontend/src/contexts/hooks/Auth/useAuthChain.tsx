@@ -150,7 +150,6 @@ export const useAuthChain = () => {
 
     if (isSuccess) {
       authChainLogger.info("Auth chain completed successfully");
-      router.invalidate();
     }
   }, [isLoading, isError, isSuccess, queries, essentialQueries]);
 

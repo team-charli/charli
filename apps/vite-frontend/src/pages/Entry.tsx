@@ -1,3 +1,4 @@
+//Entry.tsx
 import { onboardModeAtom } from "@/atoms/atoms";
 import ButtonLink from "@/components/elements/ButtonLink";
 import BannerHeader from "@/components/headers/BannerHeader";
@@ -7,20 +8,21 @@ import { useAtom } from "jotai";
 import React from 'react';
 
 const Entry = () => {
+
   const [_, setOnboardMode] = useAtom(onboardModeAtom);
   const litAuthMethod = useLitAuthMethod();
   const litAccount = useLitAccount();
   const sessionSigs = useSessionSigs();
 
   const isLoading = litAuthMethod.isLoading || litAccount.isLoading || sessionSigs.isLoading;
-  const error = litAuthMethod.error || litAccount.error || sessionSigs.error;
+  //const error = litAuthMethod.error || litAccount.error || sessionSigs.error;
 
-  const handleLearnClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+  const handleLearnClick: React.MouseEventHandler<HTMLAnchorElement> = () => {
     // console.log("Learn button clicked");
     setOnboardMode("Learn");
   };
 
-  const handleTeachClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+  const handleTeachClick: React.MouseEventHandler<any> = () => {
     console.log("Teach button clicked");
     setOnboardMode("Teach");
   };
@@ -56,3 +58,4 @@ const Entry = () => {
 }
 
 export default Entry;
+
