@@ -1,8 +1,7 @@
 // useLangNavDataQuery.ts
 import { useQuery } from '@tanstack/react-query';
 import { useIsOnboarded, useLitAccount, useSupabaseClient } from '@/contexts/AuthContext';
-import { Dispatch, useEffect, useMemo } from 'react';
-import { SetStateAction } from 'jotai';
+import { useMemo } from 'react';
 
 interface Language {
   id: number;
@@ -22,7 +21,7 @@ interface UserDataResponse {
   wants_to_learn_langs: number[];
 }
 
-export const useLangNavDataQuery = (modeView: "Learn" | "Teach", setSelectedLang: Dispatch<SetStateAction<string>>, selectedLang: string) => {
+export const useLangNavDataQuery = (modeView: "Learn" | "Teach") => {
   const {data: supabaseClient} = useSupabaseClient();
   const {data: litAccount} = useLitAccount();
   const {data: isOnboarded} = useIsOnboarded();
@@ -79,14 +78,6 @@ export const useLangNavDataQuery = (modeView: "Learn" | "Teach", setSelectedLang
       .map(lang => ({ name: lang.name, display: `${lang.name} ${lang.emoji || ''}` }));
   }, [modeView, languageData]);
 
-  useEffect(() => {
-    if (languagesToShow.length > 0) {
-      const currentLangExists = languagesToShow.some(lang => lang.name === selectedLang);
-      if (!currentLangExists) {
-        setSelectedLang(languagesToShow[0].name);
-      }
-    }
-  }, [languagesToShow, selectedLang, setSelectedLang]);
 
   return {
     languagesToShow,

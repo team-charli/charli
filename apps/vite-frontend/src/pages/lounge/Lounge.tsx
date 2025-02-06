@@ -1,5 +1,5 @@
 // Lounge.tsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import IconHeader from '@/components/IconHeader'
 import DropDownButton from './Components/Interactions/DropDownButton'
 import LangNav from './Components/Interactions/LangNav'
@@ -17,11 +17,25 @@ interface Language {
 }
 
 export const Lounge = () => {
-  let intiialModeView = useAtomValue(onboardModeAtom);
-  if (!intiialModeView) intiialModeView  = "Learn"
-  const [modeView, setModeView] = useState<"Learn" | "Teach">(intiialModeView)
+  let initialModeView = useAtomValue(onboardModeAtom);
+  if (!initialModeView) initialModeView = "Learn";
+  const [modeView, setModeView] = useState<"Learn" | "Teach">(initialModeView);
+
+  // Remove selectedLang from useLangNavDataQuery params
+  const { languagesToShow, isLoading, error } = useLangNavDataQuery(modeView);
+
+  // Initialize selectedLang after we have languagesToShow
   const [selectedLang, setSelectedLang] = useState<string>("");
-  const { languagesToShow, isLoading, error } = useLangNavDataQuery(modeView, setSelectedLang, selectedLang);
+
+  // Set initial language once languagesToShow is available
+  useEffect(() => {
+    if (languagesToShow.length > 0 && !selectedLang) {
+      setSelectedLang(languagesToShow[0].name);
+    }
+  }, [languagesToShow]);
+
+  //if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
 
   return (
     <>
@@ -32,9 +46,9 @@ export const Lounge = () => {
         languagesToShow={languagesToShow}
       />
       <DropDownButton modeView={modeView} setModeView={setModeView} />
-      <UserView modeView={modeView} selectedLang={selectedLang} />
+      {selectedLang && <UserView modeView={modeView} selectedLang={selectedLang} />}
     </>
-  )
-}
+  );
+};
 
-export default Lounge
+export default Lounge;

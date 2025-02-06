@@ -1,6 +1,4 @@
 //src/pages/login/index.js
-'use client'
-'use client'
 import BannerHeader from "@/components/headers/BannerHeader";
 import IconHeader from "@/components/headers/IconHeader";
 import AuthMethods from "@/components/Lit/AuthMethods";

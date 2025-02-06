@@ -31,3 +31,4 @@ const LangNav = ({setSelectedLang, selectedLang, languagesToShow}: LangNavProps)
 }
 
 export default LangNav
+

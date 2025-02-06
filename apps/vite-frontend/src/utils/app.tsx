@@ -1,5 +1,7 @@
+import { router } from '@/TanstackRouter/router';
 import { AuthMethodPlus, NotificationIface } from '@/types/types';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { QueryClient } from '@tanstack/query-core';
 import bs58 from 'bs58';
 import {ethers} from 'ethers';
 
@@ -256,4 +258,16 @@ export function isTokenExpired(authMethod: AuthMethodPlus, thresholdSeconds: num
     console.error('Error parsing ID token:', error);
     return true; // Assume expired if parsing fails
   }
+}
+
+export async function handledExpiredTokens(queryClient: QueryClient) {
+  // Clear local storage
+  localStorage.clear();
+
+  //Clear queryClient
+  queryClient.clear();
+
+  //Navigate to login
+  router.navigate({ to: "/login" })
+
 }
