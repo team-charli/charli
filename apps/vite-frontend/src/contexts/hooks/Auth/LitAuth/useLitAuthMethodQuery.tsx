@@ -1,5 +1,5 @@
 //useLitAuthMethodQuery.tsx
-import { router } from '@/TanstackRouter/router'; // Adjust the import path as needed
+import { router } from '@/TanstackRouter/router';
 import { UseQueryResult, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthData, AuthMethodPlus} from '@/types/types';
 import { litAuthClient } from '@/utils/litClients';
@@ -39,8 +39,8 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData, pers
           // Clear entire Tanstack Query cache
           queryClient.clear();
 
-          // Redirect to home page
-          router.navigate({ to: '/' });
+          // Redirect to login
+          router.navigate({ to: '/login' });
 
           // Throw an error to prevent further execution
           throw new Error('AuthMethod expired, cache cleared and redirected');

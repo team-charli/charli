@@ -10,6 +10,7 @@ import { usePersistedAuthDataQuery } from "./LitAuth/usePersistedAuthDataQuery";
 import { UseQueryResult } from "@tanstack/react-query";
 import { PKPEthersWallet } from "@lit-protocol/pkp-ethers";
 import { IRelayPKP } from "@lit-protocol/types";
+import { useCheckTokenExp } from "./useCheckTokenExp";
 
 export const useAuthChain = () => {
 
@@ -23,9 +24,20 @@ export const useAuthChain = () => {
   })
   const persistedAuthDataQuery = usePersistedAuthDataQuery()
 
+  const tokenExpirationQuery = useCheckTokenExp(persistedAuthDataQuery?.data);
+
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
-    enabledDeps: (signinRedirectQuery.isSuccess || persistedAuthDataQuery.isSuccess) && (!!signinRedirectQuery.data || !!persistedAuthDataQuery.data),
+
+    enabledDeps: (
+      // EITHER we have sign-in redirect data (the user just came back from Google)
+      (signinRedirectQuery.isSuccess && !!signinRedirectQuery.data)
+
+        // OR we have a successful front-of-chain check (meaning we had persisted data and it wasn’t expired)
+        ||
+        (tokenExpirationQuery.isSuccess && tokenExpirationQuery.data)
+    ),
+
     queryFnData: [signinRedirectQuery.data || persistedAuthDataQuery.data],
     persister
   });

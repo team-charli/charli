@@ -19,7 +19,6 @@ interface SessionSigsQueryParams {
 export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, invalidateQueries, persister, additionalResourceAbilityRequests = []
 }: SessionSigsQueryParams) => {
   const queryClient = useQueryClient();
-  // const [{idToken, authMethodType}, litAccount, isConnected] = queryFnData;
   let authMethod: AuthMethod;
   let litAccount: IRelayPKP;
   let isConnected: boolean;
@@ -49,6 +48,7 @@ export const useLitSessionSigsQuery = ({queryKey, enabledDeps, queryFnData, inva
           throw new Error('Missing litAccount');
         }
         const cachedSessionSigs = queryClient.getQueryData(queryKey) as SessionSigs | null;
+
         if (cachedSessionSigs && !sessionSigsExpired(cachedSessionSigs)) {
           authChainLogger.info('Using valid cached sessionSigs');
           authChainLogger.info("4b: finish sessionSigs query")

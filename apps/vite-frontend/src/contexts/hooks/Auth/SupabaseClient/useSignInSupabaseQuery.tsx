@@ -1,7 +1,7 @@
 //useSignInSupabaseQuery.tsx
 import { useQuery } from '@tanstack/react-query';
 import { SupabaseClient, User, Session } from '@supabase/supabase-js';
-import { AuthData, AuthMethodPlus } from '@/types/types';
+import { AuthMethodPlus } from '@/types/types';
 
 export interface SignInResult {
   authProviderId: string | null;
@@ -45,7 +45,7 @@ export const useSignInSupabaseQuery = ({
           const { data, error } = await supabaseClient.auth.signInWithIdToken({
             provider,
             token: authMethod.idToken,
-            access_token: authMethod?.accessToken,
+            //access_token: authMethod?.accessToken,
           })
 
           if (error) {
@@ -61,8 +61,8 @@ export const useSignInSupabaseQuery = ({
           console.error("Error in signInWithIdToken:", error);
           return { authProviderId: null, user: null, session: null, error: error as Error };
         }
-      } else {
-        return { authProviderId: null, user: null, session: null, error: new Error('Missing Supabase client or auth tokens') };
+      }  else {
+        return { authProviderId: null, user: null, session: null, error: new Error('Missing Supabase client') };
       }
     },
     enabled: enabledDeps,
