@@ -27,7 +27,12 @@ const useInitialSessionData = () => {
     }
 
     // Extract unique user IDs
-    const userIds = new Set(sessionsData.flatMap(session => [session.teacher_id, session.learner_id]));
+    // 2) Extract unique user IDs, filtering out null
+    const userIds = new Set(
+      sessionsData
+        .flatMap(session => [session.teacher_id, session.learner_id])
+        .filter((id): id is number => id != null)
+    );
 
     // Fetch user names
     const { data: userData, error: userError } = await supabaseClient
