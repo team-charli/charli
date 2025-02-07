@@ -44,9 +44,10 @@ app.use('*', async (c, next) => {
   for (const [key, value] of Object.entries(corsHeaders)) {
     c.header(key, value);
   }
-  // Handle OPTIONS request
   if (c.req.method === 'OPTIONS') {
-    return c.text('', 204);
+    c.status(204);
+    c.body(null);
+    return;
   }
   await next();
 });
@@ -63,7 +64,7 @@ app.post('/get-controller-key-claim-data', async (c) => {
       console.error("Missing keyId in request");
       return c.json({ error: "Missing keyId in request" }, 400);
     }
-    if (!body.learnerId === undefined || !body.learnerId === null) {
+    if (body.learnerId == null) {
       console.error("Missing learnerId in request");
       return c.json({ error: "Missing learnerId in request" }, 400);
     }
