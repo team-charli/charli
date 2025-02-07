@@ -207,6 +207,7 @@ type PreSessionStateFlags = {
   isAccepted: boolean;
   isRejected: boolean;
   isImminent: boolean;
+  isExpired: boolean
 };
 
 type PostSessionStateFlags = {

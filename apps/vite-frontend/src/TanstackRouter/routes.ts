@@ -23,8 +23,7 @@ export const rootRoute = createRootRouteWithContext<RouterContext>()({
   onError: (err) => { console.error(err) },
   errorComponent: ErrorComponent,
   beforeLoad: async ({ context }) => {
-    const { auth } = context;
-    if (!auth.isSuccess) return;
+    if (!context?.auth || !context.auth.isSuccess) return;
     routingLogger.info("root route");
   },
 });
@@ -38,10 +37,7 @@ export const entry = createRoute({
 
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    if (!auth.isSuccess) {
-      routingLogger.info("waiting for !auth.isSuccess");
-      return;
-    }
+    if (!context?.auth || !context.auth.isSuccess) return;
 
     const { isOnboarded, isLitLoggedIn } = entryRouteQueries(queryClient);
     routingLogger.info("entry route: deciding if we need to redirect");
@@ -69,7 +65,7 @@ export const loginRoute = createRoute({
   onError: ({ error }) => console.error(error),
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    if (!auth.isSuccess) return;
+    if (!context?.auth || !context.auth.isSuccess) return;
 
     const { isOnboarded, isLitLoggedIn } = loginRouteQueries(queryClient);
     if (isLitLoggedIn && isOnboarded === false) {
@@ -89,7 +85,7 @@ export const onboardRoute = createRoute({
   onError: ({ error }) => console.error(error),
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    if (!auth.isSuccess) return;
+    if (!context?.auth || !context.auth.isSuccess) return;
 
     const { isOnboarded, isLitLoggedIn } = onboardRouteQueries(queryClient);
     if (isLitLoggedIn && isOnboarded) {
@@ -112,7 +108,7 @@ export const loungeRoute = createRoute({
   onError: ({ error }) => console.error(error),
   beforeLoad: ({ context }) => {
     const { queryClient, auth } = context;
-    if (!auth.isSuccess) return;
+    if (!context?.auth || !context.auth.isSuccess) return;
 
     const { isOnboarded, isLitLoggedIn } = loungeRouteQueries(queryClient);
 
