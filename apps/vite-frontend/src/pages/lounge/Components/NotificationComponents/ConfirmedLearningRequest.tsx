@@ -1,12 +1,13 @@
 // ConfirmedLearningRequest.tsx
 import { ConfirmedLearningRequestProps } from '@/types/types';
 import { useLocalizeAndFormatDateTime } from '@/utils/hooks/utils/useLocalizeAndFormatDateTime';
-import {Link, redirect, useNavigate} from '@tanstack/react-router';
+import {Link, useNavigate} from '@tanstack/react-router';
 import { useGenerateHuddleAccessToken } from '../../hooks/QueriesMutations/useGenerateHuddleAccessToken';
 import { useMediaPermissions } from '@/Huddle/useMediaPermissions';
 
 const ConfirmedLearningRequest = ({ notification: sessionData }: ConfirmedLearningRequestProps) => {
   const isSessionSoon = sessionData.isImminent;
+  const isExpired = sessionData.isExpired;
 
   const { localTimeAndDate: { displayLocalTime, displayLocalDate } } = useLocalizeAndFormatDateTime(sessionData.confirmed_time_date);
   const navigate = useNavigate({ from: '/lounge' }); // Assume we're navigating from the lounge page
@@ -39,7 +40,14 @@ const ConfirmedLearningRequest = ({ notification: sessionData }: ConfirmedLearni
 return (
   <div className="grid grid-cols-3">
     <div className="col-start-2 col-span-2">
-      {isSessionSoon ? (
+      {isExpired ? (
+        <div className="flex items-center gap-2 w-1/2 border-2 border-neutral-700 bg-slate-100 px-2 py-1">
+          <span className="inline-block w-3 h-3 bg-gray-400" />
+          <span className="line-through">
+            {`Charli with ${sessionData.teacherName} at ${displayLocalTime}`}
+          </span>
+        </div>
+      ) : isSessionSoon ? (
         <Link
           className="flex items-center gap-2 w-1/2 border-2 border-neutral-700 bg-slate-100 hover:bg-slate-200 cursor-pointer px-2 py-1"
           to="/room/$id"
@@ -52,7 +60,7 @@ return (
           }}
           onClick={handleClick}
         >
-          <span className="inline-block w-3 h-3 bg-blue-500" /> {/* Simple square indicator */}
+          <span className="inline-block w-3 h-3 bg-blue-500" />
           {isLoading ? 'Loading...' : `Join: Charli with ${sessionData.teacherName} at ${displayLocalTime}`}
         </Link>
       ) : (

@@ -249,7 +249,8 @@ export interface NotificationIface {
   requested_session_duration?: number;
   hashed_learner_address?: string;
   hashed_teacher_address?: string;
-  isImminent?: boolean
+  isImminent?: boolean;
+  isExpired?: boolean;
 }
 
 export interface SessionIface {
