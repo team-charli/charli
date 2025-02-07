@@ -119,7 +119,18 @@ const SessionsProvider = ({ children }: { children: React.ReactNode }) => {
     if (showIndicator) alert("Notification Alert Triggered!")
   }, [showIndicator])
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSessionData((oldData) =>
+        oldData.map((session) => {
+          const { isImminent, ...otherFlags } = classifySession(session);
+          return { ...session, ...otherFlags, isImminent };
+        })
+      );
+    }, 60_000); // run every 60s
 
+    return () => clearInterval(interval);
+  }, []);
   return (
     <SessionsContext.Provider value={{ sessionsContextValue: sessionData, showIndicator, setShowIndicator }}>
       {children}

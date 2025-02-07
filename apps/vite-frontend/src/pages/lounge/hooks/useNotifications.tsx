@@ -28,6 +28,8 @@ export const useNotifications = (): NotificationIface[] => {
       requested_session_duration: sessionRow.requested_session_duration,
       hashed_learner_address: sessionRow.hashed_learner_address,
       hashed_teacher_address: sessionRow.hashed_teacher_address,
+      isImminent: sessionRow.isImminent,
+
     };
 
     let notification: NotificationIface | null = null;

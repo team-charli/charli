@@ -206,6 +206,7 @@ type PreSessionStateFlags = {
   isAmended: boolean;
   isAccepted: boolean;
   isRejected: boolean;
+  isImminent: boolean;
 };
 
 type PostSessionStateFlags = {
@@ -248,6 +249,7 @@ export interface NotificationIface {
   requested_session_duration?: number;
   hashed_learner_address?: string;
   hashed_teacher_address?: string;
+  isImminent?: boolean
 }
 
 export interface SessionIface {

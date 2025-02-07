@@ -13,7 +13,17 @@ export const classifySession = (session: Session): Omit<ExtendedSession, keyof S
     session.counter_time_date ? checkIfNotificationExpired(session.counter_time_date) :
       session.request_time_date ? checkIfNotificationExpired(session.request_time_date) :
         false; // Default to false if none of the dates are set
-  return { isProposed, isAmended, isAccepted, isRejected, isExpired };
+
+  const THRESHOLD_MINUTES = 10;
+  let isImminent = false;
+  if (session.confirmed_time_date) {
+    const sessionDate = new Date(session.confirmed_time_date).getTime();
+    const now = Date.now();
+    const differenceInMinutes = (sessionDate - now) / (1000 * 60);
+    isImminent = differenceInMinutes > 0 && differenceInMinutes <= THRESHOLD_MINUTES;
+  }
+
+  return { isProposed, isAmended, isAccepted, isRejected, isExpired, isImminent };
 };
 
 export function checkIfNotificationExpired (dateStr: string): boolean {
@@ -34,9 +44,9 @@ function computeSessionState(session: Session) {
 
     isExpired: session.confirmed_time_date ? checkIfNotificationExpired(session.confirmed_time_date) :
 
-    session.counter_time_date ? checkIfNotificationExpired(session.counter_time_date) :
+      session.counter_time_date ? checkIfNotificationExpired(session.counter_time_date) :
 
-      session.request_time_date ? checkIfNotificationExpired(session.request_time_date) :
-        false,
+        session.request_time_date ? checkIfNotificationExpired(session.request_time_date) :
+          false,
   };
 }
