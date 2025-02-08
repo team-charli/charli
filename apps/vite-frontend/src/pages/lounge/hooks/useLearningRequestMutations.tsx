@@ -1,4 +1,4 @@
-// useUserItem.ts
+// useLearningRequestMutations.tsx
 import { useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { ethers, BigNumberish, AddressLike, JsonRpcProvider } from 'ethers';
@@ -36,10 +36,6 @@ export const useLearningRequestMutations = () => {
       console.log(error)
     }
 
-    if (getControllerKeyClaimDataResponse.data) {
-      // console.log('getControllerKeyClaimDataResponse: true')
-    }
-
     const controllerPubKey = getControllerKeyClaimDataResponse.data.publicKey;
     const controllerAddress = ethers.computeAddress(controllerPubKey);
     const sessionId = getControllerKeyClaimDataResponse.data.sessionId;
@@ -66,41 +62,54 @@ export const useLearningRequestMutations = () => {
 
 
   type SignPermitAndCollectActionParams = {controllerAddress: AddressLike, provider: JsonRpcProvider, amountScaled: BigNumberish, secureSessionId: string, sessionIdAndDurationSig: string, sessionDuration: number};
+  type PermitActionParamsWithSkip =
+  | { skipPermit: true }
+  | ({ skipPermit: false } & PermitActionParams);
 
-  const signPermitAndCollectActionParams = useMutation({
-    mutationFn: async (params: SignPermitAndCollectActionParams) => {
+  const signPermitAndCollectActionParams = useMutation<
+  PermitActionParamsWithSkip,
+  unknown,
+  SignPermitAndCollectActionParams
+>({
+    mutationFn: async (params) => {
       try {
         const { provider, amountScaled, secureSessionId, sessionIdAndDurationSig, sessionDuration } = params;
         const relayerAddress = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS;
 
         if (!pkpWallet) throw new Error('Wallet not initialized');
+
         const daiContractAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
         const daiContractAbi = [
           'function name() view returns (string)',
-          // 'function version() view returns (string)',
           'function nonces(address owner) view returns (uint256)',
           'function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
           'function allowance(address owner, address spender) view returns (uint256)'
         ];
-
         const daiContract = new ethers.Contract(daiContractAddress, daiContractAbi, provider);
 
-        const currentAllowance = await daiContract.allowance(pkpWallet.address, relayerAddress );
+        const currentAllowance = await daiContract.allowance(pkpWallet.address, relayerAddress);
         if (currentAllowance >= amountScaled) {
+          // Already approved
           console.log("Approval already set, skipping permit transaction");
-          return;
+          return { skipPermit: true };
         }
 
-        // permit setup
-        // Set Permit Parameters
+        // EIP-712 permit setup
         const owner = pkpWallet.address;
-        const spender = relayerAddress ; // Your application's address or PKP address
+        const spender = relayerAddress;
         const value = amountScaled.toString();
-        const deadline = (Math.floor(Date.now() / 1000) + 3600).toString(); // Convert to string
+        const deadline = (Math.floor(Date.now() / 1000) + 3600).toString();
         const nonceBN = await daiContract.nonces(owner);
         const nonce = nonceBN.toString();
 
-        // Types as per EIP-712
+        // Full typed-data domain
+        const domain = {
+          name: await daiContract.name(),
+          version: '1',
+          chainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
+          verifyingContract: daiContractAddress,
+        };
+
         const types = {
           Permit: [
             { name: 'owner', type: 'address' },
@@ -111,36 +120,30 @@ export const useLearningRequestMutations = () => {
           ],
         };
 
-        const message = {
-          owner,
-          spender,
-          value,
-          nonce,
-          deadline
-        };
+        const message = { owner, spender, value, nonce, deadline };
 
-        // **Domain Data for EIP-712**
-
-        const domain = {
-          name: await daiContract.name(),
-          version: '1',
-          chainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
-          verifyingContract: daiContractAddress,
-        };
-
-        // **Request Signature from the User**
         const signature = await pkpWallet._signTypedData(domain, types, message);
-
-        // **Extract v, r, s from the Signature**
         const splitSig = ethers.Signature.from(signature);
-        const v = splitSig.v;
-        const r = splitSig.r;
-        const s = splitSig.s;
+        const v = splitSig.v, r = splitSig.r, s = splitSig.s;
 
-
-        return {v, s, r, owner, spender, nonce, deadline, value, daiContractAddress, relayerIpfsId: import.meta.env.VITE_RELAYER_ACTION_IPFSID, rpcChain: import.meta.env.VITE_RPC_CHAIN_NAME, rpcChainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA, secureSessionId, sessionIdAndDurationSig, learnerAddress: pkpWallet.address, duration: sessionDuration, env: import.meta.env.VITE_ENVIRONMENT}
+        // Return the "full" object, plus skipPermit: false
+        return {
+          skipPermit: false,
+          v, s, r, owner, spender, nonce, deadline, value,
+          daiContractAddress,
+          relayerIpfsId: import.meta.env.VITE_RELAYER_ACTION_IPFSID,
+          rpcChain: import.meta.env.VITE_RPC_CHAIN_NAME,
+          rpcChainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
+          secureSessionId,
+          sessionIdAndDurationSig,
+          learnerAddress: pkpWallet.address,
+          duration: sessionDuration,
+          env: import.meta.env.VITE_ENVIRONMENT as 'dev',
+        };
       } catch (error) {
-        console.log(error);
+        console.error(error);
+        // Rethrow so the mutation rejects, not returns undefined
+        throw error;
       }
     },
   });
@@ -149,7 +152,7 @@ export const useLearningRequestMutations = () => {
     owner: AddressLike,
     spender: AddressLike,
     nonce: string,
-    deadline: string ,
+    deadline: string,
     value: string,
     v: number,
     r: string,
@@ -163,7 +166,9 @@ export const useLearningRequestMutations = () => {
     learnerAddress: AddressLike,
     duration: number,
     env: 'dev',
-  }
+  };
+
+
 
   const executePermitAction = useMutation({
     mutationFn: async (actionParams: PermitActionParams | undefined) => {

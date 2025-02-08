@@ -1,6 +1,6 @@
 //UserItem.tsx
 import { useCallback } from "react";
-import { ethers, hexlify, parseUnits, randomBytes } from 'ethers';
+import { ethers, hexlify, randomBytes } from 'ethers';
 import useLocalStorage from "@rehooks/local-storage";
 import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
 import SessionLengthInput from "@/components/elements/SessionLengthInput";
@@ -33,24 +33,27 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
     const provider = new ethers.JsonRpcProvider(import.meta.env.VITE_RPC_URL)
     if (sessionDuration && loggedInUserId) {
       try {
-      const learnerId = loggedInUserId;
-      const { sessionId, ...controllerData } = await generateControllerData(learnerId);
+        const learnerId = loggedInUserId;
+        const { sessionId, ...controllerData } = await generateControllerData(learnerId);
 
         const secureSessionId = hexlify(randomBytes(16));
         const sessionIdAndDurationSig = await signSessionDurationAndSecureSessionId.mutateAsync({sessionDuration, secureSessionId});
 
         const actionParams = await signPermitAndCollectActionParams.mutateAsync({controllerAddress: controllerData.controller_address, provider, secureSessionId, sessionIdAndDurationSig, sessionDuration, amountScaled: amountDai });
 
-        const {txHash} = await executePermitAction.mutateAsync(actionParams);
-
         const encryptLearnerAddressResult = await encryptLearnerAddress()
         const {ciphertext, dataToEncryptHash} = encryptLearnerAddressResult;
         //TODO should Promise.all these because waitForTransaction takes long time
+        if (actionParams.skipPermit) {
+          console.log("No permit needed. Skipping executePermitAction.");
 
-        const txInfoObj = await waitForTransaction(provider, txHash)
+        } else {
+          const {txHash} = await executePermitAction.mutateAsync(actionParams);
 
-        if (txInfoObj.txStatus === "reverted" || txInfoObj.txStatus === "failed") throw new Error("halted submit on permitTx reverted || failed")
+          const txInfoObj = await waitForTransaction(provider, txHash)
 
+          if (txInfoObj.txStatus === "reverted" || txInfoObj.txStatus === "failed") throw new Error("halted submit on permitTx reverted || failed")
+        }
         await submitLearningRequestToDb.mutateAsync({
           dateTime,
           teacherID: userID,
@@ -68,8 +71,6 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
 
         console.error("Error in submitLearningRequestToDb:", error);
         throw new Error("Permit transaction failed");
-
-        // Handle error (e.g., show error message to user)
       }
     }
   }, [isLearnMode, learningRequestState, signPermitAndCollectActionParams, executePermitAction, submitLearningRequestToDb, loggedInUserId, userID, language,  generateControllerData]);
