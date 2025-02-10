@@ -2,7 +2,6 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { IRelayPKP, SessionSigs  } from '@lit-protocol/types';
 import { Dispatch, SetStateAction, ReactNode } from 'react'
 import { PKPEthersWallet } from '@lit-protocol/pkp-ethers';
-import { Atom } from 'jotai';
 
 export interface AuthMethodsProps {
 }
@@ -80,7 +79,7 @@ export interface HuddleProviderProps {
   children: ReactNode;
 }
 
-}
+
 
 export interface UseIsOnboardedParam {
   checkIsOnboarded: boolean;

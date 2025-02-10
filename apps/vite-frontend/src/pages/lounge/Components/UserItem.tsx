@@ -2,13 +2,12 @@
 import { useCallback } from "react";
 import { ethers, hexlify, randomBytes } from 'ethers';
 import useLocalStorage from "@rehooks/local-storage";
-import DateTimeLocalInput from "@/components/elements/DateTimeLocalInput";
-import SessionLengthInput from "@/components/elements/SessionLengthInput";
-import { Button } from "@headlessui/react";
 import { useLearningRequestMutations } from "../hooks/useLearningRequestMutations";
 import { useLearningRequestState } from "../hooks/useLearningRequestState";
 import { waitForTransaction } from "../utils/waitForTx";
 import { useEncryptLearnerAddress } from "../hooks/useEncryptLearnerAddress";
+import { SessionSchedulerModal } from "./Interactions/Session-Scheduler-Modal";
+import { DialogTrigger, Dialog } from "@/components/ui/dialog";
 interface UserItemProps {
   userName: string;
   userID: number;
@@ -24,7 +23,7 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
   const learningRequestState = useLearningRequestState();
   const { generateControllerData, signSessionDurationAndSecureSessionId, executePermitAction, submitLearningRequestToDb, signPermitAndCollectActionParams } = learningRequestFunctions;
 
-  const {  sessionLengthInputValue, setSessionLengthInputValue, toggleDateTimePicker, setToggleDateTimePicker, renderSubmitConfirmation, setRenderSubmitConfirmation, dateTime, setDateTime, sessionDuration, amountDai,  } = learningRequestState;
+  const {  toggleDateTimePicker, setToggleDateTimePicker, schedulerStep, setSchedulerStep, selectedDay, setSelectedDay, selectedTime, setSelectedTime, sessionLengthInputValue, setSessionLengthInputValue, renderSubmitConfirmation, setRenderSubmitConfirmation, dateTime, setDateTime, sessionDuration, amountDai } = learningRequestState;
 
   const encryptLearnerAddress = useEncryptLearnerAddress();
 
@@ -44,9 +43,9 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
         const encryptLearnerAddressResult = await encryptLearnerAddress()
         const {ciphertext, dataToEncryptHash} = encryptLearnerAddressResult;
         //TODO should Promise.all these because waitForTransaction takes long time
+
         if (actionParams.skipPermit) {
           console.log("No permit needed. Skipping executePermitAction.");
-
         } else {
           const {txHash} = await executePermitAction.mutateAsync(actionParams);
 
@@ -54,6 +53,7 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
 
           if (txInfoObj.txStatus === "reverted" || txInfoObj.txStatus === "failed") throw new Error("halted submit on permitTx reverted || failed")
         }
+        //FIX: failing silently
         await submitLearningRequestToDb.mutateAsync({
           dateTime,
           teacherID: userID,
@@ -85,47 +85,33 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
   }
 
   return (
-    <>
-      <li onClick={() => !renderSubmitConfirmation && setToggleDateTimePicker((prev: boolean) => !prev)} className="cursor-pointer">
+    <Dialog
+      open={toggleDateTimePicker}
+      onOpenChange={setToggleDateTimePicker}
+    >
+      <li onClick={() => !renderSubmitConfirmation && setToggleDateTimePicker(true)}
+        className="cursor-pointer">
         <u>{userName}</u>
       </li>
-      {toggleDateTimePicker && !renderSubmitConfirmation && (
-        <div className="__dateTimePicker space-x-2">
-          <span>When?</span>
-          <DateTimeLocalInput dateTime={dateTime} setDateTime={setDateTime} />
-          <SessionLengthInput sessionLength={sessionLengthInputValue} setSessionLength={setSessionLengthInputValue} />
-          <button
-            onClick={handleSubmitLearningRequest}
-            className="p-1 rounded"
-            disabled={signSessionDurationAndSecureSessionId.isPending || executePermitAction.isPending || signSessionDurationAndSecureSessionId.isPending}
-          >
-            Submit
-          </button>
-        </div>
+
+      {!renderSubmitConfirmation && (
+        <SessionSchedulerModal
+          open={toggleDateTimePicker}
+          onOpenChange={setToggleDateTimePicker}
+          step={schedulerStep}
+          setStep={setSchedulerStep}
+          selectedDay={selectedDay}
+          setSelectedDay={setSelectedDay}
+          selectedTime={selectedTime}
+          setSelectedTime={setSelectedTime}
+          sessionLengthInputValue={sessionLengthInputValue}
+          setSessionLengthInputValue={setSessionLengthInputValue}
+          sessionDuration={sessionDuration}
+          userName={userName}
+          handleSubmitLearningRequest={handleSubmitLearningRequest}
+        />
       )}
-      {renderSubmitConfirmation && (
-        <>
-          <div className="submissionConfirmation">
-            Session Request Submitted
-          </div>
-          <Button
-            className="relative w-11 bg-white border border-gray-300 rounded-md shadow-sm py-2 flex items-center justify-center cursor-default focus:outline-none sm:text-sm flex-shrink-0"
-            onClick={okHandler}
-            onMouseDown={(e) => {
-              e.currentTarget.classList.add('ring-1', 'ring-indigo-500', 'border-indigo-500');
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.classList.remove('ring-1', 'ring-indigo-500', 'border-indigo-500');
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.classList.remove('ring-1', 'ring-indigo-500', 'border-indigo-500');
-            }}
-          >
-            Ok
-          </Button>
-        </>
-      )}
-    </>
+    </Dialog>
   );
 };
 
