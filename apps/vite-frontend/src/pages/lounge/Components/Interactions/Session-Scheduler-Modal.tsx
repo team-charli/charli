@@ -7,10 +7,6 @@ import { AnalogDigitalTimePicker } from "./Time-Picker";
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 
-interface DayPickerProps {
-  selectedDay: string | null;
-  onSelect: (day: string) => void;
-}
 
 function DayPicker({ selectedDay, onSelect }: DayPickerProps) {
   const weekdays = getUpcomingWeekdays()
@@ -79,6 +75,9 @@ export function TimePicker({
 }: TimePickerProps) {
   // For simplicity, store the time in a local string state (e.g. "12:00 AM")
   const [timeString, setTimeString] = React.useState("12:00 AM");
+  const [hasSeenMinute, setHasSeenMinute] = React.useState(false);
+
+  const [forceMinute, setForceMinute] = React.useState(false);
 
   return (
     <div className="flex flex-col space-y-8 w-full max-w-md mx-auto mt-4">
@@ -88,6 +87,15 @@ export function TimePicker({
             value={timeString}
             onChange={(newVal) => setTimeString(newVal)}
             isToday={isToday}
+            forceMinute={forceMinute} // NEW: pass the “force minute” flag
+            onModeChange={(newMode) => {
+              // If user flips to minute mode, we mark that they’ve seen it.
+              if (newMode === "minute") {
+                setHasSeenMinute(true);
+              }
+              // Once we’ve forced minute mode, clear the flag:
+              setForceMinute(false);
+            }}
           />
         </div>
       </div>
@@ -98,8 +106,17 @@ export function TimePicker({
 
       <div className="flex justify-end">
         <Button
-          onClick={() => onSelect(timeString)}
+          onClick={() => {
+            // If user has never seen minute mode, flip the child to minute mode
+            if (!hasSeenMinute) {
+              setForceMinute(true);
+              return;
+            }
+            // Otherwise, proceed as usual
+            onSelect(timeString);
+          }}
           className="rounded-full bg-[#6B5B95] text-white hover:bg-[#5d4f82]"
+
         >
           Next
         </Button>
@@ -108,10 +125,6 @@ export function TimePicker({
   );
 }
 
-interface DurationPickerProps {
-  selectedDuration: string
-  onSelect: (duration: string) => void
-}
 
 function DurationPicker({ selectedDuration, onSelect }: DurationPickerProps) {
   const durations = ["1 hour", "45 minutes", "30 minutes"]
@@ -166,6 +179,9 @@ interface ConfirmSessionProps {
 }
 
 function ConfirmSession({ userName, date, sessionDuration, daiAmount, onConfirm }: ConfirmSessionProps) {
+  // Track whether the "Confirm" button has been clicked
+  const [confirmDisabled, setConfirmDisabled] = React.useState(false);
+
   const tooltipContent = (
     <div className="max-w-sm">
       <p className="font-semibold mb-2">Frozen: If you click "confirm" below Charli</p>
@@ -211,7 +227,11 @@ function ConfirmSession({ userName, date, sessionDuration, daiAmount, onConfirm 
 
       <div className="mt-6 flex justify-end">
         <Button
-          onClick={onConfirm}
+          disabled={confirmDisabled}
+          onClick={async () => {
+            setConfirmDisabled(true);
+             await onConfirm();
+           }}
           className="rounded-full bg-[#6B5B95] text-white hover:bg-[#5d4f82]"
         >
           Confirm
@@ -353,7 +373,7 @@ export function SessionSchedulerModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(openState) => { if (!openState) { handleClose(); } onOpenChange(openState); }}>
       <DialogContent
         className={cn("w-[400px] h-[600px] rounded-3xl border-0 bg-[#F5F5F5] p-6 shadow-xl")}
       >
@@ -380,5 +400,15 @@ function getUpcomingWeekdays() {
     currentIndex = (currentIndex + 1) % 7
   }
   return weekdays
+}
+
+interface DayPickerProps {
+  selectedDay: string | null;
+  onSelect: (day: string) => void;
+}
+
+interface DurationPickerProps {
+  selectedDuration: string
+  onSelect: (duration: string) => void
 }
 
