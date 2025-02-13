@@ -1,28 +1,10 @@
 import * as React from "react"
+import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { StaticTimePicker, renderTimeViewClock } from "@mui/x-date-pickers";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import dayjs from "dayjs";
-import { Button } from "@/components/ui/button"
+import { AnalogDigitalTimePicker } from "./Time-Picker";
 import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
-
-function getUpcomingWeekdays() {
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-  const today = new Date()
-  const dayIndex = today.getDay()
-
-  const weekdays: string[] = []
-  let currentIndex = (dayIndex + 2) % 7 // Start from day after tomorrow
-
-  for (let i = 0; i < 5; i++) {
-    weekdays.push(days[currentIndex])
-    currentIndex = (currentIndex + 1) % 7
-  }
-  return weekdays
-}
+import { Button } from "@/components/ui/button"
 
 interface DayPickerProps {
   selectedDay: string | null;
@@ -79,62 +61,46 @@ function DayPicker({ selectedDay, onSelect }: DayPickerProps) {
   )
 }
 
-interface TimePickerProps {
-  userName: string
-  sessionDuration: string
-  date: string
-  onSelect: (day: string) => void;
+export interface TimePickerProps {
+  userName: string;
+  sessionDuration: string;
+  date: string;
+  onSelect: (timeString: string) => void;
 }
 
-function TimePicker({ userName, sessionDuration, date, onSelect }: TimePickerProps) {
-  const [time, setTime] = React.useState(dayjs().hour(12).minute(0));
+export function TimePicker({
+  userName,
+  sessionDuration,
+  date,
+  onSelect
+}: TimePickerProps) {
+  // For simplicity, store the time in a local string state (e.g. "12:00 AM")
+  const [timeString, setTimeString] = React.useState("12:00 AM");
 
-//TODO: rummage code for centering fix
-//TODO: rummage code for animation fix
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <div className="flex flex-col space-y-8 w-full max-w-md mx-auto mt-4">
-        <div className="space-y-2">
-          <div className="flex flex-col items-center gap-4">
-            <StaticTimePicker
-              value={time}
-              onChange={(newTime) => newTime && setTime(newTime)} // Updates state without navigating
-              onAccept={(finalTime) => {
-                if (finalTime) {
-                  setTime(finalTime);
-                  onSelect(finalTime.format("hh:mm A")); // Triggers navigation only when fully selected
-                }
-              }}
-              viewRenderers={{
-                hours: renderTimeViewClock,
-                minutes: renderTimeViewClock,
-                seconds: renderTimeViewClock
-              }}
-              views={["hours", "minutes"]}
-              ampm
-              orientation="portrait"
-              reduceAnimations={true}
-              slotProps={{
-                layout: { sx: { flexDirection: "column", alignItems: "center" } }
-              }}
-            />
-          </div>
-        </div>
-
-        <p className="text-lg">
-          Charli with {userName} at <strong>{time.format("hh:mm A")}</strong> on {date} for {sessionDuration}
-        </p>
-
-        <div className="flex justify-end">
-          <Button
-            onClick={() => onSelect(time.format("hh:mm A"))}
-            className="rounded-full bg-[#6B5B95] text-white hover:bg-[#5d4f82]"
-          >
-            Next
-          </Button>
+    <div className="flex flex-col space-y-8 w-full max-w-md mx-auto mt-4">
+      <div className="space-y-2">
+        <div className="flex flex-col items-center gap-4">
+          <AnalogDigitalTimePicker
+            value={timeString}
+            onChange={(newVal) => setTimeString(newVal)}
+          />
         </div>
       </div>
-    </LocalizationProvider>
+
+      <p className="text-lg">
+        Charli with {userName} at <strong>{timeString}</strong> on {date} for {sessionDuration}
+      </p>
+
+      <div className="flex justify-end">
+        <Button
+          onClick={() => onSelect(timeString)}
+          className="rounded-full bg-[#6B5B95] text-white hover:bg-[#5d4f82]"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -396,3 +362,18 @@ export function SessionSchedulerModal({
     </Dialog>
   )
 }
+function getUpcomingWeekdays() {
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  const today = new Date()
+  const dayIndex = today.getDay()
+
+  const weekdays: string[] = []
+  let currentIndex = (dayIndex + 2) % 7 // Start from day after tomorrow
+
+  for (let i = 0; i < 5; i++) {
+    weekdays.push(days[currentIndex])
+    currentIndex = (currentIndex + 1) % 7
+  }
+  return weekdays
+}
+
