@@ -1,3 +1,4 @@
+//Session-Scheduler-Modal.tsx
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -66,13 +67,15 @@ export interface TimePickerProps {
   sessionDuration: string;
   date: string;
   onSelect: (timeString: string) => void;
+  isToday?: boolean;
 }
 
 export function TimePicker({
   userName,
   sessionDuration,
   date,
-  onSelect
+  onSelect,
+  isToday
 }: TimePickerProps) {
   // For simplicity, store the time in a local string state (e.g. "12:00 AM")
   const [timeString, setTimeString] = React.useState("12:00 AM");
@@ -84,6 +87,7 @@ export function TimePicker({
           <AnalogDigitalTimePicker
             value={timeString}
             onChange={(newVal) => setTimeString(newVal)}
+            isToday={isToday}
           />
         </div>
       </div>
@@ -316,6 +320,7 @@ export function SessionSchedulerModal({
             userName={userName}
             sessionDuration={durationLabel}
             date={dateLabel}
+            isToday={selectedDay === 'Today'}
             onSelect={(time) => {
               setSelectedTime(time)
               setStep(3)

@@ -1,5 +1,11 @@
-//Time-Picker.tsx
-import React, { useState, useEffect, useRef, ChangeEvent } from "react";
+// Time-Picker.tsx
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  ChangeEvent,
+  MouseEvent as ReactMouseEvent,
+} from "react";
 
 interface ParsedTime {
   hour: number;
@@ -12,6 +18,11 @@ interface AnalogDigitalTimePickerProps {
   value: string;
   /** Called whenever the user changes the time. Returns the same format as `value`. */
   onChange: (newTime: string) => void;
+  /**
+   * If true, the component will preset to the current time
+   * and disallow setting any time in the past (clamp if needed).
+   */
+  isToday?: boolean;
 }
 
 /** Utility to pad single digits (e.g. 3 => "03"). */
@@ -29,6 +40,7 @@ function parseTimeString(str: string): ParsedTime | null {
   let minute = parseInt(match[2], 10);
   let period = (match[3] || "").toUpperCase() || "AM";
 
+  // Bound check
   if (hour < 1) hour = 1;
   if (hour > 12) hour = 12;
   if (minute < 0) minute = 0;
@@ -43,6 +55,20 @@ function formatTime(hour: number, minute: number, period: "AM" | "PM"): string {
 }
 
 /**
+ * Convert a (12-hour-based) hour, minute, period => total minutes since midnight in 24-hour space.
+ * e.g. (1, 30, 'PM') => 13*60 + 30 => 810.
+ */
+function to24HrMinutes(h: number, m: number, p: "AM" | "PM"): number {
+  let hour24 = h;
+  if (p === "AM" && hour24 === 12) {
+    hour24 = 0; // 12:xx AM is 00:xx
+  } else if (p === "PM" && hour24 < 12) {
+    hour24 += 12;
+  }
+  return hour24 * 60 + m;
+}
+
+/**
  * Compute the rotation angle (in degrees) for the clock hand.
  * - For hours: each hour is 30°
  * - For minutes: each minute is 6°
@@ -50,14 +76,14 @@ function formatTime(hour: number, minute: number, period: "AM" | "PM"): string {
 function calcHandAngle(value: number, mode: "hour" | "minute"): number {
   if (mode === "hour") {
     return (value % 12) * 30;
-  } else {
-    return (value % 60) * 6;
   }
+  return (value % 60) * 6;
 }
 
 export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = ({
   value,
-  onChange
+  onChange,
+  isToday = false,
 }) => {
   // Parse the initial time string to internal hour/minute/period state:
   const parsed = parseTimeString(value) || { hour: 12, minute: 0, period: "AM" };
@@ -74,12 +100,65 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
   // Current clock hand angle in degrees:
   const [handAngle, setHandAngle] = useState<number>(0);
 
-  // Timer ref for reverting hour hand:
+  // Timer ref for reverting hour hand after a click:
   const revertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // For dragging the minute hand:
+  // For dragging the clock hand:
   const clockFaceRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<boolean>(false);
+
+  /**
+   * If isToday is true and the user attempts to set a time in the past,
+   * we clamp them to the current system time (and period).
+   */
+  function clampToNowIfPast(
+    rawHour: number,
+    rawMinute: number
+  ): { hour: number; minute: number; period: "AM" | "PM" } {
+    if (!isToday) {
+      // Not "today"? No clamping
+      return { hour: rawHour, minute: rawMinute, period };
+    }
+
+    const now = new Date();
+    let nowHour = now.getHours();
+    let nowMin = now.getMinutes();
+    let nowPeriod: "AM" | "PM" = nowHour >= 12 ? "PM" : "AM";
+
+    // Convert now to 12-hour form
+    nowHour = nowHour % 12;
+    if (nowHour === 0) nowHour = 12;
+
+    const nowTotal = to24HrMinutes(nowHour, nowMin, nowPeriod);
+    const chosenTotal = to24HrMinutes(rawHour, rawMinute, period);
+
+    if (chosenTotal < nowTotal) {
+      // Clamp to the current time, including the period
+      return {
+        hour: nowHour,
+        minute: nowMin,
+        period: nowPeriod,
+      };
+    }
+    // Otherwise, user’s chosen time is fine
+    return { hour: rawHour, minute: rawMinute, period };
+  }
+
+  // On mount, if today is selected, preset to the current time:
+  useEffect(() => {
+    if (isToday) {
+      const now = new Date();
+      let currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentPeriod = currentHour >= 12 ? "PM" : "AM";
+      currentHour = currentHour % 12;
+      if (currentHour === 0) currentHour = 12;
+      setHour(currentHour);
+      setMinute(currentMinute);
+      setPeriod(currentPeriod);
+      setHandAngle(calcHandAngle(currentHour, "hour"));
+    }
+  }, [isToday]);
 
   // Whenever hour/minute/period changes, update text input and fire onChange upward:
   useEffect(() => {
@@ -92,9 +171,10 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
   useEffect(() => {
     return () => {
       if (revertTimerRef.current) clearTimeout(revertTimerRef.current);
-      // remove event listeners if user unmounts mid-drag
       document.removeEventListener("mousemove", handleMinuteDrag);
       document.removeEventListener("mouseup", handleMinuteDragEnd);
+      document.removeEventListener("mousemove", handleHourDrag);
+      document.removeEventListener("mouseup", handleHourDragEnd);
     };
   }, []);
 
@@ -102,17 +182,28 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
   function handleTimeStringChange(e: ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
     setTimeString(val);
+
     const parsedTime = parseTimeString(val);
     if (parsedTime) {
-      setHour(parsedTime.hour);
-      setMinute(parsedTime.minute);
-      setPeriod(parsedTime.period);
+      // Possibly clamp
+      const clamped = clampToNowIfPast(parsedTime.hour, parsedTime.minute);
+      setHour(clamped.hour);
+      setMinute(clamped.minute);
+      setPeriod(clamped.period);
     }
   }
 
   /** Toggle AM ↔ PM. */
   function togglePeriod() {
-    setPeriod((prev) => (prev === "AM" ? "PM" : "AM"));
+    // If user toggles period, we should clamp as well
+    const newP = period === "AM" ? "PM" : "AM";
+    setPeriod(newP);
+
+    // Possibly clamp the new time
+    const clamped = clampToNowIfPast(hour, minute);
+    setHour(clamped.hour);
+    setMinute(clamped.minute);
+    setPeriod(clamped.period);
   }
 
   // Hour or minute labels:
@@ -125,15 +216,21 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
   const centerX = 100;
   const centerY = 100;
 
-  /** Clicking on clock-face labels. */
+  // Clicking on clock-face labels:
   function handleClockClick(value: number) {
     if (mode === "hour") {
       if (revertTimerRef.current) {
         clearTimeout(revertTimerRef.current);
         revertTimerRef.current = null;
       }
-      setHour(value);
-      const angle = calcHandAngle(value, "hour");
+      // Attempt to set hour => clamp
+      const clamped = clampToNowIfPast(value, minute);
+      setHour(clamped.hour);
+      setMinute(clamped.minute);
+      setPeriod(clamped.period);
+
+      // Update angle based on final clamped hour
+      const angle = calcHandAngle(clamped.hour, "hour");
       setHandAngle(angle);
 
       // After 1.5s, revert hand to 12:00 and switch to minutes
@@ -144,28 +241,66 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
       }, 1500);
     } else {
       // minute mode
-      setMinute(value);
-      const angle = calcHandAngle(value, "minute");
+      const clamped = clampToNowIfPast(hour, value);
+      setHour(clamped.hour);
+      setMinute(clamped.minute);
+      setPeriod(clamped.period);
+
+      // Update angle based on final clamped minute
+      const angle = calcHandAngle(clamped.minute, "minute");
       setHandAngle(angle);
     }
   }
 
   // --- DRAGGING THE MINUTE HAND ---
-
-  /** React’s synthetic event on <div onMouseDown> */
-  function handleMinuteDragStart(e: React.MouseEvent<HTMLDivElement>) {
+  function handleMinuteDragStart(e: ReactMouseEvent<HTMLDivElement>) {
     if (mode !== "minute") return;
     draggingRef.current = true;
     e.preventDefault();
-    // For the real DOM's mousemove/mouseup:
     document.addEventListener("mousemove", handleMinuteDrag);
     document.addEventListener("mouseup", handleMinuteDragEnd);
   }
 
-  /** Native mousemove event, from addEventListener. */
   function handleMinuteDrag(e: MouseEvent) {
     if (!draggingRef.current || !clockFaceRef.current) return;
+    const rect = clockFaceRef.current.getBoundingClientRect();
+    const cx = rect.left + centerX;
+    const cy = rect.top + centerY;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
 
+    let angleDeg = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+    if (angleDeg < 0) angleDeg += 360;
+    const newMinute = Math.round(angleDeg / 6) % 60;
+
+    // Now clamp
+    const clamped = clampToNowIfPast(hour, newMinute);
+    setHour(clamped.hour);
+    setMinute(clamped.minute);
+    setPeriod(clamped.period);
+
+    // Recalculate the angle from the final clamped minute:
+    const finalAngle = calcHandAngle(clamped.minute, "minute");
+    setHandAngle(finalAngle);
+  }
+
+  function handleMinuteDragEnd() {
+    draggingRef.current = false;
+    document.removeEventListener("mousemove", handleMinuteDrag);
+    document.removeEventListener("mouseup", handleMinuteDragEnd);
+  }
+
+  // --- DRAGGING THE HOUR HAND ---
+  function handleHourDragStart(e: ReactMouseEvent<HTMLDivElement>) {
+    if (mode !== "hour") return;
+    draggingRef.current = true;
+    e.preventDefault();
+    document.addEventListener("mousemove", handleHourDrag);
+    document.addEventListener("mouseup", handleHourDragEnd);
+  }
+
+  function handleHourDrag(e: MouseEvent) {
+    if (!draggingRef.current || !clockFaceRef.current) return;
     const rect = clockFaceRef.current.getBoundingClientRect();
     const cx = rect.left + centerX;
     const cy = rect.top + centerY;
@@ -174,21 +309,51 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
     let angleDeg = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
     if (angleDeg < 0) angleDeg += 360;
 
-    const newMinute = Math.round(angleDeg / 6) % 60;
-    setMinute(newMinute);
-    setHandAngle(newMinute * 6);
+    // Snap to the nearest 30° => hour increments
+    const snappedAngle = Math.round(angleDeg / 30) * 30;
+    let newHour = (snappedAngle / 30) % 12;
+    if (newHour === 0) newHour = 12;
+
+    // Clamp
+    const clamped = clampToNowIfPast(newHour, minute);
+    setHour(clamped.hour);
+    setMinute(clamped.minute);
+    setPeriod(clamped.period);
+
+    // Recalc final angle from final clamped hour
+    const finalAngle = calcHandAngle(clamped.hour, "hour");
+    setHandAngle(finalAngle);
   }
 
-  /** Native mouseup event, from addEventListener. */
-  function handleMinuteDragEnd() {
+  function handleHourDragEnd() {
     draggingRef.current = false;
-    document.removeEventListener("mousemove", handleMinuteDrag);
-    document.removeEventListener("mouseup", handleMinuteDragEnd);
+    document.removeEventListener("mousemove", handleHourDrag);
+    document.removeEventListener("mouseup", handleHourDragEnd);
   }
 
-  // Clock-hand geometry:
-  const handWidth = 2;
-  const handHeight = 70;
+  // Compute a gray arc for “past” shading when today is selected.
+  // (Unchanged from your version. We leave it as-is.)
+  let grayArc = null;
+  if (isToday) {
+    const now = new Date();
+    let nowHour = now.getHours();
+    nowHour = nowHour % 12;
+    if (nowHour === 0) nowHour = 12;
+    const currentHourAngle = calcHandAngle(nowHour, "hour");
+    if (currentHourAngle > 0) {
+      const shadingRadius = radius;
+      const startX = centerX;
+      const startY = centerY - shadingRadius;
+      const endAngleRad = (currentHourAngle * Math.PI) / 180;
+      const endX = centerX + shadingRadius * Math.sin(endAngleRad);
+      const endY = centerY - shadingRadius * Math.cos(endAngleRad);
+      const largeArcFlag = currentHourAngle > 180 ? 1 : 0;
+      const arcPath = `M ${centerX} ${centerY}
+        L ${startX} ${startY}
+        A ${shadingRadius} ${shadingRadius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
+      grayArc = <path d={arcPath} fill="lightgray" opacity={0.5} />;
+    }
+  }
 
   return (
     <div
@@ -236,6 +401,8 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
           height={200}
           style={{ border: "1px solid lightgray", borderRadius: "50%" }}
         >
+          {/* Render gray shading if today is selected */}
+          {grayArc}
           {/* Center pivot dot */}
           <circle cx={centerX} cy={centerY} r={2} fill="black" />
           {/* Hour or Minute labels */}
@@ -244,6 +411,7 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
             const rad = (deg * Math.PI) / 180;
             const x = centerX + radius * Math.sin(rad);
             const y = centerY - radius * Math.cos(rad);
+
             return (
               <text
                 key={val}
@@ -261,20 +429,22 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
           })}
         </svg>
 
-        {/* Red clock hand (drag to set minute) */}
+        {/* Clock hand (draggable for both modes) */}
         <div
-          onMouseDown={handleMinuteDragStart}
+          onMouseDown={
+            mode === "minute" ? handleMinuteDragStart : handleHourDragStart
+          }
           style={{
             position: "absolute",
-            left: `${centerX - handWidth / 2}px`,
-            top: `${centerY - handHeight}px`,
-            width: `${handWidth}px`,
-            height: `${handHeight}px`,
+            left: `${centerX - 1}px`,
+            top: `${centerY - 70}px`,
+            width: "2px",
+            height: "70px",
             backgroundColor: "red",
-            transformOrigin: "calc(50% + 2px) calc(100% + 2px)",
+            transformOrigin: "50% 100%",
             transform: `rotate(${handAngle}deg)`,
             transition: draggingRef.current ? "none" : "transform 0.2s ease-out",
-            cursor: mode === "minute" ? "pointer" : "default",
+            cursor: mode === "minute" ? "pointer" : "grab",
           }}
         />
       </div>
