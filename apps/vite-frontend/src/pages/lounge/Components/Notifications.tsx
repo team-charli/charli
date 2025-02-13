@@ -9,8 +9,9 @@ interface NotificationsProps {
 }
 
 const Notifications = ({ notifications }: NotificationsProps) => {
+  const activeNotifications = notifications.filter(n => !n.isExpired);
 
-  const sortedNotifications = notifications
+  const sortedNotifications = activeNotifications
   .sort((a, b) => getSignificantDate(b).getTime() - getSignificantDate(a).getTime());
 
   return (
