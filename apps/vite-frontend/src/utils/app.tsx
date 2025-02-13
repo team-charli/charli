@@ -275,5 +275,16 @@ export async function handledExpiredTokens(queryClient: QueryClient) {
 
   //Navigate to login
   router.navigate({ to: "/login" })
-
 }
+
+export const getCountryEmoji = (teachingLang: string): string => {
+  if (teachingLang.toLowerCase().includes("mexico")) {
+    return "🇲🇽";
+  }
+  return "";
+};
+
+export const cleanLangString = (teachingLang: string): string => {
+  // Remove any trailing parentheses and their contents.
+  return teachingLang.replace(/\s*\(.*\)$/, "");
+};
