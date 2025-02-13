@@ -4,6 +4,7 @@ import {Link, useNavigate} from '@tanstack/react-router';
 import { useGenerateHuddleAccessToken } from '../../hooks/QueriesMutations/useGenerateHuddleAccessToken';
 import { useLocalizeAndFormatDateTime } from '@/utils/hooks/utils/useLocalizeAndFormatDateTime';
 import { useMediaPermissions } from '@/Huddle/useMediaPermissions';
+import { cleanLangString, getCountryEmoji } from '@/utils/app';
 
 interface ConfirmedTeachingSessionProps {
   notification: NotificationIface;
@@ -16,6 +17,10 @@ const ConfirmedTeachingSession = ({ notification: sessionData }: ConfirmedTeachi
   const navigate = useNavigate({ from: '/lounge' });
   const { requestPermissions } = useMediaPermissions();
   const { generateAccessToken, isLoading } = useGenerateHuddleAccessToken();
+
+  const countryEmoji = getCountryEmoji(sessionData.teaching_lang);
+  // Remove the country part from the language string (e.g., remove " (Mexico)")
+  const languageDisplay = cleanLangString(sessionData.teaching_lang);
 
   const handleClick = async (event: any) => {
     event.preventDefault();
@@ -64,7 +69,7 @@ const ConfirmedTeachingSession = ({ notification: sessionData }: ConfirmedTeachi
           </Link>
         ) : (
             <div className="flex items-center gap-2 bg-yellow-300 w-1/2 border-2 border-neutral-700 px-2 py-1">
-              {`Confirmed: Teaching ${sessionData.learnerName} in ${sessionData.teaching_lang} on ${displayLocalDate} at ${displayLocalTime}`}
+              {`Confirmed: Teaching ${sessionData.learnerName} in ${languageDisplay} ${countryEmoji} on ${displayLocalDate} at ${displayLocalTime}`}
             </div>
           )}
       </div>
