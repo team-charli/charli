@@ -18,7 +18,9 @@ export const useLocalizeAndFormatDateTime = (reqTimeDate: string | null | undefi
 
   useEffect(() => {
     if (reqTimeDate?.length) {
-      const isoDateString = reqTimeDate.replace(' ', 'T') + 'Z';
+      console.log("Raw DB Timestamp Received:", reqTimeDate);
+
+      const isoDateString = reqTimeDate.includes("Z") ? reqTimeDate : reqTimeDate.replace(" ", "T") + "Z";
       const date = new Date(isoDateString);
 
       // Update both the detailed object and the dateTime string

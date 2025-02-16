@@ -4,7 +4,6 @@ import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
 import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
 import { useSignInSupabaseQuery } from './SupabaseClient/useSignInSupabaseQuery';
 import { useCallback, useEffect, useMemo, useReducer } from "react";
-import { router } from "@/TanstackRouter/router"
 import { persister, authChainLogger } from "@/App"
 import { usePersistedAuthDataQuery } from "./LitAuth/usePersistedAuthDataQuery";
 import { UseQueryResult } from "@tanstack/react-query";
@@ -30,7 +29,7 @@ export const useAuthChain = () => {
     queryKey: ['authMethod'],
 
     enabledDeps: (
-      // EITHER we have sign-in redirect data (the user just came back from Google)
+      // either we have sign-in redirect data (the user just came back from Google)
       (signinRedirectQuery.isSuccess && !!signinRedirectQuery.data)
 
         // OR we have a successful front-of-chain check (meaning we had persisted data and it wasn’t expired)

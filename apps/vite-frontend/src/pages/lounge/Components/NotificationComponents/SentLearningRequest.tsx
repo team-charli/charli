@@ -1,6 +1,5 @@
 //SentLearningRequest.tsx
 import { NotificationIface } from "@/types/types";
-import { Button } from '@headlessui/react';
 import { useLocalizeAndFormatDateTime } from '@/utils/hooks/utils/useLocalizeAndFormatDateTime';
 import { getCountryEmoji, cleanLangString } from '@/utils/app';
 
@@ -12,8 +11,8 @@ const SentLearningRequest = ({ notification }: NotificationComponentProps) => {
   const { localTimeAndDate } = useLocalizeAndFormatDateTime(notification.request_time_date);
 
   const countryEmoji = getCountryEmoji(notification.teaching_lang);
-  // Remove the country part from the language string (e.g., remove " (Mexico)")
   const languageDisplay = cleanLangString(notification.teaching_lang);
+  console.log('rendered SentLearningRequest notification text', `${notification.teacherName} for ${languageDisplay} ${countryEmoji} at ${localTimeAndDate.displayLocalDate}, ${localTimeAndDate.displayLocalTime}`)
 
   return (
     <div className="grid grid-cols-3">

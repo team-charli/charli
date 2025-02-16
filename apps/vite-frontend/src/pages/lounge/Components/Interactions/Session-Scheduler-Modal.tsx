@@ -64,6 +64,8 @@ export interface TimePickerProps {
   date: string;
   onSelect: (timeString: string) => void;
   isToday?: boolean;
+  value: string;
+  onTimeChange: (newVal: string) => void;
 }
 
 export function TimePicker({
@@ -71,10 +73,11 @@ export function TimePicker({
   sessionDuration,
   date,
   onSelect,
-  isToday
+  isToday,
+  value,
+  onTimeChange,
 }: TimePickerProps) {
   // For simplicity, store the time in a local string state (e.g. "12:00 AM")
-  const [timeString, setTimeString] = React.useState("12:00 AM");
   const [hasSeenMinute, setHasSeenMinute] = React.useState(false);
 
   const [forceMinute, setForceMinute] = React.useState(false);
@@ -84,16 +87,14 @@ export function TimePicker({
       <div className="space-y-2">
         <div className="flex flex-col items-center gap-4">
           <AnalogDigitalTimePicker
-            value={timeString}
-            onChange={(newVal) => setTimeString(newVal)}
+            value={value}
+            onChange={onTimeChange}
             isToday={isToday}
             forceMinute={forceMinute} // NEW: pass the “force minute” flag
             onModeChange={(newMode) => {
-              // If user flips to minute mode, we mark that they’ve seen it.
               if (newMode === "minute") {
                 setHasSeenMinute(true);
               }
-              // Once we’ve forced minute mode, clear the flag:
               setForceMinute(false);
             }}
           />
@@ -101,7 +102,7 @@ export function TimePicker({
       </div>
 
       <p className="text-lg">
-        Charli with {userName} at <strong>{timeString}</strong> on {date} for {sessionDuration}
+        Charli with {userName} at <strong>{value}</strong> on {date} for {sessionDuration}
       </p>
 
       <div className="flex justify-end">
@@ -112,11 +113,11 @@ export function TimePicker({
               setForceMinute(true);
               return;
             }
-            // Otherwise, proceed as usual
-            onSelect(timeString);
+            // Otherwise, if they’ve already seen minute mode, proceed:
+            console.log("final timeString which will be submitted to db", value);
+            onSelect(value);
           }}
           className="rounded-full bg-[#6B5B95] text-white hover:bg-[#5d4f82]"
-
         >
           Next
         </Button>
@@ -230,8 +231,8 @@ function ConfirmSession({ userName, date, sessionDuration, daiAmount, onConfirm 
           disabled={confirmDisabled}
           onClick={async () => {
             setConfirmDisabled(true);
-             await onConfirm();
-           }}
+            await onConfirm();
+          }}
           className="rounded-full bg-[#6B5B95] text-white hover:bg-[#5d4f82]"
         >
           Confirm
@@ -320,8 +321,6 @@ export function SessionSchedulerModal({
       default: return "When?"
     }
   }
-  //TODO: handle X reset state.
-  // Which screen to render
   const renderScreen = () => {
     switch (step) {
       case 1:
@@ -341,8 +340,10 @@ export function SessionSchedulerModal({
             sessionDuration={durationLabel}
             date={dateLabel}
             isToday={selectedDay === 'Today'}
+            value={selectedTime || "12:00 AM"}
+            onTimeChange={(newVal) => setSelectedTime(newVal)}
             onSelect={(time) => {
-              setSelectedTime(time)
+              setSelectedTime(time) // safe to re-assign
               setStep(3)
             }}
           />

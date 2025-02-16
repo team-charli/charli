@@ -20,7 +20,7 @@ export const useIsSignInRedirectQuery = (params?: IsSignInRedirectParams) => {
       const hasTokens = window.location.hash.includes('access_token') && window.location.hash.includes('id_token');
       if (hasTokens) {
         const authData = extractTokensFromHash(window.location.hash);
-        console.log('window.location.hash', window.location.hash)
+        //console.log('window.location.hash', window.location.hash)
         if (authData) {
           authChainLogger.info("1b: finish isSignInRedirect query - Tokens extracted");
           return authData;

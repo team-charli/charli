@@ -77,6 +77,7 @@ const SessionsProvider = ({ children }: { children: React.ReactNode }) => {
             return;
           }
           const baseSession: Session = payload.new;
+          console.log("source time data direct from db", baseSession.confirmed_time_date)
           const { teacherName, learnerName } = await fetchLearnersAndTeachers(supabaseClient, baseSession);
           const extendedSession: ExtendedSession = {
             ...baseSession,

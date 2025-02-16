@@ -6,7 +6,7 @@ import { useLearningRequestMutations } from "../hooks/useLearningRequestMutation
 import { useLearningRequestState } from "../hooks/useLearningRequestState";
 import { waitForTransaction } from "../utils/waitForTx";
 import { useEncryptLearnerAddress } from "../hooks/useEncryptLearnerAddress";
-import { DialogTrigger, Dialog } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { SessionSchedulerModal } from "./Interactions/Session-Scheduler-Modal";
 interface UserItemProps {
   userName: string;
@@ -53,6 +53,8 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
 
           if (txInfoObj.txStatus === "reverted" || txInfoObj.txStatus === "failed") throw new Error("halted submit on permitTx reverted || failed")
         }
+        console.log("Selected DateTime Before Submission (local):", dateTime);
+
         await submitLearningRequestToDb.mutateAsync({
           dateTime,
           teacherID: userID,

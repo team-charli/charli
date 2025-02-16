@@ -1,64 +1,62 @@
 // useLearningRequestState.tsx
-import { BigNumberish, ethers } from "ethers";
-import { useMemo, useState } from "react";
-import { usePreCalculateTimeDate } from "./usePreCalculateTimeDate";
 
-/**
- * A dictionary from user-facing text to an integer minute count.
- * Adjust or expand as needed.
- */
+import { useEffect, useMemo, useState } from "react"
+import { BigNumberish, ethers } from "ethers"
+import { formatDateTimeLocal } from "@/utils/app"
+import { usePreCalculateTimeDate } from "./usePreCalculateTimeDate"
+
 const DURATION_MAP: Record<string, number> = {
   "1 hour": 60,
   "45 minutes": 45,
   "30 minutes": 30,
   "20 minutes": 20,
-  // Possibly "custom" => 20, or any fallback you desire
   custom: 20,
-};
+}
+
+function combineDayAndTime(day: string, timeStr: string): Date {
+  const now = new Date()
+  if (day === "Tomorrow") now.setDate(now.getDate() + 1)
+  if (day !== "Today" && day !== "Tomorrow") {
+    // optionally handle Sunday/Monday, etc.; else do nothing
+  }
+  const parts = timeStr.trim().match(/^(\d{1,2}):(\d{1,2})\s?(AM|PM)?$/i)
+  if (!parts) return now
+  let hour = parseInt(parts[1], 10)
+  const minute = parseInt(parts[2], 10)
+  const period = (parts[3] || "AM").toUpperCase()
+  if (period === "PM" && hour < 12) hour += 12
+  if (period === "AM" && hour === 12) hour = 0
+  now.setHours(hour, minute, 0, 0)
+  return now
+}
 
 export const useLearningRequestState = () => {
-  const [toggleDateTimePicker, setToggleDateTimePicker] = useState(false);
+  const [toggleDateTimePicker, setToggleDateTimePicker] = useState(false)
+  const [sessionLengthInputValue, setSessionLengthInputValue] = useState("20")
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [schedulerStep, setSchedulerStep] = useState(1)
+  const [renderSubmitConfirmation, setRenderSubmitConfirmation] = useState(false)
 
-  // Keep a string-based value so other files remain unchanged:
-  const [sessionLengthInputValue, setSessionLengthInputValue] = useState<string>("20");
-
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [schedulerStep, setSchedulerStep] = useState<number>(1);
-  const [renderSubmitConfirmation, setRenderSubmitConfirmation] = useState(false);
-
-  /**
-   * Convert the user’s string (e.g. "1 hour", "45 minutes", "20 minutes") to numeric minutes.
-   *  - If we have a match in our dictionary (DURATION_MAP), use it.
-   *  - Otherwise, parseInt(...) for a numeric fallback (e.g. "20" => 20).
-   *  - If unparseable => default to 20 or 0.
-   */
   const sessionDuration = useMemo(() => {
-    const lower = sessionLengthInputValue.toLowerCase().trim();
+    const lower = sessionLengthInputValue.toLowerCase().trim()
+    if (DURATION_MAP[lower] !== undefined) return DURATION_MAP[lower]
+    const numeric = parseInt(lower, 10)
+    if (!isNaN(numeric)) return numeric
+    return 20
+  }, [sessionLengthInputValue])
 
-    // 1) Check dictionary first:
-    if (DURATION_MAP[lower] !== undefined) {
-      return DURATION_MAP[lower];
-    }
-
-    // 2) Otherwise attempt parseInt (e.g. "20" => 20, "45" => 45)
-    const numeric = parseInt(lower, 10);
-    if (!isNaN(numeric)) {
-      return numeric;
-    }
-
-    // 3) Fallback if parse fails
-    return 20;
-  }, [sessionLengthInputValue]);
-
-  // cost = minutes × 0.3 -> parse to 18 decimals for on-chain usage:
   const amountDai: BigNumberish = useMemo(() => {
-    const cost = sessionDuration * 0.3;
-    // e.g. 60 minutes => 60 × 0.3 => 18.0 => parseUnits("18.0", 18)
-    return ethers.parseUnits(String(cost), 18);
-  }, [sessionDuration]);
+    return ethers.parseUnits(String(sessionDuration * 0.3), 18)
+  }, [sessionDuration])
 
-  const { dateTime, setDateTime } = usePreCalculateTimeDate();
+  const { dateTime, setDateTime } = usePreCalculateTimeDate()
+
+  useEffect(() => {
+    if (!selectedDay || !selectedTime) return
+    const merged = combineDayAndTime(selectedDay, selectedTime)
+    setDateTime(formatDateTimeLocal(merged))
+  }, [selectedDay, selectedTime, setDateTime])
 
   return {
     toggleDateTimePicker,
@@ -69,21 +67,13 @@ export const useLearningRequestState = () => {
     setSelectedDay,
     selectedTime,
     setSelectedTime,
-
-    // Keep the same name and type so your existing code won't break:
     sessionLengthInputValue,
     setSessionLengthInputValue,
-
     renderSubmitConfirmation,
     setRenderSubmitConfirmation,
-
     dateTime,
     setDateTime,
-
-    // Final integer minutes for that string
     sessionDuration,
-
-    // On-chain cost in DAI (BigNumber)
     amountDai,
-  };
-};
+  }
+}

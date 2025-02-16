@@ -19,7 +19,7 @@ export const usePersistedAuthDataQuery = (): UseQueryResult<AuthData | null, Err
 
             if (authMethodType && accessToken) {
               if (authMethodType === 6) {
-                return { provider: "googleJwt", idToken: accessToken };
+                return { provider: "googleJwt", idToken: accessToken, accessToken };
               }
             } else {
               console.error('Missing authMethodType or accessToken in persisted data', parsedAuthMethod.state.data);
