@@ -1,112 +1,116 @@
 ///Users/zm/Projects/charli/apps/supabase/functions/get-controller-key-claim-data/index.ts
-import { Hono } from 'jsr:@hono/hono';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-import { ethers } from "https://esm.sh/ethers@5.7.0";
-import { LitNodeClientNodeJs } from 'https://esm.sh/@lit-protocol/lit-node-client-nodejs@7';
-import { LitContracts } from "https://esm.sh/@lit-protocol/contracts-sdk@6";
-import { LitActionResource, createSiweMessageWithRecaps, LitAbility } from "https://esm.sh/@lit-protocol/auth-helpers@6";
-import { corsHeaders } from '../_shared/cors.ts';
-const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY_MINT_CONTROLLER_PKP") ?? "";
-const LIT_NETWORK = Deno.env.get("LIT_NETWORK") ?? "datil-dev";
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+import { Hono } from 'jsr:@hono/hono'
+import { cors } from 'jsr:@hono/hono/cors'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js'
+import { ethers } from 'https://esm.sh/ethers@5.7.0'
+import { LitNodeClientNodeJs } from 'https://esm.sh/@lit-protocol/lit-node-client-nodejs@7'
+import { LitContracts } from 'https://esm.sh/@lit-protocol/contracts-sdk@6'
+import { LitActionResource, createSiweMessageWithRecaps, LitAbility } from 'https://esm.sh/@lit-protocol/auth-helpers@6'
+
+/** ENV & SUPABASE SETUP **/
+const PRIVATE_KEY = Deno.env.get('PRIVATE_KEY_MINT_CONTROLLER_PKP') ?? ''
+const LIT_NETWORK = Deno.env.get('LIT_NETWORK') ?? 'datil-dev'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: {
-    persistSession: false
-  }
-});
-// Create the Hono app
-const app = new Hono();
-// Attach CORS headers globally
-app.use('*', async (c, next) => {
-  for (const [key, value] of Object.entries(corsHeaders)) {
-    c.header(key, value);
-  }
-  await next();
-});
+  auth: { persistSession: false },
+})
 
-// Handle OPTIONS preflight request
-app.options('/get-controller-key-claim-data', (c) => {
-  // Return 204 No Content for OPTIONS
-  c.status(204);
-  return c.body(null);
-});
-// Main route
-// Signature interface
+/** SIGNATURE INTERFACE **/
 interface Signature {
-  r: string;
-  s: string;
-  v: number;
+  r: string
+  s: string
+  v: number
 }
 
-// Body parameters interface for the POST request
+/** REQUEST BODY INTERFACE **/
 interface RequestBody {
-  keyId: string;
-  learnerId: number;
+  keyId: string
+  learnerId: number
 }
 
-app.post('/get-controller-key-claim-data', async (c) => {
+/** CREATE HONO APP & BASE PATH **/
+const functionName = 'get-controller-key-claim-data'
+const app = new Hono().basePath(`/${functionName}`)
+
+/** SET UP CORS MIDDLEWARE **/
+app.use(
+  '*',
+  cors({
+    origin: '*',
+    allowMethods: ['POST', 'OPTIONS'],
+    allowHeaders: ['authorization', 'x-client-info', 'apikey', 'content-type'],
+  })
+)
+
+/** MAIN ROUTE: POST / **/
+app.post('/', async (c) => {
   try {
     // Parse body
-    const body: RequestBody = await c.req.json();
-    console.log("Request body:", body);
+    const body = (await c.req.json()) as RequestBody
+    console.log('Request body:', body)
+
     // Validate required fields
     if (!body.keyId) {
-      console.error("Missing keyId in request");
-      return c.json({
-        error: "Missing keyId in request"
-      }, 400);
+      console.error('Missing keyId in request')
+      return c.json({ error: 'Missing keyId in request' }, 400)
     }
     if (body.learnerId == null) {
-      console.error("Missing learnerId in request");
-      return c.json({
-        error: "Missing learnerId in request"
-      }, 400);
+      console.error('Missing learnerId in request')
+      return c.json({ error: 'Missing learnerId in request' }, 400)
     }
-    const provider = new ethers.providers.JsonRpcProvider("https://yellowstone-rpc.litprotocol.com");
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+
+    // Connect wallet
+    const provider = new ethers.providers.JsonRpcProvider('https://yellowstone-rpc.litprotocol.com')
+    const wallet = new ethers.Wallet(PRIVATE_KEY, provider)
+
     // Connect LitNodeClient
-    const litNodeClient = new LitNodeClientNodeJs({
-      litNetwork: LIT_NETWORK,
-      debug: false
-    });
-    await litNodeClient.connect();
+    const litNodeClient = new LitNodeClientNodeJs({ litNetwork: LIT_NETWORK, debug: false })
+    await litNodeClient.connect()
+
     // Obtain session signatures
-    const sessionSigs = await getSessionSigs(litNodeClient, wallet);
-    // Insert and retrieve controller key claim data
-    const controllerKeyClaimData = await getControllerKeyClaimData(body.keyId, body.learnerId, sessionSigs, litNodeClient, wallet);
+    const sessionSigs = await getSessionSigs(litNodeClient, wallet)
+
+    // Insert & retrieve controller key claim data
+    const controllerKeyClaimData = await getControllerKeyClaimData(
+      body.keyId,
+      body.learnerId,
+      sessionSigs,
+      litNodeClient,
+      wallet
+    )
+
     // Disconnect cleanly
-    await litNodeClient.disconnect();
-    console.log("Key Claim Complete. Returning Key Claim Data", {
-      result: controllerKeyClaimData
-    });
-    return c.json(controllerKeyClaimData, 200);
-  } catch (error) {
-    console.error("Unexpected error", {
-      error: error.message,
-      stack: error.stack
-    });
-    return c.json({
-      error: "Unexpected error occurred",
-      details: error.message
-    }, 500);
+    await litNodeClient.disconnect()
+
+    console.log('Key Claim Complete. Returning Key Claim Data', { result: controllerKeyClaimData })
+    return c.json(controllerKeyClaimData, 200)
+  } catch (error: any) {
+    console.error('Unexpected error', { error: error.message, stack: error.stack })
+    return c.json(
+      {
+        error: 'Unexpected error occurred',
+        details: error.message,
+      },
+      500
+    )
   }
-});
-// Helper function #1: getSessionSigs
+})
+
+/** HELPER #1: getSessionSigs **/
 async function getSessionSigs(litNodeClient: any, wallet: ethers.Wallet) {
-  // Hono doesn't change the logic; we just nest it in here
-const authNeededCallback = async ({
+  const authNeededCallback = async ({
     uri,
     expiration,
     resourceAbilityRequests,
   }: {
-    uri: string;
-    expiration: string;
-    resourceAbilityRequests: any[];
+    uri: string
+    expiration: string
+    resourceAbilityRequests: any[]
   }) => {
     if (!uri || !expiration || !resourceAbilityRequests) {
-      await litNodeClient.disconnect();
-      throw new Error("Missing required parameters");
+      await litNodeClient.disconnect()
+      throw new Error('Missing required parameters')
     }
     const toSign = await createSiweMessageWithRecaps({
       uri,
@@ -114,28 +118,30 @@ const authNeededCallback = async ({
       resources: resourceAbilityRequests,
       walletAddress: wallet.address,
       nonce: await litNodeClient.getLatestBlockhash(),
-      litNodeClient
-    });
-    const signature = await wallet.signMessage(toSign);
+      litNodeClient,
+    })
+    const signature = await wallet.signMessage(toSign)
     return {
       sig: signature,
-      derivedVia: "web3.eth.personal.sign",
+      derivedVia: 'web3.eth.personal.sign',
       signedMessage: toSign,
-      address: wallet.address
-    };
-  };
+      address: wallet.address,
+    }
+  }
+
   return await litNodeClient.getSessionSigs({
-    chain: "ethereum",
+    chain: 'ethereum',
     resourceAbilityRequests: [
       {
-        resource: new LitActionResource("*"),
-        ability: LitAbility.LitActionExecution
-      }
+        resource: new LitActionResource('*'),
+        ability: LitAbility.LitActionExecution,
+      },
     ],
-    authNeededCallback
-  });
+    authNeededCallback,
+  })
 }
-// Helper function #2: getControllerKeyClaimData
+
+/** HELPER #2: getControllerKeyClaimData **/
 async function getControllerKeyClaimData(
   keyId: string,
   learnerId: number,
@@ -144,105 +150,105 @@ async function getControllerKeyClaimData(
   wallet: ethers.Wallet
 ) {
   try {
-    await validateLearnerId(learnerId);
+    await validateLearnerId(learnerId)
+
     const contractClient = new LitContracts({
       signer: wallet,
       network: LIT_NETWORK,
-      debug: false
-    });
-    await contractClient.connect();
+      debug: false,
+    })
+    await contractClient.connect()
+
+    // Execute Lit Action
     const claimActionRes = await litNodeClient.executeJs({
       sessionSigs,
       code: `(async () => { Lit.Actions.claimKey({keyId}); })();`,
-      jsParams: {
-        keyId
-      }
-    });
+      jsParams: { keyId },
+    })
+
     if (claimActionRes && claimActionRes.claims) {
-      const derivedKeyId = claimActionRes.claims[keyId].derivedKeyId;
-      const rawControllerClaimKeySigs = claimActionRes.claims[keyId].signatures;
-      const condensedSigs = condenseSignatures(rawControllerClaimKeySigs);
+      const derivedKeyId = claimActionRes.claims[keyId].derivedKeyId
+      const rawControllerClaimKeySigs = claimActionRes.claims[keyId].signatures
+      const condensedSigs = condenseSignatures(rawControllerClaimKeySigs)
+
       try {
-        const publicKey = await contractClient.pubkeyRouterContract.read.getDerivedPubkey(contractClient.stakingContract.read.address, `0x${derivedKeyId}`);
-        // Prepare key_claim_data
+        const pubKey = await contractClient.pubkeyRouterContract.read.getDerivedPubkey(
+          contractClient.stakingContract.read.address,
+          `0x${derivedKeyId}`
+        )
+        const controllerAddress = ethers.utils.computeAddress(pubKey)
+
         const key_claim_data = {
           derivedKeyId,
-          condensedSigs
-        };
-        const controllerAddress = ethers.utils.computeAddress(publicKey);
-        const { data, error } = await supabaseClient.from('sessions').insert({
-          key_claim_data,
-          request_origin_type: 'learner',
-          learner_id: learnerId,
-          controller_public_key: publicKey,
-          controller_address: controllerAddress
-        }).select();
+          condensedSigs,
+        }
+
+        // Insert into 'sessions'
+        const { data, error } = await supabaseClient
+          .from('sessions')
+          .insert({
+            key_claim_data,
+            request_origin_type: 'learner',
+            learner_id: learnerId,
+            controller_public_key: pubKey,
+            controller_address: controllerAddress,
+          })
+          .select()
+
         if (error) {
-          console.error('Error updating data in Supabase:', error);
-          throw error;
+          console.error('Error updating data in Supabase:', error)
+          throw error
         }
         if (!data || data.length === 0) {
-          throw new Error('No data returned after insertion');
+          throw new Error('No data returned after insertion')
         }
-        const sessionId = data[0].session_id;
-        return {
-          publicKey,
-          sessionId
-        };
-      } catch (error) {
+        const sessionId = data[0].session_id
+
+        return { publicKey: pubKey, sessionId }
+      } catch (err) {
         console.error('Detailed error in insert:', {
-          message: error.message,
-          name: error.name,
-          cause: error.cause,
-          stack: error.stack,
-          ...error
-        });
-        throw error;
+          message: err.message,
+          name: err.name,
+          stack: err.stack,
+          ...err,
+        })
+        throw err
       }
     } else {
-      throw new Error("Claim action did not return expected results");
+      throw new Error('Claim action did not return expected results')
     }
-  } catch (error) {
-    console.log("Error in getControllerKeyClaimData", {
-      error: error.message,
-      stack: error.stack
-    });
-    await litNodeClient.disconnect();
-    throw error;
+  } catch (err) {
+    console.log('Error in getControllerKeyClaimData', { error: err.message, stack: err.stack })
+    await litNodeClient.disconnect()
+    throw err
   }
 }
-// Helper function #3: condenseSignatures
+
+/** HELPER #3: condenseSignatures **/
 function condenseSignatures(signatures: Signature[]): string[] {
-  return signatures.map((sig)=>{
+  return signatures.map((sig) => {
     // Pad v to 2 hex characters
-    const vHex = ethers.utils.hexZeroPad(ethers.utils.hexlify(sig.v), 1);
+    const vHex = ethers.utils.hexZeroPad(ethers.utils.hexlify(sig.v), 1)
     // Concatenate r, s, and v
-    const combined = sig.r + sig.s.slice(2) + vHex.slice(2);
+    const combined = sig.r + sig.s.slice(2) + vHex.slice(2)
     // Convert to Uint8Array and encode to Base64
-    return ethers.utils.base64.encode(ethers.utils.arrayify(combined));
-  });
+    return ethers.utils.base64.encode(ethers.utils.arrayify(combined))
+  })
 }
-// Add explicit validation of the learner_id
+
+/** Validate the learnerId **/
 async function validateLearnerId(learnerId: number) {
-  const { data, error } = await supabaseClient.from('user_data').select('id').eq('id', learnerId).single();
+  const { data, error } = await supabaseClient.from('user_data').select('id').eq('id', learnerId).single()
   if (error || !data) {
-    throw new Error('Invalid learner_id');
+    throw new Error('Invalid learner_id')
   }
 }
-// Final: Start the server
-Deno.serve(async (req)=>{
-  try {
-    return await app.fetch(req);
-  } catch (error) {
-    console.error("Error in request handler:", error);
-    return new Response(JSON.stringify({
-      error: error.message
-    }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
-    });
-  }
-});
+
+/** ERROR HANDLER (optional) **/
+app.onError((err, c) => {
+  console.error('Global error handler:', err)
+  return c.json({ error: err.message }, 500)
+})
+
+/** START THE SERVER **/
+Deno.serve(app.fetch)
