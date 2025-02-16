@@ -10,8 +10,9 @@ const DURATION_MAP: Record<string, number> = {
   "45 minutes": 45,
   "30 minutes": 30,
   "20 minutes": 20,
+  "2 minutes": 2,    // <--- TEST
   custom: 20,
-}
+};
 
 function combineDayAndTime(day: string, timeStr: string): Date {
   const now = new Date()

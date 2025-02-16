@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { AnalogDigitalTimePicker } from "./Time-Picker";
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 
 function DayPicker({ selectedDay, onSelect }: DayPickerProps) {
@@ -127,14 +128,88 @@ export function TimePicker({
 }
 
 
-function DurationPicker({ selectedDuration, onSelect }: DurationPickerProps) {
-  const durations = ["1 hour", "45 minutes", "30 minutes"]
-  const shorterRow = ["20 minutes", "Custom"]
+interface DurationPickerProps {
+  selectedDuration: string
+  onSelect: (duration: string) => void
+}
 
+export function DurationPicker({
+  selectedDuration,
+  onSelect,
+}: DurationPickerProps) {
+  // Standard production durations
+  const standardDurations = ["1 hour", "45 minutes", "30 minutes"]
+  // Second row
+  const secondRowDurations = ["20 minutes", "Custom"]
+  // Third row for “2 minutes” testing
+  const testRowDurations = ["2 minutes"]
+
+  // Local state for handling the custom input mode
+  const [showCustomInput, setShowCustomInput] = React.useState(false)
+  const [customMinutes, setCustomMinutes] = React.useState("20")
+  const [errorMessage, setErrorMessage] = React.useState("")
+
+  function handleCustomClick() {
+    setShowCustomInput(true)
+    setErrorMessage("")
+  }
+
+  function handleCustomSubmit() {
+    const numericVal = parseInt(customMinutes, 10)
+
+    // Validate numeric input:
+    if (isNaN(numericVal)) {
+      setErrorMessage("Please enter a valid number.")
+      return
+    }
+    if (numericVal < 20) {
+      setErrorMessage("Custom duration must be at least 20 minutes.")
+      return
+    }
+
+    // Clear errors and send numeric value back to parent
+    setErrorMessage("")
+    onSelect(String(numericVal))
+
+    // Hide the input & reset local state
+    setShowCustomInput(false)
+    setCustomMinutes("20")
+  }
+
+  // If "Custom" is clicked, render the input sub-view
+  if (showCustomInput) {
+    return (
+      <div className="flex flex-col gap-4 mt-4">
+        <p>Enter your custom duration in minutes (minimum 20):</p>
+        <div className="flex items-center space-x-2">
+          <Input
+            type="number"
+            value={customMinutes}
+            onChange={(e) => setCustomMinutes(e.target.value)}
+            className="w-[120px]"
+          />
+          <Button
+            onClick={handleCustomSubmit}
+            className="rounded-full bg-[#6B5B95] text-white hover:bg-[#5d4f82]"
+          >
+            Set Duration
+          </Button>
+        </div>
+        {errorMessage && (
+          <p className="text-red-500 text-sm mt-1">
+            {errorMessage}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  // Otherwise, show the three rows:
   return (
     <div className="flex flex-col gap-4 mt-4">
+      {/* Row 1 */}
       <div className="flex flex-col gap-3">
-        {durations.map((duration) => (
+        {standardDurations.map((duration) => (
           <Button
             key={duration}
             variant="ghost"
@@ -151,16 +226,53 @@ function DurationPicker({ selectedDuration, onSelect }: DurationPickerProps) {
 
       <Separator className="my-2 bg-gray-300" />
 
+      {/* Row 2 */}
       <div className="flex gap-3 justify-around">
-        {shorterRow.map((duration) => (
+        {secondRowDurations.map((duration) => {
+          if (duration === "Custom") {
+            return (
+              <Button
+                key={duration}
+                variant="ghost"
+                onClick={handleCustomClick}
+                className={cn(
+                  "h-12 px-6 rounded-full bg-[#6B5B95] text-lg font-normal text-white hover:bg-[#5d4f82]",
+                  selectedDuration === duration && "bg-[#5d4f82]"
+                )}
+              >
+                {duration}
+              </Button>
+            )
+          }
+          return (
+            <Button
+              key={duration}
+              variant="ghost"
+              onClick={() => onSelect(duration)}
+              className={cn(
+                "h-12 px-6 rounded-full bg-[#6B5B95] text-lg font-normal text-white hover:bg-[#5d4f82]",
+                selectedDuration === duration && "bg-[#5d4f82]"
+              )}
+            >
+              {duration}
+            </Button>
+          )
+        })}
+      </div>
+
+      <Separator className="my-2 bg-gray-300" />
+
+      {/* Row 3 (Test) */}
+      <div className="flex gap-3 justify-around">
+        {testRowDurations.map((duration) => (
           <Button
             key={duration}
             variant="ghost"
+            onClick={() => onSelect(duration)}
             className={cn(
               "h-12 px-6 rounded-full bg-[#6B5B95] text-lg font-normal text-white hover:bg-[#5d4f82]",
               selectedDuration === duration && "bg-[#5d4f82]"
             )}
-            onClick={() => onSelect(duration)}
           >
             {duration}
           </Button>
