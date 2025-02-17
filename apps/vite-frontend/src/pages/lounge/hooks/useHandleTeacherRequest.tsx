@@ -10,7 +10,7 @@ import { useExecuteTransferFromLearnerToController } from './LitActions/useExecu
 
 export const useHandleTeacherRequest = (
   notification: NotificationIface,
-  dateTime: string,
+  utcDateTime: string,
   setUiCondition: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>>
 ) => {
   const executeTransferFromLearnerToController = useExecuteTransferFromLearnerToController();
@@ -22,7 +22,6 @@ export const useHandleTeacherRequest = (
     teacherAddress = pkpWallet.address;
   }
   const { signSessionDuration, isLoading, isError, error } = useTeacherSignRequestedSessionDuration();
-
   const handleTeacherChoice = async (action: string) => {
     switch (action) {
       case 'accept':
@@ -92,15 +91,18 @@ export const useHandleTeacherRequest = (
           }
 
           console.log('Confirming teacher request in DB');
+          //await debugTeacherFlowNoSignIn(
+          //  supabaseClient,
+          //  notification.session_id
+          //)
           await teacherConfirmRequestDb(
             supabaseClient,
             setUiCondition,
-            dateTime,
+            utcDateTime,
             notification.session_id,
             currentAccount,
             hashedTeacherAddress
           );
-          console.log('Teacher request confirmed in DB');
 
         } catch (error: any) {
           console.error('Error in handleTeacherChoice (accept):', error);
@@ -129,7 +131,7 @@ export const useHandleTeacherRequest = (
 
   const handleSubmitChangeDateTime = async () => {
     try {
-      await teacherChangeDateTime(supabaseClient, dateTime);
+      await teacherChangeDateTime(supabaseClient, utcDateTime);
     } catch (error: any) {
       console.error('Error in handleSubmitChangeDateTime:', error);
       throw error;

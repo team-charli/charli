@@ -14,7 +14,7 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
 
   const { dateTime, setDateTime, localTimeAndDate: { displayLocalDate, displayLocalTime } } = useLocalizeAndFormatDateTime(notification.request_time_date);
 
-  const {handleTeacherChoice, handleRejectResponse, handleSubmitChangeDateTime} = useHandleTeacherRequest(notification, dateTime, setUiCondition);
+  const {handleTeacherChoice, handleRejectResponse, handleSubmitChangeDateTime} = useHandleTeacherRequest(notification, notification.request_time_date, setUiCondition);
 
   return (
     <div className="grid grid-cols-3">

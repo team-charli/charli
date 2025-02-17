@@ -243,7 +243,7 @@ export const useLearningRequestMutations = () => {
         .eq('session_id', sessionId)
         .select();
 
-      console.log('data', data)
+      console.log('data', JSON.stringify(data))
 
       if (error) throw error;
       return true;

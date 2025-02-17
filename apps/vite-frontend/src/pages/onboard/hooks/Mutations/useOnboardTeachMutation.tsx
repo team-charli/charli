@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Database } from '../../../supabaseTypes';
 import { useLitAccount, useSignInSupabase, useSupabaseClient } from '@/contexts/AuthContext';
+import { Database } from '@/supabaseTypes';
 
 type OnboardTeachVariables = {
   selectedLanguageCodes: number[];

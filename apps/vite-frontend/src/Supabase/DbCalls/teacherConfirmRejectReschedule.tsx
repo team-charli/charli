@@ -2,11 +2,11 @@ import { IRelayPKP } from "@lit-protocol/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Dispatch, SetStateAction } from "react";
 
-export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null | undefined, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, dateTime: string, session_id: number, currentAccount: IRelayPKP | null | undefined, hashedTeacherAddress: string | undefined) {
+
+export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null | undefined, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, utcDateTime: string, session_id: number, currentAccount: IRelayPKP | null | undefined, hashedTeacherAddress: string | undefined) {
   if (supabaseClient && currentAccount && hashedTeacherAddress) {
     try {
-      const dateObj = new Date(dateTime)
-      const utcDateTime = dateObj.toISOString();
+      console.log('insert confirmed_time_date: utcDateTime to be inserted', utcDateTime )
 
       const { error } = await supabaseClient
         .from('sessions')
@@ -14,6 +14,7 @@ export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient |
         .match({session_id})
         .select();
       if (!error) {
+        console.log("session confimred in db")
         setUiMode('confirmed');
       } else {
         console.error('Submission failed');

@@ -143,7 +143,6 @@ export const AnalogDigitalTimePicker: React.FC<AnalogDigitalTimePickerProps> = (
 
   // The text input & red clock-hand angle
   const [timeString, setTimeString] = useState(formatTime(hour, minute, period));
-  console.log("timeString inside the clocks component which is displayed", timeString)
 
   const [handAngle, setHandAngle] = useState(0);
 
