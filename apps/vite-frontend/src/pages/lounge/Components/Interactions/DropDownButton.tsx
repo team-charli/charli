@@ -38,7 +38,8 @@ const DropDownButton = ({ modeView, setModeView }: DropDownButtonProps) => {
                 <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
               </span>
             </ListboxButton>
-            <ListboxOptions anchor="bottom" className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+            <ListboxOptions className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm"
+            >
               {userGroups.map((group, groupIdx) => (
                 <ListboxOption
                   key={groupIdx}
