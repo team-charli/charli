@@ -4,17 +4,14 @@ import {
   IRelayPKP,
 } from '@lit-protocol/types';
 import {
-  GoogleProvider,
   DiscordProvider,
-  WebAuthnProvider,
 } from '@lit-protocol/lit-auth-client';
 import { litAuthClient } from './litClients';
-import { base64url } from 'jose';
-import crypto from 'crypto';
 
 import { AuthMethodType, ProviderType } from '@lit-protocol/constants';
 import {isDefined} from './app'
 import { encode } from '@lit-protocol/lit-auth-client/src/lib/utils';
+import { UnifiedAuth } from '@/types/types';
 export const DOMAIN = import.meta.env.VITE_PUBLIC_PROD_URL || 'localhost';
 export const PORT = 3000;
 export const ORIGIN = import.meta.env.VITE_PUBLIC_ENV === 'production'
@@ -35,7 +32,6 @@ export function isSocialLoginSupported(provider: string): boolean {
 //   await googleProvider.signIn();
 // }
 
-const LIT_LOGIN_GATEWAY = 'https://accounts.google.com/o/oauth2/v2/auth';
 
 const GOOGLE_OAUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 
@@ -174,4 +170,17 @@ export function getAuthMethodByProvider(provider: string): AuthMethodType {
 }
 
 
+
+/**
+ * Convert your UnifiedAuth to the simple AuthMethod object
+ * that Lit expects. Lit requires { authMethodType, accessToken }
+ */
+export function toLitAuthMethod(u: UnifiedAuth): AuthMethod {
+  return {
+    authMethodType: u.authMethodType,
+    // For Google, you said you put the real ID token in `litAccessToken`.
+    // If that might be null, provide a fallback string:
+    accessToken: u.litAccessToken ?? '',
+  };
+}
 

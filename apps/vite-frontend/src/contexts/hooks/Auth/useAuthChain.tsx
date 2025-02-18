@@ -27,7 +27,6 @@ export const useAuthChain = () => {
 
   const authMethodQuery = useLitAuthMethodQuery({
     queryKey: ['authMethod'],
-
     enabledDeps: (
       // either we have sign-in redirect data (the user just came back from Google)
       (signinRedirectQuery.isSuccess && !!signinRedirectQuery.data)
@@ -36,7 +35,6 @@ export const useAuthChain = () => {
         ||
         (tokenExpirationQuery.isSuccess && tokenExpirationQuery.data)
     ),
-
     queryFnData: [signinRedirectQuery.data || persistedAuthDataQuery.data],
     persister
   });

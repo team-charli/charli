@@ -2,7 +2,6 @@ import { IRelayPKP } from "@lit-protocol/types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Dispatch, SetStateAction } from "react";
 
-
 export async function teacherConfirmRequestDb ( supabaseClient: SupabaseClient | null | undefined, setUiMode: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions'| 'changingTime'>>, utcDateTime: string, session_id: number, currentAccount: IRelayPKP | null | undefined, hashedTeacherAddress: string | undefined) {
   if (supabaseClient && currentAccount && hashedTeacherAddress) {
     try {

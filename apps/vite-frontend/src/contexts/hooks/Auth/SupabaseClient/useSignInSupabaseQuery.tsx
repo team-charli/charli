@@ -1,7 +1,7 @@
 //useSignInSupabaseQuery.tsx
 import { useQuery } from '@tanstack/react-query';
 import { SupabaseClient, User, Session } from '@supabase/supabase-js';
-import { AuthMethodPlus } from '@/types/types';
+import { UnifiedAuth } from '@/types/types';
 
 export interface SignInResult {
   authProviderId: string | null;
@@ -11,9 +11,9 @@ export interface SignInResult {
 }
 
 interface UseSignInSupabase {
-  queryKey: [string, AuthMethodPlus | string | null | undefined];
+  queryKey: [string, UnifiedAuth | string | null | undefined];
   enabledDeps: boolean;
-  queryFnData: AuthMethodPlus | null | undefined;
+  queryFnData: UnifiedAuth | null | undefined;
   supabaseClient: SupabaseClient | null | undefined;
 }
 
@@ -24,14 +24,14 @@ export const useSignInSupabaseQuery = ({
   queryFnData,
   supabaseClient,
 }: UseSignInSupabase) => {
-  let authMethod: AuthMethodPlus | undefined;
+  let authMethod: UnifiedAuth | undefined;
 
-  authMethod = queryFnData as AuthMethodPlus;
+  authMethod = queryFnData as UnifiedAuth;
   return useQuery<SignInResult, Error>({
     queryKey,
     queryFn: async (): Promise<SignInResult> => {
 
-      if (supabaseClient && authMethod && Object.keys(authMethod).length > 0) {
+      if (supabaseClient && authMethod && Object.keys(authMethod).length > 0 && authMethod.idToken && authMethod.oauthAccessToken) {
         try {
           let provider;
           if (authMethod.authMethodType === 6) {
@@ -45,7 +45,7 @@ export const useSignInSupabaseQuery = ({
           const { data, error } = await supabaseClient.auth.signInWithIdToken({
             provider,
             token: authMethod.idToken,
-            //access_token: authMethod?.accessToken,
+            access_token: authMethod?.oauthAccessToken,
           })
 
           if (error) {

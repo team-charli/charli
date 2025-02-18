@@ -1,5 +1,5 @@
 import { router } from '@/TanstackRouter/router';
-import { AuthMethodPlus, NotificationIface } from '@/types/types';
+import { AuthMethodPlus, NotificationIface, UnifiedAuth } from '@/types/types';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { QueryClient } from '@tanstack/query-core';
 import bs58 from 'bs58';
@@ -235,13 +235,13 @@ export const getSignificantDate = (notification: NotificationIface): Date => {
   }
 };
 
-export function isTokenExpired(authMethod: AuthMethodPlus, thresholdSeconds: number = 0): boolean {
-  if (!authMethod.idToken) {
+export function isTokenExpired(idToken: string, thresholdSeconds: number = 0): boolean {
+  if (!idToken) {
     console.warn('No ID token available to check expiration.');
     return true; // Assume expired if no ID token is available
   }
 
-  const parts = authMethod.idToken.split('.');
+  const parts = idToken.split('.');
   if (parts.length !== 3) {
     console.warn(`Invalid ID token format. Expected 3 parts, got ${parts.length}.`);
     return true; // Assume expired if the format is invalid
@@ -267,6 +267,8 @@ export function isTokenExpired(authMethod: AuthMethodPlus, thresholdSeconds: num
 }
 
 export async function handledExpiredTokens(queryClient: QueryClient) {
+  console.log("utility handledExpiredTokens -- will redirect to login");
+
   // Clear local storage
   localStorage.clear();
 
@@ -274,6 +276,7 @@ export async function handledExpiredTokens(queryClient: QueryClient) {
   queryClient.clear();
 
   //Navigate to login
+
   router.navigate({ to: "/login" })
 }
 

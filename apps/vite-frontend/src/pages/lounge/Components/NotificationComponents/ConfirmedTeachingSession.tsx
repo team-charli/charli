@@ -12,14 +12,12 @@ interface ConfirmedTeachingSessionProps {
 
 const ConfirmedTeachingSession = ({ notification: sessionData }: ConfirmedTeachingSessionProps) => {
   const isSessionSoon = sessionData.isImminent;
-  const isExpired = sessionData.isExpired;
   const { localTimeAndDate: { displayLocalTime, displayLocalDate } } = useLocalizeAndFormatDateTime(sessionData.confirmed_time_date);
   const navigate = useNavigate({ from: '/lounge' });
   const { requestPermissions } = useMediaPermissions();
   const { generateAccessToken, isLoading } = useGenerateHuddleAccessToken();
 
   const countryEmoji = getCountryEmoji(sessionData.teaching_lang);
-  // Remove the country part from the language string (e.g., remove " (Mexico)")
   const languageDisplay = cleanLangString(sessionData.teaching_lang);
 
   const handleClick = async (event: any) => {

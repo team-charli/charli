@@ -5,15 +5,20 @@ import { SessionSigs, AuthMethod, IRelayPKP } from '@lit-protocol/types';
 import { litNodeClient } from '@/utils/litClients';
 import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers';
 import { authChainLogger } from '@/App';
-import { AuthMethodPlus } from '@/types/types';
+import { UnifiedAuth } from '@/types/types';
+import { toLitAuthMethod } from '@/utils/lit';
 
 interface SessionSigsQueryParams {
   queryKey: [string];
   enabledDeps: boolean;
-  queryFnData: [AuthMethodPlus | null | undefined, IRelayPKP | null | undefined, boolean];
+  queryFnData: [
+    UnifiedAuth | null | undefined,   // e.g. from your useAuthChain
+    IRelayPKP  | null | undefined,
+    boolean
+  ];
   invalidateQueries: () => Promise<string>;
   persister: any;
-  additionalResourceAbilityRequests?: Array<{ resource: any, ability: any }>;
+  additionalResourceAbilityRequests?: Array<{ resource: any; ability: any }>;
 }
 
 export const useLitSessionSigsQuery = ({
@@ -27,18 +32,19 @@ export const useLitSessionSigsQuery = ({
   const queryClient = useQueryClient();
 
   // Extract input data
-  let authMethod: AuthMethod | undefined;
+  let unifiedAuth: UnifiedAuth | undefined;
   let litAccount: IRelayPKP | undefined;
   let isConnected = false;
 
+  // 1) Grab the first array item as your `UnifiedAuth`
   if (queryFnData[0]) {
-    const accessToken = queryFnData[0].idToken;
-    const authMethodType = queryFnData[0].authMethodType;
-    authMethod = { accessToken, authMethodType };
+    unifiedAuth = queryFnData[0];
   }
+  // 2) The second array item is the PKP
   if (queryFnData[1]) {
     litAccount = queryFnData[1];
   }
+  // 3) The third boolean is the "isConnected" flag
   if (typeof queryFnData[2] === 'boolean') {
     isConnected = queryFnData[2];
   }
@@ -59,20 +65,20 @@ export const useLitSessionSigsQuery = ({
         if (!isConnected) {
           throw new Error('LitNodeClient not connected');
         }
-        if (!authMethod) {
-          throw new Error('Missing authMethod');
+        if (!unifiedAuth) {
+          throw new Error('Missing unifiedAuth data');
         }
         if (!litAccount) {
           throw new Error('Missing litAccount');
         }
 
+        // 4) Convert your "unifiedAuth" to a Lit `AuthMethod` for usage
+        const litAuthMethod: AuthMethod = toLitAuthMethod(unifiedAuth);
+
         // 1) See if we have cached session sigs
         const cachedSessionSigs = queryClient.getQueryData<SessionSigs>(queryKey);
-
-        // 2) Validate if present
         if (cachedSessionSigs) {
           const { isValid, errors } = validateSessionSigs(cachedSessionSigs);
-
           if (isValid) {
             authChainLogger.info('Using valid cached sessionSigs');
             return cachedSessionSigs;
@@ -88,20 +94,14 @@ export const useLitSessionSigsQuery = ({
         authChainLogger.info('Fetching new sessionSigs');
         await litNodeClient.getLatestBlockhash();
         authChainLogger.info('litAccount:', litAccount);
-        authChainLogger.info('authMethod:', authMethod);
+        authChainLogger.info('authMethod:', litAuthMethod);
 
         const newSessionSigs = await litNodeClient.getPkpSessionSigs({
           pkpPublicKey: litAccount.publicKey,
-          authMethods: [authMethod],
+          authMethods: [litAuthMethod], // <-- pass the real AuthMethod
           resourceAbilityRequests: [
-            {
-              resource: new LitPKPResource('*'),
-              ability: LitAbility.PKPSigning,
-            },
-            {
-              resource: new LitActionResource('*'),
-              ability: LitAbility.LitActionExecution,
-            },
+            { resource: new LitPKPResource('*'), ability: LitAbility.PKPSigning },
+            { resource: new LitActionResource('*'), ability: LitAbility.LitActionExecution },
             ...additionalResourceAbilityRequests,
           ],
         });

@@ -9,7 +9,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLIC_API_KEY!;
 
 
 interface SupabaseClientQueryParams {
-  queryKey: [string, string | undefined];
+  queryKey: [string, string | undefined | null];
   enabledDeps: boolean;
 }
 

@@ -1,28 +1,31 @@
+//useCheckTokenExp.tsx
 import { useQuery } from '@tanstack/react-query';
 import { isTokenExpired, handledExpiredTokens } from '@/utils/app';
 import { queryClient } from '@/App';
-import { AuthData } from "@/types/types";
+import { UnifiedAuth } from '@/types/types';
 
-export function useCheckTokenExp(persistedAuthData: AuthData | null | undefined) {
+export function useCheckTokenExp(unifiedAuth: UnifiedAuth | null | undefined) {
   return useQuery<boolean, Error>({
     queryKey: ['frontOfChainTokenCheck'],
-    enabled: !!persistedAuthData,  // Only run if we actually have some token data
+    enabled: !!unifiedAuth,
     queryFn: async () => {
-      if (!persistedAuthData) {
-        // No token => not an error, just "no token" (return false or something)
-        return false;
+      if (!unifiedAuth) return false;
+
+      // If provider=google, we parse the real ID token:
+      // If it’s discord, we might skip or do something else.
+      const { provider, idToken } = unifiedAuth;
+
+      if (provider === 'googleJwt') {
+        if (!idToken) {
+          return false; // no token => treat as expired
+        }
+        if (isTokenExpired(idToken)) {
+          handledExpiredTokens(queryClient);
+          throw new Error("Token is stale. Signed out.");
+        }
       }
-      // If we do have a token, see if it's expired:
-      if (isTokenExpired({
-        authMethodType: 6,  // or figure it out from persistedAuthData
-        idToken: persistedAuthData.idToken,
-        accessToken: persistedAuthData.accessToken
-      })) {
-        handledExpiredTokens(queryClient);
-        // throw an error so this query is isError=true
-        throw new Error("Front-of-chain: token is stale. Signed out.");
-      }
-      // Not expired => return true meaning "token is valid"
+
+      // If not google, handle other logic or skip
       return true;
     },
     staleTime: Infinity,

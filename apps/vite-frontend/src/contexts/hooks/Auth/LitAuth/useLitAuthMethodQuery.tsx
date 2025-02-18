@@ -1,37 +1,38 @@
 //useLitAuthMethodQuery.tsx
 import { router } from '@/TanstackRouter/router';
 import { UseQueryResult, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AuthData, AuthMethodPlus} from '@/types/types';
 import { litAuthClient } from '@/utils/litClients';
 import { GoogleProvider } from '@lit-protocol/lit-auth-client';
 import { ProviderType } from '@lit-protocol/constants';
 import { authChainLogger  } from '@/App';
 import { isTokenExpired } from '@/utils/app';
+import { UnifiedAuth } from '@/types/types';
 
 interface LitAuthMethodQueryParams {
   queryKey: [string, /*AuthTokens | undefined | null*/];
   enabledDeps: boolean;
-  queryFnData: [AuthData | null | undefined];
+  queryFnData: [UnifiedAuth | null | undefined];
   persister: any;
 }
 
-export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData, persister }: LitAuthMethodQueryParams): UseQueryResult<AuthMethodPlus | null, Error> => {
+export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData, persister }: LitAuthMethodQueryParams): UseQueryResult<UnifiedAuth | null, Error> => {
   const queryClient = useQueryClient();
   const [authData] = queryFnData;
 
-  return useQuery<AuthMethodPlus | null, Error>({
+  return useQuery<UnifiedAuth | null, Error>({
     queryKey,
-    queryFn: async (): Promise<AuthMethodPlus | null> => {
+    queryFn: async (): Promise<UnifiedAuth | null> => {
       authChainLogger.info("2a: start authMethod query");
 
       // Check cached AuthMethod
-      const cachedAuthMethod = queryClient.getQueryData(queryKey) as AuthMethodPlus | null;
-      if (cachedAuthMethod) {
-        if (!isTokenExpired(cachedAuthMethod)) {
+      const cachedAuthMethod = queryClient.getQueryData(queryKey) as UnifiedAuth | null;
+      if (cachedAuthMethod?.idToken) {
+        if (!isTokenExpired(cachedAuthMethod.idToken)) {
           authChainLogger.info("2b: finish authMethod query - Using valid cached AuthMethod");
           return cachedAuthMethod;
         } else {
           console.log("Cached AuthMethod contains expired tokens");
+          console.log('will redirect to login');
 
           // Clear local storage
           localStorage.clear();
@@ -50,7 +51,7 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData, pers
       // Handle fresh AuthData
       if (authData) {
         authChainLogger.info("2b: finish authMethod query - Using fresh AuthMethod from OAuth redirect");
-        const { provider, idToken, accessToken } = authData;
+        const { provider, idToken, oauthAccessToken } = authData;
 
         let authMethodType;
         if (provider === 'googleJwt') {
@@ -62,7 +63,7 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData, pers
         }
 
         window.history.replaceState({}, document.title, window.location.pathname);
-        const authMethod: AuthMethodPlus = { authMethodType, idToken, accessToken };
+        const authMethod: UnifiedAuth = { authMethodType, idToken, oauthAccessToken, provider, litAccessToken: idToken  };
 
         if (Object.values(authMethod).every(value => value !== undefined)) {
           if (authMethod.authMethodType === 6) {

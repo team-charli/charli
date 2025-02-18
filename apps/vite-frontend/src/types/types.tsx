@@ -362,11 +362,36 @@ export type AuthData = {
   provider: string;
 }
 
-export type AuthMethodPlus = {
+/**
+ * A universal auth object that can accommodate:
+ *  - Google sign-in’s separate ID token & access token
+ *  - Lit’s requirement to set `accessToken` as the “AuthMethod token”
+ *  - A numeric `authMethodType` for Lit
+ *  - Additional fields for other providers if needed
+ */
+export type UnifiedAuth = {
+  /** 'googleJwt' | 'discord' or other recognized providers */
+  provider: string;
+
+  /** The actual Google ID token (the JWT with 3 parts, used by Supabase signInWithIdToken)
+   *  or potentially null if the provider doesn't use an ID token.
+   */
+  idToken: string | null;
+
+  /** The real Google “access_token” from OAuth if you want it for userinfo calls,
+   *  or Discord’s token if you want it. Possibly null if you don’t need it.
+   */
+  oauthAccessToken: string | null;
+
+  /** The token that Lit wants in `authMethod.accessToken`.
+   *  - For Google: Lit expects the *ID token* (the real JWT).
+   *  - For Discord: Lit expects the Discord token here, etc.
+   */
+  litAccessToken: string | null;
+
+  /** A numeric code for Lit (6 = Google, 4 = Discord, etc.) */
   authMethodType: number;
-  accessToken: string;
-  idToken: string;
-}
+};
 
 export interface Language {
   id: number;

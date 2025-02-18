@@ -1,38 +1,50 @@
-//useLitAccountQuery.tsx
+// useLitAccountQuery.tsx
 import { UseQueryResult, useQuery, useQueryClient } from '@tanstack/react-query';
-import {  IRelayPKP } from '@lit-protocol/types';
-import { getPKPs, mintPKP } from '@/utils/lit';
+import { IRelayPKP } from '@lit-protocol/types';
 import { authChainLogger } from '@/App';
-import { AuthMethodPlus } from '@/types/types';
+import { UnifiedAuth } from '@/types/types';
+import { getPKPs, mintPKP, toLitAuthMethod } from '@/utils/lit';
 
 interface LitAccountQueryParams {
-  queryKey:    [string],
+  queryKey: [string],
   enabledDeps: boolean,
-  queryFnData: AuthMethodPlus | null | undefined,
+  queryFnData: UnifiedAuth | null | undefined,
   persister: any
 }
 
-export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData, persister}: LitAccountQueryParams): UseQueryResult<IRelayPKP | null, Error> => {
+export const useLitAccountQuery = ({
+  queryKey,
+  enabledDeps,
+  queryFnData,
+  persister
+}: LitAccountQueryParams): UseQueryResult<IRelayPKP | null, Error> => {
   const queryClient = useQueryClient();
 
-
-  return useQuery({
+  return useQuery<IRelayPKP | null, Error>({
+    persister,
     queryKey,
-    queryFn: async (): Promise<IRelayPKP | null> => {
-      // authChainLogger.info('queryFnData', queryFnData)
-      if (!queryFnData) throw new Error('no queryFnData')
-      const {authMethodType, idToken: accessToken} = queryFnData;
-      const authMethod = {authMethodType, accessToken};
+    enabled: enabledDeps,
+    staleTime: 5 * 60 * 1000,     // 5 minutes
+    gcTime: 24 * 60 * 60 * 1000,  // 24 hours
+    queryFn: async () => {
+      if (!queryFnData) {
+        throw new Error('no queryFnData');
+      }
 
+      // Convert your UnifiedAuth to a Lit-compatible AuthMethod
+      const litAuthMethod = toLitAuthMethod(queryFnData);
       authChainLogger.info('3a: start litAccount query');
 
-      if (!authMethod) {
-        authChainLogger.info('3b: finish litAccount query -- No authMethod available, returning null');
+      // If somehow litAuthMethod is empty (never should be), return null
+      if (!litAuthMethod || !litAuthMethod.accessToken) {
+        authChainLogger.info(
+          '3b: finish litAccount query -- No authMethod available, returning null'
+        );
         return null;
       }
 
-      const cachedLitAccount = queryClient.getQueryData(queryKey) as IRelayPKP | null;
-
+      // Check if we already have a cached litAccount
+      const cachedLitAccount = queryClient.getQueryData<IRelayPKP>(queryKey);
       if (cachedLitAccount) {
         authChainLogger.info('3b: finish litAccount query --Using cached LitAccount');
         return cachedLitAccount;
@@ -40,32 +52,26 @@ export const useLitAccountQuery = ({queryKey, enabledDeps, queryFnData, persiste
 
       try {
         authChainLogger.info('Fetching PKPs');
-        const myPKPs = await getPKPs(authMethod);
-        // authChainLogger.info(`PKPs fetched, count:`, myPKPs.length);
+        // Now pass `litAuthMethod` to `getPKPs` (which expects an AuthMethod)
+        const myPKPs = await getPKPs(litAuthMethod);
 
         if (myPKPs.length >= 2) {
-          // if (myPKPs.length ) {
-          // authChainLogger.info('3b: finish litAccount query -- Returning existing PKP');
-          authChainLogger.info('3b: finish litAccount query -- Returning PKP[1]', myPKPs[1].tokenId);
-
+          authChainLogger.info(
+            '3b: finish litAccount query -- Returning PKP[1]',
+            myPKPs[1].tokenId
+          );
           return myPKPs[1];
         } else {
           authChainLogger.info('No PKPs found, minting new PKP');
-          const newPKP = await mintPKP(authMethod);
+          const newPKP = await mintPKP(litAuthMethod);
           authChainLogger.info('New PKP minted:', !!newPKP);
           authChainLogger.info('3b: finish litAccount query');
-
           return newPKP;
         }
-      }
-      catch (error) {
+      } catch (error) {
         console.error('Error in LitAccount query:', error);
         throw error;
       }
     },
-    enabled: enabledDeps,
-    staleTime: 5 * 60 * 1000, // 5 minutes,
-    gcTime: 24 * 60 * 60 * 1000,  // Keep unused data for 24 hours
-    persister
   });
 };
