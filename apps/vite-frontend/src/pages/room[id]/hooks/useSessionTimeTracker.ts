@@ -1,52 +1,49 @@
 // hooks/useSessionTimeTracker.ts
 
+import { useLitAccount } from '@/contexts/AuthContext';
 import { useEffect, useRef, useState } from 'react';
 
-interface SessionTimeTrackerOptions {
-  roomId: string;
-  hashedTeacherAddress?: string;
-  hashedLearnerAddress?: string;
-  role?: string | null;
-}
 
 /**
  * Connects to the session-time-tracker Worker / DO system over WebSocket,
  * calls /init once connected, and listens for broadcast messages (including finalization).
  */
-export function useSessionTimeTracker(options: SessionTimeTrackerOptions) {
-  const { roomId, hashedTeacherAddress, hashedLearnerAddress, role } = options;
+export function useSessionTimeTracker(roomId: string, hashedLearnerAddress: string, hashedTeacherAddress: string, controllerAddress: string) {
+
+
 
   const [hasConnectedWs, setHasConnectedWs] = useState(false);
   const [initializationComplete, setInitializationComplete] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [isFinalized, setIsFinalized] = useState(false);
-
+  const {data: currentAccount} = useLitAccount();
   // Keep a ref to the WebSocket so we can close on unmount if needed
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if (!roomId) return;
 
-    // For example, if your Worker is at wss://example.com/connect/...
-    // or from an ENV variable. Adjust to your actual endpoint.
-    const ws = new WebSocket(`wss://your-domain.com/connect/${roomId}`);
+    if (!roomId || !hashedLearnerAddress || !hashedTeacherAddress || !controllerAddress) {
+
+   console.log("{roomId, hashedLearnerAddress, hashedTeacherAddress, controllerAddress}", {roomId, hashedLearnerAddress, hashedTeacherAddress, controllerAddress});
+    return;
+   }
+    const ws = new WebSocket(`wss://session-time-tracker.charli.chat/connect/${roomId}`);
     wsRef.current = ws;
 
     ws.onopen = async () => {
       setHasConnectedWs(true);
       // Once open, call /init
       try {
-        const initResponse = await fetch('https://your-domain.com/init', {
+        const initResponse = await fetch('https://session-time-tracker.charli.chat/init', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            // Send whatever your DO needs
             clientSideRoomId: roomId,
             hashedTeacherAddress,
             hashedLearnerAddress,
-            userAddress: '0xSomeUserAddress', // or whichever address you have
-            sessionDuration: 3600, // in seconds? or ms?
-            controllerAddress: '0xYourControllerAddress',
+            controllerAddress,
+            userAddress: currentAccount?.ethAddress,
+            sessionDuration: 3600,
           }),
         });
         if (!initResponse.ok) {
@@ -93,7 +90,7 @@ export function useSessionTimeTracker(options: SessionTimeTrackerOptions) {
         wsRef.current = null;
       }
     };
-  }, [roomId, hashedTeacherAddress, hashedLearnerAddress, role]);
+  }, [roomId, hashedTeacherAddress, hashedLearnerAddress, controllerAddress]);
 
   return {
     hasConnectedWs,

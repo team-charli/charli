@@ -1,5 +1,5 @@
 // hooks/useRoomLeave.ts
-import { useRoom } from '@huddle01/react';
+import { useRoom } from '@huddle01/react/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function useRoomLeave() {

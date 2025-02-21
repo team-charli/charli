@@ -1,91 +1,78 @@
 // useRoomJoin.ts
-import { useRoom, usePeerIds, useLocalVideo, useLocalAudio } from "@huddle01/react";
-import useLocalStorage from "@rehooks/local-storage";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from 'react';
+import {
+  useLocalAudio,
+  useLocalVideo,
+  usePeerIds,
+  useRoom,
+} from '@huddle01/react/hooks';
+import useLocalStorage from '@rehooks/local-storage';
 
-export const useRoomJoin = (
-  roomId: string,
-  options: {
-    verifiedRoleAndAddressData: {
-      verifiedRole: string | null;
-      verifiedRoleAndAddress: boolean;
-    } | undefined;
-    hasConnectedWs: boolean;
-    initializationComplete: boolean;
-  }
-) => {
-  const queryClient = useQueryClient();
-  const [huddleAccessToken] = useLocalStorage<string>('huddle-access-token');
-
-  // 1) The standard Huddle "useRoom"
-  const { joinRoom, state: roomJoinState } = useRoom({
-    onJoin: () => {
-      queryClient.setQueryData(['roomJoinState'], 'connected');
+export function useRoomJoin() {
+  // 1) "my-communication-dapp" style: just destructure from `useRoom`
+  const { joinRoom: libraryJoinRoom, state: roomJoinState } = useRoom({
+    onJoin: (data) => {
+      console.log('[useRoomJoin] onJoin => joined room:', data.room.roomId);
     },
-    onLeave: () => {
-      queryClient.setQueryData(['roomJoinState'], 'left');
+    onWaiting: (data) => {
+      console.warn('[useRoomJoin] onWaiting =>', data.reason, data.message);
+    },
+    onFailed: (err) => {
+      console.error('[useRoomJoin] onFailed =>', err.status, err.message);
+    },
+    onPeerJoin: (peerId) => {
+      console.log('[useRoomJoin] onPeerJoin => peerId:', peerId);
+    },
+    onPeerLeft: (peerId) => {
+      console.log('[useRoomJoin] onPeerLeft => peerId:', peerId);
     },
   });
 
-  // 2) For local video/audio
+  // 2) Local audio/video
   const { enableVideo, disableVideo, isVideoOn } = useLocalVideo();
   const { enableAudio, disableAudio, isAudioOn } = useLocalAudio();
 
-  useEffect(() => {
-    // console.log('[Huddle] Room state:', roomJoinState);
-  }, [roomJoinState]);
-
-  // If all conditions are met, we can "joinRoom"
-  const canJoinRoom = useMemo(() => {
-    return (
-      options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
-      options.verifiedRoleAndAddressData?.verifiedRole &&
-      options.hasConnectedWs &&
-      options.initializationComplete
-    );
-  }, [options]);
-
-  // 3) Actually call joinRoom
-  const joinRoomMutation = useMutation({
-    mutationFn: () => {
-      if (!huddleAccessToken) {
-        throw new Error('Huddle access token is not available');
-      }
-      return joinRoom({ roomId, token: huddleAccessToken });
-    },
-    onSuccess: () => {
-      queryClient.setQueryData(['roomJoinState'], 'joined');
-    },
-    onError: (error) => {
-      console.error('[Huddle] Failed to join room:', error);
-    },
-  });
-
-  useEffect(() => {
-    if (canJoinRoom && roomJoinState === 'idle' && !joinRoomMutation.isPending) {
-      joinRoomMutation.mutate();
+  // 3) A function named exactly `joinRoom(...)` that calls the library’s `joinRoom`
+  async function joinRoom(params: { roomId: string; token: string }) {
+    console.log('[useRoomJoin] joinRoom => calling libraryJoinRoom with:', params);
+    try {
+      await libraryJoinRoom(params);
+      console.log('[useRoomJoin] joinRoom => success');
+    } catch (err) {
+      console.error('[useRoomJoin] joinRoom => error:', err);
     }
-  }, [canJoinRoom, roomJoinState, joinRoomMutation]);
+  }
 
-  // 4) After user is "connected," enable local media automatically
-  useEffect(() => {
-    if (roomJoinState === 'connected') {
-      enableVideo().catch((err) => console.error('enableVideo() failed:', err));
-      enableAudio().catch((err) => console.error('enableAudio() failed:', err));
-    } else if (roomJoinState === 'left') {
-      disableVideo();
-      disableAudio();
+  // 4) Toggles
+  async function toggleVideo() {
+    if (roomJoinState !== 'connected') {
+      console.warn('[useRoomJoin] toggleVideo => not connected');
+      return;
     }
-  }, [
-    roomJoinState,
-    enableVideo,
-    enableAudio,
-    disableVideo,
-    disableAudio,
-  ]);
+    if (isVideoOn) {
+      console.log('[useRoomJoin] toggleVideo => disabling video...');
+      await disableVideo();
+    } else {
+      console.log('[useRoomJoin] toggleVideo => enabling video...');
+      await enableVideo();
+    }
+  }
 
-  // 5) If you need peer IDs
+  async function toggleAudio() {
+    if (roomJoinState !== 'connected') {
+      console.warn('[useRoomJoin] toggleAudio => not connected');
+      return;
+    }
+    if (isAudioOn) {
+      console.log('[useRoomJoin] toggleAudio => disabling audio...');
+      await disableAudio();
+    } else {
+      console.log('[useRoomJoin] toggleAudio => enabling audio...');
+      await enableAudio();
+    }
+  }
+
+  // 5) Peer IDs
   const { peerIds: allPeerIds } = usePeerIds();
   const [peerIds, setPeerIds] = useState<string[]>([]);
 
@@ -97,12 +84,15 @@ export const useRoomJoin = (
     }
   }, [roomJoinState, allPeerIds]);
 
+  // 6) Return
   return {
+    // The same "my-communication-dapp" naming
+    joinRoom,
     roomJoinState,
-    joinRoom: joinRoomMutation.mutate,
-    isJoining: joinRoomMutation.isPending,
-    peerIds,
     isVideoOn,
     isAudioOn,
+    toggleVideo,
+    toggleAudio,
+    peerIds,
   };
-};
+}

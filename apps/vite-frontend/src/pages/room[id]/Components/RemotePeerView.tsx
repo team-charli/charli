@@ -1,55 +1,83 @@
-// components/RemotePeerView.tsx
-import { useEffect, useRef } from 'react';
-import { usePeerIds, useRemoteVideo, useRemoteAudio } from '@huddle01/react/hooks';
+// RemotePeerView.tsx
+import React, { useEffect, useRef } from 'react';
+import { useRemoteVideo, useRemoteAudio } from '@huddle01/react/hooks';
 
-export default function RemotePeerView() {
-  // 1. Get the array of remote peer IDs from Huddle
-  const { peerIds } = usePeerIds();
+type RemotePeerViewProps = {
+  peerId: string;
+};
 
-  // 2. For a single-remote-user scenario, pick the first ID or null if none
-  const singlePeerId = peerIds.length > 0 ? peerIds[0] : null;
+export default function RemotePeerView({ peerId }: RemotePeerViewProps) {
+  const { stream: remoteVideoStream, state: videoState } = useRemoteVideo({
+    peerId,
+  });
+  const { stream: remoteAudioStream, state: audioState } = useRemoteAudio({
+    peerId,
+  });
 
-  if (!singlePeerId) {
-    return (
-      <div className="flex items-center justify-center h-full text-white">
-        Waiting for remote peer...
-      </div>
-    );
-  }
-
-  // 3. Access the remote peer’s audio/video streams
-  const { stream: remoteVideoStream } = useRemoteVideo({ peerId: singlePeerId });
-  const { stream: remoteAudioStream } = useRemoteAudio({ peerId: singlePeerId });
-
-  // 4. Refs for attaching the streams
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Attach video
   useEffect(() => {
-    if (videoRef.current && remoteVideoStream) {
-      videoRef.current.srcObject = remoteVideoStream;
-    }
-  }, [remoteVideoStream]);
+    console.log(
+      `[RemotePeerView] peerId=${peerId} => videoState=${videoState}, audioState=${audioState}`
+    );
+  }, [peerId, videoState, audioState]);
 
-  // Attach audio
   useEffect(() => {
-    if (audioRef.current && remoteAudioStream) {
-      audioRef.current.srcObject = remoteAudioStream;
+    if (remoteVideoStream && videoRef.current && videoState === 'playable') {
+      try {
+        videoRef.current.srcObject = remoteVideoStream;
+        videoRef.current.onloadedmetadata = async () => {
+          try {
+            await videoRef.current?.play();
+          } catch (err) {
+            console.error('[RemotePeerView] video autoplay error =>', err);
+          }
+        };
+      } catch (err) {
+        console.error('[RemotePeerView] assigning video stream error =>', err);
+      }
     }
-  }, [remoteAudioStream]);
+  }, [remoteVideoStream, videoState]);
+
+  useEffect(() => {
+    if (remoteAudioStream && audioRef.current && audioState === 'playable') {
+      try {
+        audioRef.current.srcObject = remoteAudioStream;
+        audioRef.current.onloadedmetadata = async () => {
+          try {
+            await audioRef.current?.play();
+          } catch (err) {
+            console.error('[RemotePeerView] audio autoplay error =>', err);
+          }
+        };
+      } catch (err) {
+        console.error('[RemotePeerView] assigning audio stream error =>', err);
+      }
+    }
+  }, [remoteAudioStream, audioState]);
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full gap-2">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        className="w-full h-full object-cover border border-gray-600 rounded"
-      />
+    <div className="border border-gray-600 p-2 flex flex-col items-center gap-2">
+      <p className="text-white text-sm">Remote Peer: {peerId}</p>
+
+      {videoState === 'playable' ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-auto h-40 border border-gray-500"
+        />
+      ) : (
+        <div className="text-gray-400 text-sm">No remote video yet</div>
+      )}
+
       <audio ref={audioRef} autoPlay />
 
-      <div className="text-white">Remote Peer: {singlePeerId}</div>
+      <p className="text-xs text-gray-500">
+        videoState: {videoState}, audioState: {audioState}
+      </p>
     </div>
   );
 }
