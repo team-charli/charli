@@ -9,6 +9,7 @@ export const generateAccessToken = async (
   params: InvokeCreateAccessTokenWith,
   setHuddleAccessToken: (newValue: LocalStorageSetStateValue<string> | null) => void
 ) => {
+
   event.preventDefault();
   if (supabaseClient && !supabaseLoading && params.roomId?.length) {
     const { data, error } = await supabaseClient
@@ -17,7 +18,6 @@ export const generateAccessToken = async (
         body: JSON.stringify(params)
       })
     if (!error) {
-      console.log('generated Huddle AccessToken')
       setHuddleAccessToken(data.accessToken);
     }
   } else {
