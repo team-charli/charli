@@ -22,7 +22,7 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
         <ul>
           {uiCondition === 'initial' && (
             <li className="flex items-center gap-2 bg-red-300 w-1/2 border-2 border-neutral-700">
-              Confirm meeting with {notification.learnerName} at {displayLocalTime} {displayLocalDate} in ${languageDisplay} ${countryEmoji}?
+              Confirm meeting with {notification.learnerName} at {displayLocalTime} {displayLocalDate} in {languageDisplay} {countryEmoji}?
               <div>
 <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out mr-2" onClick={() => void handleTeacherChoice('accept')}>Accept</button>
 <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out mr-2" onClick={() => void handleTeacherChoice('reject')}>Reject</button>

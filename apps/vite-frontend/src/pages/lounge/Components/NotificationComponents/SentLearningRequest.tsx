@@ -12,7 +12,6 @@ const SentLearningRequest = ({ notification }: NotificationComponentProps) => {
 
   const countryEmoji = getCountryEmoji(notification.teaching_lang);
   const languageDisplay = cleanLangString(notification.teaching_lang);
-  console.log('rendered SentLearningRequest notification text', `${notification.teacherName} for ${languageDisplay} ${countryEmoji} at ${localTimeAndDate.displayLocalDate}, ${localTimeAndDate.displayLocalTime}`)
 
   return (
     <div className="grid grid-cols-3">
