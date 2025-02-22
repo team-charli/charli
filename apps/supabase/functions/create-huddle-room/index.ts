@@ -58,8 +58,8 @@ app.post('/', async (c) => {
         'Accept': '*/*',
       },
       body: JSON.stringify({
-        title: 'Huddle01-Test',
-        hostWallets: ['0x29f54719E88332e70550cf8737293436E9d7b10b'], // Matches API docs
+        title: `Huddle01 Session ${sessionId}`,
+        roomLocked: false,      // <-- crucial
       }),
     })
 
