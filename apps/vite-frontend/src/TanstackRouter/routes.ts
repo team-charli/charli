@@ -193,6 +193,7 @@ export const roomRoute = createRoute({
       sessionId: search.sessionId as string,
       hashedLearnerAddress: search.hashedLearnerAddress as string,
       hashedTeacherAddress: search.hashedTeacherAddress as string,
+      controllerAddress: search.controllerAddress as string
     }
   },
 })
