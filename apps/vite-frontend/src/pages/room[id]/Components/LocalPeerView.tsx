@@ -1,29 +1,41 @@
 // LocalPeerView.tsx
+// LocalPeerView.tsx
 import { useEffect, useRef } from 'react';
 import { useLocalVideo, useLocalAudio } from '@huddle01/react/hooks';
 
-export default function LocalPeerView() {
+interface LocalPeerViewProps {
+  isRoomConnected: boolean;
+}
+
+export default function LocalPeerView({ isRoomConnected }: LocalPeerViewProps) {
+  // We just consume the local streams:
   const { stream: localVideoStream } = useLocalVideo();
   const { stream: localAudioStream } = useLocalAudio();
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  // Video element ref
+  const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Attach the local video stream to the <video> element
   useEffect(() => {
-    if (localVideoStream && videoRef.current) {
+    if (videoRef.current && localVideoStream) {
       videoRef.current.srcObject = localVideoStream;
-      videoRef.current.onloadedmetadata = async () => {
-        try {
-          await videoRef.current?.play();
-        } catch (err) {
-          console.error('[LocalPeerView] autoplay error =>', err);
-        }
-      };
     }
   }, [localVideoStream]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <video ref={videoRef} autoPlay muted className="border border-gray-600" />
+    <div className="h-full w-full flex flex-col items-center justify-center">
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        className="rounded-lg h-3/4 border border-gray-600"
+      />
+      <span className="text-white mt-2">
+        Local Video {localVideoStream ? 'ON' : 'OFF'}
+        &nbsp;(
+        {isRoomConnected ? 'Room joined' : 'Not joined yet'}
+        )
+      </span>
     </div>
   );
 }

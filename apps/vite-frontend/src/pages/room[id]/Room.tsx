@@ -1,148 +1,110 @@
 // Room.tsx
-import React, { useEffect } from 'react';
-import {
-  useRoom,
-  useLocalVideo,
-  useLocalAudio,
-  usePeerIds,
-  useLocalPeer,
-} from '@huddle01/react/hooks';
+import { useEffect } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+
+// Hooks
+import { useVerifiyRoleAndAddress } from './hooks/useVerifiyRoleAndAddress';
+import { useSessionTimeTracker } from './hooks/useSessionTimeTracker';
+import { useRoomJoin } from './hooks/useRoomJoin';
+import { useRoomLeave } from './hooks/useRoomLeave';
+import useBellListener from './hooks/useBellListener';
+import { useLocalPeer } from '@huddle01/react/hooks';
+
+// UI Components
 import LocalPeerView from './Components/LocalPeerView';
 import RemotePeerView from './Components/RemotePeerView';
-import useLocalStorage from '@rehooks/local-storage';
-import { useParams } from '@tanstack/react-router';
+import ControlRibbon from './Components/ControlRibbon';
 
-export default function Room() {
+// If your route is /room/$id with query string
+import { useParams, useSearch } from '@tanstack/react-router';
+
+const Room = () => {
+  const navigate = useNavigate();
   const { id: roomId } = useParams({ from: '/room/$id' });
-  const [huddleAccessToken] = useLocalStorage<string>('huddle-access-token');
+  const { roomRole, hashedLearnerAddress, hashedTeacherAddress } =
+    useSearch({ from: '/room/$id' });
 
-  const { joinRoom, state } = useRoom({
-    onJoin: (data) => {
-      try {
-        console.log(
-          '[Room] onJoin => joined room =>',
-          data.room.roomId,
-          '\nFull `data`:\n',
-          JSON.stringify(data, null, 2)
-        );
-      } catch (err) {
-        console.log('[Room] onJoin => data stringify error =>', err);
-      }
-    },
-    onPeerJoin: (peer) => {
-      try {
-        console.log(
-          '[Room] onPeerJoin => peer:\n',
-          JSON.stringify(peer, (key, val) => {
-            // Remove the cyclical references or huge items if needed
-            if (key.startsWith('__')) return undefined;
-            return val;
-          }, 2)
-        );
-      } catch (err) {
-        console.log('[Room] onPeerJoin => error =>', err);
-      }
-    },
-    onFailed: (err) => {
-      console.error('[Room] onFailed =>', err.status, err.message);
-    },
+  // 1) Verify user role & address (no early return for loading)
+  const { data: verifiedRoleAndAddressData /*, isLoading: isVerifying */ } =
+    useVerifiyRoleAndAddress(
+      hashedTeacherAddress,
+      hashedLearnerAddress,
+      roomRole
+    );
+
+  // 2) Connect to DO-based session-time-tracker
+  const {
+    hasConnectedWs,
+    initializationComplete,
+    messages,
+    isFinalized,
+  } = useSessionTimeTracker(
+    roomId,
+    hashedTeacherAddress,
+    hashedLearnerAddress,
+    roomRole,
+  );
+
+  // 3) Join the Huddle01 room
+  //    (No "loading screen"; we just keep rendering.)
+  const { roomJoinState, /* isJoining, */ peerIds } = useRoomJoin(roomId, {
+    verifiedRoleAndAddressData,
+    hasConnectedWs,
+    initializationComplete,
   });
 
-  const { enableVideo, disableVideo, isVideoOn } = useLocalVideo();
-  const { enableAudio, disableAudio, isAudioOn } = useLocalAudio();
+  // 4) If session finalizes, we leave the room and go to summary
+  const { leaveRoom } = useRoomLeave();
+  useEffect(() => {
+    if (isFinalized) {
+      leaveRoom();
+      navigate({ to: `/room-summary/${roomId}` });
+    }
+  }, [isFinalized, roomId, leaveRoom, navigate]);
 
-  // Get local and remote peer IDs
+  // 5) Listen for ephemeral data-channel signals (like bell rings)
+  useBellListener();
+
+  // 6) Pull localPeerId at the top — no early returns
   const { peerId: localPeerId } = useLocalPeer();
-  const { peerIds } = usePeerIds();
+
+  // 7) We'll consider user "connected" if Huddle’s `state` is "connected"
+  const isRoomConnected = roomJoinState === 'connected';
+
+  // 8) Filter out our own local peer
   const remotePeerIds = peerIds.filter((id) => id !== localPeerId);
 
-  useEffect(() => {
-    // Log out peer info on every render
-    try {
-      console.log(`[Room] localPeerId => ${localPeerId || 'null'}`);
-      console.log(`[Room] all peerIds => ${JSON.stringify(peerIds, null, 2)}`);
-      console.log(
-        `[Room] remotePeerIds => ${JSON.stringify(remotePeerIds, null, 2)}`
-      );
-    } catch (err) {
-      console.log('[Room] peerIds stringify error =>', err);
-    }
-  }, [localPeerId, peerIds, remotePeerIds]);
-
-  async function handleToggleVideo() {
-    if (isVideoOn) await disableVideo();
-    else await enableVideo();
-  }
-  async function handleToggleAudio() {
-    if (isAudioOn) await disableAudio();
-    else await enableAudio();
-  }
-
+  // 9) Render full UI (no loading screen)
   return (
-    <main className="flex flex-col min-h-screen bg-gray-900 text-white">
-      {/* Top bar with state */}
-      <div className="p-4 flex gap-4 items-center border-b border-gray-600">
-        <p className="font-bold">Room State: {state}</p>
-
-        {state === 'idle' && (
-          <button
-            className="bg-blue-500 px-3 py-1 rounded"
-            onClick={() => {
-              if (roomId && huddleAccessToken) {
-                joinRoom({ roomId, token: huddleAccessToken })
-                  .then(() => {
-                    console.log('[Room] joinRoom() success');
-                  })
-                  .catch((err) => {
-                    console.error('[Room] manual join error =>', err);
-                  });
-              } else {
-                console.warn(
-                  '[Room] Missing either roomId or huddleAccessToken',
-                  roomId,
-                  huddleAccessToken
-                );
-              }
-            }}
-          >
-            Join Room
-          </button>
-        )}
-
-        {state === 'connected' && (
-          <>
-            <button
-              className="bg-blue-500 px-3 py-1 rounded"
-              onClick={handleToggleVideo}
-            >
-              {isVideoOn ? 'Disable Video' : 'Enable Video'}
-            </button>
-            <button
-              className="bg-blue-500 px-3 py-1 rounded"
-              onClick={handleToggleAudio}
-            >
-              {isAudioOn ? 'Disable Audio' : 'Enable Audio'}
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Local user on left, remote peers on right */}
-      <div className="flex-1 flex">
-        <div className="flex-1 border-r border-gray-700">
-          <LocalPeerView />
+    <div className="relative w-full h-screen bg-gray-900">
+      {/* Main video area */}
+      <div className="flex w-full h-[85%]">
+        {/* Left side: local user */}
+        <div className="flex-1 min-w-0 border-r border-gray-700">
+          {/* Pass the "isRoomConnected" to show local camera if we want */}
+          <LocalPeerView isRoomConnected={isRoomConnected} />
         </div>
 
-        <div className="flex-1 border-l border-gray-700 p-4 flex flex-col gap-4">
+        {/* Right side: remote peers */}
+        <div className="flex-1 min-w-0 border-l border-gray-700 p-4 flex flex-col gap-4">
           {remotePeerIds.length === 0 ? (
-            <div className="text-center text-gray-400">
-              No remote peers in the room
+            <div className="text-center text-white">
+              Waiting for remote peer...
             </div>
           ) : (
-            remotePeerIds.map((id) => <RemotePeerView key={id} peerId={id} />)
+            remotePeerIds.map((id) => (
+              <RemotePeerView key={id} peerId={id} />
+            ))
           )}
         </div>
       </div>
-    </main>
+
+      {/* Control Ribbon pinned at the bottom */}
+      <div className="absolute bottom-0 left-0 right-0">
+        <ControlRibbon />
+      </div>
+    </div>
   );
-}
+};
+
+export default Room;

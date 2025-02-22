@@ -1,83 +1,45 @@
 // RemotePeerView.tsx
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRemoteVideo, useRemoteAudio } from '@huddle01/react/hooks';
 
-type RemotePeerViewProps = {
+interface RemotePeerViewProps {
   peerId: string;
-};
+}
 
 export default function RemotePeerView({ peerId }: RemotePeerViewProps) {
-  const { stream: remoteVideoStream, state: videoState } = useRemoteVideo({
-    peerId,
-  });
-  const { stream: remoteAudioStream, state: audioState } = useRemoteAudio({
-    peerId,
-  });
+  // Access the remote peer’s audio/video streams
+  const { stream: remoteVideoStream } = useRemoteVideo({ peerId });
+  const { stream: remoteAudioStream } = useRemoteAudio({ peerId });
 
+  // Refs for attaching the streams
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Attach video
   useEffect(() => {
-    console.log(
-      `[RemotePeerView] peerId=${peerId} => videoState=${videoState}, audioState=${audioState}`
-    );
-  }, [peerId, videoState, audioState]);
-
-  useEffect(() => {
-    if (remoteVideoStream && videoRef.current && videoState === 'playable') {
-      try {
-        videoRef.current.srcObject = remoteVideoStream;
-        videoRef.current.onloadedmetadata = async () => {
-          try {
-            await videoRef.current?.play();
-          } catch (err) {
-            console.error('[RemotePeerView] video autoplay error =>', err);
-          }
-        };
-      } catch (err) {
-        console.error('[RemotePeerView] assigning video stream error =>', err);
-      }
+    if (videoRef.current && remoteVideoStream) {
+      videoRef.current.srcObject = remoteVideoStream;
     }
-  }, [remoteVideoStream, videoState]);
+  }, [remoteVideoStream]);
 
+  // Attach audio
   useEffect(() => {
-    if (remoteAudioStream && audioRef.current && audioState === 'playable') {
-      try {
-        audioRef.current.srcObject = remoteAudioStream;
-        audioRef.current.onloadedmetadata = async () => {
-          try {
-            await audioRef.current?.play();
-          } catch (err) {
-            console.error('[RemotePeerView] audio autoplay error =>', err);
-          }
-        };
-      } catch (err) {
-        console.error('[RemotePeerView] assigning audio stream error =>', err);
-      }
+    if (audioRef.current && remoteAudioStream) {
+      audioRef.current.srcObject = remoteAudioStream;
     }
-  }, [remoteAudioStream, audioState]);
+  }, [remoteAudioStream]);
 
   return (
-    <div className="border border-gray-600 p-2 flex flex-col items-center gap-2">
-      <p className="text-white text-sm">Remote Peer: {peerId}</p>
-
-      {videoState === 'playable' ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-auto h-40 border border-gray-500"
-        />
-      ) : (
-        <div className="text-gray-400 text-sm">No remote video yet</div>
-      )}
-
+    <div className="flex flex-col items-center justify-center w-full h-full gap-2">
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        className="w-full h-full object-cover border border-gray-600 rounded"
+      />
       <audio ref={audioRef} autoPlay />
 
-      <p className="text-xs text-gray-500">
-        videoState: {videoState}, audioState: {audioState}
-      </p>
+      <div className="text-white">Remote Peer: {peerId}</div>
     </div>
   );
 }

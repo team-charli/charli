@@ -3,14 +3,11 @@
 import { useLitAccount } from '@/contexts/AuthContext';
 import { useEffect, useRef, useState } from 'react';
 
-
 /**
  * Connects to the session-time-tracker Worker / DO system over WebSocket,
  * calls /init once connected, and listens for broadcast messages (including finalization).
  */
 export function useSessionTimeTracker(roomId: string, hashedLearnerAddress: string, hashedTeacherAddress: string, controllerAddress: string) {
-
-
 
   const [hasConnectedWs, setHasConnectedWs] = useState(false);
   const [initializationComplete, setInitializationComplete] = useState(false);
@@ -34,6 +31,9 @@ export function useSessionTimeTracker(roomId: string, hashedLearnerAddress: stri
       setHasConnectedWs(true);
       // Once open, call /init
       try {
+        console.log('[TIME] ws.onopen =>', performance.now());
+        const initStart = performance.now();
+
         const initResponse = await fetch('https://session-time-tracker.charli.chat/init', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -49,6 +49,7 @@ export function useSessionTimeTracker(roomId: string, hashedLearnerAddress: stri
         if (!initResponse.ok) {
           console.error('session-time-tracker init failed');
         }
+        console.log('[TIME] /init response =>', performance.now() - initStart, 'ms');
       } catch (err) {
         console.error('Failed to call /init:', err);
       }
@@ -62,6 +63,7 @@ export function useSessionTimeTracker(roomId: string, hashedLearnerAddress: stri
         switch (data.type) {
           case 'initiated':
             // Means the Worker has confirmed the session is initiated
+            console.log('[TIME] "initiated" message =>', performance.now());
             setInitializationComplete(true);
             break;
           case 'finalized':
