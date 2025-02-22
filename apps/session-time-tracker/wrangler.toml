@@ -1,34 +1,23 @@
 name = "session-time-tracker"
-workers_dev = true
+workers_dev = false
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = [ "nodejs_compat" ]
+routes = [ { pattern = "session-time-tracker.charli.chat", custom_domain = true } ]
 
 [durable_objects]
 bindings = [
-{name = "SESSION_MANAGER", class_name = "SessionManager"},
+  { name = "SESSION_MANAGER", class_name = "SessionManager" },
+  { name = "CONNECTION_MANAGER", class_name = "ConnectionManager" },
+  { name = "SESSION_TIMER", class_name = "SessionTimer" },
+  { name = "MESSAGE_RELAY", class_name = "MessageRelay" }
 ]
 
 [[migrations]]
-tag = "v3"
-deleted_classes = ["WebSocketWorker"]
-new_classes= ["SessionState"]
+tag = "v1"
+new_classes = ["SessionManager"]
 
 [[migrations]]
-tag = "v4"
-new_classes = ["DisconnectionManager"]
+tag = "v2"
+new_classes = ["ConnectionManager", "SessionTimer", "MessageRelay"]
 
-[[migrations]]
-tag = "v5"
-deleted_classes= ["TimerObject", "DisconnectionManager"]
-new_classes = ["ConnectionManager", "SessionTimer"]
-
-[[migrations ]]
-tag= "v6"
-deleted_classes= ["SessionTimer", "SessionState", "ConnectionManager", "TimerObject", "DisconnectionManager"]
-new_classes= ["WebSocketManager"]
-
-[[migrations ]]
-tag="v7"
-deleted_classes=["WebSocketManager"]
-new_classes=["SessionManager"]

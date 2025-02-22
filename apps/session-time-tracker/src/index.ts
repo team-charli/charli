@@ -11,6 +11,26 @@ import { Env } from './env';
 // Define environment type for the main worker
 const app = new Hono<Env>();
 
+// CORS setup
+const allowedOrigins = ['http://localhost:5173', 'https://charli.chat'];
+
+app.use('*', async (c, next) => {
+  const requestOrigin = c.req.header('origin');
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    // Apply CORS headers since this origin is allowed
+    return cors({
+      origin: requestOrigin,
+      allowMethods: ['POST', 'GET', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization', 'huddle01-signature'],
+      exposeHeaders: ['Content-Length'],
+      maxAge: 600,
+      credentials: true,
+    })(c, next);
+  }
+  // If the origin isn't allowed, proceed without adding CORS headers
+  return next();
+});
+
 //websocket handler
 app.get('/connect/:roomId', async (c) => {
   // Verify WebSocket upgrade request
@@ -152,27 +172,6 @@ app.post('/webhook', async (c) => {
     return c.json({ status: 'error', message: 'Error processing webhook' }, 400);
   }
 });
-
-// CORS setup
-const allowedOrigins = ['http://localhost:5173', 'https://charli.chat'];
-
-app.use('*', async (c, next) => {
-  const requestOrigin = c.req.header('origin');
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
-    // Apply CORS headers since this origin is allowed
-    return cors({
-      origin: requestOrigin,
-      allowMethods: ['POST', 'GET', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization', 'huddle01-signature'],
-      exposeHeaders: ['Content-Length'],
-      maxAge: 600,
-      credentials: true,
-    })(c, next);
-  }
-  // If the origin isn't allowed, proceed without adding CORS headers
-  return next();
-});
-
 
 export { SessionManager, ConnectionManager, SessionTimer, MessageRelay };
 
