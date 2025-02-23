@@ -22,7 +22,6 @@ export const useLocalizeAndFormatDateTime = (
       throw new Error("No confirmed time/date");
     }
     const trimmed = reqTimeDate.trim();
-    console.log("Raw DB Timestamp Received:", trimmed);
 
     // Check if it has a recognized offset (e.g. +00:00, -05:00) OR a 'Z'.
     // If not, we fail immediately to catch upstream insertion mistakes.

@@ -223,7 +223,6 @@ export const useLearningRequestMutations = () => {
 
       if (!supabaseClient || !currentAccount) throw new Error('Supabase client or current account not available');
       const utcDateTime = convertLocalTimetoUtc(dateTime);
-      console.log("UTC Converted DateTime Before DB Insert:", utcDateTime);
       let hashed_learner_address = ethers.keccak256(currentAccount.ethAddress);
 
       const { data, error } = await supabaseClient
@@ -242,8 +241,6 @@ export const useLearningRequestMutations = () => {
         }])
         .eq('session_id', sessionId)
         .select();
-
-      console.log('data', JSON.stringify(data))
 
       if (error) throw error;
       return true;

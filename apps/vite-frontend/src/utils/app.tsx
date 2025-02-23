@@ -1,5 +1,5 @@
 import { router } from '@/TanstackRouter/router';
-import { AuthMethodPlus, NotificationIface, UnifiedAuth } from '@/types/types';
+import { NotificationIface, UnifiedAuth } from '@/types/types';
 import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { QueryClient } from '@tanstack/query-core';
 import bs58 from 'bs58';
