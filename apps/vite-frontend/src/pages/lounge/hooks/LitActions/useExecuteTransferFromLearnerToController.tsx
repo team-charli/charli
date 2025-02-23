@@ -1,6 +1,8 @@
+//useExecuteTransferFromLearnerToController.tsx
 import {SignatureLike} from 'ethers';
 import { litNodeClient } from '@/utils/litClients';
 import { useAddResourceAndRefectchSessionSigsQuery } from '@/contexts/hooks/Auth/LitAuth/useAddResourceAndRefectchSessionSigs';
+import { isValidTxHash } from '@/utils/app';
 export const useExecuteTransferFromLearnerToController = () => {
   const addResourceAndRefetchSessionSigs = useAddResourceAndRefectchSessionSigsQuery();
 
@@ -53,15 +55,17 @@ export const useExecuteTransferFromLearnerToController = () => {
         relayerIpfsId,
         env,
       }
-      console.log("transferFrom jsParams", jsParams)
+      //console.log("transferFrom jsParams", jsParams)
       const transferFromResult = await litNodeClient.executeJs({
         ipfsId: transferFromActionIpfsId ,
         sessionSigs,
         jsParams,
       });
 
-      console.log('results', transferFromResult)
-      console.log('results', transferFromResult.logs)
+      if (!isValidTxHash(transferFromResult)) {
+        console.error('results', transferFromResult)
+        throw new Error('transferFrom Lit Action Failed')
+      }
 
     } catch (e) {
       console.error(e);

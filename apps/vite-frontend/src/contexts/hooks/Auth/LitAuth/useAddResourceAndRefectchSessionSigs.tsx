@@ -1,3 +1,4 @@
+//useAddResourceAndRefectchSessionSigs.tsx
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext'
 import { LitAccessControlConditionResource, LitAbility } from "@lit-protocol/auth-helpers";

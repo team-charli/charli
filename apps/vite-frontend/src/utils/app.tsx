@@ -1,6 +1,6 @@
 import { router } from '@/TanstackRouter/router';
 import { NotificationIface, UnifiedAuth } from '@/types/types';
-import { IRelayPKP, SessionSigs } from '@lit-protocol/types';
+import { ExecuteJsResponse, IRelayPKP, SessionSigs } from '@lit-protocol/types';
 import { QueryClient } from '@tanstack/query-core';
 import bs58 from 'bs58';
 import {ethers} from 'ethers';
@@ -291,3 +291,18 @@ export const cleanLangString = (teachingLang: string): string => {
   // Remove any trailing parentheses and their contents.
   return teachingLang.replace(/\s*\(.*\)$/, "");
 };
+
+export function isValidTxHash(response: ExecuteJsResponse): boolean {
+  // First check if response.response is a string
+  if (typeof response.response !== 'string') {
+    return false;
+  }
+
+  // Remove any JSON string quotes if present
+  const cleanResponse = response.response.replace(/^"|"$/g, '');
+
+  // Check if it matches Ethereum transaction hash format
+  // Should be "0x" followed by 64 hexadecimal characters
+  const txHashRegex = /^0x[a-fA-F0-9]{64}$/;
+  return txHashRegex.test(cleanResponse);
+}

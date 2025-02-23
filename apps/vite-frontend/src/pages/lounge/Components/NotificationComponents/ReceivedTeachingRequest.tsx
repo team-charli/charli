@@ -7,6 +7,7 @@ import { useHandleTeacherRequest } from "../../hooks/useHandleTeacherRequest";
 import { cleanLangString, getCountryEmoji } from "@/utils/app";
 
 const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps) => {
+
   const countryEmoji = getCountryEmoji(notification.teaching_lang);
   const languageDisplay = cleanLangString(notification.teaching_lang);
 
@@ -24,9 +25,43 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
             <li className="flex items-center gap-2 bg-red-300 w-1/2 border-2 border-neutral-700">
               Confirm meeting with {notification.learnerName} at {displayLocalTime} {displayLocalDate} in {languageDisplay} {countryEmoji}?
               <div>
-<button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out mr-2" onClick={() => void handleTeacherChoice('accept')}>Accept</button>
-<button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out mr-2" onClick={() => void handleTeacherChoice('reject')}>Reject</button>
-<button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out" onClick={() => void handleTeacherChoice('reschedule')}>Reschedule</button>
+                <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out mr-2"
+                  onClick={async () => {
+                    try {
+                      await handleTeacherChoice('accept');
+                      console.log('Accept flow finished with no errors');
+                    } catch (err) {
+                      console.error('Accept flow ended in error:', err);
+                      // Optionally show some toast or logging mechanism
+                    }
+                  }}
+                >Accept
+                </button>
+
+                <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out mr-2"
+                  onClick={() => async () => {
+                    try {
+                      handleTeacherChoice('reject')
+                    } catch(err) {
+                      console.error('Reject flow ended in error:', err)
+                    }
+                  }}
+                >
+                  Reject
+                </button>
+
+                <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-300 ease-in-out"
+
+                  onClick={() => async() => {
+                    try {
+                      handleTeacherChoice('reschedule')
+                    } catch (err) {
+                      console.error('Reschedule flow ended in error', err)
+                    }
+                  }}
+                >
+                  Reschedule
+                </button>
               </div>
             </li>
           )}

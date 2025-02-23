@@ -1,22 +1,26 @@
+//useHandleTeacherRequest.tsx
 import {AddressLike, ethers} from 'ethers'
 import { fetchLearnerToControllerParams } from "@/Supabase/DbCalls/fetchLearnerToControllerParams";
 import { useTeacherSignRequestedSessionDuration } from "./Confirm/useTeacherSignRequestedSessionDuration";
 import { useLitAccount, usePkpWallet, useSupabaseClient } from "@/contexts/AuthContext";
 import { teacherChangeDateTime, teacherConfirmRequestDb, teacherRejectRequest } from "@/Supabase/DbCalls/teacherConfirmRejectReschedule";
 import { calculateSessionCost } from "@/utils/app";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction } from "react";
 import { NotificationIface } from "@/types/types";
 import { useExecuteTransferFromLearnerToController } from './LitActions/useExecuteTransferFromLearnerToController';
+
 //TODO: not always reliable
 export const useHandleTeacherRequest = (
   notification: NotificationIface,
   utcDateTime: string,
-  setUiCondition: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>>
+  setUiCondition: Dispatch<SetStateAction<'initial' | 'confirmed' | 'rejectOptions' | 'changingTime'>>,
 ) => {
-  const executeTransferFromLearnerToController = useExecuteTransferFromLearnerToController();
   const {data: supabaseClient} = useSupabaseClient();
   const {data: currentAccount} = useLitAccount();
   const {data: pkpWallet} = usePkpWallet();
+
+  const executeTransferFromLearnerToController = useExecuteTransferFromLearnerToController();
+
   let teacherAddress: AddressLike;
   if (pkpWallet) {
     teacherAddress = pkpWallet.address;
@@ -26,7 +30,10 @@ export const useHandleTeacherRequest = (
     switch (action) {
       case 'accept':
         try {
-          console.log('Starting accept process');
+          //console.log('Starting accept process');
+          if (!supabaseClient) throw new Error('Supabase client not loaded');
+          if (!pkpWallet) throw new Error('PKP Wallet not loaded');
+
           const {
             controllerAddress,
             requestedSessionDuration,
@@ -36,7 +43,6 @@ export const useHandleTeacherRequest = (
             learnerAddressEncryptHash,
             learnerAddressCipherText,
           } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
-          console.log('Fetched learner to controller params:', { controllerAddress, requestedSessionDuration, hashedLearnerAddress, secureSessionId });
 
           let mintClaimResponse: any;
           mintClaimResponse = await supabaseClient!.functions.invoke('mint-controller-pkp', {
@@ -45,7 +51,11 @@ export const useHandleTeacherRequest = (
               sessionId: notification.session_id,
             })
           });
-          console.log('mintClaimResponse: ', mintClaimResponse);
+
+          if (mintClaimResponse.error) {
+            console.error('mintClaimResponse.error:', mintClaimResponse.error);
+            throw new Error(`mintClaimResponse failed: ${mintClaimResponse.error.message}`);
+          }
 
           const requestedSessionDurationTeacherSig = await signSessionDuration(
             requestedSessionDurationLearnerSig,
@@ -54,17 +64,17 @@ export const useHandleTeacherRequest = (
             secureSessionId
           );
           if (!requestedSessionDurationTeacherSig) throw new Error('Failed to sign session duration');
-          console.log('Session duration signed successfully');
+          //console.log('Session duration signed successfully');
 
           if (!pkpWallet) throw new Error('pkpWallet undefined');
           const hashedTeacherAddress = ethers.keccak256(ethers.getAddress(pkpWallet.address));
 
-          console.log('Hashed teacher address, and teacherAddress:', { hashedTeacherAddress, teacherAddress });
+          //console.log('Hashed teacher address, and teacherAddress:', { hashedTeacherAddress, teacherAddress });
 
           let paymentAmount;
           if (controllerAddress && teacherAddress && requestedSessionDuration && requestedSessionDurationTeacherSig && hashedLearnerAddress && secureSessionId) {
             paymentAmount = calculateSessionCost(requestedSessionDuration.toString());
-            console.log("Calling executeTransferFromLearnerToController with paymentAmount: ", paymentAmount);
+            //console.log("Calling executeTransferFromLearnerToController with paymentAmount: ", paymentAmount);
             try {
               const transferFromResult = await executeTransferFromLearnerToController(
                 controllerAddress,
@@ -79,22 +89,19 @@ export const useHandleTeacherRequest = (
                 learnerAddressEncryptHash,
                 learnerAddressCipherText,
               );
-              console.log('Transfer from learner to controller executed successfully, transferFromResult:', transferFromResult);
+              //console.log('Transfer from learner to controller executed successfully, transferFromResult:', transferFromResult);
             } catch (error) {
               console.error('Error executing transfer from learner to controller:', error);
               throw new Error('Failed to execute transfer from learner to controller');
             }
           } else {
             console.error('Missing required parameters for executeTransferFromLearnerToController');
-            console.log({controllerAddress, teacherAddress, requestedSessionDuration, requestedSessionDurationTeacherSig, hashedLearnerAddress, secureSessionId});
+            //console.log({controllerAddress, teacherAddress, requestedSessionDuration, requestedSessionDurationTeacherSig, hashedLearnerAddress, secureSessionId});
             throw new Error('Missing required parameters for transfer');
           }
 
-          console.log('Confirming teacher request in DB');
-          //await debugTeacherFlowNoSignIn(
-          //  supabaseClient,
-          //  notification.session_id
-          //)
+          //console.log('Confirming teacher request in DB');
+
           await teacherConfirmRequestDb(
             supabaseClient,
             setUiCondition,

@@ -270,12 +270,9 @@ export interface MatchParams {
 }
 
 export interface SessionParamsResult {
-  controllerPublicKey: string | null;
   controllerAddress: string | null;
-  learnerAddress: string | null;
   requestedSessionDuration: number | null;
   requestedSessionDurationLearnerSig: string | null;
-  keyId: string | null;
   hashedLearnerAddress: string | null;
   secureSessionId: string | null;
   learnerAddressEncryptHash: string | null;
