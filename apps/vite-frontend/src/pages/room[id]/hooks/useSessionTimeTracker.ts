@@ -1,39 +1,47 @@
 // hooks/useSessionTimeTracker.ts
-
 import { useLitAccount } from '@/contexts/AuthContext';
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Connects to the session-time-tracker Worker / DO system over WebSocket,
+ * Connects to the session-time-tracker Worker/DO system over WebSocket,
  * calls /init once connected, and listens for broadcast messages (including finalization).
  */
-export function useSessionTimeTracker(roomId: string, hashedLearnerAddress: string, hashedTeacherAddress: string, controllerAddress: string) {
-
+export function useSessionTimeTracker(
+  roomId: string,
+  hashedLearnerAddress: string,
+  hashedTeacherAddress: string,
+  controllerAddress: string
+) {
   const [hasConnectedWs, setHasConnectedWs] = useState(false);
   const [initializationComplete, setInitializationComplete] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [isFinalized, setIsFinalized] = useState(false);
-  const {data: currentAccount} = useLitAccount();
-  // Keep a ref to the WebSocket so we can close on unmount if needed
+  const { data: currentAccount } = useLitAccount();
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-
     if (!roomId || !hashedLearnerAddress || !hashedTeacherAddress || !controllerAddress) {
+      console.error(
+        '[useSessionTimeTracker] Missing required params:',
+        { roomId, hashedLearnerAddress, hashedTeacherAddress, controllerAddress }
+      );
+      return;
+    }
 
-   console.log("{roomId, hashedLearnerAddress, hashedTeacherAddress, controllerAddress}", {roomId, hashedLearnerAddress, hashedTeacherAddress, controllerAddress});
-    return;
-   }
+    // Open the WebSocket
     const ws = new WebSocket(`wss://session-time-tracker.charli.chat/connect/${roomId}`);
     wsRef.current = ws;
 
+    /**
+     * onopen
+     */
     ws.onopen = async () => {
+      console.log(`[WebSocket] onopen → Connected (roomId=${roomId})`);
       setHasConnectedWs(true);
-      // Once open, call /init
-      try {
-        console.log('[TIME] ws.onopen =>', performance.now());
-        const initStart = performance.now();
 
+      // Once connected, call /init
+      try {
+        console.log(`[WebSocket] → POST /init for room: ${roomId}`);
         const initResponse = await fetch('https://session-time-tracker.charli.chat/init', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -46,53 +54,132 @@ export function useSessionTimeTracker(roomId: string, hashedLearnerAddress: stri
             sessionDuration: 3600,
           }),
         });
+
         if (!initResponse.ok) {
-          console.error('session-time-tracker init failed');
+          console.error(`[WebSocket] /init failed (roomId=${roomId})`);
+        } else {
+          console.log(`[WebSocket] /init succeeded (roomId=${roomId})`);
         }
-        console.log('[TIME] /init response =>', performance.now() - initStart, 'ms');
       } catch (err) {
-        console.error('Failed to call /init:', err);
+        console.error('[WebSocket] onopen → Failed to call /init:', err);
       }
     };
 
+    /**
+     * onmessage
+     */
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        const { type, data: payload } = data;
+
+        // Keep track of all incoming messages
         setMessages((prev) => [...prev, data]);
 
-        switch (data.type) {
+        // Structured logging for every recognized message type
+        switch (type) {
           case 'initiated':
-            // Means the Worker has confirmed the session is initiated
-            console.log('[TIME] "initiated" message =>', performance.now());
+            console.group(`[WebSocket] "initiated" (roomId=${roomId})`);
+            console.log('Data payload:', payload);
+            console.groupEnd();
+
+            // 'initiated' → Session confirmed to have started
             setInitializationComplete(true);
             break;
+
+          case 'warning':
+            console.group(`[WebSocket] "warning" (roomId=${roomId})`);
+            console.log('3-minute warning before session ends.');
+            console.log('Data payload:', payload);
+            console.groupEnd();
+            break;
+
+          case 'expired':
+            console.group(`[WebSocket] "expired" (roomId=${roomId})`);
+            console.log('Session duration fully elapsed (non-fault).');
+            console.log('Data payload:', payload);
+            console.groupEnd();
+            break;
+
+          case 'fault':
+            console.group(`[WebSocket] "fault" (roomId=${roomId})`);
+            console.error('SessionTimer indicated a fault scenario (e.g. second user never joined).');
+            console.log('Data payload:', payload);
+            console.groupEnd();
+            break;
+
+          case 'userJoined':
+            console.group(`[WebSocket] "userJoined" (roomId=${roomId})`);
+            console.log('A user joined the session.');
+            console.log('Data payload:', payload);
+            console.groupEnd();
+            break;
+
+          case 'userLeft':
+            console.group(`[WebSocket] "userLeft" (roomId=${roomId})`);
+            console.log('A user left the session.');
+            console.log('Data payload:', payload);
+            console.groupEnd();
+            break;
+
+          case 'bothJoined':
+            console.group(`[WebSocket] "bothJoined" (roomId=${roomId})`);
+            console.log('Both teacher and learner are now present.');
+            console.log('Data payload:', payload);
+            console.groupEnd();
+            break;
+
           case 'finalized':
-            // Means the Worker has broadcast a finalization
+            console.group(`[WebSocket] "finalized" (roomId=${roomId})`);
+            console.log('The session was finalized (either success or fault).');
+            console.log('Data payload:', payload);
+            console.groupEnd();
+
             setIsFinalized(true);
             break;
+
           default:
-            // you can handle other message types here
+            // Catch any unrecognized message types
+            console.group(`[WebSocket] Unknown message type: ${type} (roomId=${roomId})`);
+            console.log('Raw event data:', data);
+            console.groupEnd();
             break;
         }
       } catch (err) {
-        console.error('Failed to parse WS message:', err);
+        console.error('[WebSocket] onmessage → Error parsing JSON:', err);
       }
     };
 
-    ws.onclose = () => {
-      // handle close
+    /**
+     * onerror
+     */
+    ws.onerror = (err) => {
+      console.error('[WebSocket] onerror:', err);
+    };
+
+    /**
+     * onclose
+     */
+    ws.onclose = (event) => {
+      console.warn(`[WebSocket] onclose → Connection closed (roomId=${roomId})`, event);
       setHasConnectedWs(false);
       wsRef.current = null;
     };
 
     return () => {
-      // Cleanup on unmount
+      console.log(`[WebSocket] Cleanup → Closing on unmount (roomId=${roomId})`);
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [roomId, hashedTeacherAddress, hashedLearnerAddress, controllerAddress]);
+  }, [
+    roomId,
+    hashedLearnerAddress,
+    hashedTeacherAddress,
+    controllerAddress,
+    currentAccount?.ethAddress,
+  ]);
 
   return {
     hasConnectedWs,
@@ -101,4 +188,3 @@ export function useSessionTimeTracker(roomId: string, hashedLearnerAddress: stri
     isFinalized,
   };
 }
-
