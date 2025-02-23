@@ -48,7 +48,8 @@ interface PinataPayload {
   roomId: string;
 }
 
-const app = new Hono();
+const functionName = 'execute-finalize-action'
+const app = new Hono().basePath(`/${functionName}`)
 
 app.use('*', async (c, next) => {
   for (const [key, value] of Object.entries(corsHeaders)) {
@@ -60,7 +61,7 @@ app.use('*', async (c, next) => {
   await next();
 });
 
-app.post('/execute-finalize-action', async (c) => {
+app.post('/', async (c) => {
   const litNodeClient = new LitNodeClientNodeJs({ litNetwork: 'datil-dev', debug: false });
   console.log('[execute-finalize-action] Starting request...');
 
