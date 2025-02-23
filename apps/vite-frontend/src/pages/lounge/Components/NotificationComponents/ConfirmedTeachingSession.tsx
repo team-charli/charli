@@ -9,7 +9,6 @@ interface ConfirmedTeachingSessionProps {
   notification: NotificationIface;
 }
 
-//TODO:[DEBUG LOG] No roomId found in sessionData:
 const ConfirmedTeachingSession = ({ notification: sessionData }: ConfirmedTeachingSessionProps) => {
   const isSessionSoon = sessionData.isImminent;
   const {
@@ -64,7 +63,7 @@ const ConfirmedTeachingSession = ({ notification: sessionData }: ConfirmedTeachi
   return (
     <div className="grid grid-cols-3">
       <div className="col-start-2 col-span-2">
-        {isSessionSoon ? (
+        {isSessionSoon && sessionData.roomId ? (
           <Link
             className="flex items-center gap-2 w-1/2 border-2 border-neutral-700 bg-slate-100 hover:bg-slate-200 cursor-pointer px-2 py-1"
             to="/room/$id"
