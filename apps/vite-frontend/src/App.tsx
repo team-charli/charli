@@ -11,10 +11,11 @@ mutationLogger.setLevel('info');
 
 import { Provider as JotaiProvider } from 'jotai/react';
 import '@/styles/globals.css';
-import { HuddleProvider } from "@huddle01/react";
+import { HuddleProvider } from '@huddle01/react';
 import { RouterProvider } from '@tanstack/react-router';
 import { huddleClient } from './Huddle/huddleClient';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { experimental_createPersister } from '@tanstack/react-query-persist-client';
 import { router, RouterContext } from './TanstackRouter/router';
@@ -41,25 +42,24 @@ function CharliApp() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {(authContext) => (
-          <JotaiProvider>
-            <ReactQueryDevtools initialIsOpen={false} />
-            <SessionsProvider>
-              <HuddleProvider client={huddleClient}>
-                {/* Only mount the router once we're ready */}
-                <AuthGate>
-                  <RouterProvider
-                    router={router}
-                    context={{
-                      auth: authContext,
-                      queryClient,
-                    } as RouterContext}
-                  />
-                </AuthGate>
-              </HuddleProvider>
-            </SessionsProvider>
-          </JotaiProvider>
-        )}
+        <JotaiProvider>
+          <ReactQueryDevtools initialIsOpen={false} />
+          <SessionsProvider>
+            <HuddleProvider client={huddleClient}>
+              {/*
+                Keep your AuthGate so you don't render the Router
+                until auth is loaded (no flicker).
+              */}
+              <AuthGate>
+                {/*
+                  Instead of calling useAuth() here,
+                  move it inside a child component:
+                */}
+                <RouterWrapper />
+              </AuthGate>
+            </HuddleProvider>
+          </SessionsProvider>
+        </JotaiProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
@@ -68,22 +68,32 @@ function CharliApp() {
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isLoading, isError } = useAuth();
 
-  // If your top-level auth is still loading, show a stable screen/spinner.
   if (isLoading) {
-    return null;
+    return null; // or <LoadingScreen/>
   }
-
-  // If something’s broken in the auth chain, throw or show an error:
   if (isError) {
-    // Could do a fallback UI or throw an error.
-    throw new Error(
-      'Error in auth chain. You can handle it with a custom error boundary or try again.'
-    );
+    throw new Error('Auth chain error');
   }
 
-  // Otherwise, the user is either loaded & logged in or not.
-  // Let the route-based logic handle any final redirects:
   return <>{children}</>;
+}
+
+/**
+ * This child is definitely "inside" <AuthProvider>,
+ * so we can safely call useAuth() here without the error.
+ */
+function RouterWrapper() {
+  const auth = useAuth(); // Safe now, we're in the Auth provider tree
+
+  return (
+    <RouterProvider
+      router={router}
+      context={{
+        auth,
+        queryClient,
+      } as RouterContext}
+    />
+  );
 }
 
 export default CharliApp;

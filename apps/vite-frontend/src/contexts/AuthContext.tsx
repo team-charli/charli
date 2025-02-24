@@ -25,12 +25,14 @@ const AuthContext = createContext<{
   isSuccess: boolean;
 } | null>(null);
 
-// AuthContext.tsx
-export const AuthProvider = ({ children }: { children: (authContext: AuthContextType) => React.ReactNode }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const authChainResult = useAuthChain();
-  return <AuthContext.Provider value={authChainResult}>
-    {children(authChainResult)}
-  </AuthContext.Provider>;
+
+  return (
+    <AuthContext.Provider value={authChainResult}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = (): {
