@@ -79,9 +79,10 @@ export class SessionManager extends DurableObject<DOEnv> {
       }
 
       // Validate user and assign role
-      console.log("DEBUG userAddress=", userAddress, typeof userAddress)
+      //console.log("DEBUG userAddress=", userAddress, typeof userAddress)
       const userAddressHashBytes = keccak256(hexToBytes(userAddress));
-      const userAddressHash = toHex(userAddressHashBytes);
+      let userAddressHash = toHex(userAddressHashBytes);
+      userAddressHash = "0x" + userAddressHash;
       // console.log('/init hashes:', { userAddressHash, hashedTeacherAddress, hashedLearnerAddress });
 
       let role: 'teacher' | 'learner';
