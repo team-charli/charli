@@ -19,18 +19,19 @@ import ControlRibbon from './Components/ControlRibbon';
 import { useParams, useSearch } from '@tanstack/react-router';
 
 const Room = () => {
+
   const navigate = useNavigate();
   const { id: roomId } = useParams({ from: '/room/$id' });
-  const { roomRole, hashedLearnerAddress, hashedTeacherAddress } =
-    useSearch({ from: '/room/$id' });
+  const { roomRole, hashedLearnerAddress, hashedTeacherAddress, controllerAddress } =
+  useSearch({ from: '/room/$id' });
 
   // 1) Verify user role & address (no early return for loading)
   const { data: verifiedRoleAndAddressData /*, isLoading: isVerifying */ } =
-    useVerifiyRoleAndAddress(
-      hashedTeacherAddress,
-      hashedLearnerAddress,
-      roomRole
-    );
+  useVerifiyRoleAndAddress(
+    hashedTeacherAddress,
+    hashedLearnerAddress,
+    roomRole
+  );
 
   // 2) Connect to DO-based session-time-tracker
   const {
@@ -42,7 +43,7 @@ const Room = () => {
     roomId,
     hashedTeacherAddress,
     hashedLearnerAddress,
-    roomRole,
+    controllerAddress
   );
 
   // 3) Join the Huddle01 room
@@ -92,10 +93,10 @@ const Room = () => {
               Waiting for remote peer...
             </div>
           ) : (
-            remotePeerIds.map((id) => (
-              <RemotePeerView key={id} peerId={id} />
-            ))
-          )}
+              remotePeerIds.map((id) => (
+                <RemotePeerView key={id} peerId={id} />
+              ))
+            )}
         </div>
       </div>
 

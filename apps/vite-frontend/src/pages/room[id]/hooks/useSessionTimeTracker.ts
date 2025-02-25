@@ -32,10 +32,10 @@ export function useSessionTimeTracker(
    * we can store a simple, fixed key like "session-init" (instead of using roomId).
    */
   const [sessionInitialized, setSessionInitialized, removeSessionInitialized] =
-    useLocalStorage<boolean>('session-init', false);
+  useLocalStorage<boolean>('session-init', false);
 
   useEffect(() => {
-    // 1. Basic input validation
+
     if (!roomId || !hashedLearnerAddress || !hashedTeacherAddress || !controllerAddress) {
       console.error('[useSessionTimeTracker] Missing required params:', {
         roomId,
@@ -197,22 +197,20 @@ export function useSessionTimeTracker(
     };
 
     return () => {
-      console.log(`[WebSocket] Cleanup → Closing on unmount (roomId=${roomId})`);
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
   }, [
-    roomId,
-    hashedLearnerAddress,
-    hashedTeacherAddress,
-    controllerAddress,
-    currentAccount?.ethAddress,
-    sessionInitialized,      // crucial so that we check this inside onopen
-    setSessionInitialized,   // needed so we can update localStorage from inside
-    removeSessionInitialized // if session finalizes
-  ]);
+      // Dependencies:
+      roomId,
+      hashedLearnerAddress,
+      hashedTeacherAddress,
+      controllerAddress,
+      currentAccount?.ethAddress,
+      removeSessionInitialized,
+    ]);
 
   /**
    * 3. Also listen to the SessionsContext for a possible isExpired flag
