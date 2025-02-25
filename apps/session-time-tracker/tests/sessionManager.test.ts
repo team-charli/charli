@@ -7,6 +7,7 @@ import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
 import type { User } from "../src/types";
 import { runDurableObjectAlarm } from "cloudflare:test";
 import { SELF } from "cloudflare:test";
+import { getDefaultInitData } from "./util/helpers";
 
 describe("Session Manager", () => {
   let ws: WebSocket | undefined;
@@ -93,13 +94,13 @@ describe("Session Manager", () => {
   async function initSession(userAddress: string) {
     const initResp = await SELF.fetch("https://example.com/init", {
       method: "POST",
-      body: JSON.stringify({
+      body: JSON.stringify(getDefaultInitData({
         clientSideRoomId: roomId,
         hashedTeacherAddress: teacherHash,
         hashedLearnerAddress: learnerHash,
         userAddress,
         sessionDuration: duration
-      })
+      }))
     });
     expect(initResp.ok).toBe(true);
     return initResp.json();
@@ -107,18 +108,20 @@ describe("Session Manager", () => {
 
   describe("Direct DO instantiation and initialization", () => {
     it("should properly instantiate with necessary properties", async () => {
+     const testControllerAddress = "0xF000000000000000000000000000000000000000";
 
       // 1. Setup WebSocket connection with correct URL pattern / Setup message listener
       await establishWebSocket();
       const initResp = await SELF.fetch("https://example.com/init", {
         method: "POST",
-        body: JSON.stringify({
+        body: JSON.stringify(getDefaultInitData({
           clientSideRoomId: roomId,
           hashedTeacherAddress: teacherHash,
           hashedLearnerAddress: learnerHash,
           userAddress: teacherAddress,
-          sessionDuration: duration
-        })
+          sessionDuration: duration,
+          controllerAddress: testControllerAddress
+        }))
       });
       expect(initResp.ok).toBe(true);
       //await initSession(learnerAddress);
@@ -133,13 +136,13 @@ describe("Session Manager", () => {
         const initRequest = new Request("http://session-manager/init", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body: JSON.stringify(getDefaultInitData({
             clientSideRoomId: roomId,
-            hashedTeacherAddress: teacherHash,
-            hashedLearnerAddress: learnerHash,
+            sessionDuration: duration,
             userAddress: teacherAddress,
-            sessionDuration: duration
-          })
+            hashedTeacherAddress: teacherHash,
+            controllerAddress: testControllerAddress
+          }))
         });
 
         const initResponse = await instance.fetch(initRequest);
@@ -200,13 +203,13 @@ describe("Session Manager", () => {
           const initRequest = new Request("http://session-manager/init", {
             method: "POST",
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+            body: JSON.stringify(getDefaultInitData({
               clientSideRoomId: roomId,
               hashedTeacherAddress: teacherHash,
               hashedLearnerAddress: learnerHash,
               userAddress: teacherAddress,
               sessionDuration: duration
-            })
+            }))
           });
 
           const initResponse = await instance.fetch(initRequest);
@@ -279,13 +282,13 @@ describe("Session Manager", () => {
         const initRequest = new Request("http://session-manager/init", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body: JSON.stringify(getDefaultInitData({
             clientSideRoomId: roomId,
             hashedTeacherAddress: teacherHash,
             hashedLearnerAddress: learnerHash,
             userAddress:  "0x0000000000000000000000000000000000000042",
             sessionDuration: duration
-          })
+          }))
         });
 
         const response = await instance.fetch(initRequest);
@@ -417,13 +420,13 @@ describe("Session Manager", () => {
       const initResponse = await SELF.fetch("http://test.local/init", {
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(getDefaultInitData({
           clientSideRoomId: roomId,
           hashedTeacherAddress: teacherHash,
           hashedLearnerAddress: learnerHash,
           userAddress: teacherAddress,
           sessionDuration: duration
-        })
+        }))
       });
       expect(initResponse.ok).toBe(true);
 
@@ -493,13 +496,13 @@ describe("Session Manager", () => {
         const initRequest1 = new Request("http://session-manager/init", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body: JSON.stringify(getDefaultInitData({
             clientSideRoomId: roomId1,
             hashedTeacherAddress: hashedTeacherAddress1,
             hashedLearnerAddress: "0x0000000000000000000000000000000000000456",
             userAddress: teacherAddress1,
             sessionDuration: duration
-          })
+          }))
         });
 
         await instance1.fetch(initRequest1);
@@ -518,13 +521,13 @@ describe("Session Manager", () => {
         const initRequest2 = new Request("http://session-manager/init", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body: JSON.stringify(getDefaultInitData({
             clientSideRoomId: roomId2,
             hashedTeacherAddress: hashedTeacherAddress2,
             hashedLearnerAddress: learnerHash,
             userAddress: teacherAddress2,
             sessionDuration: duration
-          })
+          }))
         });
 
         const response2 = await instance2.fetch(initRequest2);
