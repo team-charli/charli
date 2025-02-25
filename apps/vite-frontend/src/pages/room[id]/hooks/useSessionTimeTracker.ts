@@ -10,6 +10,7 @@ import { SessionsContextType, ExtendedSession } from '@/types/types';
  * calls /init once connected (if not already done), and listens for broadcast messages.
  * Also checks if the session is expired from the SessionsContext.
  */
+
 export function useSessionTimeTracker(
   roomId: string,
   hashedLearnerAddress: string,
@@ -197,6 +198,8 @@ export function useSessionTimeTracker(
     };
 
     return () => {
+      console.log(`[WebSocket] Cleanup → Closing on u
+nmount (roomId=${roomId})`);
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -213,15 +216,16 @@ export function useSessionTimeTracker(
     ]);
 
   /**
-   * 3. Also listen to the SessionsContext for a possible isExpired flag
-   *    on the current session. If found, finalize locally.
+   * 3. check an expiration indicator from SessionsContext
+
    */
   useEffect(() => {
     // If there's only one active session, find it and check if it's expired
     const activeSession = sessionsContextValue.find(
       (s: ExtendedSession) => s.huddle_room_id === roomId
     );
-    if (activeSession?.isExpired && !isFinalized) {
+
+    if (activeSession?.session_resolved && !isFinalized) {
       console.log(
         `[SessionsContext] session_id=${activeSession.session_id} isExpired=true. Clearing local init.`
       );

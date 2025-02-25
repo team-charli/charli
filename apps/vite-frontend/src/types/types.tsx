@@ -198,6 +198,7 @@ export type Session = {
   learner_left_timestamp_worker_sig: string;
   teacher_joined_timestamp_worker_sig: string;
   teacher_left_timestamp_worker_sig: string;
+  session_resolved: boolean
 };
 
 type PreSessionStateFlags = {
