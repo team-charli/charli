@@ -29,7 +29,7 @@ export const useNotifications = (): NotificationIface[] => {
       hashed_learner_address: sessionRow.hashed_learner_address,
       hashed_teacher_address: sessionRow.hashed_teacher_address,
       isImminent: sessionRow.isImminent,
-      isExpired: sessionRow.isExpired
+      isNotificationExpired: sessionRow.isNotificationExpired
     };
 
     let notification: NotificationIface | null = null;

@@ -207,11 +207,11 @@ type PreSessionStateFlags = {
   isAccepted: boolean;
   isRejected: boolean;
   isImminent: boolean;
-  isExpired: boolean
+  isNotificationExpired: boolean
 };
 
 type PostSessionStateFlags = {
-  isExpired: boolean;
+  isNotificationExpired: boolean;
 }
 
 export type ExtendedSession = Session & PreSessionStateFlags & PostSessionStateFlags ;
@@ -251,7 +251,7 @@ export interface NotificationIface {
   hashed_learner_address?: string;
   hashed_teacher_address?: string;
   isImminent?: boolean;
-  isExpired?: boolean;
+  isNotificationExpired?: boolean;
 }
 
 export interface SessionIface {
