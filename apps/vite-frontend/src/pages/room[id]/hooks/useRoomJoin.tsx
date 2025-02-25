@@ -41,9 +41,9 @@ export const useRoomJoin = (
   const canJoinRoom = useMemo(() => {
     return (
       options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
-      options.verifiedRoleAndAddressData?.verifiedRole &&
-      options.hasConnectedWs &&
-      options.initializationComplete
+        options.verifiedRoleAndAddressData?.verifiedRole &&
+        options.hasConnectedWs &&
+        options.initializationComplete
     );
   }, [options]);
 
@@ -107,7 +107,7 @@ export const useRoomJoin = (
     if (roomJoinState === "connected") {
       enableVideo().catch((err) => console.error("enableVideo() failed:", err));
       enableAudio().catch((err) => console.error("enableAudio() failed:", err));
-    } else if (roomJoinState === "left" || roomJoinState === "idle") {
+    } else if (roomJoinState === "left") {
       disableVideo();
       disableAudio();
     }
