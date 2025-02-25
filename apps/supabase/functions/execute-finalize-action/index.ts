@@ -1,7 +1,8 @@
 ///Users/zm/Projects/charli/apps/supabase/functions/execute-finalize-action/index.ts
 import { Hono } from 'jsr:@hono/hono';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js'
 import { LitNodeClientNodeJs } from 'https://esm.sh/@lit-protocol/lit-node-client-nodejs@7';
-import { AccessControlConditions } from 'https://esm.sh/@lit-protocol/types';
+import { AccessControlConditions, ExecuteJsResponse } from 'https://esm.sh/@lit-protocol/types';
 import { ethers } from 'https://esm.sh/ethers@5.7.0';
 
 import { corsHeaders } from '../_shared/cors.ts';
@@ -9,6 +10,9 @@ import { sessionSigsForDecryptInAction } from '../_shared/generateControllerWall
 import * as rawCodec from 'https://esm.sh/multiformats/codecs/raw';
 import { sha256 } from 'https://esm.sh/multiformats/hashes/sha2';
 import { CID } from 'https://esm.sh/multiformats/cid';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 // NOTE: production usage might use a more restricted key or burned PKP
 const PRIVATE_KEY = Deno.env.get("PRIVATE_KEY_WORKER_WALLET") ?? "";
@@ -215,11 +219,22 @@ app.post('/', async (c) => {
     });
 
     // If the action fails or "success" is false, throw:
-    if (!results.success) {
-      console.error('[execute-finalize-action] Lit Action returned success=false:', results);
+    if (!isValidTxHash(results)) {
+      console.error('results', results)
       throw new Error('execute-finalize-action failed');
+
     } else {
       console.log('[execute-finalize-action] Lit Action executed successfully. Results:', results);
+      try {
+        const { error } = supabaseClient.from('sessions')
+        .update({ session_resolved: true })
+        .eq('huddle_room_id', roomIdResolved);
+        if (error) console.error(error);
+
+      } catch (e) {
+        console.error(e);
+        throw new Error('failed to update sessions table with session_resolved')
+      }
     }
 
     // Disconnect to clean up
@@ -318,6 +333,22 @@ function validatePinataPayload(payload: any): payload is PinataPayload {
   return validStructure;
 }
 
+function isValidTxHash(response: ExecuteJsResponse): boolean {
+  // First check if response.response is a string
+  if (typeof response.response !== 'string') {
+    return false;
+  }
+
+  // Remove any JSON string quotes if present
+  const cleanResponse = response.response.replace(/^"|"$/g, '');
+
+  // Check if it matches Ethereum transaction hash format
+  // Should be "0x" followed by 64 hexadecimal characters
+  const txHashRegex = /^0x[a-fA-F0-9]{64}$/;
+  return txHashRegex.test(cleanResponse);
+}
+
+
 // Use the Hono app with Deno Deploy
 Deno.serve(async (req) => {
   try {
@@ -330,3 +361,5 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+
