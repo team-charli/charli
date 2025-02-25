@@ -2,6 +2,7 @@ import { sessionSigsExpired } from "@/utils/app";
 import { useQuery } from "@tanstack/react-query";
 import { IRelayPKP, SessionSigs } from "@lit-protocol/types";
 import { authChainLogger } from "@/App";
+import useLocalStorage from "@rehooks/local-storage";
 
 interface IsLitLoggedInQueryParams {
   queryKey: [string];
@@ -9,6 +10,7 @@ interface IsLitLoggedInQueryParams {
   queryFnData: [IRelayPKP | null | undefined, SessionSigs | null | undefined],
 }
 export const useIsLitLoggedInQuery = ({queryKey, enabledDeps, queryFnData}: IsLitLoggedInQueryParams) => {
+  const [_, _2, removeSessionInitialized] = useLocalStorage<boolean>('session-init');
 
   const [litAccount, sessionSigs] = queryFnData;
 
@@ -28,7 +30,7 @@ export const useIsLitLoggedInQuery = ({queryKey, enabledDeps, queryFnData}: IsLi
         return false
       }
       authChainLogger.info("5b: finish isLitLoggedIn query -- true ");
-
+      removeSessionInitialized()
       return true;
     },
     enabled: enabledDeps
