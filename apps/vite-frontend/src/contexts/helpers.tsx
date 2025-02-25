@@ -14,6 +14,8 @@ export const classifySession = (session: Session): Omit<ExtendedSession, keyof S
       session.request_time_date ? checkIfNotificationExpired(session.request_time_date) :
         false; // Default to false if none of the dates are set
 
+  const isSessionExpired = session.confirmed_time_date ? checkIfSessionExpired(session.confirmed_time_date, session.requested_session_duration) : false;
+
   const THRESHOLD_MINUTES = 10;
   let isImminent = false;
   if (session.confirmed_time_date) {
@@ -23,30 +25,28 @@ export const classifySession = (session: Session): Omit<ExtendedSession, keyof S
     isImminent = differenceInMinutes > 0 && differenceInMinutes <= THRESHOLD_MINUTES;
   }
 
-  return { isProposed, isAmended, isAccepted, isRejected, isNotificationExpired, isImminent };
+  return { isProposed, isAmended, isAccepted, isRejected, isNotificationExpired, isImminent, isSessionExpired };
 };
 
 export function checkIfNotificationExpired (dateStr: string): boolean {
   const now = new Date();
   const targetDate = new Date(dateStr);
-  return targetDate < now; // Returns true if the targetDate is in the past compared to now
+  return targetDate < now;
 }
 
-function computeSessionState(session: Session) {
-  return {
-    isProposed: !!session.request_time_date && !session.confirmed_time_date && !session.counter_time_date && !session.session_rejected_reason,
+// checkIfSessionExpired.ts
+export function checkIfSessionExpired(
+  confirmedTimeDate: string,
+  requestedSessionDuration: number
+): boolean {
+  if (!confirmedTimeDate || requestedSessionDuration <= 0) {
+    return false;
+  }
 
-    isAmended: !!session.request_time_date && !!session.counter_time_date && !session.confirmed_time_date && !session.session_rejected_reason,
+  const now = new Date().getTime();
+  const confirmedTime = new Date(confirmedTimeDate).getTime();
 
-    isAccepted: !!session.request_time_date && !!session.confirmed_time_date && !session.session_rejected_reason,
+  const differenceInMinutes = (now - confirmedTime) / (1000 * 60);
 
-    isRejected: !!session.request_time_date && !session.confirmed_time_date && !!session.session_rejected_reason,
-
-    isNotificationExpired: session.confirmed_time_date ? checkIfNotificationExpired(session.confirmed_time_date) :
-
-      session.counter_time_date ? checkIfNotificationExpired(session.counter_time_date) :
-
-        session.request_time_date ? checkIfNotificationExpired(session.request_time_date) :
-          false,
-  };
+  return differenceInMinutes >= requestedSessionDuration;
 }

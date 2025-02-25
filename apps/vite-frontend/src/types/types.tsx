@@ -198,7 +198,7 @@ export type Session = {
   learner_left_timestamp_worker_sig: string;
   teacher_joined_timestamp_worker_sig: string;
   teacher_left_timestamp_worker_sig: string;
-  session_resolved: boolean
+  session_resolved: boolean;
 };
 
 type PreSessionStateFlags = {
@@ -207,11 +207,12 @@ type PreSessionStateFlags = {
   isAccepted: boolean;
   isRejected: boolean;
   isImminent: boolean;
-  isNotificationExpired: boolean
 };
 
 type PostSessionStateFlags = {
   isNotificationExpired: boolean;
+  isSessionExpired: boolean;
+
 }
 
 export type ExtendedSession = Session & PreSessionStateFlags & PostSessionStateFlags ;
@@ -252,6 +253,7 @@ export interface NotificationIface {
   hashed_teacher_address?: string;
   isImminent?: boolean;
   isNotificationExpired?: boolean;
+  isSessionExpired: boolean;
 }
 
 export interface SessionIface {

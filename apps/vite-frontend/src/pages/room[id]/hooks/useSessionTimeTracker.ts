@@ -227,10 +227,18 @@ nmount (roomId=${roomId})`);
 
     if (activeSession?.session_resolved && !isFinalized) {
       console.log(
-        `[SessionsContext] session_id=${activeSession.session_id} isExpired=true. Clearing local init.`
+        `[SessionsContext] session_id=${activeSession.session_id} session_resolved = true. Clearing local init.`
       );
       setIsFinalized(true);
       removeSessionInitialized();
+    }
+    if (activeSession?.isSessionExpired) {
+      console.log(
+        `[SessionsContext] session_id=${activeSession.session_id} isSessionExpired = true. Clearing local init.`
+      );
+      setIsFinalized(true);
+      removeSessionInitialized();
+
     }
   }, [sessionsContextValue, roomId, isFinalized, removeSessionInitialized]);
 
