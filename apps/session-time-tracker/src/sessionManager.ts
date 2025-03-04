@@ -2,10 +2,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { User, ClientData, PinataResponse, UserFinalRecord, EdgeFunctionResponse, AddressDecryptData } from './types';
-import { keccak256 } from 'ethereum-cryptography/keccak';
-import { hexToBytes, toHex } from "ethereum-cryptography/utils.js";
 import { DOEnv, Env } from './env';
-
+import {ethers} from 'ethers';
 export class SessionManager extends DurableObject<DOEnv> {
   private app = new Hono<Env>();
   private roomId!: string;
@@ -41,83 +39,134 @@ export class SessionManager extends DurableObject<DOEnv> {
     this.state = state;
     this.env = env;
 
+
+    // ---------------------------
+    // POST /init
+    // ---------------------------
     this.app.post('/init', async (c) => {
       const clientData = await c.req.json<ClientData>();
-      const { userAddress, hashedTeacherAddress, hashedLearnerAddress, sessionDuration, clientSideRoomId, teacherAddressCiphertext, teacherAddressEncryptHash, learnerAddressCiphertext, learnerAddressEncryptHash, controllerAddress } = clientData;
 
-      let addressDecryptData = await this.state.storage.get<Record<string, string>>("addressDecryptData");
-      if (!addressDecryptData) {
-        addressDecryptData = {};
+      const {
+        userAddress,
+        hashedTeacherAddress,
+        hashedLearnerAddress,
+        sessionDuration,
+        clientSideRoomId,
+        teacherAddressCiphertext,
+        teacherAddressEncryptHash,
+        learnerAddressCiphertext,
+        learnerAddressEncryptHash,
+        controllerAddress,
+        secureSessionId,
+        requestedSessionDurationLearnerSig,
+        requestedSessionDurationTeacherSig,
+        sessionDurationData
+      } = clientData;
+
+      // 1) Update addressDecryptData if present
+      if (teacherAddressCiphertext || learnerAddressCiphertext) {
+        const addressDecryptData = await this.state.storage.get<Record<string, string>>('addressDecryptData') || {};
+        Object.assign(addressDecryptData, {
+          teacherAddressCiphertext,
+          teacherAddressEncryptHash,
+          learnerAddressCiphertext,
+          learnerAddressEncryptHash,
+        });
+        await this.state.storage.put('addressDecryptData', addressDecryptData);
       }
 
-      if (teacherAddressCiphertext && teacherAddressEncryptHash) {
-        addressDecryptData.teacherAddressCiphertext = teacherAddressCiphertext;
-        addressDecryptData.teacherAddressEncryptHash = teacherAddressEncryptHash;
+      // 2) Track roomId & controllerAddress
+      const storedControllerAddress = await this.state.storage.get<string>('controllerAddress');
+      if (storedControllerAddress && storedControllerAddress !== controllerAddress) {
+        return c.json({
+          error: 'Mismatching controllerAddress',
+          storedControllerAddress,
+          receivedControllerAddress: controllerAddress
+        }, 400);
       }
+      await this.state.storage.put('controllerAddress', controllerAddress);
+      await this.state.storage.put('roomId', clientSideRoomId);
 
-      if (learnerAddressCiphertext && learnerAddressEncryptHash) {
-        addressDecryptData.learnerAddressCiphertext = learnerAddressCiphertext;
-        addressDecryptData.learnerAddressEncryptHash = learnerAddressEncryptHash;
+      // 3) Validate user & assign role
+      //    EXACT match to the client’s raw approach:
+      if (!userAddress) {
+        return c.json({ status: 'error', message: 'No userAddress provided' }, 400);
       }
+      const userAddressHash = ethers.keccak256(userAddress);  // no getAddress(), no toLowerCase()
+      const isTeacher = (userAddressHash === hashedTeacherAddress);
+      const isLearner = (userAddressHash === hashedLearnerAddress);
+      const role = isTeacher ? 'teacher' : isLearner ? 'learner' : null;
 
-      await this.state.storage.put("addressDecryptData", addressDecryptData);
-      await this.state.storage.put('roomId', clientSideRoomId )
-      this.roomId = clientSideRoomId;
-
-      const storedControllerAddress = await this.state.storage.get<string>("controllerAddress");
-
-      if (!storedControllerAddress) {
-        await this.state.storage.put("controllerAddress", controllerAddress);
-      } else {
-        if (storedControllerAddress !== controllerAddress) {
-          return c.json({
-            error: "Mismatching controllerAddress",
-            storedControllerAddress,
-            receivedControllerAddress: controllerAddress,
-          }, 400);
-        }
-      }
-
-      // Validate user and assign role
-      //console.log("DEBUG userAddress=", userAddress, typeof userAddress)
-      const userAddressHashBytes = keccak256(hexToBytes(userAddress));
-      let userAddressHash = toHex(userAddressHashBytes);
-      userAddressHash = "0x" + userAddressHash;
-      // console.log('/init hashes:', { userAddressHash, hashedTeacherAddress, hashedLearnerAddress });
-
-      let role: 'teacher' | 'learner';
-      if (userAddressHash === hashedTeacherAddress) {
-        role = 'teacher';
-      } else if (userAddressHash === hashedLearnerAddress) {
-        role = 'learner';
-      } else {
+      if (!role) {
         return c.json({
           status: 'error',
-          message: "User address doesn't match teacher or learner address"
+          message: 'User address does not match teacher or learner (raw hash mismatch)'
         }, 403);
       }
 
-      // Store initial user data
-      const user: User = {
-        role,
-        roomId: clientSideRoomId,
-        hashedTeacherAddress,
-        hashedLearnerAddress,
-        peerId: null,
-        joinedAt: null,
-        leftAt: null,
-        duration: null,
-        sessionDuration,
-      };
+      // 4) Check mandatory fields
+      if (!secureSessionId || !sessionDuration || !sessionDurationData) {
+        return c.json({ error: 'Missing required data' }, 400);
+      }
 
-      await this.state.storage.put(`user:${role}`, user);
+      // 5) Verify sessionDurationData integrity
+      const reDerivedHash = ethers.keccak256(
+        ethers.concat([
+          ethers.toUtf8Bytes(secureSessionId),
+          ethers.toBeHex(sessionDuration) // EXACT client encoding, NO changes
+        ])
+      );
 
-      return c.json({
-        status: 'OK',
-        role,
-        roomId: clientSideRoomId
-      });
+      if (reDerivedHash !== sessionDurationData) {
+        console.error({
+          reDerivedHash,
+          sessionDurationData,
+          secureSessionId,
+          sessionDuration
+        });
+        return c.json({ error: 'sessionDurationData mismatch – potential tampering' }, 403);
+      }
+
+      // Store sessionDuration
+      await this.state.storage.put('sessionDuration', sessionDuration);
+
+      // Decide which signature we’re verifying
+      const signature = (role === 'teacher')
+        ? requestedSessionDurationTeacherSig
+        : requestedSessionDurationLearnerSig;
+
+      if (!signature) {
+        return c.json({ error: `Missing ${role} signature` }, 400);
+      }
+
+      // 6) Verify the signature
+      const recoveredAddress = ethers.verifyMessage(
+        ethers.getBytes(sessionDurationData),
+        signature
+      );
+
+      const hashedRecoveredAddressChecksummed = ethers.keccak256(recoveredAddress);
+      const hashedRecoveredAddressLowercase = ethers.keccak256(recoveredAddress.toLowerCase());
+
+      const expectedHashed = (role === 'teacher')
+        ? hashedTeacherAddress
+        : hashedLearnerAddress;
+
+      if (
+        hashedRecoveredAddressChecksummed !== expectedHashed &&
+          hashedRecoveredAddressLowercase !== expectedHashed
+      ) {
+        console.error({
+          hashedRecoveredAddressChecksummed,
+          hashedRecoveredAddressLowercase,
+          expectedHashed,
+          recoveredAddress
+        });
+        return c.json({ error: `${role} signature mismatch` }, 403);
+      }
+      return c.json({ status: 'ok' }, 200);
     });
+
     this.app.post('/webhook', async (c) => {
       this.roomId = await this.state.storage.get('roomId') as string;
       const webhookData = await c.req.text();
@@ -128,7 +177,7 @@ export class SessionManager extends DurableObject<DOEnv> {
         // console.log('Parsed webhook event:', event);
 
         if (event.event === 'peer:joined') {
-          const peerData = event.payload[0].data;
+          const peerData = event.payload;
           const metadataStr = peerData.metadata || '{}';
           let metadataObj: Record<string, unknown>;
           try {
@@ -142,7 +191,7 @@ export class SessionManager extends DurableObject<DOEnv> {
           let learnerData = await this.state.storage.get('user:learner') as User;
 
           // Validate and determine role
-//console.log('Validation data:', { incomingHash: metadataObj.hashedAddress, storedTeacherHash: teacherData?.hashedTeacherAddress, storedLearnerHash: learnerData?.hashedLearnerAddress, teacherData, learnerData });
+          //console.log('Validation data:', { incomingHash: metadataObj.hashedAddress, storedTeacherHash: teacherData?.hashedTeacherAddress, storedLearnerHash: learnerData?.hashedLearnerAddress, teacherData, learnerData });
           const validatedRole = this.validateRole(metadataObj, teacherData, learnerData);
 
           const userData = validatedRole === 'teacher' ? teacherData : learnerData;
@@ -190,7 +239,8 @@ export class SessionManager extends DurableObject<DOEnv> {
           // Check if we should start timer
           const users = await this.getJoinedUsers();
           if (Object.keys(users).length === 1) {
-            await this.startSessionTimer(c, peerData.joinedAt, validatedRole);
+            const sessionDuration = await this.state.storage.get<number>('sessionDuration');
+            await this.startSessionTimer(c, peerData.joinedAt, validatedRole, sessionDuration);
           }
           if (Object.keys(users).length === 2) {
             // Both users have joined
@@ -204,10 +254,9 @@ export class SessionManager extends DurableObject<DOEnv> {
             });
           }
         } else if (event.event === 'peer:left') {
-          const peerData = event.payload[0].data;
+          const peerData = event.payload;
           let teacherData = await this.state.storage.get('user:teacher') as User;
           let learnerData = await this.state.storage.get('user:learner') as User;
-          let role: 'teacher' | 'learner';
 
           const metadataStr = peerData.metadata || '{}';
           let metadataObj: Record<string, unknown>;
@@ -219,13 +268,11 @@ export class SessionManager extends DurableObject<DOEnv> {
           const validatedRole = this.validateRole(metadataObj, teacherData, learnerData);
 
           if (teacherData?.peerId === peerData.id) {
-            role = 'teacher';
             teacherData.leftAt = peerData.leftAt;
             teacherData.duration = peerData.leftAt - (teacherData.joinedAt || 0);
 
             await this.state.storage.put('user:teacher', teacherData);
           } else if (learnerData?.peerId === peerData.id) {
-            role = 'learner';
             learnerData.leftAt = peerData.leftAt;
             learnerData.duration = peerData.leftAt - (learnerData.joinedAt || 0);
 
@@ -380,8 +427,8 @@ export class SessionManager extends DurableObject<DOEnv> {
       const addressDecryptData: AddressDecryptData = await this.state.storage.get('addressDecryptData') ;
       const controllerAddress = this.state.storage.get('controllerAddress')
       // call Lit Action through function
-      console.log("c.env.EXECUTE_FINALIZE_ACTION_URL", c.env.EXECUTE_FINALIZE_ACTION_URL);
-      const edgeResponse = await fetch(c.env.EXECUTE_FINALIZE_ACTION_URL, {
+      //console.log("c.env.EXECUTE_FINALIZE_ACTION_URL", c.env.EXECUTE_FINALIZE_ACTION_URL);
+      const edgeResponse = await fetch('https://onhlhmondvxwwiwnruvo.supabase.co/functions/v1/execute-finalize-action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -486,7 +533,7 @@ export class SessionManager extends DurableObject<DOEnv> {
     return users;
   }
 
-  private async startSessionTimer(c: any, firstJoinTime: number, firstJoinRole: 'teacher' | 'learner') {
+  private async startSessionTimer(c: any, firstJoinTime: number, firstJoinRole: 'teacher' | 'learner', sessionDuration: number) {
     if (!this.roomId) this.roomId = await this.state.storage.get('roomId') as string;
     //console.log("startSessionTimer called by: ", firstJoinRole)
 
@@ -498,7 +545,7 @@ export class SessionManager extends DurableObject<DOEnv> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        duration: 3600000, // 1 hour
+        duration: sessionDuration,
         firstJoinTime,
         firstJoinRole,
         roomId: this.roomId

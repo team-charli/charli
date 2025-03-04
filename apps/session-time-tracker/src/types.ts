@@ -83,12 +83,16 @@ export type ClientData = {
   hashedTeacherAddress: string;
   hashedLearnerAddress: string;
   userAddress: string;
-  sessionDuration: number;
   teacherAddressCiphertext?: string;
   teacherAddressEncryptHash?: string;
   learnerAddressCiphertext?: string;
   learnerAddressEncryptHash?: string;
   controllerAddress: string;
+  secureSessionId: string;
+  requestedSessionDurationLearnerSig: string;
+  requestedSessionDurationTeacherSig: string;
+  sessionDurationData: string;
+  sessionDuration: number;
 }
 
 export interface Message {

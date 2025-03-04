@@ -7,8 +7,9 @@
     "test:file": "vitest run --config tests/vitest.config.ts"
   },
   "dependencies": {
-    "@huddle01/server-sdk": "^2.2.2",
+    "@huddle01/server-sdk": "^2.5.2",
     "ethereum-cryptography": "3.0.0",
+    "ethers": "^6.13.5",
     "hono": "^4.2.2",
     "wrangler": "latest"
   },

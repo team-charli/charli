@@ -4,8 +4,8 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = [ "nodejs_compat" ]
 routes = [ { pattern = "session-time-tracker.charli.chat", custom_domain = true } ]
-
 [durable_objects]
+alarms = true
 bindings = [
   { name = "SESSION_MANAGER", class_name = "SessionManager" },
   { name = "CONNECTION_MANAGER", class_name = "ConnectionManager" },
