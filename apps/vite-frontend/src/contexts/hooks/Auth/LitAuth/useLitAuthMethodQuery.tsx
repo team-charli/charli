@@ -2,7 +2,7 @@
 import { router } from '@/TanstackRouter/router';
 import { UseQueryResult, useQuery, useQueryClient } from '@tanstack/react-query';
 import { litAuthClient } from '@/utils/litClients';
-import { GoogleProvider } from '@lit-protocol/lit-auth-client';
+import { DiscordProvider, GoogleProvider } from '@lit-protocol/lit-auth-client';
 import { ProviderType } from '@lit-protocol/constants';
 import { authChainLogger  } from '@/App';
 import { isTokenExpired } from '@/utils/app';
@@ -29,6 +29,12 @@ export const useLitAuthMethodQuery = ({ queryKey, enabledDeps, queryFnData, pers
       if (cachedAuthMethod?.idToken) {
         if (!isTokenExpired(cachedAuthMethod.idToken)) {
           authChainLogger.info("2b: finish authMethod query - Using valid cached AuthMethod");
+          // If the cached authMethod is GoogleJwt or Discord, re-init the provider
+          if (cachedAuthMethod.provider === 'googleJwt') {
+            litAuthClient.initProvider<GoogleProvider>(ProviderType.Google);
+          } else if (cachedAuthMethod.provider === 'discord') {
+            litAuthClient.initProvider<DiscordProvider>(ProviderType.Discord);
+          }
           return cachedAuthMethod;
         } else {
           console.log("Cached AuthMethod contains expired tokens");
