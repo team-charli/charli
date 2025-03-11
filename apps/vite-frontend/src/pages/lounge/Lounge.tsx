@@ -8,14 +8,6 @@ import { useLangNavDataQuery } from './hooks/QueriesMutations/useLangNavDataQuer
 import { useAtomValue } from 'jotai'
 import { onboardModeAtom } from '@/atoms/atoms'
 
-interface Language {
-  id: number;
-  name: string;
-  language_code: string;
-  country_code: string | null;
-  emoji: string | null;
-}
-
 export const Lounge = () => {
   let initialModeView = useAtomValue(onboardModeAtom);
   if (!initialModeView) initialModeView = "Learn";

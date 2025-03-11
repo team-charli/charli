@@ -65,6 +65,7 @@ const ReceivedTeachingRequest = ({ notification }: ReceivedTeachingRequestProps)
               </div>
             </li>
           )}
+          {/*TODO: Sometimes only showing this not link*/}
           {uiCondition === 'confirmed' && <li>Request confirmed.</li>}
           {uiCondition === 'rejectOptions' && (
             <li className="flex items-center gap-2  w-1/2 border-2 border-neutral-700">

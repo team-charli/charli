@@ -15,15 +15,14 @@ export const useExecuteTransferFromLearnerToController = () => {
     const ethereumRelayerPublicKey = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
     const relayerIpfsId = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_ACTION_IPFS_ID;
     const env = import.meta.env.VITE_ENVIRONMENT;
+
     const accessControlConditions = [
       {
         contractAddress: '',
         standardContractType: '',
         chain: "ethereum",
         method: '',
-        parameters: [
-          '0x',
-        ],
+        parameters: ['0x'],
         returnValueTest: {
           comparator: '=',
           value: '0x'

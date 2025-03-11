@@ -5,9 +5,9 @@ import useLocalStorage from "@rehooks/local-storage";
 import { useLearningRequestMutations } from "../hooks/useLearningRequestMutations";
 import { useLearningRequestState } from "../hooks/useLearningRequestState";
 import { waitForTransaction } from "../utils/waitForTx";
-import { useEncryptLearnerAddress } from "../hooks/useEncryptLearnerAddress";
 import { Dialog } from "@/components/ui/dialog";
 import { SessionSchedulerModal } from "./Interactions/Session-Scheduler-Modal";
+import { useEncryptAddress } from "../hooks/useEncryptAddress";
 interface UserItemProps {
   userName: string;
   userID: number;
@@ -23,9 +23,12 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
   const learningRequestState = useLearningRequestState();
   const { generateControllerData, signSessionDurationAndSecureSessionId, executePermitAction, submitLearningRequestToDb, signPermitAndCollectActionParams } = learningRequestFunctions;
 
+//TODO: is the picker dialog blocking the request? if the dialog doesn't close the mutation doesn't seem to fire.
+//TODO: can't set time picker for the next day
+//TODO: can't manually manipulate the text in time picker
   const {  toggleDateTimePicker, setToggleDateTimePicker, schedulerStep, setSchedulerStep, selectedDay, setSelectedDay, selectedTime, setSelectedTime, sessionLengthInputValue, setSessionLengthInputValue, renderSubmitConfirmation, setRenderSubmitConfirmation, dateTime, setDateTime, sessionDuration, amountDai } = learningRequestState;
 
-  const encryptLearnerAddress = useEncryptLearnerAddress();
+  const encryptLearnerAddress = useEncryptAddress();
 
   const handleSubmitLearningRequest = useCallback(async () => {
     if (!isLearnMode || !learningRequestState ) return;
@@ -36,9 +39,13 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
         const { sessionId, ...controllerData } = await generateControllerData(learnerId);
 
         const secureSessionId = hexlify(randomBytes(16));
-        const sessionIdAndDurationSig = await signSessionDurationAndSecureSessionId.mutateAsync({sessionDuration, secureSessionId});
+        const { signature: requestedSessionDurationLearnerSig, sessionDurationData } =
+          await signSessionDurationAndSecureSessionId.mutateAsync({
+            sessionDuration,
+            secureSessionId,
+          });
 
-        const actionParams = await signPermitAndCollectActionParams.mutateAsync({controllerAddress: controllerData.controller_address, provider, secureSessionId, sessionIdAndDurationSig, sessionDuration, amountScaled: amountDai });
+        const actionParams = await signPermitAndCollectActionParams.mutateAsync({controllerAddress: controllerData.controller_address, provider, secureSessionId, requestedSessionDurationLearnerSig, sessionDuration, amountScaled: amountDai });
 
         const encryptLearnerAddressResult = await encryptLearnerAddress()
         const {ciphertext, dataToEncryptHash} = encryptLearnerAddressResult;
@@ -63,9 +70,10 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
           sessionDuration,
           sessionId,
           secureSessionId,
-          learnerSessionDurationSig: sessionIdAndDurationSig,
+          learnerSessionDurationSig: requestedSessionDurationLearnerSig,
           ciphertext,
           dataToEncryptHash,
+          sessionDurationData
         });
         setRenderSubmitConfirmation(true);
       } catch (error) {

@@ -7,50 +7,42 @@ import { usePkpWallet } from '@/contexts/AuthContext';
 export const useTeacherSignRequestedSessionDuration = () => {
   const [requestedSessionDurationTeacherSig, setRequestedSessionDurationTeacherSig] = useState<SignatureLike>();
   const signDuration = useSignSessionDuration()
-  const pkpWallet = usePkpWallet();
+  const {data: pkpWallet} = usePkpWallet();
   const signSessionDuration = useCallback(async (
-    requestedSessionDurationLearnerSig: string | null,
-    requestedSessionDuration: number | null,
-    hashedLearnerAddress: string | null,
-    secureSessionId: string | null
-  ) => {
-      if (!requestedSessionDurationLearnerSig || requestedSessionDurationLearnerSig.length < 1) throw new Error('requestedSessionDurationLearnerSig undefined')
-      if (!requestedSessionDuration) throw new Error('requestedSessionDuration undefined')
-      if (!hashedLearnerAddress || hashedLearnerAddress.length < 1) throw new Error('hashedLearnerAddress undefined')
-      if (!secureSessionId || secureSessionId.length < 1) throw new Error('secureSessionId undefined')
+    sessionDurationData: string,                // hashed message from DB
+    requestedSessionDurationLearnerSig: string, // learner sig on that message
+    hashedLearnerAddress: string                // DB-stored keccak(learnerAddress)
+ ) => {
+    if (!pkpWallet) throw new Error('Teacher’s PKP Wallet not initialized');
+    if (!sessionDurationData) throw new Error('sessionDurationData is missing');
+    if (!requestedSessionDurationLearnerSig) throw new Error('No learner sig provided');
+    if (!hashedLearnerAddress) throw new Error('No hashed learner address');
 
-      const encodedData = ethers.concat([
-        ethers.toUtf8Bytes(secureSessionId),
-        ethers.toBeHex(BigInt(requestedSessionDuration))
-      ]);
+    // 1. Recover the Learner’s address from the DB’s hashed message
+    const recoveredLearnerAddress = ethers.verifyMessage(
+      ethers.getBytes(sessionDurationData),
+      requestedSessionDurationLearnerSig
+    );
 
-      const message = ethers.keccak256(encodedData);
+    // 2. Confirm that hashed_learner_address from the DB matches recovered
+    if (hashedLearnerAddress !== ethers.keccak256(recoveredLearnerAddress)) {
+      throw new Error('Invalid learner signature or address mismatch');
+    }
 
-      const recoveredLearnerAddress = ethers.verifyMessage(ethers.getBytes(message), requestedSessionDurationLearnerSig)
-
-      if (hashedLearnerAddress !== ethers.keccak256(recoveredLearnerAddress)) {
-        console.error("hashedLearnerAddress", hashedLearnerAddress)
-        throw new Error('Invalid learner address')
-      }
-
-      try {
-        const result = await signDuration.mutateAsync({
-          duration: requestedSessionDuration,
-          secureSessionId
-        });
-        setRequestedSessionDurationTeacherSig(result);
-        return result;
-      } catch (error) {
-        console.error('Error signing duration:', error);
-        throw error;
-      }
-    }, [signDuration]);
+    // 3. Teacher now signs the *same* sessionDurationData
+    try {
+      const teacherSig = await pkpWallet.signMessage(ethers.getBytes(sessionDurationData));
+      setRequestedSessionDurationTeacherSig(teacherSig);
+      return teacherSig;
+    } catch (err) {
+      console.error('Error signing session_duration_data:', err);
+      throw new Error('Teacher signature failed');
+    }
+  }, [pkpWallet]);
 
   return {
     signSessionDuration,
     requestedSessionDurationTeacherSig,
-    isLoading: signDuration.isPending,
-    isError: signDuration.isError,
-    error: signDuration.error,
+    // Optionally, isLoading/isError from a React Query mutation could go here
   };
-}
+};

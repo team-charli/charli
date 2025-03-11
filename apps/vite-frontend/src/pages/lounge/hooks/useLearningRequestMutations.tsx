@@ -48,20 +48,30 @@ export const useLearningRequestMutations = () => {
   }, []);
 
   const signSessionDurationAndSecureSessionId = useMutation({
-    mutationFn: async ({ sessionDuration, secureSessionId }: { sessionDuration: number, secureSessionId: string }) => {
+    mutationFn: async ({ sessionDuration, secureSessionId }: {
+      sessionDuration: number;
+      secureSessionId: string;
+    }) => {
       if (!pkpWallet) throw new Error('Wallet not initialized');
-
+      // 1. Construct the raw “session duration data” that you want both parties to sign
       const encodedData = ethers.concat([
         ethers.toUtf8Bytes(secureSessionId),
-        ethers.toBeHex(sessionDuration)
+        ethers.toBeHex(sessionDuration),
       ]);
-      const message = ethers.keccak256(encodedData);
-      return await pkpWallet.signMessage(ethers.getBytes(message));
+
+      // 2. Hash it – that hash is the canonical message
+      const sessionDurationData = ethers.keccak256(encodedData);
+
+      // 3. Sign that hashed message
+      const signature = await pkpWallet.signMessage(ethers.getBytes(sessionDurationData));
+
+      // Return both the signature and the raw data
+      return { signature, sessionDurationData };
     },
   });
 
 
-  type SignPermitAndCollectActionParams = {controllerAddress: AddressLike, provider: JsonRpcProvider, amountScaled: BigNumberish, secureSessionId: string, sessionIdAndDurationSig: string, sessionDuration: number};
+  type SignPermitAndCollectActionParams = {controllerAddress: AddressLike, provider: JsonRpcProvider, amountScaled: BigNumberish, secureSessionId: string, requestedSessionDurationLearnerSig: string, sessionDuration: number};
   type PermitActionParamsWithSkip =
   | { skipPermit: true }
   | ({ skipPermit: false } & PermitActionParams);
@@ -73,7 +83,7 @@ export const useLearningRequestMutations = () => {
 >({
     mutationFn: async (params) => {
       try {
-        const { provider, amountScaled, secureSessionId, sessionIdAndDurationSig, sessionDuration } = params;
+        const { provider, amountScaled, secureSessionId, requestedSessionDurationLearnerSig, sessionDuration } = params;
         const relayerAddress = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS;
 
         if (!pkpWallet) throw new Error('Wallet not initialized');
@@ -135,7 +145,7 @@ export const useLearningRequestMutations = () => {
           rpcChain: import.meta.env.VITE_RPC_CHAIN_NAME,
           rpcChainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
           secureSessionId,
-          sessionIdAndDurationSig,
+          requestedSessionDurationLearnerSig,
           learnerAddress: pkpWallet.address,
           duration: sessionDuration,
           env: import.meta.env.VITE_ENVIRONMENT as 'dev',
@@ -162,7 +172,7 @@ export const useLearningRequestMutations = () => {
     rpcChain: string,
     rpcChainId: string,
     secureSessionId: string,
-    sessionIdAndDurationSig: string,
+    requestedSessionDurationLearnerSig: string,
     learnerAddress: AddressLike,
     duration: number,
     env: 'dev',
@@ -176,7 +186,7 @@ export const useLearningRequestMutations = () => {
       const {
         owner, spender, nonce, deadline, value, v, r, s,
         daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
-        secureSessionId, sessionIdAndDurationSig, learnerAddress, duration, env
+        secureSessionId, requestedSessionDurationLearnerSig, learnerAddress, duration, env
       } = actionParams;
 
       const permitActionIpfsId = import.meta.env.VITE_PERMIT_ACTION_IPFSID;
@@ -186,7 +196,7 @@ export const useLearningRequestMutations = () => {
         jsParams: {
           owner, spender, nonce, deadline, value, v, r, s,
           daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
-          secureSessionId, sessionIdAndDurationSig, learnerAddress, duration, env
+          secureSessionId, sessionIdAndDurationSig: requestedSessionDurationLearnerSig, learnerAddress, duration, env
         }
       });
 
@@ -214,7 +224,8 @@ export const useLearningRequestMutations = () => {
       userID,
       teachingLang,
       sessionDuration,
-      learnerSessionDurationSig,
+      learnerSessionDurationSig: requestedSessionDurationLearnerSig,
+      sessionDurationData,
       sessionId,
       secureSessionId,
       ciphertext,
@@ -223,6 +234,7 @@ export const useLearningRequestMutations = () => {
 
       if (!supabaseClient || !currentAccount) throw new Error('Supabase client or current account not available');
       const utcDateTime = convertLocalTimetoUtc(dateTime);
+
       let hashed_learner_address = ethers.keccak256(currentAccount.ethAddress);
 
       const { data, error } = await supabaseClient
@@ -234,10 +246,11 @@ export const useLearningRequestMutations = () => {
           teaching_lang: teachingLang,
           requested_session_duration: sessionDuration,
           hashed_learner_address,
-          requested_session_duration_learner_sig: learnerSessionDurationSig,
+          requested_session_duration_learner_sig: requestedSessionDurationLearnerSig,
           secure_session_id: secureSessionId,
           learner_address_encrypt_hash: dataToEncryptHash,
-          learner_address_cipher_text: ciphertext
+          learner_address_cipher_text: ciphertext,
+          session_duration_data: sessionDurationData
         }])
         .eq('session_id', sessionId)
         .select();

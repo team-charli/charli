@@ -8,8 +8,8 @@ import { calculateSessionCost } from "@/utils/app";
 import { Dispatch, SetStateAction } from "react";
 import { NotificationIface } from "@/types/types";
 import { useExecuteTransferFromLearnerToController } from './LitActions/useExecuteTransferFromLearnerToController';
+import { useEncryptAddress } from './useEncryptAddress';
 
-//TODO: not always reliable
 export const useHandleTeacherRequest = (
   notification: NotificationIface,
   utcDateTime: string,
@@ -25,7 +25,10 @@ export const useHandleTeacherRequest = (
   if (pkpWallet) {
     teacherAddress = pkpWallet.address;
   }
-  const { signSessionDuration, isLoading, isError, error } = useTeacherSignRequestedSessionDuration();
+  const encryptTeacherAddress = useEncryptAddress();
+
+  const { signSessionDuration } = useTeacherSignRequestedSessionDuration();
+
   const handleTeacherChoice = async (action: string) => {
     switch (action) {
       case 'accept':
@@ -33,6 +36,8 @@ export const useHandleTeacherRequest = (
           //console.log('Starting accept process');
           if (!supabaseClient) throw new Error('Supabase client not loaded');
           if (!pkpWallet) throw new Error('PKP Wallet not loaded');
+          const encryptTeacherAddressResult = await encryptTeacherAddress();
+          const {ciphertext, dataToEncryptHash} = encryptTeacherAddressResult;
 
           const {
             controllerAddress,
@@ -42,6 +47,7 @@ export const useHandleTeacherRequest = (
             secureSessionId,
             learnerAddressEncryptHash,
             learnerAddressCipherText,
+            sessionDurationData
           } = await fetchLearnerToControllerParams(supabaseClient, notification.session_id);
 
           let mintClaimResponse: any;
@@ -57,12 +63,15 @@ export const useHandleTeacherRequest = (
             throw new Error(`mintClaimResponse failed: ${mintClaimResponse.error.message}`);
           }
 
-          const requestedSessionDurationTeacherSig = await signSessionDuration(
-            requestedSessionDurationLearnerSig,
-            requestedSessionDuration,
-            hashedLearnerAddress,
-            secureSessionId
-          );
+          if (!sessionDurationData) throw new Error('sessionDurationData === null')
+          if (!requestedSessionDurationLearnerSig) throw new Error('!requestedSessionDurationLearnerSig')
+          if ( !hashedLearnerAddress ) throw new Error('hashedLearnerAddress === null')
+
+           const requestedSessionDurationTeacherSig = await signSessionDuration(
+               sessionDurationData,                  // pass the canonical hashed message
+               requestedSessionDurationLearnerSig,   // for verifying learner’s signature
+               hashedLearnerAddress
+          )
           if (!requestedSessionDurationTeacherSig) throw new Error('Failed to sign session duration');
           //console.log('Session duration signed successfully');
 
@@ -101,6 +110,7 @@ export const useHandleTeacherRequest = (
           }
 
           //console.log('Confirming teacher request in DB');
+          if (!requestedSessionDurationLearnerSig) throw new Error('requestedSessionDurationLearnerSig is undefined')
 
           await teacherConfirmRequestDb(
             supabaseClient,
@@ -108,7 +118,11 @@ export const useHandleTeacherRequest = (
             utcDateTime,
             notification.session_id,
             currentAccount,
-            hashedTeacherAddress
+            hashedTeacherAddress,
+            requestedSessionDurationLearnerSig,
+            requestedSessionDurationTeacherSig,
+            ciphertext,
+            dataToEncryptHash
           );
 
         } catch (error: any) {
@@ -145,5 +159,5 @@ export const useHandleTeacherRequest = (
     }
   };
 
-  return {handleTeacherChoice, handleRejectResponse, handleSubmitChangeDateTime, isLoading, isError, error}
+  return {handleTeacherChoice, handleRejectResponse, handleSubmitChangeDateTime, }
 }

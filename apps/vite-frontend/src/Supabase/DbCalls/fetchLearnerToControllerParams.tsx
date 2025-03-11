@@ -20,7 +20,8 @@ export const fetchLearnerToControllerParams = async (
         hashed_learner_address,
         secure_session_id,
         learner_address_encrypt_hash,
-        learner_address_cipher_text
+        learner_address_cipher_text,
+        session_duration_data
       `)
       .eq('session_id', sessionId)
       .single();
@@ -37,6 +38,7 @@ export const fetchLearnerToControllerParams = async (
       secureSessionId: session.secure_session_id,
       learnerAddressEncryptHash: session.learner_address_encrypt_hash,
       learnerAddressCipherText: session.learner_address_cipher_text,
+      sessionDurationData: session.session_duration_data
     };
   } catch (error) {
     console.error("Error fetching learner to controller params:", error);
