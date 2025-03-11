@@ -1,52 +1,68 @@
-// @ts-nocheck: no lit action types
-// ipfsId: QmcZXhjC4U3DbHo6V8NFdaMtkbaKYvjKHwqTf9fghNS3S5
+// ipfsId: QmdGqVdeeTC9xq9CCFhmJUanABaCH8PKYnXsY7QtU5V6ui
 /**
- * Expected parameters to be passed to this Lit Action:
- * @param {string} ipfsCid - IPFS CID containing the session outcome data
- * @param {string} teacherAddressCiphertext - Encrypted teacher's Ethereum address
- * @param {string} teacherAddressEncryptHash - Hash used for teacher address decryption
- * @param {string} learnerAddressCiphertext - Encrypted learner's Ethereum address
- * @param {string} learnerAddressEncryptHash - Hash used for learner address decryption
- * @param {string} controllerAddress - Ethereum address of the controller PKP holding the funds
- * @param {string} daiContractAddress - Address of the DAI token contract
- * @param {string} relayerIpfsId - IPFS CID of the relayer action
- * @param {string} env - Environment identifier (e.g. 'dev')
- * @param {string} rpcChain - RPC chain identifier
- * @param {number} rpcChainId - Chain ID for the network
- * @param {Object} accessControlConditions - Conditions for address decryption
+ * Expected parameters passed to this Lit Action:
+ *
+ * @param {Object} sessionData
+ *   The raw session data compiled by the Durable Object (DO). Must contain fields like `teacherData`, `learnerData`, `scenario`, `timestamp`, and `roomId`.
+ *
+ * @param {string} sessionDataSignature
+ *   An ECDSA signature over `sessionData` produced by the DO. The Lit Action will verify this.
+ *
+ * @param {string} teacherAddressCiphertext
+ *   The encrypted teacher's address (ciphertext).
+ *
+ * @param {string} teacherAddressEncryptHash
+ *   The hash used for teacher address decryption.
+ *
+ * @param {string} learnerAddressCiphertext
+ *   The encrypted learner's address (ciphertext).
+ *
+ * @param {string} learnerAddressEncryptHash
+ *   The hash used for learner address decryption.
+ *
+ * @param {string} controllerAddress
+ *   Ethereum address of the PKP or account that holds the DAI funds.
+ *
+ * @param {string} finalizeEdgeAddress
+ *   Ethereum address of the wallet used to generate sessionDataSignature in session-time-tracker
+ *
+ * @param {Object} accessControlConditions
+ *   The conditions under which Lit can decrypt the addresses.
+ *
+ * @param {string} daiContractAddress
+ *   (Optional) Address of the DAI token contract if you need to perform ERC20 transfers.
+ *
+ * @param {string} relayerIpfsId
+ *   IPFS CID of the separate relayer action called by `Lit.Actions.call()`.
+ *
+ * @param {string} env
+ *   Environment identifier (e.g., 'dev'), if needed by the relayer or other logic.
+ *
+ * @param {string} rpcChain
+ *   A chain key recognized by `Lit.Actions.getRpcUrl({ chain: rpcChain })`.
+ *
+ * @param {number} rpcChainId
+ *   The numeric chain ID for the target network (e.g., 5 for Goerli).
  */
-
 // @ts-nocheck
 const transferControllerToTeacherAction = async () => {
   console.log("Starting transferControllerToTeacherAction");
 
   try {
-    // 1. Fetch session data from IPFS (no runOnce)
-    const fetchSessionDataIPFS = async () => {
-      const url = `https://chocolate-deliberate-squirrel-286.mypinata.cloud/ipfs/${ipfsCid}`;
-      console.log("Fetching IPFS URL:", url);
+    // Below are the parameters passed to this Lit Action
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch IPFS data: ${response.status} ${response.statusText}`);
-      }
+    // 1. Verify the DO’s signature over sessionData.
+    //    This checks that sessionData was indeed signed by the DO’s private key.
+    const sessionDataString = JSON.stringify(sessionData);
+    const recoveredAddress = ethers.utils.verifyMessage(sessionDataString, sessionDataSignature);
 
-      const rawText = await response.text();
-      console.log("sessionData raw text:", rawText);
-
-      const parsed = JSON.parse(rawText);
-      if (!parsed?.teacherData) {
-        throw new Error("No teacherData in pinned session");
-      }
-
-      // If all good, return the parsed object
-      console.log("sessionData parsed JSON:", JSON.stringify(parsed, null, 2));
-      return parsed;
-    };
-
-    const sessionData = await fetchSessionDataIPFS();
+    console.log("Recovered address =>", recoveredAddress);
+    if (recoveredAddress.toLowerCase() !== finalizeEdgeAddress.toLowerCase()) {
+      throw new Error("Signature mismatch: sessionData not from expected DO.");
+    }
 
     // 2. Prepare your chain + DAI contract
+    //    (We assume `ethers` is v5 here, which is included in the Lit Action environment.)
     const daiAbi = [
       "function balanceOf(address) view returns (uint256)",
       "function transfer(address to, uint256 value) returns (bool)"
@@ -57,53 +73,48 @@ const transferControllerToTeacherAction = async () => {
 
     // 3. Check how much DAI is in the controller
     const amountBigNumber = await daiContract.balanceOf(controllerAddress);
+    console.log("Controller DAI balance =>", amountBigNumber.toString());
 
     // 4. Decrypt teacher + learner addresses
-    console.log({
-      teacherAddressCiphertext,
-      teacherAddressEncryptHash,
-      learnerAddressCiphertext,
-      learnerAddressEncryptHash
-    });
-
+    console.log("Decrypting addresses...");
     const decryptedTeacherAddress = await Lit.Actions.decryptAndCombine({
       ciphertext: teacherAddressCiphertext,
       dataToEncryptHash: teacherAddressEncryptHash,
-      authSig: null,
       chain: "ethereum",
       accessControlConditions
     });
     const decryptedLearnerAddress = await Lit.Actions.decryptAndCombine({
       ciphertext: learnerAddressCiphertext,
       dataToEncryptHash: learnerAddressEncryptHash,
-      authSig: null,
       chain: "ethereum",
       accessControlConditions
     });
-    console.log("Successfully decrypted addresses:", {
+    console.log("Decrypted addresses:", {
       teacher: decryptedTeacherAddress,
       learner: decryptedLearnerAddress
     });
 
-    // 5. Decide who to pay based on sessionData
+    // 5. Decide who to pay
+    //    If scenario=non_fault => pay teacher,
+    //    If teacher is fault => pay learner, etc.
     const { teacherData, learnerData, scenario } = sessionData;
     let recipientAddress;
-    if (scenario === 'non_fault') {
+    if (scenario === "non_fault") {
       recipientAddress = decryptedTeacherAddress;
     } else {
-      // If teacher is at fault => pay learner, otherwise pay teacher
-      recipientAddress = teacherData.isFault
-        ? decryptedLearnerAddress
-        : decryptedTeacherAddress;
+      recipientAddress = teacherData?.isFault ? decryptedLearnerAddress : decryptedTeacherAddress;
     }
 
-    // 6. Encode transfer
+    console.log(`Recipient address => ${recipientAddress}`);
+
+    // 6. Encode the ERC20 transfer
     const txData = daiContract.interface.encodeFunctionData("transfer", [
       recipientAddress,
       amountBigNumber
     ]);
 
-    // 7. Relay the tx
+    // 7. Relay the tx using your separate relayer Lit Action or logic
+    //    (We call the pinned relayer action with ipfsId = relayerIpfsId)
     const submitRelayTx = async () => {
       try {
         return await Lit.Actions.call({
@@ -123,8 +134,9 @@ const transferControllerToTeacherAction = async () => {
       }
     };
     const relayedTxHash = await submitRelayTx();
+    console.log("Relayed txHash =>", relayedTxHash);
 
-    // 8. Send success response
+    // 8. If success, respond with success
     Lit.Actions.setResponse({
       response: JSON.stringify({
         success: true,
@@ -133,10 +145,9 @@ const transferControllerToTeacherAction = async () => {
         scenario
       })
     });
-
   } catch (error) {
-    // If we fail anywhere in the above try, respond with error
     console.error("Error in transferControllerToTeacherAction:", error);
+    // Return error
     Lit.Actions.setResponse({
       response: JSON.stringify({
         success: false,
