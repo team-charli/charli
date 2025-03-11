@@ -199,6 +199,7 @@ export type Session = {
   teacher_joined_timestamp_worker_sig: string;
   teacher_left_timestamp_worker_sig: string;
   session_resolved: boolean;
+  session_duration_data: string;
 };
 
 type PreSessionStateFlags = {
@@ -254,6 +255,7 @@ export interface NotificationIface {
   isImminent?: boolean;
   isNotificationExpired?: boolean;
   isSessionExpired: boolean;
+  session_duration_data: string;
 }
 
 export interface SessionIface {
@@ -280,6 +282,7 @@ export interface SessionParamsResult {
   secureSessionId: string | null;
   learnerAddressEncryptHash: string | null;
   learnerAddressCipherText: string | null;
+  sessionDurationData: string | null;
 }
 
 
@@ -435,7 +438,7 @@ export interface SubmitLearningRequest {
   sessionDuration: number;
   learnerSignedSessionDuration: SignatureLike;
   secureSessionId: string;
-  controllerData: ControllerData;
+  controllerData: SessionControllerData;
 }
 
 export interface LearningRequestState {
@@ -453,9 +456,41 @@ export interface LearningRequestState {
 
 export interface UseUserItemReturn {
   learningRequestState: LearningRequestState;
-  generateControllerData: () => Promise<ControllerData>;
+  generateControllerData: () => Promise<SessionControllerData>;
   signSessionDuration: UseMutationResult<SignatureLike, unknown, { duration: number; secureSessionId: string }, unknown>;
   executeApproveFundControllerAction: UseMutationResult<any, unknown, ExecuteApproveFundControllerActionParams, unknown>;
   submitLearningRequest: UseMutationResult<boolean, unknown, SubmitLearningRequest, unknown>;
   signApproveTransaction: any;
+}
+
+export type Scenario = "fault" | "non_fault";
+
+export interface User {
+  role: "teacher" | "learner" | null;
+  peerId: string | null;
+  roomId: string | null;
+  joinedAt: number | null;
+  leftAt: number | null;
+  faultTime?: number;
+  duration: number | null;
+  hashedTeacherAddress: string;
+  hashedLearnerAddress: string;
+  sessionDuration: number;
+}
+
+export interface UserFinalRecord extends User {
+  sessionSuccess: boolean;
+  faultType: string | null;
+  sessionComplete: boolean;
+  isFault: boolean | null;
+}
+
+export interface PinataPayload {
+  teacherData: UserFinalRecord;
+  learnerData: UserFinalRecord;
+  scenario: Scenario;
+  timestamp: number;
+  roomId: string;
+  transactionHash: string;
+  pinnedAt: number;
 }
