@@ -8,9 +8,11 @@
   },
   "dependencies": {
     "@huddle01/server-sdk": "^2.5.2",
+    "@supabase/supabase-js": "^2.49.1",
     "ethereum-cryptography": "3.0.0",
     "ethers": "^6.13.5",
     "hono": "^4.2.2",
+    "pinata": "^2.0.1",
     "wrangler": "latest"
   },
   "devDependencies": {

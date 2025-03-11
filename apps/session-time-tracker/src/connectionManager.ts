@@ -57,15 +57,12 @@ export class ConnectionManager extends DurableObject<DOEnv> {
       const joinTimes = (await this.state.storage.get<Record<string, number>>('joinTimes')) || {};
       joinTimes[role] = joinedAt;
       await this.state.storage.put('joinTimes', joinTimes);
-      //console.log("DEBUGPRINT", { component: "ConnectionManager", method: "handlePeer", roomId: this.roomId, action: "joinTimesUpdated", joinTimes });
 
       if (await this.areBothJoined()) {
-        //console.log("DEBUGPRINT", { component: "ConnectionManager", method: "handlePeer", roomId: this.roomId, action: "bothJoinedDetected" });
         await this.broadcastBothJoined();
       }
 
       // Broadcast userJoined message
-      //console.log("DEBUGPRINT", { component: "ConnectionManager", method: "handlePeer", roomId: this.roomId, action: "broadcastUserJoined", role, joinedAt });
       const messageRelay = this.env.MESSAGE_RELAY.get(this.env.MESSAGE_RELAY.idFromName(this.roomId));
       await messageRelay.fetch('http://message-relay/broadcast/' + this.roomId, {
         method: 'POST',
@@ -86,7 +83,7 @@ export class ConnectionManager extends DurableObject<DOEnv> {
 
     this.app.post('/handlePeerLeft', async (c) => {
       const { peerId, leftAt, role } = await c.req.json();
-      //console.log("DEBUGPRINT", { component: "ConnectionManager", method: "handlePeerLeft", roomId: this.roomId, action: "peerLeftEventReceived", peerId, role, leftAt });
+      console.log('[ConnectionManager:handlePeerLeft] peerId=', peerId, 'role=', role, 'leftAt=', leftAt);
 
       if (!role) { console.warn({ component: "ConnectionManager", method: "handlePeerLeft", roomId: this.roomId, message: "Unknown peer role in peerLeft event", peerId });
         return c.text('Unknown peer', 400);
@@ -97,10 +94,8 @@ export class ConnectionManager extends DurableObject<DOEnv> {
       delete participants[peerId];
       await this.state.storage.put('participants', participants);
 
-      //console.log("DEBUGPRINT", { component: "ConnectionManager", method: "handlePeerLeft", roomId: this.roomId, action: "participantsUpdatedAfterLeave", participants });
 
       // Broadcast userLeft message
-      //console.log("DEBUGPRINT", { component: "ConnectionManager", method: "handlePeerLeft", roomId: this.roomId, action: "broadcastUserLeft", peerId, leftAt });
       const messageRelay = this.env.MESSAGE_RELAY.get(
         this.env.MESSAGE_RELAY.idFromName(this.roomId)
       );
@@ -131,13 +126,24 @@ export class ConnectionManager extends DurableObject<DOEnv> {
       await this.handleSessionTimerFault(faultType, data);
       return c.text('OK');
     });
-    this.app.post('/cleanupConnectionManager', async (c) => {
-      await this.cleanup();
-    })
 
+    this.app.post('/cleanupConnectionManager', async (c) => {
+      const allEntries = await this.state.storage.list();
+      for (const key of allEntries.keys()) {
+        if (key === 'finalized') continue;
+        await this.state.storage.delete(key);
+      }
+      return c.text('Cleanup done (preserved "finalized")');
+    });
   }
 
   async fetch(request: Request): Promise<Response> {
+    const isFinalized = await this.state.storage.get<boolean>('finalized');
+    if (isFinalized) {
+      return new Response("ConnectionManager is finalized. No further requests accepted.", {
+        status: 200
+      });
+    }
     return this.app.fetch(request, this.env);
   }
 
@@ -146,7 +152,6 @@ export class ConnectionManager extends DurableObject<DOEnv> {
     const current = (await this.state.storage.get<number>(key)) || 0;
     const count = current + 1;
     await this.state.storage.put(key, count);
-    //console.log("DEBUGPRINT", { component: "ConnectionManager", method: "incrementDisconnectCount", roomId: this.roomId, role, newCount: count });
     return count;
   }
 
@@ -230,20 +235,17 @@ export class ConnectionManager extends DurableObject<DOEnv> {
   // Fault Cases #3 and #4: Disconnection handling
   private async handleDisconnectionEvent(peerId: string, role: 'teacher' | 'learner', leftAt: number) {
     if (!this.roomId) this.roomId = await this.state.storage.get('roomId')
-    //console.log("ConnectionManager: handleDisconnectionEvent called", { roomId: this.roomId, peerId, role, leftAt });
 
     // Fault Case #4: Track disconnect count
     const disconnectCount = await this.incrementDisconnectCount(role);
-    //console.log("ConnectionManager: disconnectCount for", role, "=", disconnectCount);
 
     if (disconnectCount > this.MAX_DISCONNECTIONS) {
       const faultedRole = role;
 
-      const sessionManager = this.env.SESSION_MANAGER.get(
-        this.env.SESSION_MANAGER.idFromName(this.roomId)
-      );
+      const sessionManager = this.env.SESSION_MANAGER.get(this.env.SESSION_MANAGER.idFromName(this.roomId));
 
-      await this.cleanup()
+      await this.state.storage.put('finalized', true);
+
       await sessionManager.fetch('http://session-manager/finalizeSession', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -276,8 +278,10 @@ export class ConnectionManager extends DurableObject<DOEnv> {
         this.env.SESSION_MANAGER.idFromName(this.roomId)
       );
 
-      const allData = await this.state.storage.list();
+      //const allData = await this.state.storage.list();
       //console.log("ConnectionManager: Storage dump before finalizeSession:", Object.fromEntries(allData));
+
+      await this.state.storage.put('finalized', true);
 
       await sessionManager.fetch('http://session-manager/finalizeSession', {
         method: 'POST',
@@ -290,11 +294,9 @@ export class ConnectionManager extends DurableObject<DOEnv> {
         })
       });
     }
-    await this.cleanup();
   }
 
   async alarm() {
-    //console.log("DEBUGPRINT", { component: "ConnectionManager", method: "alarm", roomId: this.roomId, action: "alarmTriggered" });
 
     const currentTime = Date.now();
     const alarmEntries = await this.state.storage.list<{ alarmTime: number; role: 'teacher' | 'learner' }>({
@@ -311,7 +313,8 @@ export class ConnectionManager extends DurableObject<DOEnv> {
           this.env.SESSION_MANAGER.idFromName(this.roomId)
         );
 
-        await this.cleanup()
+        await this.state.storage.put('finalized', true);
+
         await sessionManager.fetch('http://session-manager/finalizeSession', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -324,9 +327,6 @@ export class ConnectionManager extends DurableObject<DOEnv> {
         });
       }
     }
-  }
-  private async cleanup() {
-    await this.state.storage.deleteAll();
   }
 }
 

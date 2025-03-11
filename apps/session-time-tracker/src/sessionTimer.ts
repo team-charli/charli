@@ -55,7 +55,6 @@ export class SessionTimer extends DurableObject<DOEnv> {
     this.app.post('/cancelNoJoinCheck', async (c) => {
       const alarmType = await this.state.storage.get<string>('alarmType');
       if (alarmType === 'joinWindow') {
-        // Since both have joined, we no longer need the no-join logic.
         const warningTime = await this.state.storage.get<number>('warningTime');
         const expirationTime = await this.state.storage.get<number>('expirationTime');
 
@@ -69,12 +68,27 @@ export class SessionTimer extends DurableObject<DOEnv> {
         } else {
           throw new Error('No warning or expiration time set; cannot cancel no-join check properly.');
         }
-      } else {
-        // If we are not in joinWindow phase, no change needed
-        //console.log('cancelNoJoinCheck: alarmType not joinWindow, no action taken.');
       }
+      return c.text('OK ---- both users joined ----- "no-join alarm" removed');
+    });
 
-      return c.text('OK');
+    // 1) A new route so SessionManager can schedule the final cleanup alarm
+    this.app.post('/scheduleFinalCleanup', async (c) => {
+      await this.state.storage.deleteAlarm();
+
+      // Possibly read how many seconds you want from request JSON,
+      // or just pick a hard-coded short delay:
+      const finalCleanupDelay = 10000; // 5 seconds
+
+      const now = Date.now();
+      const cleanupTime = now + finalCleanupDelay;
+
+      await this.state.storage.put('alarmType', 'finalCleanup');
+      await this.state.storage.put('finalCleanupTime', cleanupTime);
+
+      await this.state.storage.setAlarm(cleanupTime);
+
+      return c.text(`Final cleanup alarm set for ${new Date(cleanupTime).toLocaleString()}`);
     });
   }
 
@@ -83,21 +97,66 @@ export class SessionTimer extends DurableObject<DOEnv> {
   }
 
   async alarm() {
-    //console.log("SessionTimer.alarm() called", { roomId: this.roomId, storedRoomId: await this.state.storage.get('roomId') });
-    const alarmType = await this.state.storage.get<'joinWindow' | 'warning' | 'expired'>('alarmType');
+    // Check if we already finished final cleanup
+    const cleanupDone = await this.state.storage.get<boolean>('cleanupDone');
+    if (cleanupDone) {
+      console.log('Already did final cleanup; ignoring re-entrance.');
+      return;
+    }
+
+    // Read the current alarmType
+    const alarmType = await this.state.storage.get<'joinWindow' | 'warning' | 'expired' | 'finalCleanup'>('alarmType');
+
+    // If this alarm is finalCleanup, skip fetching roomId (it may be gone already).
+    if (alarmType === 'finalCleanup') {
+      console.log('[SessionTimer:alarm] finalCleanup triggered. Cleaning up all DOs...');
+
+      // Mark that we've performed cleanup so subsequent calls skip everything
+      await this.state.storage.put('cleanupDone', true);
+
+      // 1. Call /cleanup on ConnectionManager
+      const connectionManagerId = this.env.CONNECTION_MANAGER.idFromName(this.roomId);
+      await this.env.CONNECTION_MANAGER.get(connectionManagerId).fetch(
+        'http://connection-manager/cleanupConnectionManager',
+        { method: 'POST' }
+      );
+
+      // 2. Call /cleanupSessionManager
+      const sessionManagerId = this.env.SESSION_MANAGER.idFromName(this.roomId);
+      await this.env.SESSION_MANAGER.get(sessionManagerId).fetch(
+        'http://session-manager/cleanupSessionManager',
+        { method: 'POST' }
+      );
+
+      // 3. Finally, cleanup this SessionTimer itself
+      await this.cleanup();
+      console.log('[finalizeSession] finalize complete => all DOs cleaned.',
+        new Date().toLocaleString('en-US', { timeZone: 'America/Cancun' })
+      );
+      return;
+    }
+
+    // Otherwise (joinWindow, warning, or expired), we do need to ensure roomId is set in memory
+    if (!this.roomId) {
+      this.roomId = await this.state.storage.get<string>('roomId');
+      if (!this.roomId) {
+        throw new Error('Stored roomId is missing in SessionTimer DO storage');
+      }
+    }
+
+    console.log(
+      '[SessionTimer:alarm] Fired => alarmType:', alarmType,
+      'time:', new Date().toLocaleString('en-US', { timeZone: 'America/Cancun' }),
+      'roomId=', this.roomId
+    );
 
     if (alarmType === 'joinWindow') {
-      // Double-check if both joined now
-      if (!this.roomId) {
-        this.roomId = await this.state.storage.get('roomId')
-      }
       const connectionManagerId = this.env.CONNECTION_MANAGER.idFromName(this.roomId);
       const connectionManager = this.env.CONNECTION_MANAGER.get(connectionManagerId);
       const response = await connectionManager.fetch('http://connection-manager/checkBothJoined');
       const { bothJoined } = await response.json() as { bothJoined: boolean };
 
       if (bothJoined) {
-        // Both users are present, so no no-join fault. Move to warning/expired.
         const warningTime = await this.state.storage.get<number>('warningTime');
         if (warningTime) {
           await this.state.storage.put('alarmType', 'warning');
@@ -110,7 +169,7 @@ export class SessionTimer extends DurableObject<DOEnv> {
         return;
       }
 
-      // Not both joined, trigger no-join fault
+      // Fault: second user never joined
       const firstJoinRole = await this.state.storage.get<'teacher' | 'learner'>('firstJoinRole');
       const faultedRole = firstJoinRole === 'teacher' ? 'learner' : 'teacher';
 
@@ -122,14 +181,8 @@ export class SessionTimer extends DurableObject<DOEnv> {
           data: { role: faultedRole }
         })
       });
-
-      await this.cleanup();
-      await connectionManager.fetch('http://connection-manager/cleanupConnectionManager', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-    } else if (alarmType === 'warning') {
-      // Warning phase
+    }
+    else if (alarmType === 'warning') {
       await this.broadcast({
         type: 'warning',
         data: {
@@ -141,37 +194,28 @@ export class SessionTimer extends DurableObject<DOEnv> {
       const expirationTime = await this.state.storage.get<number>('expirationTime');
       await this.state.storage.put('alarmType', 'expired');
       await this.state.storage.setAlarm(expirationTime);
+    }
+    else if (alarmType === 'expired') {
+      const sessionManagerId = this.env.SESSION_MANAGER.idFromName(this.roomId);
+      const sessionManager = this.env.SESSION_MANAGER.get(sessionManagerId);
 
-    } else if (alarmType === 'expired') {
-      // Session fully elapsed, finalize as non_fault
-      if (!this.roomId) {
-        console.trace();
-        throw new Error('this.roomId === undefined')
-      }
-      const sessionManager = this.env.SESSION_MANAGER.get(
-        this.env.SESSION_MANAGER.idFromName(this.roomId)
-      );
-
+      // Non-fault scenario: normal session end
       await sessionManager.fetch('http://session-manager/finalizeSession', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scenario: 'non_fault' })
       });
-
-      await this.cleanup();
-      const connectionManagerId = this.env.CONNECTION_MANAGER.idFromName(this.roomId);
-      const connectionManager = this.env.CONNECTION_MANAGER.get(connectionManagerId);
-
-      await connectionManager.fetch('http://connection-manager/cleanupConnectionManager', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-
     }
   }
 
   private async cleanup() {
-      await this.state.storage.deleteAll();
+    const allKeys = await this.state.storage.list();
+    for (const key of allKeys.keys()) {
+      if (key !== "cleanupDone") {
+        await this.state.storage.delete(key);
+      }
+    }
+    console.log('[SessionTimer:cleanup] delete storage keys except "cleanupDone"', new Date().toLocaleString('en-US', {timeZone: 'America/Cancun'}));
   }
 
   private async broadcast(message: Message) {
@@ -184,6 +228,7 @@ export class SessionTimer extends DurableObject<DOEnv> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(message),
     });
+
   }
 }
 

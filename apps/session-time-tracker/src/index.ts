@@ -243,18 +243,12 @@ app.post('/webhook', async (c) => {
   try {
     const eventData = await receiver.receive(data, signatureHeader);
 
-    // If it's NOT one of the 4 events that definitely have a roomId
     if (!isRoomEvent(eventData)) {
       console.log('Ignoring unsupported event:', eventData.event);
       return c.json({ status: 'error', message: 'Unsupported event type' }, 400);
     }
-
-    // Here, TypeScript knows eventData.payload has `roomId`
-    console.log("Raw event payload:", eventData.payload);
-
     // Create typed data
     const typedData = receiver.createTypedWebhookData(eventData.event, eventData.payload);
-    console.log("Typed data:", typedData);
 
     // We can safely read `roomId`
     const { roomId } = typedData.data;
@@ -265,7 +259,7 @@ app.post('/webhook', async (c) => {
     );
     await sessionManager.fetch('http://session-manager/webhook', {
       method: 'POST',
-      body: JSON.stringify(eventData)
+      body: JSON.stringify(typedData)
     });
 
     return c.text("Webhook processed successfully");

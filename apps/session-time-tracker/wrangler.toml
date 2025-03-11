@@ -12,6 +12,8 @@ bindings = [
   { name = "SESSION_TIMER", class_name = "SessionTimer" },
   { name = "MESSAGE_RELAY", class_name = "MessageRelay" }
 ]
+[vars]
+PROVIDER_URL = "https://rpc.ankr.com/base_sepolia"
 
 [[migrations]]
 tag = "v1"
