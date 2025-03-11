@@ -9,6 +9,7 @@ import useLocalStorage from "@rehooks/local-storage";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
+//TODO sometimes joinRoom doesn't succeed and there is no retry.  Mostly noted how the camera permissions don't appear in Incognito. (session is always started for one user with a new Incognito window meaning no permission preference memory)
 export const useRoomJoin = (
   roomId: string,
   options: {

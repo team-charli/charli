@@ -95,6 +95,7 @@ export function calculateSessionCost(sessionDuration: string | undefined) {
   const SCALING_FACTOR = 6; // Number of decimal places for USDC
   const RATE_PER_MINUTE = ethers.parseUnits('0.3', SCALING_FACTOR);
 
+  //TODO: Write early user price promise in popup.
   const sessionRate = ethers.parseUnits('0.3', SCALING_FACTOR);
 
   if (!sessionRate) throw new Error("import NEXT_PUBLIC_SESSION_RATE undefined")
