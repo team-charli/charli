@@ -29,12 +29,12 @@ let relayerPkpApprovedActions: CidPermissionOutput;
 let getControllerKeyClaimDataResponse: any;
 let litNodeClient: LitNodeClient;
 
-///// relayerPkpTokenId="79954854284656953966413268915949291963372041247183575496884270979393743813646";
+//// relayerPkpTokenId="79954854284656953966413268915949291963372041247183575496884270979393743813646";
 const permitActionIpfsId="Qmdpu1cdQTHT5bsMo9dufrGFesJRjpA6ic2BgQw4RLw2hW";
 const transferFromActionIpfsId="QmNkMrztHE96zVhsGwQegBUX3xhHj1ML1qhQ2aCWbFqraR";
 const relayerActionIpfsId="QmUNGuq8Azj6sswwhwd2LqLo5MG1GtYue6GcvMjEuMUKYf";
 const resetPkpNonceIpfsId="QmRsxUny7KEu1EEr4ftLJy4K6mz82GxbnUaUFzLYRkRUk7"
-const transferControllerToTeacherActionIpfsId="QmcKTje8cSMnbT9gUkoDJRfPFHKYjBTRjNW2yKxSJwHbqC"
+const transferControllerToTeacherActionIpfsId="QmdGqVdeeTC9xq9CCFhmJUanABaCH8PKYnXsY7QtU5V6ui"
 const relayerAddress = Bun.env.CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS!;
 
 let learner_sessionIdAndDurationSig: string;
