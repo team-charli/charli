@@ -16,6 +16,7 @@ import { entryRouteQueries } from './RouteQueries/entryRouteQueries'
 import { loginRouteQueries } from './RouteQueries/loginRouteQueries'
 import { onboardRouteQueries } from './RouteQueries/onboardRouteQueries'
 import { loungeRouteQueries } from './RouteQueries/loungeRouteQueries'
+import RoomSummary from '@/pages/room[id]-summary/RoomSummary'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
@@ -198,6 +199,14 @@ export const roomRoute = createRoute({
   },
 })
 
+// /room-summary/$id
+export const roomSummaryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/room-summary/$id',
+  component: RoomSummary,
+  // Your validation logic for params, etc.
+})
+
 // Create the final route tree
 export const routeTree = rootRoute.addChildren([
   entry,
@@ -205,5 +214,6 @@ export const routeTree = rootRoute.addChildren([
   onboardRoute,
   loungeRoute,
   roomRoute,
+  roomSummaryRoute,
   bolsaRoute,
 ])
