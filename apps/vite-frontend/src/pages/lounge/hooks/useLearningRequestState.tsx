@@ -10,7 +10,7 @@ const DURATION_MAP: Record<string, number> = {
   "45 minutes": 45,
   "30 minutes": 30,
   "20 minutes": 20,
-  "2 minutes": 2,    // <--- TEST
+  "4 minutes": 4,    // <--- TEST
   custom: 20,
 };
 

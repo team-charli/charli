@@ -141,8 +141,8 @@ export function DurationPicker({
   const standardDurations = ["1 hour", "45 minutes", "30 minutes"]
   // Second row
   const secondRowDurations = ["20 minutes", "Custom"]
-  // Third row for “2 minutes” testing
-  const testRowDurations = ["2 minutes"]
+  // Third row for “4 minutes” testing
+  const testRowDurations = ["4 minutes"]
 
   // Local state for handling the custom input mode
   const [showCustomInput, setShowCustomInput] = React.useState(false)
