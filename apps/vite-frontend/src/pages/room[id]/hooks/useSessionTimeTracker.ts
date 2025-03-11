@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import useLocalStorage from '@rehooks/local-storage';
 import { useSessionsContext } from '@/contexts/SessionsContext';
 import { SessionsContextType, ExtendedSession } from '@/types/types';
+import { useGetSessionData } from './useGetSessionData';
 
 /**
  * Connects to the session-time-tracker Worker/DO system over WebSocket,
@@ -17,6 +18,9 @@ export function useSessionTimeTracker(
   hashedTeacherAddress: string,
   controllerAddress: string
 ) {
+  const { data, isError, isLoading } = useGetSessionData(roomId);
+  const { requestedSessionDurationLearnerSig, requestedSessionDurationTeacherSig, requestedSessionDuration, sessionDurationData, secureSessionId, teacherAddressCiphertext, teacherAddressEncryptHash, learnerAddressCiphertext, learnerAddressEncryptHash} = data || {};
+
   // Access session data from context
   const { sessionsContextValue } = useSessionsContext() as SessionsContextType;
 
@@ -36,6 +40,32 @@ export function useSessionTimeTracker(
   useLocalStorage<boolean>('session-init', false);
 
   useEffect(() => {
+    if (isLoading) return;
+    if (isError) {
+      console.error('Error fetching session data');
+      return;
+    }
+    if (!data?.sessionDurationData) {
+      console.error('No sessionDurationData found', data);
+      return;
+    }
+    if (!data?.requestedSessionDuration) {
+      console.error('No requestedSessionDuration found', data);
+      return;
+    }
+    if (!data?.secureSessionId) {
+      console.error('No secureSessionId found', data);
+      return;
+    }
+
+    if (!data?.requestedSessionDurationLearnerSig) {
+      console.error('No requestedSessionDurationLearnerSig found', data);
+      return;
+    }
+    if (!data?.requestedSessionDurationTeacherSig) {
+      console.error('No requestedSessionDurationTeacherSig found', data);
+      return;
+    }
 
     if (!roomId || !hashedLearnerAddress || !hashedTeacherAddress || !controllerAddress) {
       console.error('[useSessionTimeTracker] Missing required params:', {
@@ -71,7 +101,15 @@ export function useSessionTimeTracker(
               hashedLearnerAddress,
               controllerAddress,
               userAddress: currentAccount?.ethAddress,
-              sessionDuration: 3600,
+              requestedSessionDurationLearnerSig,
+              requestedSessionDurationTeacherSig,
+              sessionDuration: requestedSessionDuration,
+              secureSessionId,
+              sessionDurationData,
+              teacherAddressCiphertext,
+              teacherAddressEncryptHash,
+              learnerAddressCiphertext,
+              learnerAddressEncryptHash
             }),
           });
 
@@ -213,6 +251,7 @@ nmount (roomId=${roomId})`);
       controllerAddress,
       currentAccount?.ethAddress,
       removeSessionInitialized,
+      sessionDurationData
     ]);
 
   /**
@@ -232,14 +271,15 @@ nmount (roomId=${roomId})`);
       setIsFinalized(true);
       removeSessionInitialized();
     }
-    if (activeSession?.isSessionExpired) {
-      console.log(
-        `[SessionsContext] session_id=${activeSession.session_id} isSessionExpired = true. Clearing local init.`
-      );
-      setIsFinalized(true);
-      removeSessionInitialized();
+    //TODO: replace with check to finalized_ipfs_cid
 
-    }
+    //if (activeSession?.isSessionExpired) {
+    //  console.log(
+    //    `[SessionsContext] session_id=${activeSession.session_id} isSessionExpired = true. Clearing local init.`
+    //  );
+    //  setIsFinalized(true);
+    //  removeSessionInitialized();
+    //}
   }, [sessionsContextValue, roomId, isFinalized, removeSessionInitialized]);
 
   return {
