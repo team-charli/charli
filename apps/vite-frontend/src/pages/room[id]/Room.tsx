@@ -1,6 +1,5 @@
 // Room.tsx
 import { useEffect } from 'react';
-import { useNavigate } from '@tanstack/react-router';
 
 // Hooks
 import { useVerifiyRoleAndAddress } from './hooks/useVerifiyRoleAndAddress';
@@ -16,7 +15,7 @@ import RemotePeerView from './Components/RemotePeerView';
 import ControlRibbon from './Components/ControlRibbon';
 
 // If your route is /room/$id with query string
-import { useParams, useSearch } from '@tanstack/react-router';
+import { useParams, useSearch, useNavigate} from '@tanstack/react-router';
 
 const Room = () => {
 
@@ -41,8 +40,8 @@ const Room = () => {
     isFinalized,
   } = useSessionTimeTracker(
     roomId,
-    hashedTeacherAddress,
     hashedLearnerAddress,
+    hashedTeacherAddress,
     controllerAddress
   );
 

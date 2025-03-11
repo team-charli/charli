@@ -1,5 +1,5 @@
 // LocalPeerView.tsx
-// LocalPeerView.tsx
+
 import { useEffect, useRef } from 'react';
 import { useLocalVideo, useLocalAudio } from '@huddle01/react/hooks';
 
