@@ -115,7 +115,11 @@ function isRoomEvent(e: WebhookData): e is RoomWebhookData {
     e.event === 'meeting:started' ||
     e.event === 'meeting:ended' ||
     e.event === 'peer:joined' ||
-    e.event === 'peer:left'
+    e.event === 'peer:left' ||
+    e.event === 'peer:trackPublished' ||
+    e.event === 'recording:started' ||
+    e.event === 'recording:ended' ||
+    e.event === 'recording:updated'
   );
 }
 

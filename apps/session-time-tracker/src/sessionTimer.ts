@@ -228,8 +228,8 @@ export class SessionTimer extends DurableObject<DOEnv> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(message),
     });
-
   }
+
 }
 
 interface RequestPayload {

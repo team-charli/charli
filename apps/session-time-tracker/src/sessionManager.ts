@@ -213,10 +213,16 @@ export class SessionManager extends DurableObject<DOEnv> {
 
       try {
         const event = JSON.parse(webhookData);
+        console.log("webhook event", event);
 
         if (event.event === 'peer:joined') {
           console.log('[SessionManager:webhook] Handling peer:joined => peerId:', event.data.id, new Date().toLocaleString('en-US', {timeZone: 'America/Cancun'}));
+
           const peerData = event.data;
+          if (peerData.role === 'bot') {
+            console.log(`[SessionManager] Ignoring bot peer: ${peerData.id}`);
+            return c.text('Ignoring bot peer', 200);
+          }
           const metadataStr = peerData.metadata || '{}';
           let metadataObj: Record<string, unknown>;
           try {
@@ -269,11 +275,31 @@ export class SessionManager extends DurableObject<DOEnv> {
 
           // Check if we should start timer
           const users = await this.getJoinedUsers();
+
           if (Object.keys(users).length === 1) {
             const sessionDuration = await this.state.storage.get<number>('sessionDuration');
             await this.startSessionTimer(c, peerData.joinedAt, validatedRole, sessionDuration);
           }
+          const recordingStarted = await this.state.storage.get<boolean>('recordingStarted');
+
           if (Object.keys(users).length === 2) {
+            if (!recordingStarted && Object.keys(users).length === 2) {
+              // Start the recording now that both are here
+              console.log('[SessionManager] Both joined => starting recording', new Date().toLocaleString('en-US', {timeZone: 'America/Cancun'}))
+
+              const { data: startRecRes, error } = await supabaseClient.functions.invoke('huddleRecording', {
+                method: 'POST',
+                body: JSON.stringify({ roomId: this.roomId, action: 'startHuddleRecording' }),
+              });
+
+              if (error) {
+                console.error('[startHuddleRecording] invoke error:', error);
+              } else {
+                console.log('[startHuddleRecording] response:', startRecRes);
+              }
+
+              await this.state.storage.put('recordingStarted', true);
+            }
             // Both users have joined
 
             const sessionTimer = c.env.SESSION_TIMER.get(
@@ -333,6 +359,18 @@ export class SessionManager extends DurableObject<DOEnv> {
               roomId: this.roomId
             })
           });
+        } else if (event.event === 'peer:trackPublished') {
+          const { id, track } = event.data;
+          console.log(`[SessionManager] peer ${id} published track: ${track}`);
+        } else if (event.event === 'recording:started') {
+          const recordingData = event.data;
+          console.log("Recording started =>", recordingData);
+        } else if (event.event === 'recording:ended') {
+          const recordingData = event.data;
+          console.log("Recording ended => final files:", recordingData);
+        } else if (event.event === 'recording:updated') {
+          const recordingData = event.data;
+          console.log("Recordingupdated => final files:", recordingData);
         }
 
         return c.text('OK');
@@ -343,6 +381,7 @@ export class SessionManager extends DurableObject<DOEnv> {
     });
 
     this.app.post('/finalizeSession', async (c) => {
+      await this.stopRecordingFallback()
       // references to other DOs
       const messageRelay = c.env.MESSAGE_RELAY.get(
         c.env.MESSAGE_RELAY.idFromName(this.roomId)
@@ -771,4 +810,37 @@ export class SessionManager extends DurableObject<DOEnv> {
       })
     });
   }
+  private async stopRecordingFallback() {
+    if (!this.roomId) {
+      this.roomId = await this.state.storage.get<string>('roomId');
+    }
+    if (!this.roomId) {
+      console.warn('[stopRecordingFallback] No roomId in storage – skipping stopHuddleRecording');
+      return;
+    }
+
+    try {
+      const response = await fetch('https://onhlhmondvxwwiwnruvo.supabase.co/functions/v1/huddleRecording', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.env.SUPABASE_SERVICE_ROLE_KEY}`,
+
+        },
+        body: JSON.stringify({
+          roomId: this.roomId,
+          action: 'stopHuddleRecording',
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`[stopRecordingFallback] Supabase function returned error:`, await response.text());
+      } else {
+        console.log('[stopRecordingFallback] stopHuddleRecording succeeded or was already stopped');
+      }
+    } catch (err) {
+      console.error('[stopRecordingFallback] fetch() failed:', err);
+    }
+  }
+
 }
