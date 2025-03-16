@@ -34,3 +34,19 @@ export function checkIfNotificationExpired (dateStr: string): boolean {
   return targetDate < now;
 }
 
+// checkIfSessionExpired.ts
+export function checkIfSessionExpired(
+  confirmedTimeDate: string,
+  requestedSessionDuration: number
+): boolean {
+  if (!confirmedTimeDate || requestedSessionDuration <= 0) {
+    return false;
+  }
+
+  const now = new Date().getTime();
+  const confirmedTime = new Date(confirmedTimeDate).getTime();
+
+  const differenceInMinutes = (now - confirmedTime) / (1000 * 60);
+
+  return differenceInMinutes >= requestedSessionDuration;
+}
