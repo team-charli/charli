@@ -6,10 +6,9 @@ import {
   useRoom,
 } from "@huddle01/react/hooks";
 import useLocalStorage from "@rehooks/local-storage";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
-//TODO sometimes joinRoom doesn't succeed and there is no retry.  Mostly noted how the camera permissions don't appear in Incognito. (session is always started for one user with a new Incognito window meaning no permission preference memory)
 export const useRoomJoin = (
   roomId: string,
   options: {
@@ -21,10 +20,8 @@ export const useRoomJoin = (
     initializationComplete: boolean;
   }
 ) => {
-  const queryClient = useQueryClient();
   const [huddleAccessToken] = useLocalStorage<string>("huddle-access-token");
 
-  // 1) The Huddle "useRoom" hook
   const { joinRoom, state: roomJoinState } = useRoom({
     onJoin: () => {
       console.log("[useRoomJoin] => onJoin callback fired");
@@ -34,11 +31,9 @@ export const useRoomJoin = (
     },
   });
 
-  // 2) We'll auto-enable local video/audio once connected
   const { enableVideo, disableVideo, isVideoOn } = useLocalVideo();
   const { enableAudio, disableAudio, isAudioOn } = useLocalAudio();
 
-  // 3) Decide if we can join
   const canJoinRoom = useMemo(() => {
     return (
       options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
@@ -48,8 +43,6 @@ export const useRoomJoin = (
     );
   }, [options]);
 
-  // (A) A simple function that tries joinRoom up to X times if we get
-  // the "Failed to execute 'send' on 'WebSocket': Still in CONNECTING" error.
   async function joinRoomWithRetry(
     roomId: string,
     token: string,
@@ -67,9 +60,8 @@ export const useRoomJoin = (
             `[joinRoomWithRetry] STILL CONNECTING => retry in ${delayMs} ms...`
           );
           await new Promise((r) => setTimeout(r, delayMs));
-          continue; // try again
+          continue;
         }
-        // Not that particular error => rethrow
         throw err;
       }
     }
@@ -78,16 +70,14 @@ export const useRoomJoin = (
     );
   }
 
-  // 4) The actual mutation
   const joinRoomMutation = useMutation({
     mutationFn: async () => {
       if (!huddleAccessToken) {
         throw new Error("Huddle access token is not available");
       }
-      // *Use the retry version*
       return await joinRoomWithRetry(roomId, huddleAccessToken);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       console.log("[useRoomJoin] => joinRoomMutation => success");
     },
     onError: (error) => {
@@ -95,7 +85,6 @@ export const useRoomJoin = (
     },
   });
 
-  // 5) If all checks pass & the room is idle, auto-join (only once)
   useEffect(() => {
     if (canJoinRoom && roomJoinState === "idle" && !joinRoomMutation.isPending) {
       console.log("[useRoomJoin] => about to join...");
@@ -103,7 +92,6 @@ export const useRoomJoin = (
     }
   }, [canJoinRoom, roomJoinState, joinRoomMutation]);
 
-  // 6) Produce local media once connected
   useEffect(() => {
     if (roomJoinState === "connected") {
       enableVideo().catch((err) => console.error("enableVideo() failed:", err));
@@ -114,7 +102,6 @@ export const useRoomJoin = (
     }
   }, [roomJoinState, enableVideo, enableAudio, disableVideo, disableAudio]);
 
-  // 7) Peer IDs
   const { peerIds: allPeerIds } = usePeerIds();
   const [peerIds, setPeerIds] = useState<string[]>([]);
 

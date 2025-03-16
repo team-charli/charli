@@ -1,64 +1,38 @@
-// Room.tsx
 import { useEffect } from 'react';
-
-// Hooks
 import { useVerifiyRoleAndAddress } from './hooks/useVerifiyRoleAndAddress';
 import { useSessionTimeTracker } from './hooks/useSessionTimeTracker';
 import { useRoomJoin } from './hooks/useRoomJoin';
 import { useRoomLeave } from './hooks/useRoomLeave';
 import useBellListener from './hooks/useBellListener';
 import { useLocalPeer } from '@huddle01/react/hooks';
-
-// UI Components
 import LocalPeerView from './Components/LocalPeerView';
 import RemotePeerView from './Components/RemotePeerView';
 import ControlRibbon from './Components/ControlRibbon';
-
-// If your route is /room/$id with query string
 import { useParams, useSearch, useNavigate} from '@tanstack/react-router';
 
 const Room = () => {
-
   const navigate = useNavigate();
   const { id: roomId } = useParams({ from: '/room/$id' });
   const { roomRole, hashedLearnerAddress, hashedTeacherAddress, controllerAddress } =
   useSearch({ from: '/room/$id' });
 
-  // 1) Verify user role & address (no early return for loading)
+  // 1) Verify user role & address
   const { data: verifiedRoleAndAddressData /*, isLoading: isVerifying */ } =
-  useVerifiyRoleAndAddress(
-    hashedTeacherAddress,
-    hashedLearnerAddress,
-    roomRole
-  );
+  useVerifiyRoleAndAddress(hashedTeacherAddress, hashedLearnerAddress, roomRole);
 
   // 2) Connect to DO-based session-time-tracker
-  const {
-    hasConnectedWs,
-    initializationComplete,
-    messages,
-    isFinalized,
-  } = useSessionTimeTracker(
-    roomId,
-    hashedLearnerAddress,
-    hashedTeacherAddress,
-    controllerAddress
-  );
+  const { hasConnectedWs, initializationComplete, isFinalized } = useSessionTimeTracker( roomId, hashedLearnerAddress, hashedTeacherAddress, controllerAddress);
 
   // 3) Join the Huddle01 room
-  //    (No "loading screen"; we just keep rendering.)
-  const { roomJoinState, /* isJoining, */ peerIds } = useRoomJoin(roomId, {
-    verifiedRoleAndAddressData,
-    hasConnectedWs,
-    initializationComplete,
-  });
+  const { roomJoinState, /* isJoining, */ peerIds } = useRoomJoin(roomId, { verifiedRoleAndAddressData, hasConnectedWs, initializationComplete });
 
-  // 4) If session finalizes, we leave the room and go to summary
-  const { leaveRoom } = useRoomLeave();
+  // 4) If session finalizes, leave room and go to summary
+  const { leaveRoom } = useRoomLeave(roomId);
+
   useEffect(() => {
     if (isFinalized) {
       leaveRoom();
-      navigate({ to: `/room-summary/${roomId}` });
+      navigate({ to: `/session-history` });
     }
   }, [isFinalized, roomId, leaveRoom, navigate]);
 

@@ -130,9 +130,6 @@ export function useSessionTimeTracker(
       }
     };
 
-    /**
-     * onmessage
-     */
     ws.onmessage = (event) => {
       try {
         const parsedMsg = JSON.parse(event.data);
@@ -162,8 +159,6 @@ export function useSessionTimeTracker(
             console.log('Data payload:', payload);
             console.groupEnd();
 
-            // Mark ourselves finalized and remove local storage
-            // so a new session can be started next time
             setIsFinalized(true);
             removeSessionInitialized();
             break;
@@ -204,7 +199,6 @@ export function useSessionTimeTracker(
 
             setIsFinalized(true);
 
-            // Clear the "session-init" key so we can do a fresh session next time
             removeSessionInitialized();
             break;
 
@@ -219,16 +213,12 @@ export function useSessionTimeTracker(
       }
     };
 
-    /**
-     * onerror
-     */
+    /** onerror */
     ws.onerror = (err) => {
       console.error('[WebSocket] onerror:', err);
     };
 
-    /**
-     * onclose
-     */
+    /** onclose */
     ws.onclose = (event) => {
       console.warn(`[WebSocket] onclose → Connection closed (roomId=${roomId})`, event);
       setHasConnectedWs(false);
@@ -236,28 +226,16 @@ export function useSessionTimeTracker(
     };
 
     return () => {
-      console.log(`[WebSocket] Cleanup → Closing on u
-nmount (roomId=${roomId})`);
+      console.log(`[WebSocket] Cleanup → Closing on unmount (roomId=${roomId})`);
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [
-      // Dependencies:
-      roomId,
-      hashedLearnerAddress,
-      hashedTeacherAddress,
-      controllerAddress,
-      currentAccount?.ethAddress,
-      removeSessionInitialized,
-      sessionDurationData
-    ]);
+  }, [roomId, hashedLearnerAddress, hashedTeacherAddress, controllerAddress, currentAccount?.ethAddress, removeSessionInitialized, sessionDurationData]);
 
-  /**
-   * 3. check an expiration indicator from SessionsContext
+  /** 3. check an expiration indicator from SessionsContext */
 
-   */
   useEffect(() => {
     // If there's only one active session, find it and check if it's expired
     const activeSession = sessionsContextValue.find(
@@ -273,13 +251,6 @@ nmount (roomId=${roomId})`);
     }
     //TODO: replace with check to finalized_ipfs_cid
 
-    //if (activeSession?.isSessionExpired) {
-    //  console.log(
-    //    `[SessionsContext] session_id=${activeSession.session_id} isSessionExpired = true. Clearing local init.`
-    //  );
-    //  setIsFinalized(true);
-    //  removeSessionInitialized();
-    //}
   }, [sessionsContextValue, roomId, isFinalized, removeSessionInitialized]);
 
   return {

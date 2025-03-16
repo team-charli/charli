@@ -1,4 +1,3 @@
-//usePersistedAuthDataQuery.tsx
 // usePersistedAuthDataQuery.tsx
 import { UnifiedAuth } from "@/types/types";
 import { useQuery } from "@tanstack/react-query";

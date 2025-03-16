@@ -61,7 +61,6 @@ export const useLitAccount = (): UseQueryResult<IRelayPKP, Error> => {const quer
 export const useSessionSigs = () => useAuth().queries.find(q => q.name === 'sessionSigs')?.query as UseQueryResult<any, any>;
 export const useIsLitLoggedIn = () => useAuth().queries.find(q => q.name === 'isLitLoggedIn')?.query as UseQueryResult<any, any>;
 export const useIsOnboarded = () => useAuth().queries.find(q => q.name === 'isOnboarded')?.query as UseQueryResult<any, any>;
-export const useJwt = () => useAuth().queries.find(q => q.name === 'supabaseJWT')?.query as UseQueryResult<any, any>;
 export const useSupabaseClient = (): UseQueryResult<SupabaseClient, Error> => {
   const query = useAuth().queries.find(q => q.name === 'supabaseClient')?.query;
   if (!query) {

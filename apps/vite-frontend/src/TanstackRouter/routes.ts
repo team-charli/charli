@@ -10,13 +10,13 @@ import OnboardRoute from '@/pages/onboard/OnboardRoute'
 import LoungeRoute from '@/pages/lounge/LoungeRoute'
 import BolsaRoute from '@/pages/bolsa/BolsaRoute'
 import RoomRoute from '@/pages/room[id]/Room'
-
+import SessionHistoryRoute from '@/pages/session-history/SessionHistory'
 // Query-based logic
 import { entryRouteQueries } from './RouteQueries/entryRouteQueries'
 import { loginRouteQueries } from './RouteQueries/loginRouteQueries'
 import { onboardRouteQueries } from './RouteQueries/onboardRouteQueries'
 import { loungeRouteQueries } from './RouteQueries/loungeRouteQueries'
-import RoomSummary from '@/pages/room[id]-summary/RoomSummary'
+import { SupabaseClient } from '@supabase/supabase-js'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
@@ -197,15 +197,68 @@ export const roomRoute = createRoute({
       controllerAddress: search.controllerAddress as string
     }
   },
-})
+});
 
-// /room-summary/$id
-export const roomSummaryRoute = createRoute({
+
+// Corrected loader using your existing setup:
+
+export const sessionHistoryRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/room-summary/$id',
-  component: RoomSummary,
-  // Your validation logic for params, etc.
-})
+  path: '/session-history',
+  component: SessionHistoryRoute,
+  loader: async ({ context }) => {
+    const queryClient = context.queryClient;
+
+    const signinRedirectData = queryClient.getQueryData<{ idToken?: string }>(['signInRedirect']);
+    const persistedAuthData = queryClient.getQueryData<{ idToken?: string }>(['persistedAuthData']);
+
+    const idToken = signinRedirectData?.idToken || persistedAuthData?.idToken;
+
+    const supabaseClient = queryClient.getQueryData(['supabaseClient', idToken]) as SupabaseClient | undefined;
+
+    if (!supabaseClient) throw new Error('Supabase client unavailable');
+
+    // Retrieve the currently logged-in user's data directly
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) throw new Error('Unable to retrieve user data');
+
+    const userId = localStorage.getItem('userID');
+    if (!userId) throw new Error('no storage for userID key')
+
+    // Continue with your existing logic...
+    const queryKey = ['sessionHistory', userId];
+
+    const sessions = await queryClient.fetchQuery({
+      queryKey,
+      queryFn: async () => {
+        const { data, error } = await supabaseClient
+          .from('finalized_user_sessions')
+          .select('session_id, role, teaching_lang, finalized_ipfs_cid, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw new Error(error.message);
+        return data;
+      },
+    });
+
+    // Prefetch IPFS session data concurrently
+    await Promise.all(
+      sessions.map(session =>
+        queryClient.prefetchQuery({
+          queryKey: ['ipfsData', session.finalized_ipfs_cid],
+          queryFn: () =>
+            fetch(`https://ipfs-proxy-worker.charli.chat/ipfs/${session.finalized_ipfs_cid}`).then(res => res.json()),
+          staleTime: Infinity,
+        })
+      )
+    );
+
+    return sessions;
+  },
+});
+
+
 
 // Create the final route tree
 export const routeTree = rootRoute.addChildren([
@@ -214,6 +267,6 @@ export const routeTree = rootRoute.addChildren([
   onboardRoute,
   loungeRoute,
   roomRoute,
-  roomSummaryRoute,
+  sessionHistoryRoute,
   bolsaRoute,
 ])

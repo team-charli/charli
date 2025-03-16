@@ -1,21 +1,27 @@
 // hooks/useRoomLeave.ts
 import { useRoom } from '@huddle01/react/hooks';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 
-export function useRoomLeave() {
+export function useRoomLeave(roomId: string) {
   const queryClient = useQueryClient();
-
-  // If you want direct access to the Huddle room instance:
   const { leaveRoom } = useRoom();
 
-  // A helper that leaves and does any additional cleanup
-  const handleLeave = () => {
-    leaveRoom(); // Huddle’s built-in method
-    queryClient.setQueryData(['roomJoinState'], 'left');
-  };
+  const leaveRoomMutation = useMutation({
+    mutationFn: async () => {
+      leaveRoom();
+      queryClient.setQueryData(['roomJoinState'], 'left');
+
+    },
+    onSuccess: (data) => {
+      console.log('Recording stopped:', data);
+    },
+    onError: (error) => {
+      console.error(error);
+    },
+  });
 
   return {
-    leaveRoom: handleLeave,
+    leaveRoom: leaveRoomMutation.mutate,
+    isLeaving: leaveRoomMutation.isPending,
   };
 }
-
