@@ -16,8 +16,8 @@ export const useRoomJoin = (
       verifiedRole: string | null;
       verifiedRoleAndAddress: boolean;
     } | undefined;
-    hasConnectedWs: boolean;
-    initializationComplete: boolean;
+    //hasConnectedWs: boolean;
+    //initializationComplete: boolean;
   }
 ) => {
   const [huddleAccessToken] = useLocalStorage<string>("huddle-access-token");
