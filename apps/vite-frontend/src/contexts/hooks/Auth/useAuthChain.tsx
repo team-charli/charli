@@ -1,7 +1,6 @@
 //useAuthChain.tsx
 import { useLitNodeClientReadyQuery, useLitAuthMethodQuery, useLitAccountQuery, useLitSessionSigsQuery, useIsLitLoggedInQuery, usePkpWalletQuery, useSupabaseClientQuery,  useHasBalanceQuery, useIsOnboardedQuery } from "./index";
 import { useIsSignInRedirectQuery } from "./LitAuth/useIsSignInRedirectQuery";
-import { useInvalidateAuthQueries } from "./useInvalidateAuthQueries";
 import { useSignInSupabaseQuery } from './SupabaseClient/useSignInSupabaseQuery';
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 import { persister, authChainLogger } from "@/App"
@@ -12,8 +11,6 @@ import { IRelayPKP } from "@lit-protocol/types";
 import { useCheckTokenExp } from "./useCheckTokenExp";
 
 export const useAuthChain = () => {
-
-  const invalidateQueries = useInvalidateAuthQueries();
 
   const isLitConnectedQuery = useLitNodeClientReadyQuery();
 
@@ -50,7 +47,6 @@ export const useAuthChain = () => {
     queryKey: ['litSessionSigs'],
     enabledDeps: !!litAccountQuery.data && !!authMethodQuery.data && (isLitConnectedQuery.data ?? false),
     queryFnData: [authMethodQuery.data, litAccountQuery.data, isLitConnectedQuery.data ?? false ],
-    invalidateQueries,
     persister,
   });
 

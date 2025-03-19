@@ -1,6 +1,6 @@
 // useHasBalance.ts
 import { useQuery } from '@tanstack/react-query';
-import { JsonRpcProvider, Contract, InterfaceAbi, parseEther, parseUnits } from 'ethers';
+import { JsonRpcProvider, Contract, InterfaceAbi, parseUnits, Network } from 'ethers';
 import { authChainLogger } from '@/App';
 import { daiAbi} from '@/abis/daiABI';
 import { IRelayPKP } from '@lit-protocol/types';
@@ -28,8 +28,12 @@ export const useHasBalanceQuery = ({queryKey, enabledDeps, queryFnData}:HasBalan
       try {
         const daiAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
         const url = import.meta.env.VITE_RPC_URL;
+        const chainId = parseInt(import.meta.env.VITE_CHAIN_ID);
+        const chainName = import.meta.env.VITE_RPC_CHAIN_NAME;
         const abi = daiAbi as InterfaceAbi;
-        const provider = new JsonRpcProvider(url);
+
+        const network = { chainId, name: chainName};
+        const provider = new JsonRpcProvider(url, network , { staticNetwork: true });
         const daiContract = new Contract(daiAddress, abi, provider);
         const balance = await daiContract.balanceOf(currentAccount.ethAddress);
         const minBalanceDai = parseUnits('9', 18);

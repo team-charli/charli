@@ -7,16 +7,16 @@ import { LitAbility, LitActionResource, LitPKPResource } from '@lit-protocol/aut
 import { authChainLogger } from '@/App';
 import { UnifiedAuth } from '@/types/types';
 import { toLitAuthMethod } from '@/utils/lit';
+import { router } from '@/TanstackRouter/router';
 
 interface SessionSigsQueryParams {
   queryKey: [string];
   enabledDeps: boolean;
   queryFnData: [
-    UnifiedAuth | null | undefined,   // e.g. from your useAuthChain
-    IRelayPKP  | null | undefined,
-    boolean
-  ];
-  invalidateQueries: () => Promise<string>;
+  UnifiedAuth | null | undefined,   // e.g. from your useAuthChain
+  IRelayPKP  | null | undefined,
+  boolean
+];
   persister: any;
   additionalResourceAbilityRequests?: Array<{ resource: any; ability: any }>;
 }
@@ -25,7 +25,6 @@ export const useLitSessionSigsQuery = ({
   queryKey,
   enabledDeps,
   queryFnData,
-  invalidateQueries,
   persister,
   additionalResourceAbilityRequests = [],
 }: SessionSigsQueryParams) => {
@@ -85,8 +84,20 @@ export const useLitSessionSigsQuery = ({
           } else {
             authChainLogger.info('Cached sessionSigs invalid/expired; errors:', errors);
             // Invalidate entire chain
-            await invalidateQueries();
-            return null;
+            console.log("Cached sessionSigs contain expired tokens");
+            console.log('will redirect to login');
+
+            // Clear local storage
+            localStorage.clear();
+
+            // Clear entire Tanstack Query cache
+            queryClient.clear();
+
+            // Redirect to login
+            router.navigate({ to: '/login' });
+
+            // Throw an error to prevent further execution
+            throw new Error('SesisonSigs expired, cache cleared and redirected');
           }
         }
 
@@ -109,10 +120,20 @@ export const useLitSessionSigsQuery = ({
         authChainLogger.info('New sessionSigs obtained');
         return newSessionSigs;
       } catch (error) {
-        console.error('Failed to fetch new sessionSigs', error);
+        console.error('useLitSessionSigsQuery failed', error);
         // Invalidate queries if something is wrong
-        await invalidateQueries();
-        return null;
+
+        // Clear local storage
+        localStorage.clear();
+
+        // Clear entire Tanstack Query cache
+        queryClient.clear();
+
+        // Redirect to login
+        router.navigate({ to: '/login' });
+
+        // Throw an error to prevent further execution
+        throw new Error('useLitSessionSigsQuery failed: see logged error');
       }
     },
   });
