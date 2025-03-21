@@ -1,0 +1,12 @@
+[package]
+name = "audio_converter"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+symphonia = { version = "0.5.4", features = ["all-codecs"] }
+hound = "3.5.1"
