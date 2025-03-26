@@ -105,7 +105,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			console.log('[LearnerAssessmentDO] No WAVs to transcribe');
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: '' });
 		} else {
-			console.log(`[LearnerAssessmentDO] Transcribing ${wavKeys.length} WAV batches: ${JSON.stringify(wavKeys)}`);
+			console.log(
+				`[LearnerAssessmentDO] Transcribing ${wavKeys.length} WAV batches: ${JSON.stringify(wavKeys)}`
+			);
 			const transcriptions: string[] = [];
 			try {
 				const provider = this.env.TRANSCRIBE_PROVIDER || 'aws';
@@ -149,13 +151,28 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			}
 		}
 
-		// Cleanup always runs
+		// 1) Clear storage so next run starts fresh
 		await this.state.storage.deleteAll();
+
+		// 2) Remove the last (final) WAV key from the list so we do not delete it
+		let finalWavKey: string | undefined;
+		if (wavKeys.length > 0) {
+			finalWavKey = wavKeys.pop();
+		}
+
+		// 3) Delete all other generated WAV files
 		for (const wavKey of wavKeys) {
 			await this.env.AUDIO_BUCKET.delete(wavKey);
 		}
+
+		// 4) Delete the original PCM files
 		for (let i = 0; i < chunkCounter; i++) {
 			await this.env.AUDIO_BUCKET.delete(`${roomId}/pcm/${i}.pcm`);
+		}
+
+		// If you want to confirm that the final wave key is recognized:
+		if (finalWavKey) {
+			console.log('[LearnerAssessmentDO] Preserved final WAV:', finalWavKey);
 		}
 	}
 
