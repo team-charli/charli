@@ -8,39 +8,57 @@ import { useRoomLeave } from './hooks/useRoomLeave';
 import useBellListener from './hooks/useBellListener';
 import LocalPeerView from './Components/LocalPeerView';
 import ControlRibbon from './Components/ControlRibbon';
-import useLocalStorage from "@rehooks/local-storage";
-
 import { useComprehensiveHuddleMonitor } from './hooks/usePeerConnectionMonitor';
 
+// Updated worklet script with flush support.
 const workletScript = `
 class PCMProcessor extends AudioWorkletProcessor {
-constructor() {
-super();
-this.buffer = [];
-this.sampleCount = 0;
-}
+  constructor() {
+    super();
+    this.buffer = [];
+    this.sampleCount = 0;
+    this.flushRequested = false;
+    // Listen for flush command from the main thread.
+    this.port.onmessage = (event) => {
+      if (event.data && event.data.type === 'flush') {
+        this.flushRequested = true;
+      }
+    };
+  }
 
-process(inputs) {
-const input = inputs[0][0];
-if (input) {
-const pcmInt16 = new Int16Array(input.length);
-for (let i = 0; i < input.length; i++) {
-pcmInt16[i] = Math.max(-32768, Math.min(32767, input[i] * 32767));
-}
-this.buffer.push(pcmInt16);
-this.sampleCount += pcmInt16.length;
+  process(inputs, outputs, parameters) {
+    const input = inputs[0][0];
+    if (input) {
+      const pcmInt16 = new Int16Array(input.length);
+      for (let i = 0; i < input.length; i++) {
+        pcmInt16[i] = Math.max(-32768, Math.min(32767, input[i] * 32767));
+      }
+      this.buffer.push(pcmInt16);
+      this.sampleCount += pcmInt16.length;
 
-if (this.sampleCount >= 64000) {
-const chunk = new Uint8Array(
-this.buffer.flatMap(b => Array.from(new Uint8Array(b.buffer)))
-);
-this.port.postMessage(chunk);
-this.buffer = [];
-this.sampleCount = 0;
-}
-}
-return true;
-}
+      // When enough samples have accumulated, send a full chunk.
+      if (this.sampleCount >= 64000) {
+        const chunk = new Uint8Array(
+          this.buffer.flatMap(b => Array.from(new Uint8Array(b.buffer)))
+        );
+        this.port.postMessage(chunk);
+        this.buffer = [];
+        this.sampleCount = 0;
+      }
+    }
+
+    // If a flush was requested and there is remaining data, send it.
+    if (this.flushRequested && this.sampleCount > 0) {
+      const chunk = new Uint8Array(
+        this.buffer.flatMap(b => Array.from(new Uint8Array(b.buffer)))
+      );
+      this.port.postMessage(chunk);
+      this.buffer = [];
+      this.sampleCount = 0;
+      this.flushRequested = false;
+    }
+    return true;
+  }
 }
 
 registerProcessor('pcm-processor', PCMProcessor);
@@ -74,9 +92,8 @@ export default function Room() {
       if (!endSessionRef.current) handleEndSession();
     },
   });
-  // Within Room.tsx (or wherever you have access to handleEndSession):
-  const endSessionRef = useRef(false);
 
+  const endSessionRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const workletRef = useRef<AudioWorkletNode | null>(null);
@@ -124,6 +141,15 @@ export default function Room() {
 
         setIsRecording(true);
         console.log('[Room] Recording started', new Date().toISOString());
+
+        // **Early Flush:** After a short delay, flush any buffered PCM data to capture early audio.
+        setTimeout(() => {
+          if (workletRef.current) {
+            console.log('[Room] Early flush of PCM data.');
+            workletRef.current.port.postMessage({ type: 'flush' });
+          }
+        }, 500); // Adjust this delay (in ms) as needed
+
       } catch (err) {
         console.error('[Room] Worklet setup failed:', err);
       }
@@ -188,14 +214,21 @@ export default function Room() {
       if (isProducing) {
         await disableAudio();
       }
+      // Before cleanup, flush any remaining PCM data from the worklet.
+      if (workletRef.current) {
+        console.log('[Room] Requesting flush of remaining PCM data.');
+        workletRef.current.port.postMessage({ type: 'flush' });
+        // Wait a short moment to allow the flush to complete.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
       if (isRecording) {
         cleanupAudio();
       } else {
         console.warn('[Room] No active audio to stop', new Date().toISOString());
       }
 
-      await disableVideo(); // Ensure video is stopped before leaving
-      leaveRoom(); // Synchronous call
+      await disableVideo(); // Ensure video is stopped before leaving.
+      leaveRoom(); // Synchronous call.
       console.log('[Room] Successfully left Huddle01 room', new Date().toISOString());
 
       const response = await fetch(`${uploadUrl}?action=end-session`, { method: 'POST' });
