@@ -1,136 +1,229 @@
 // Room.tsx
-import { useEffect } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-
-import {
-  useLocalPeer,
-  useLocalVideo,
-  // Important: we'll configure useLocalAudio with callbacks
-  useLocalAudio,
-} from '@huddle01/react/hooks';
-
+import { useEffect, useRef, useState } from 'react';
+import { useParams, useSearch } from '@tanstack/react-router';
+import { useLocalVideo, useLocalAudio } from '@huddle01/react/hooks';
 import { useVerifiyRoleAndAddress } from './hooks/useVerifiyRoleAndAddress';
-//import { useSessionTimeTracker } from './hooks/useSessionTimeTracker';
 import { useRoomJoin } from './hooks/useRoomJoin';
 import { useRoomLeave } from './hooks/useRoomLeave';
 import useBellListener from './hooks/useBellListener';
-
 import LocalPeerView from './Components/LocalPeerView';
-//import RemotePeerView from './Components/RemotePeerView';
 import ControlRibbon from './Components/ControlRibbon';
+import useLocalStorage from "@rehooks/local-storage";
 
-import { useParams, useSearch } from '@tanstack/react-router';
-import { useAudioStreaming } from './AssessmentHooks/useAudioStreaming';
+import { useComprehensiveHuddleMonitor } from './hooks/usePeerConnectionMonitor';
+
+const workletScript = `
+class PCMProcessor extends AudioWorkletProcessor {
+constructor() {
+super();
+this.buffer = [];
+this.sampleCount = 0;
+}
+
+process(inputs) {
+const input = inputs[0][0];
+if (input) {
+const pcmInt16 = new Int16Array(input.length);
+for (let i = 0; i < input.length; i++) {
+pcmInt16[i] = Math.max(-32768, Math.min(32767, input[i] * 32767));
+}
+this.buffer.push(pcmInt16);
+this.sampleCount += pcmInt16.length;
+
+if (this.sampleCount >= 64000) {
+const chunk = new Uint8Array(
+this.buffer.flatMap(b => Array.from(new Uint8Array(b.buffer)))
+);
+this.port.postMessage(chunk);
+this.buffer = [];
+this.sampleCount = 0;
+}
+}
+return true;
+}
+}
+
+registerProcessor('pcm-processor', PCMProcessor);
+`;
 
 export default function Room() {
-  const navigate = useNavigate();
   const { id: roomId } = useParams({ from: '/room/$id' });
-  const { roomRole, hashedLearnerAddress, hashedTeacherAddress, controllerAddress } =
-  useSearch({ from: '/room/$id' });
+  const { roomRole, hashedLearnerAddress, hashedTeacherAddress } = useSearch({ from: '/room/$id' });
+  const uploadUrl = `https://learner-assessment-worker.charli.chat/audio/${roomId}`;
 
-  // 1) Verify user role & address
-  const { data: verifiedRoleAndAddressData } =
-  useVerifiyRoleAndAddress(hashedTeacherAddress, hashedLearnerAddress, roomRole);
+  const { data: verifiedRoleAndAddressData } = useVerifiyRoleAndAddress(
+    hashedTeacherAddress,
+    hashedLearnerAddress,
+    roomRole
+  );
 
-  // 2) Session time-tracker DO
-  //const { hasConnectedWs, initializationComplete, isFinalized } =
-  //useSessionTimeTracker(roomId, hashedLearnerAddress, hashedTeacherAddress, controllerAddress);
-
-  // 3) Join Huddle01
-  const { roomJoinState, peerIds } = useRoomJoin(roomId, {
-    verifiedRoleAndAddressData,
-    //hasConnectedWs,
-    //initializationComplete,
-  });
-
-  // 4) On finalize => leave the room
+  const { roomJoinState } = useRoomJoin(roomId, { verifiedRoleAndAddressData });
   const { leaveRoom } = useRoomLeave(roomId);
   useBellListener();
 
-  // 5) Local peer info
-  const { peerId: localPeerId } = useLocalPeer();
   const isRoomConnected = roomJoinState === 'connected';
 
-  // 6) Local video
-  const { stream: localVideoStream } = useLocalVideo();
-
-  // 7) Local audio with callbacks
-  //    onProduceStart => user mic is actually “on”
-  //    onProduceClose => user mic turned off
-  const {
-    stream: localAudioStream,
-    isProducing, // “true” if the audio track is being produced
-  } = useLocalAudio({
+  const { stream: localVideoStream, disableVideo } = useLocalVideo();
+  const { stream: localAudioStream, isProducing, disableAudio } = useLocalAudio({
     onProduceStart: () => {
-      if (!isRecording) {
-        //TODO: trigger on bothJoined once tested
-        startRecording();
-      }
+      console.log('[useLocalAudio] Audio producing started', new Date().toISOString());
     },
     onProduceClose: () => {
-      // This event fires if user manually toggles mic off
-      if (isRecording /*&& !isFinalized*/) {
-        // only do a partial stop if session not ended
-        pauseRecording();
-      }
+      console.log('[useLocalAudio] Audio producing stopped', new Date().toISOString());
+      if (isRecording) cleanupAudio();
+      if (!endSessionRef.current) handleEndSession();
     },
   });
+  // Within Room.tsx (or wherever you have access to handleEndSession):
+  const endSessionRef = useRef(false);
 
-  // 8) Set up near real-time audio streaming
-  const {
-    isRecording,
-    startRecording,
-    stopRecording,
-    pauseRecording,
-  } = useAudioStreaming(localAudioStream, {
-    uploadUrl: `/audio/${roomId}`,
-    timeslice: 2000,
-  });
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const workletRef = useRef<AudioWorkletNode | null>(null);
 
-  // 9) When session is truly over
+  const [isRecording, setIsRecording] = useState(false);
+  const [hasCleanedUp, setHasCleanedUp] = useState(false);
+
   useEffect(() => {
-    if (/*isFinalized &&*/ isRecording) {
-      // Stop with final transcription
-      stopRecording()
-        .catch((err) => console.error('[Room] stopRecording failed:', err))
-        .finally(() => {
-          leaveRoom();
-          navigate({ to: `/session-history` });
-        });
-    }
-    /*else if (isFinalized) {
-      // If we’re not currently recording for some reason, just finalize anyway
-      leaveRoom();
-      navigate({ to: `/session-history` });
-    }*/
-  }, [/*isFinalized,*/ isRecording, stopRecording, leaveRoom, navigate]);
+    async function startProcessing() {
+      if (!localAudioStream || hasCleanedUp) return;
+      try {
+        console.log('[Room] Entering startProcessing', new Date().toISOString());
 
-  // 10) Filter out local peer
-  const remotePeerIds = peerIds.filter((id) => id !== localPeerId);
+        const audioContext = new AudioContext({ sampleRate: 48000 });
+        audioContextRef.current = audioContext;
+
+        const source = audioContext.createMediaStreamSource(localAudioStream);
+        sourceRef.current = source;
+
+        const blob = new Blob([workletScript], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        console.log('[Room] Loading AudioWorklet module...', new Date().toISOString());
+        await audioContext.audioWorklet.addModule(url);
+        console.log('[Room] AudioWorklet module loaded successfully', new Date().toISOString());
+
+        const worklet = new AudioWorkletNode(audioContext, 'pcm-processor');
+        workletRef.current = worklet;
+
+        worklet.port.onmessage = async (e) => {
+          const chunk = e.data as Uint8Array;
+          console.log(`[Room] Sending PCM chunk, size: ${chunk.length}`, new Date().toISOString());
+          try {
+            const response = await fetch(uploadUrl, { method: 'POST', body: chunk });
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`[Room] PCM upload failed: ${response.status} - ${errorText}`);
+            }
+          } catch (err) {
+            console.error('[Room] PCM upload network error:', err);
+          }
+        };
+
+        source.connect(worklet);
+        worklet.connect(audioContext.destination);
+
+        setIsRecording(true);
+        console.log('[Room] Recording started', new Date().toISOString());
+      } catch (err) {
+        console.error('[Room] Worklet setup failed:', err);
+      }
+    }
+
+    if (localAudioStream && isProducing && !isRecording) {
+      startProcessing();
+    }
+  }, [localAudioStream, isProducing, isRecording, uploadUrl]);
+
+  useComprehensiveHuddleMonitor(localAudioStream);
+
+  useEffect(() => {
+    console.log('[Room] useEffect triggered', {
+      localAudioStream: !!localAudioStream,
+      isProducing,
+      isRecording,
+      timestamp: new Date().toISOString(),
+    });
+  }, [localAudioStream, isProducing, isRecording]);
+
+  useEffect(() => {
+    const ws = new WebSocket(`wss://learner-assessment-worker.charli.chat/connect/${roomId}`);
+    ws.onopen = () => console.log('[TranscriptListener] WebSocket connected.');
+    ws.onmessage = (evt) => {
+      const message = JSON.parse(evt.data);
+      switch (message.type) {
+        case 'partialTranscript':
+          console.log('[TranscriptListener] Partial transcript:', message.data);
+          break;
+        case 'transcription-complete':
+          console.log('[TranscriptListener] Transcription complete:', message.data);
+          break;
+        case 'transcription-error':
+          console.error('[TranscriptListener] Transcription error:', message.data.error);
+          break;
+        default:
+          console.warn('[TranscriptListener] Unknown message type:', message.type);
+      }
+    };
+    ws.onerror = (err) => console.error('[TranscriptListener] WebSocket error:', err);
+    return () => ws.close();
+  }, [roomId]);
+
+  const cleanupAudio = () => {
+    if (workletRef.current) workletRef.current.disconnect();
+    if (sourceRef.current) sourceRef.current.disconnect();
+    if (audioContextRef.current) audioContextRef.current.close();
+    workletRef.current = null;
+    sourceRef.current = null;
+    audioContextRef.current = null;
+    setIsRecording(false);
+    setHasCleanedUp(true);
+    console.log('[Room] Audio cleanup completed', new Date().toISOString());
+  };
+
+  const handleEndSession = async () => {
+    endSessionRef.current = true;
+    console.log('[Room] End Session initiated', new Date().toISOString());
+
+    try {
+      if (isProducing) {
+        await disableAudio();
+      }
+      if (isRecording) {
+        cleanupAudio();
+      } else {
+        console.warn('[Room] No active audio to stop', new Date().toISOString());
+      }
+
+      await disableVideo(); // Ensure video is stopped before leaving
+      leaveRoom(); // Synchronous call
+      console.log('[Room] Successfully left Huddle01 room', new Date().toISOString());
+
+      const response = await fetch(`${uploadUrl}?action=end-session`, { method: 'POST' });
+      if (!response.ok) throw new Error('Server finalization failed');
+      console.log('[Room] Server finalization triggered', new Date().toISOString());
+    } catch (err) {
+      console.error('[Room] End-session error:', err);
+    }
+  };
 
   return (
     <div className="relative w-full h-screen bg-gray-900">
       <div className="flex w-full h-[85%]">
         <div className="flex-1 min-w-0 border-r border-gray-700">
+          <button
+            onClick={handleEndSession}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            End Session & Get Transcript
+          </button>
           <LocalPeerView
             isRoomConnected={isRoomConnected}
             localVideoStream={localVideoStream}
-            // pass these just for display if needed
             isRecording={isRecording}
-            startRecording={startRecording}
-            stopRecording={stopRecording}
           />
         </div>
         <div className="flex-1 min-w-0 border-l border-gray-700 p-4 flex flex-col gap-4">
-          {/*remotePeerIds.length === 0 ? (
-            <div className="text-center text-white">
-              Waiting for remote peer...
-            </div>
-          ) : (
-              remotePeerIds.map((id) => (
-                <RemotePeerView key={id} peerId={id} />
-              ))
-            )*/}
+          {/* Additional UI or info could go here */}
         </div>
       </div>
       <div className="absolute bottom-0 left-0 right-0">

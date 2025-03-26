@@ -3,8 +3,8 @@ import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { User, ClientData, UserFinalRecord, AddressDecryptData } from './types';
 import { DOEnv, Env } from './env';
-import {ethers} from 'ethers';
-import {PinataSDK} from 'pinata';
+import { ethers } from 'ethers';
+import { PinataSDK } from 'pinata';
 import { createClient } from '@supabase/supabase-js'
 
 

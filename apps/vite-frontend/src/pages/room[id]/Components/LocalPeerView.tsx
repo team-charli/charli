@@ -5,8 +5,6 @@ interface LocalPeerViewProps {
   isRoomConnected: boolean;
   localVideoStream: MediaStream | null;
   isRecording: boolean;
-  startRecording: () => void;
-  stopRecording: () => void;
 }
 
 export default function LocalPeerView({

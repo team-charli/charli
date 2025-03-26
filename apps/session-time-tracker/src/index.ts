@@ -4,7 +4,6 @@ import { cors } from 'hono/cors';
 import { WebhookReceiver } from "@huddle01/server-sdk/webhooks";
 import { Env } from './env';
 
-// If you have local imports (connectionManager, sessionManager, etc.), adjust these paths:
 import { ConnectionManager } from './connectionManager';
 import { SessionManager } from './sessionManager';
 import { SessionTimer } from './sessionTimer';

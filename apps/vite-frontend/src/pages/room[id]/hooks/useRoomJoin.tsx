@@ -16,18 +16,25 @@ export const useRoomJoin = (
       verifiedRole: string | null;
       verifiedRoleAndAddress: boolean;
     } | undefined;
-    //hasConnectedWs: boolean;
-    //initializationComplete: boolean;
   }
 ) => {
   const [huddleAccessToken] = useLocalStorage<string>("huddle-access-token");
 
   const { joinRoom, state: roomJoinState } = useRoom({
-    onJoin: () => {
-      console.log("[useRoomJoin] => onJoin callback fired");
+    onJoin: ({ room }) => {
+      console.log("[useRoomJoin] Room joined successfully:", room);
     },
-    onLeave: () => {
-      console.log("[useRoomJoin] => onLeave callback fired");
+    onWaiting: (data) => {
+      console.warn("[useRoomJoin] Waiting to join room:", data);
+    },
+    onFailed: (data) => {
+      console.error("[useRoomJoin] Failed to join room:", data);
+    },
+    onPeerJoin: (data) => {
+      console.log("[useRoomJoin] Peer joined room:", data);
+    },
+    onPeerLeft: (data) => {
+      console.warn("[useRoomJoin] Peer left room:", data);
     },
   });
 
@@ -37,9 +44,7 @@ export const useRoomJoin = (
   const canJoinRoom = useMemo(() => {
     return (
       options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
-        options.verifiedRoleAndAddressData?.verifiedRole &&
-        options.hasConnectedWs &&
-        options.initializationComplete
+      options.verifiedRoleAndAddressData?.verifiedRole
     );
   }, [options]);
 
@@ -96,11 +101,9 @@ export const useRoomJoin = (
     if (roomJoinState === "connected") {
       enableVideo().catch((err) => console.error("enableVideo() failed:", err));
       enableAudio().catch((err) => console.error("enableAudio() failed:", err));
-    } else if (roomJoinState === "left") {
-      disableVideo();
-      disableAudio();
     }
-  }, [roomJoinState, enableVideo, enableAudio, disableVideo, disableAudio]);
+    // Removed disableVideo/disableAudio on "left" state to avoid redundant calls
+  }, [roomJoinState, enableVideo, enableAudio]);
 
   const { peerIds: allPeerIds } = usePeerIds();
   const [peerIds, setPeerIds] = useState<string[]>([]);
