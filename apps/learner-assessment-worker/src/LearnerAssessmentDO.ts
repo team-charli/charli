@@ -23,10 +23,15 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 			const chunk = new Uint8Array(await c.req.arrayBuffer());
 			console.log(`[LearnerAssessmentDO] Received PCM chunk. Size: ${chunk.length} bytes`);
-			console.log(`[LearnerAssessmentDO] First 10 bytes:`, Array.from(chunk.slice(0, 10)));
+			console.log(
+				`[LearnerAssessmentDO] First 10 bytes:`,
+				Array.from(chunk.slice(0, 10))
+			);
 
 			if (chunk.length > 131072) {
-				console.error(`[LearnerAssessmentDO] Chunk size ${chunk.length} exceeds 131072-byte limit`);
+				console.error(
+					`[LearnerAssessmentDO] Chunk size ${chunk.length} exceeds 131072-byte limit`
+				);
 				return c.text('Chunk too large', 400);
 			}
 
@@ -51,8 +56,16 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					if (!response.ok) throw new Error('Conversion failed');
 					const wavKey = await response.text();
 					console.log(`[LearnerAssessmentDO] Generated WAV: ${wavKey}`);
+
+					// NEW: Store the generated wavKey so it can be tracked and cleaned up later.
+					const existingWavKeys = (await this.state.storage.get<string[]>('wavKeys')) || [];
+					existingWavKeys.push(wavKey);
+					await this.state.storage.put('wavKeys', existingWavKeys);
 				} catch (err) {
-					console.error(`[LearnerAssessmentDO] Batch conversion failed for ${startChunk}-${endChunk}:`, err);
+					console.error(
+						`[LearnerAssessmentDO] Batch conversion failed for ${startChunk}-${endChunk}:`,
+						err
+					);
 				}
 			}
 
@@ -66,7 +79,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 	private async transcribeAllChunks(roomId: string) {
 		const chunkCounter = (await this.state.storage.get<number>('chunkCounter')) || 0;
-		const wavKeys: string[] = [];
+		// Retrieve stored WAV keys from DO storage
+		let wavKeys = (await this.state.storage.get<string[]>('wavKeys')) || [];
 
 		if (chunkCounter > 0) {
 			const batchSize = 87;
@@ -84,19 +98,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						}
 					);
 					if (!response.ok) throw new Error('Conversion failed');
-					const wavKey = await response.text();
-					wavKeys.push(wavKey);
-					console.log(`[LearnerAssessmentDO] Generated final WAV: ${wavKey}`);
+					const finalWavKey = await response.text();
+					wavKeys.push(finalWavKey);
+					console.log(`[LearnerAssessmentDO] Generated final WAV: ${finalWavKey}`);
 				} catch (err) {
-					console.error(`[LearnerAssessmentDO] Final batch conversion failed for ${startChunk}-${endChunk}:`, err);
-				}
-			}
-
-			// Collect all WAV keys deterministically
-			for (let startChunk = 0; startChunk < chunkCounter - 1; startChunk += batchSize) {
-				const endChunk = Math.min(startChunk + batchSize - 1, lastFullBatchEnd);
-				if (endChunk >= startChunk) {
-					wavKeys.push(`${roomId}/wav/${startChunk}-${endChunk}.wav`);
+					console.error(
+						`[LearnerAssessmentDO] Final batch conversion failed for ${startChunk}-${endChunk}:`,
+						err
+					);
 				}
 			}
 		}
@@ -106,7 +115,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: '' });
 		} else {
 			console.log(
-				`[LearnerAssessmentDO] Transcribing ${wavKeys.length} WAV batches: ${JSON.stringify(wavKeys)}`
+				`[LearnerAssessmentDO] Transcribing ${wavKeys.length} WAV batches: ${JSON.stringify(
+					wavKeys
+				)}`
 			);
 			const transcriptions: string[] = [];
 			try {
@@ -151,26 +162,26 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			}
 		}
 
-		// 1) Clear storage so next run starts fresh
+		// Cleanup:
+		// 1) Clear storage so the next run starts fresh.
 		await this.state.storage.deleteAll();
 
-		// 2) Remove the last (final) WAV key from the list so we do not delete it
+		// 2) Remove the last (final) WAV key from the list so it is preserved.
 		let finalWavKey: string | undefined;
 		if (wavKeys.length > 0) {
 			finalWavKey = wavKeys.pop();
 		}
 
-		// 3) Delete all other generated WAV files
+		// 3) Delete all other generated WAV files.
 		for (const wavKey of wavKeys) {
 			await this.env.AUDIO_BUCKET.delete(wavKey);
 		}
 
-		// 4) Delete the original PCM files
+		// 4) Delete the original PCM files.
 		for (let i = 0; i < chunkCounter; i++) {
 			await this.env.AUDIO_BUCKET.delete(`${roomId}/pcm/${i}.pcm`);
 		}
 
-		// If you want to confirm that the final wave key is recognized:
 		if (finalWavKey) {
 			console.log('[LearnerAssessmentDO] Preserved final WAV:', finalWavKey);
 		}
