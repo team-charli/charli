@@ -29,7 +29,7 @@ const SearchLangComboBox = ({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search languages"
-        className="w-full p-2 border-2 border-2 border-black rounded-lg focus:border-blue-500 focus:outline-none"
+        className="w-full p-2 border-2 border-2 border-black rounded-lg focus:border-blue-500 focus:outline-hidden"
 
       />
       <ul>

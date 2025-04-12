@@ -19,7 +19,7 @@ const LangNav = ({setSelectedLang, selectedLang, languagesToShow}: LangNavProps)
           <div key={index} className="flex flex-col items-center cursor-pointer">
             <button
               onClick={() => setSelectedLang(lang.name)}
-              className={`px-4 py-1 whitespace-nowrap focus:outline-none ${selectedLang === lang.name ? 'underline underline-offset-8 decoration-4 decoration-zinc-600' : ''}`}
+              className={`px-4 py-1 whitespace-nowrap focus:outline-hidden ${selectedLang === lang.name ? 'underline underline-offset-8 decoration-4 decoration-zinc-600' : ''}`}
             >
               {lang.display}
             </button>
