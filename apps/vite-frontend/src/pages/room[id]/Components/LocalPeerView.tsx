@@ -13,7 +13,6 @@ export default function LocalPeerView({
 }: LocalPeerViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Attach local video to <video>
   useEffect(() => {
     if (videoRef.current && localVideoStream) {
       videoRef.current.srcObject = localVideoStream;

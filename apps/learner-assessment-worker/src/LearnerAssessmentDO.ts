@@ -3,195 +3,336 @@ import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
 
+interface TranscribedSegment {
+  peerId: string;
+  role: string;
+  text: string;
+  // start time in seconds offset from the first chunk's serverTime
+  // If you want sub-second alignment, we store chunk timestamps in DO
+  start: number;
+}
+
 export class LearnerAssessmentDO extends DurableObject<Env> {
-	private app = new Hono();
-	protected state: DurableObjectState;
+  private app = new Hono();
+  protected state: DurableObjectState;
 
-	constructor(state: DurableObjectState, env: Env) {
-		super(state, env);
-		this.state = state;
+  constructor(state: DurableObjectState, env: Env) {
+    super(state, env);
+    this.state = state;
 
-		this.app.post('/audio/:roomId', async (c) => {
-			const roomId = c.req.param('roomId');
-			const action = c.req.query('action');
+    this.app.post('/audio/:roomId', async (c) => {
+      const roomId = c.req.param('roomId');
+      const action = c.req.query('action');
+      if (action === 'end-session') {
+        // Finalize: transcribe all peer audio -> broadcast -> cleanup
+        console.log('[LearnerAssessmentDO] End-session triggered');
+        await this.transcribeAndDiarizeAll(roomId);
+        return c.json({ status: 'transcription completed' });
+      }
 
-			if (action === 'end-session') {
-				console.log('[LearnerAssessmentDO] End-session triggered');
-				await this.transcribeAllChunks(roomId);
-				return c.json({ status: 'transcription completed' });
-			}
+      // 1) Parse query for role/peerId
+      const role = c.req.query('role') ?? 'unknown';
+      const peerId = c.req.query('peerId') ?? 'unknown';
 
-			const chunk = new Uint8Array(await c.req.arrayBuffer());
-			console.log(`[LearnerAssessmentDO] Received PCM chunk. Size: ${chunk.length} bytes`);
-			console.log(
-				`[LearnerAssessmentDO] First 10 bytes:`,
-				Array.from(chunk.slice(0, 10))
-			);
+      // 2) Read raw PCM from body
+      const chunk = new Uint8Array(await c.req.arrayBuffer());
+      if (chunk.length === 0) {
+        return c.text('No audio data', 400);
+      }
+      console.log(`[LearnerAssessmentDO] Received PCM chunk from peerId=${peerId}, role=${role}, size=${chunk.length}`);
 
-			if (chunk.length > 131072) {
-				console.error(
-					`[LearnerAssessmentDO] Chunk size ${chunk.length} exceeds 131072-byte limit`
-				);
-				return c.text('Chunk too large', 400);
-			}
+      // 3) Basic size check
+      if (chunk.length > 131072) {
+        console.error(`[LearnerAssessmentDO] Chunk size ${chunk.length} > 131072`);
+        return c.text('Chunk too large', 400);
+      }
 
-			const chunkCounter = (await this.state.storage.get<number>('chunkCounter')) || 0;
-			const pcmKey = `${roomId}/pcm/${chunkCounter}.pcm`;
-			await this.env.AUDIO_BUCKET.put(pcmKey, chunk.buffer);
-			await this.state.storage.put('chunkCounter', chunkCounter + 1);
+      // 4) Acquire a chunkCounter for this peer
+      const peerChunkCounterKey = `chunkCounter:${peerId}`;
+      let chunkCounter = (await this.state.storage.get<number>(peerChunkCounterKey)) || 0;
 
-			const batchSize = 87;
-			if (chunkCounter % batchSize === batchSize - 1 || chunkCounter === 0) {
-				// Generate WAV for the previous batch (or first chunk)
-				const startChunk = Math.floor(chunkCounter / batchSize) * batchSize;
-				const endChunk = chunkCounter;
-				try {
-					const response = await this.env.PCM_TO_WAV_WORKER.fetch(
-						`http://pcm-to-wav-worker/convert/${roomId}`,
-						{
-							method: 'POST',
-							body: JSON.stringify({ roomId, startChunk, endChunk }),
-						}
-					);
-					if (!response.ok) throw new Error('Conversion failed');
-					const wavKey = await response.text();
-					console.log(`[LearnerAssessmentDO] Generated WAV: ${wavKey}`);
+      // 5) Build a PCM key in R2
+      const pcmKey = `${roomId}/${peerId}/pcm/${chunkCounter}.pcm`;
 
-					// NEW: Store the generated wavKey so it can be tracked and cleaned up later.
-					const existingWavKeys = (await this.state.storage.get<string[]>('wavKeys')) || [];
-					existingWavKeys.push(wavKey);
-					await this.state.storage.put('wavKeys', existingWavKeys);
-				} catch (err) {
-					console.error(
-						`[LearnerAssessmentDO] Batch conversion failed for ${startChunk}-${endChunk}:`,
-						err
-					);
-				}
-			}
+      // 6) Put raw PCM in R2
+      await this.env.AUDIO_BUCKET.put(pcmKey, chunk.buffer);
 
-			return c.text('chunk received', 200);
-		});
-	}
+      // 7) Also store metadata in DO
+      const serverTimestamp = Date.now();
+      await this.state.storage.put(`${pcmKey}:timestamp`, serverTimestamp);
+      await this.state.storage.put(`${pcmKey}:role`, role);
+      await this.state.storage.put(`${pcmKey}:peerId`, peerId);
 
-	async fetch(request: Request) {
-		return this.app.fetch(request);
-	}
+      // 8) Bump chunkCounter
+      chunkCounter++;
+      await this.state.storage.put(peerChunkCounterKey, chunkCounter);
 
-	private async transcribeAllChunks(roomId: string) {
-		const chunkCounter = (await this.state.storage.get<number>('chunkCounter')) || 0;
-		// Retrieve stored WAV keys from DO storage
-		let wavKeys = (await this.state.storage.get<string[]>('wavKeys')) || [];
+      // 9) Possibly do partial batch -> WAV if chunkCounter hits a multiple
+      const batchSize = 87;
+      // e.g., if we just stored chunk # (chunkCounter - 1)
+      const justStoredIndex = chunkCounter - 1;
+      if (justStoredIndex % batchSize === batchSize - 1 || justStoredIndex === 0) {
+        // Generate partial WAV from [startChunk..endChunk]
+        const startChunk = Math.floor(justStoredIndex / batchSize) * batchSize;
+        const endChunk = justStoredIndex;
+        try {
+          const wavKey = await this.convertPcmBatchToWav(roomId, peerId, startChunk, endChunk);
+          console.log(`[LearnerAssessmentDO] Generated partial WAV: ${wavKey}`);
 
-		if (chunkCounter > 0) {
-			const batchSize = 87;
-			// Generate WAV for any remaining partial batch
-			const lastFullBatchEnd = Math.floor((chunkCounter - 1) / batchSize) * batchSize - 1;
-			if (chunkCounter - 1 > lastFullBatchEnd) {
-				const startChunk = lastFullBatchEnd + 1;
-				const endChunk = chunkCounter - 1;
-				try {
-					const response = await this.env.PCM_TO_WAV_WORKER.fetch(
-						`http://pcm-to-wav-worker/convert/${roomId}`,
-						{
-							method: 'POST',
-							body: JSON.stringify({ roomId, startChunk, endChunk }),
-						}
-					);
-					if (!response.ok) throw new Error('Conversion failed');
-					const finalWavKey = await response.text();
-					wavKeys.push(finalWavKey);
-					console.log(`[LearnerAssessmentDO] Generated final WAV: ${finalWavKey}`);
-				} catch (err) {
-					console.error(
-						`[LearnerAssessmentDO] Final batch conversion failed for ${startChunk}-${endChunk}:`,
-						err
-					);
-				}
-			}
-		}
+          // Store the partial wavKey in an array for this peer
+          const wavKeysKey = `wavKeys:${peerId}`;
+          const existingWavKeys = (await this.state.storage.get<string[]>(wavKeysKey)) || [];
+          existingWavKeys.push(wavKey);
+          await this.state.storage.put(wavKeysKey, existingWavKeys);
+        } catch (err) {
+          console.error(`[LearnerAssessmentDO] Partial conversion failed for peerId=${peerId}, ${startChunk}-${endChunk}`, err);
+        }
+      }
 
-		if (wavKeys.length === 0) {
-			console.log('[LearnerAssessmentDO] No WAVs to transcribe');
-			await this.broadcastToRoom(roomId, 'transcription-complete', { text: '' });
-		} else {
-			console.log(
-				`[LearnerAssessmentDO] Transcribing ${wavKeys.length} WAV batches: ${JSON.stringify(
-					wavKeys
-				)}`
-			);
-			const transcriptions: string[] = [];
-			try {
-				const provider = this.env.TRANSCRIBE_PROVIDER || 'aws';
-				const awsEndpoint =
-					provider === 'huggingface'
-						? 'https://router.huggingface.co/hf-inference/models/facebook/wav2vec2-large-xlsr-53-spanish'
-						: 'http://<aws-spot-ip>:5000/transcribe';
+      return c.text('chunk received', 200);
+    });
+  }
 
-				for (const wavKey of wavKeys) {
-					const wavObject = await this.env.AUDIO_BUCKET.get(wavKey);
-					if (!wavObject) throw new Error(`WAV not found: ${wavKey}`);
-					const wavData = await wavObject.arrayBuffer();
+  /**
+   * The Worker fetch
+   */
+  async fetch(request: Request) {
+    return this.app.fetch(request);
+  }
 
-					const headers: Record<string, string> = { 'Content-Type': 'audio/wav' };
-					if (provider === 'huggingface') {
-						headers['Authorization'] = `Bearer ${this.env.LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN}`;
-					}
+  /**
+   * Called on "end-session": For each peer, finish any leftover PCM -> WAV,
+   * then transcribe, then merge all peers' transcripts by real timeline.
+   */
+  private async transcribeAndDiarizeAll(roomId: string) {
+    // 1) Identify all peerIds
+    // We'll search storage for all keys that start with "chunkCounter:"
+    const counters = await this.state.storage.list<number>({ prefix: 'chunkCounter:' });
+    const peerIds = Array.from(counters.keys()).map(k => k.replace('chunkCounter:', ''));
+    if (peerIds.length === 0) {
+      console.log('[LearnerAssessmentDO] No peers found, nothing to transcribe');
+      await this.broadcastToRoom(roomId, 'transcription-complete', { text: '' });
+      return;
+    }
 
-					const res = await fetch(awsEndpoint, {
-						method: 'POST',
-						headers,
-						body: wavData,
-					});
+    // 2) For each peer, do final WAV conversion for any leftover chunk batch
+    const allPeerTranscripts: TranscribedSegment[] = [];
+    for (const peerId of peerIds) {
+      const chunkCounter = counters.get(`chunkCounter:${peerId}`) ?? 0;
+      if (chunkCounter === 0) {
+        console.log(`[LearnerAssessmentDO] Peer ${peerId} had zero chunks, skipping`);
+        continue;
+      }
+      // We already did partial WAVs in increments. Now let's see if there's a partial leftover.
+      // Example logic: if chunkCounter-1 is not exactly on a batch boundary
+      const lastFullBatchEnd = Math.floor((chunkCounter - 1) / 87) * 87 - 1; // or chunk-based logic
+      if (chunkCounter - 1 > lastFullBatchEnd) {
+        const startChunk = lastFullBatchEnd + 1;
+        const endChunk = chunkCounter - 1;
+        try {
+          const finalWavKey = await this.convertPcmBatchToWav(roomId, peerId, startChunk, endChunk);
+          console.log(`[LearnerAssessmentDO] Final leftover WAV for peerId=${peerId}: ${finalWavKey}`);
 
-					if (!res.ok) {
-						const errorText = await res.text();
-						throw new Error(`Transcription failed: ${errorText}`);
-					}
+          // store with the existing wavKeys for that peer
+          const wavKeysKey = `wavKeys:${peerId}`;
+          const existingWavKeys = (await this.state.storage.get<string[]>(wavKeysKey)) || [];
+          existingWavKeys.push(finalWavKey);
+          await this.state.storage.put(wavKeysKey, existingWavKeys);
+        } catch (err) {
+          console.error(`[LearnerAssessmentDO] Final leftover batch conversion failed for peer ${peerId}`, err);
+        }
+      }
 
-					const responseData = await res.json();
-					const text = responseData.text || '';
-					transcriptions.push(text);
-				}
+      // 3) Now transcribe all partial WAVs for this peer into segments
+      const peerSegments = await this.transcribePeerWavs(roomId, peerId);
+      allPeerTranscripts.push(...peerSegments);
+    }
 
-				const fullTranscript = transcriptions.join(' ');
-				console.log('[LearnerAssessmentDO] Full transcript:', fullTranscript);
-				await this.broadcastToRoom(roomId, 'transcription-complete', { text: fullTranscript });
-			} catch (err) {
-				console.error('[LearnerAssessmentDO] Transcription error:', err);
-				await this.broadcastToRoom(roomId, 'transcription-error', { error: err.message });
-			}
-		}
+    // 4) Merge transcripts from all peers by their real timeline
+    const mergedText = await this.mergePeerTranscripts(allPeerTranscripts);
 
-		// Cleanup:
-		// 1) Clear storage so the next run starts fresh.
-		await this.state.storage.deleteAll();
+    // 5) Broadcast final text
+    console.log('[LearnerAssessmentDO] Merged transcript:\n', mergedText);
+    await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText });
 
-		// 2) Remove the last (final) WAV key from the list so it is preserved.
-		let finalWavKey: string | undefined;
-		if (wavKeys.length > 0) {
-			finalWavKey = wavKeys.pop();
-		}
+    // 6) Cleanup ephemeral data
+    await this.cleanupAll(roomId, peerIds);
+  }
 
-		// 3) Delete all other generated WAV files.
-		for (const wavKey of wavKeys) {
-			await this.env.AUDIO_BUCKET.delete(wavKey);
-		}
+  /**
+   * Convert a contiguous batch [startChunk..endChunk] for peerId into a single WAV.
+   */
+  private async convertPcmBatchToWav(roomId: string, peerId: string, startChunk: number, endChunk: number) {
+    const body = JSON.stringify({ roomId, startChunk, endChunk });
+    const response = await this.env.PCM_TO_WAV_WORKER.fetch(`http://pcm-to-wav-worker/convert/${roomId}`, {
+      method: 'POST',
+      body
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`PCM->WAV conversion error: ${errText}`);
+    }
+    return await response.text(); // e.g. the wavKey
+  }
 
-		// 4) Delete the original PCM files.
-		for (let i = 0; i < chunkCounter; i++) {
-			await this.env.AUDIO_BUCKET.delete(`${roomId}/pcm/${i}.pcm`);
-		}
+  /**
+   * Transcribe all partial WAVs for a given peer. Return an array of segments like:
+   * { peerId, role, start, text }.
+   * We will do "simple" start time offset = 0 for each partial. Or you can refine it
+   * by referencing chunk-level timestamps if you want sub-second merges.
+   */
+  private async transcribePeerWavs(roomId: string, peerId: string): Promise<TranscribedSegment[]> {
+    // 1) Gather all partial WAV keys for this peer
+    const wavKeysKey = `wavKeys:${peerId}`;
+    const wavKeys = (await this.state.storage.get<string[]>(wavKeysKey)) || [];
+    if (wavKeys.length === 0) {
+      console.log(`[transcribePeerWavs] No wavKeys for peerId=${peerId}`);
+      return [];
+    }
 
-		if (finalWavKey) {
-			console.log('[LearnerAssessmentDO] Preserved final WAV:', finalWavKey);
-		}
-	}
+    // 2) For the role, just read from the first chunk’s metadata
+    //    If the user changed roles mid-session, you might do something more advanced,
+    //    but typically “teacher” or “learner” stays consistent.
+    const role = await this.getPeerRole(roomId, peerId);
 
-	private async broadcastToRoom(roomId: string, type: string, data: any) {
-		const relayDO = this.env.MESSAGE_RELAY_DO.get(this.env.MESSAGE_RELAY_DO.idFromName(roomId));
-		await relayDO.fetch(`http://relay/broadcast/${roomId}`, {
-			method: 'POST',
-			body: JSON.stringify({ type, data }),
-		});
-	}
+    // 3) For each WAV, we call your transcription service (like huggingface or AWS)
+    const segments: TranscribedSegment[] = [];
+    for (const wavKey of wavKeys) {
+      const asrSegments = await this.runAsrOnWav(roomId, wavKey, peerId, role);
+      segments.push(...asrSegments);
+    }
+    return segments;
+  }
+
+  /**
+   * Helper to find the "role" from the 0th chunk if you want a single role per peer.
+   */
+  private async getPeerRole(roomId: string, peerId: string): Promise<string> {
+    const firstChunkKey = `${roomId}/${peerId}/pcm/0.pcm:role`;
+    const role = (await this.state.storage.get<string>(firstChunkKey)) || "unknown";
+    return role;
+  }
+
+  /**
+   * Actually call your external ASR on the given WAV, parse the JSON, produce a list of segments.
+   * If your ASR only returns a single `text`, you can create one segment. If it returns
+   * an array of {start, end, text}, we can map them. This is just an example.
+   */
+  private async runAsrOnWav(roomId: string, wavKey: string, peerId: string, role: string): Promise<TranscribedSegment[]> {
+    // 1) Retrieve WAV from R2
+    const wavObject = await this.env.AUDIO_BUCKET.get(wavKey);
+    if (!wavObject) throw new Error(`WAV not found: ${wavKey}`);
+    const wavData = await wavObject.arrayBuffer();
+
+    // 2) Call your actual transcription (like AWS or Hugging Face)
+    const provider = this.env.TRANSCRIBE_PROVIDER || 'aws';
+    const awsEndpoint = (provider === 'huggingface')
+      ? 'https://router.huggingface.co/hf-inference/models/facebook/wav2vec2-large-xlsr-53-spanish'
+      : 'http://<aws-spot-ip>:5000/transcribe';
+
+    const headers: Record<string, string> = { 'Content-Type': 'audio/wav' };
+    if (provider === 'huggingface') {
+      headers['Authorization'] = `Bearer ${this.env.LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN}`;
+    }
+
+    const res = await fetch(awsEndpoint, { method: 'POST', headers, body: wavData });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Transcription failed: ${errorText}`);
+    }
+
+    // Suppose the service returns { text: string, segments: [{ start, end, text }] }
+    const json = await res.json<{
+      text?: string;
+      segments?: Array<{ start: number; end: number; text: string }>;
+    }>();
+
+    // If the engine only returns "text" with no segments, we just create one big segment
+    if (!json.segments || json.segments.length === 0) {
+      const text = json.text || "";
+      return [{ peerId, role, start: 0, text }];
+    }
+
+    // Otherwise map each segment
+    return json.segments.map(s => ({
+      peerId,
+      role,
+      start: s.start, // or do an offset if you prefer
+      text: s.text,
+    }));
+  }
+
+  /**
+   * Merges all segments from all peers by comparing `start`.
+   * Yields lines like: [0.25] teacher: "¿Qué tal?" ...
+   */
+  private async mergePeerTranscripts(allSegments: TranscribedSegment[]): Promise<string> {
+    // Sort by start time
+    allSegments.sort((a, b) => a.start - b.start);
+
+    // Format lines
+    const lines = allSegments.map(seg => {
+      const time = seg.start.toFixed(2).padStart(5, '0');
+      return `[${time}] ${seg.role}: "${seg.text}"`;
+    });
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Cleanup ephemeral data:
+   *  - DO storage
+   *  - PCM chunks
+   *  - partial WAVs
+   *  - Possibly preserve final WAV (if you want).
+   */
+  private async cleanupAll(roomId: string, peerIds: string[]) {
+    // 1) For each peer, gather partial WAV keys
+    for (const peerId of peerIds) {
+      const chunkCounter = (await this.state.storage.get<number>(`chunkCounter:${peerId}`)) || 0;
+
+      // Collect partial WAV keys
+      const wavKeysKey = `wavKeys:${peerId}`;
+      let wavKeys = (await this.state.storage.get<string[]>(wavKeysKey)) || [];
+      // If you want to preserve the last one, pop it here. Otherwise remove them all.
+      // We'll do the same approach you had in your code: preserve only the final WAV
+      let finalWavKey: string | undefined;
+      if (wavKeys.length > 0) {
+        finalWavKey = wavKeys.pop();
+      }
+
+      // Delete all partial WAVs except the final
+      for (const wavKey of wavKeys) {
+        await this.env.AUDIO_BUCKET.delete(wavKey);
+      }
+
+      // Delete PCM files
+      for (let i = 0; i < chunkCounter; i++) {
+        const pcmPath = `${roomId}/${peerId}/pcm/${i}.pcm`;
+        await this.env.AUDIO_BUCKET.delete(pcmPath);
+      }
+
+      // Log which WAV we kept
+      if (finalWavKey) {
+        console.log(`[LearnerAssessmentDO] Preserved final WAV for peer=${peerId}: ${finalWavKey}`);
+      }
+    }
+
+    // 2) Clear all DO storage
+    // This removes chunk counters, timestamps, roles, wavKeys, etc.
+    await this.state.storage.deleteAll();
+  }
+
+  /**
+   * Broadcast a message to the appropriate MessageRelayDO for the room
+   */
+  private async broadcastToRoom(roomId: string, type: string, data: any) {
+    const relayDO = this.env.MESSAGE_RELAY_DO.get(
+      this.env.MESSAGE_RELAY_DO.idFromName(roomId)
+    );
+    await relayDO.fetch(`http://relay/broadcast/${roomId}`, {
+      method: 'POST',
+      body: JSON.stringify({ type, data }),
+    });
+  }
 }
