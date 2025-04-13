@@ -1,6 +1,6 @@
 // ~/Projects/charli/apps/vite-frontend/src/pages/room[id]/Room.tsx
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useLocalVideo, useLocalAudio } from "@huddle01/react/hooks";
 import { useVerifiyRoleAndAddress } from "./hooks/useVerifiyRoleAndAddress";
@@ -25,11 +25,15 @@ export default function Room() {
     hashedTeacherAddress,
     hashedLearnerAddress,
     roomRole
-
   );
 
   /** 2. Join the room (this also calls enableAudio before joinRoom, etc.) */
-  const uploadUrl = `https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=${localPeerId}&role=${roomRole}`
+  const { peerId: localPeerId } = useLocalPeer(); // localPeerId can be null at first
+
+  const uploadUrl = useMemo(() => {
+    if (!localPeerId) return null;
+    return `https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=${localPeerId}&role=${roomRole}`;
+  }, [roomId, localPeerId, roomRole]);
 
   const { roomJoinState } = useRoomJoin(roomId, { verifiedRoleAndAddressData },  uploadUrl);
 
@@ -43,10 +47,8 @@ export default function Room() {
 
   /** 6. For local audio UI - isProducing indicates that Huddle is actually sending your audio track - We'll also call disableAudio() in our cleanup below. */
   const { stream: localAudioStream, disableAudio, isProducing } = useLocalAudio();
-  const { peerId: localPeerId } = useLocalPeer();
 
   /** 7. The new Audio Pipeline Hook - listens to localAudioStream & starts the AudioWorklet - sends PCM data to `uploadUrl` - returns isRecording + cleanupAudio */
-
 
   /** 8. We'll consider ourselves "connected" if Huddle state is "connected" */
   const isRoomConnected = roomJoinState === "connected";
@@ -83,9 +85,6 @@ export default function Room() {
   const handleEndSession = async () => {
     console.log("[Room] End Session initiated", new Date().toISOString());
     try {
-      if (isProducing) await disableAudio();
-
-      if (isRecording) await cleanupAudio();
 
       await disableVideo();
       leaveRoom();
@@ -114,7 +113,6 @@ export default function Room() {
             isRoomConnected={isRoomConnected}
             localVideoStream={localVideoStream}
             // Optionally pass pipeline state to show an indicator:
-            isRecording={isRecording}
           />
         </div>
         <div className="flex-1 min-w-0 border-l border-gray-700 p-4 flex flex-col gap-4">

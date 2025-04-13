@@ -59,13 +59,11 @@ registerProcessor('pcm-processor', PCMProcessor);
 export function useAudioPipeline({
   localAudioStream,
   isAudioOn,
-  isProducing,
   uploadUrl,
 }: {
     localAudioStream: MediaStream | null;
     isAudioOn: boolean;
-    isProducing: boolean;
-    uploadUrl: string;
+    uploadUrl: string | null;
   }) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -84,7 +82,7 @@ export function useAudioPipeline({
    */
   useEffect(() => {
     async function startProcessing() {
-      if (!localAudioStream || hasCleanedUp) return;
+      if ( !uploadUrl || !localAudioStream || !isAudioOn || isRecording || hasCleanedUp) return;
 
       try {
         console.log("[useAudioPipeline] Entering startProcessing:", new Date().toISOString());
@@ -123,7 +121,7 @@ export function useAudioPipeline({
         // Connect the audio graph
         source.connect(worklet);
         // If you don't want to hear local echo, remove the line below:
-        worklet.connect(audioContext.destination);
+        // worklet.connect(audioContext.destination);
 
         setIsRecording(true);
         console.log("[useAudioPipeline] Recording started", new Date().toISOString());
@@ -140,10 +138,10 @@ export function useAudioPipeline({
       }
     }
 
-    if (localAudioStream && isProducing && isAudioOn && !isRecording) {
+    if (localAudioStream && isAudioOn && !isRecording) {
       startProcessing();
     }
-    }, [localAudioStream, isAudioOn, isProducing, isRecording, uploadUrl, hasCleanedUp]);
+  }, [localAudioStream, isAudioOn, isRecording, uploadUrl, hasCleanedUp, uploadUrl]);
 
   /**
    * Flushes any buffered audio data.
