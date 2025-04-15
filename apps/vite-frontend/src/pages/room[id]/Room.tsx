@@ -2,61 +2,107 @@
 
 import { useEffect, useMemo } from "react";
 import { useParams, useSearch } from "@tanstack/react-router";
-import { useLocalVideo, useLocalAudio } from "@huddle01/react/hooks";
+import { useLocalPeer } from "@huddle01/react/hooks";
 import { useVerifiyRoleAndAddress } from "./hooks/useVerifiyRoleAndAddress";
 import { useRoomJoin } from "./hooks/useRoomJoin";
 import { useRoomLeave } from "./hooks/useRoomLeave";
-import { useLocalPeer } from '@huddle01/react/hooks';
-import useBellListener from "./hooks/useBellListener";
 import LocalPeerView from "./Components/LocalPeerView";
+import RemotePeerView from "./Components/RemotePeerView";
 import ControlRibbon from "./Components/ControlRibbon";
+import { useAudioPipeline } from "./hooks/useAudioPipeline";
 import { useComprehensiveHuddleMonitor } from "./hooks/usePeerConnectionMonitor";
+import useBellListener from "./hooks/useBellListener";
 
 export default function Room() {
+  /**
+   * 1) Get room & role info from URL
+   */
   const { id: roomId } = useParams({ from: "/room/$id" });
   const { roomRole, hashedLearnerAddress, hashedTeacherAddress } = useSearch({
     from: "/room/$id",
   });
 
-  // Where we post PCM data
-
-  /** 1. Verify role/address */
+  /**
+   * 2) Verify role/address if needed
+   */
   const { data: verifiedRoleAndAddressData } = useVerifiyRoleAndAddress(
     hashedTeacherAddress,
     hashedLearnerAddress,
     roomRole
   );
 
-  /** 2. Join the room (this also calls enableAudio before joinRoom, etc.) */
-  const { peerId: localPeerId } = useLocalPeer(); // localPeerId can be null at first
+  /**
+   * 3) Immediately join the room but with mic/camera OFF
+   */
+  const {
+    roomJoinState,
+    isAudioOn,
+    enableAudio,
+    disableAudio,
+    localAudioStream,
+    isVideoOn,
+    enableVideo,
+    disableVideo,
+    peerIds,
+    localVideoStream
+  } = useRoomJoin(roomId, {
+    verifiedRoleAndAddressData,
+  });
+
+  /**
+   * 4) Once joined, get localPeerId from Huddle to build uploadUrl
+   */
+  const { peerId: localPeerId } = useLocalPeer();
 
   const uploadUrl = useMemo(() => {
     if (!localPeerId) return null;
     return `https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=${localPeerId}&role=${roomRole}`;
   }, [roomId, localPeerId, roomRole]);
 
-  const { roomJoinState } = useRoomJoin(roomId, { verifiedRoleAndAddressData },  uploadUrl);
+  /**
+   * 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn).
+   */
+  const { isRecording, cleanupAudio } = useAudioPipeline({
+    localAudioStream,
+    isAudioOn,
+    uploadUrl,
+  });
 
-  /** 3. Use separate hook to leave the room */
-  const { leaveRoom } = useRoomLeave(roomId);
+  /**
+   * 6) Enable mic once uploadUrl is valid (so pipeline captures from first sample)
+   */
+  useEffect(() => {
+    if (!uploadUrl) return;
+    if (!isAudioOn) {
+      console.log("[Room] => We have a valid uploadUrl, enabling mic now...");
+      enableAudio().catch((err) => console.error("enableAudio() failed:", err));
+    }
+  }, [uploadUrl, isAudioOn, enableAudio]);
 
-  /** 4. Listen for "bell" events (custom) */
-  useBellListener();
-  /** 5. For local video UI (We won't start video here; that is handled automatically by `useRoomJoin` or in an effect in that hook. But we do need the stream for local UI.) */
-  const { stream: localVideoStream, disableVideo } = useLocalVideo();
+  /**
+   * 7) Optionally auto-enable video once "connected"
+   */
+  useEffect(() => {
+    if (roomJoinState === "connected" && !isVideoOn) {
+      console.log("[Room] => enabling video now that we are connected...");
+      enableVideo().catch((err) => console.error("enableVideo() failed:", err));
+    }
+  }, [roomJoinState, isVideoOn, enableVideo]);
 
-  /** 6. For local audio UI - isProducing indicates that Huddle is actually sending your audio track - We'll also call disableAudio() in our cleanup below. */
-  const { stream: localAudioStream, disableAudio, isProducing } = useLocalAudio();
-
-  /** 7. The new Audio Pipeline Hook - listens to localAudioStream & starts the AudioWorklet - sends PCM data to `uploadUrl` - returns isRecording + cleanupAudio */
-
-  /** 8. We'll consider ourselves "connected" if Huddle state is "connected" */
+  /**
+   * 8) We'll consider ourselves "connected" if Huddle state is "connected"
+   */
   const isRoomConnected = roomJoinState === "connected";
 
-  /** 9. Optionally monitor the Huddle Peer Connection */
+  /**
+   * 9) Misc. custom events + monitor
+   */
+  useBellListener();
   useComprehensiveHuddleMonitor(localAudioStream);
 
-  /** 10. Transcript WebSocket  */
+  /**
+   * 10) Transcript WebSocket
+   */
   useEffect(() => {
     const ws = new WebSocket(`wss://learner-assessment-worker.charli.chat/connect/${roomId}`);
     ws.onopen = () => console.log("[TranscriptListener] WebSocket connected.");
@@ -77,31 +123,50 @@ export default function Room() {
       }
     };
     ws.onerror = (err) => console.error("[TranscriptListener] WebSocket error:", err);
-
     return () => ws.close();
   }, [roomId]);
 
-  /** 11. End session logic: stop sending tracks, flush/cleanup audio pipeline, then leave the room, then finalize on server side. */
-  const handleEndSession = async () => {
-    console.log("[Room] End Session initiated", new Date().toISOString());
+  /**
+   * 11) Leave the room
+   */
+  const { leaveRoom } = useRoomLeave(roomId);
+
+  async function handleEndSession() {
+    console.log("[Room] => handleEndSession => called");
     try {
+      // flush pipeline if recording
+      if (isRecording) await cleanupAudio();
+      // turn off audio
+      if (isAudioOn) await disableAudio();
+      // turn off video if on
+      if (isVideoOn) await disableVideo();
 
-      await disableVideo();
       leaveRoom();
-      console.log("[Room] Successfully left Huddle01 room", new Date().toISOString());
+      console.log("[Room] => left Huddle01 room successfully");
 
-      const response = await fetch(`${uploadUrl}?action=end-session`, { method: "POST" });
-      if (!response.ok) throw new Error("Server finalization failed");
-      console.log("[Room] Server finalization triggered", new Date().toISOString());
+      // optionally finalize with the server
+      if (uploadUrl) {
+        const response = await fetch(`${uploadUrl}?action=end-session`, { method: "POST" });
+        if (!response.ok) throw new Error("Server finalization failed");
+        console.log("[Room] => server finalization triggered");
+      }
     } catch (err) {
-      console.error("[Room] End-session error:", err);
+      console.error("[Room] => end session error:", err);
     }
-  };
+  }
 
-  /** 12. Render UI */
+  /**
+   * 12) Filter out our own peer from the peer list for remote UI
+   */
+  const remotePeerIds = peerIds.filter((id) => id !== localPeerId);
+
+  /**
+   * 13) Render local + remote UIs
+   */
   return (
     <div className="relative w-full h-screen bg-gray-900">
       <div className="flex w-full h-[85%]">
+        {/* Left side: local user */}
         <div className="flex-1 min-w-0 border-r border-gray-700">
           <button
             onClick={handleEndSession}
@@ -109,16 +174,26 @@ export default function Room() {
           >
             End Session & Get Transcript
           </button>
+          {/* Local preview */}
           <LocalPeerView
             isRoomConnected={isRoomConnected}
             localVideoStream={localVideoStream}
-            // Optionally pass pipeline state to show an indicator:
+            isRecording={isRecording}
           />
         </div>
-        <div className="flex-1 min-w-0 border-l border-gray-700 p-4 flex flex-col gap-4">
 
+        {/* Right side: remote peers */}
+        <div className="flex-1 min-w-0 border-l border-gray-700 p-4 flex flex-col gap-4">
+          {remotePeerIds.length === 0 ? (
+            <div className="text-center text-white">No remote peers yet</div>
+          ) : (
+            remotePeerIds.map((peerId) => (
+              <RemotePeerView key={peerId} peerId={peerId} />
+            ))
+          )}
         </div>
       </div>
+
       <div className="absolute bottom-0 left-0 right-0">
         <ControlRibbon />
       </div>

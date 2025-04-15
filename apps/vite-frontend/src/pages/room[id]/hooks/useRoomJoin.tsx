@@ -1,48 +1,76 @@
-// src/pages/room[id]/hooks/useRoomJoin.ts
+// ~/Projects/charli/apps/vite-frontend/src/pages/room[id]/hooks/useRoomJoin.ts
+
 import {
   useLocalAudio,
   useLocalVideo,
   usePeerIds,
   useRoom,
 } from "@huddle01/react/hooks";
-import { useAudioPipeline } from "./useAudioPipeline";
 import useLocalStorage from "@rehooks/local-storage";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
+/**
+ * This hook:
+ * 1) Joins the Huddle room **immediately** with mic/camera off, so we can get localPeerId.
+ * 2) Once joined, we remain in that “joined” state but not sending audio/video, because we never called enableAudio/enableVideo here.
+ * 3) The parent can then build uploadUrl (using localPeerId) and pass it to a separate pipeline hook.
+ */
+export interface VerifiedRoleAndAddressData {
+  verifiedRole: string | null;
+  verifiedRoleAndAddress: boolean;
+}
+
+export interface UseRoomJoinOptions {
+  verifiedRoleAndAddressData?: VerifiedRoleAndAddressData;
+  hasConnectedWs?: boolean;
+  initializationComplete?: boolean;
+  // etc. if you have more flags
+}
+
 export const useRoomJoin = (
   roomId: string,
-  options: {
-    verifiedRoleAndAddressData?: {
-      verifiedRole: string | null;
-      verifiedRoleAndAddress: boolean;
-    };
-    // e.g. hasConnectedWs, initializationComplete, etc.
-  },
-  uploadUrl: string | null
+  options: UseRoomJoinOptions
 ) => {
+  /**
+   * 1) Load stored Huddle token for joining
+   */
   const [huddleAccessToken] = useLocalStorage<string>("huddle-access-token");
 
-  const { joinRoom, state: roomJoinState } = useRoom({
+  /**
+   * 2) Setup the Huddle useRoom() hook
+   */
+  const {
+    room,
+    state: roomJoinState,
+    joinRoom,
+    leaveRoom: huddleLeaveRoom,
+  } = useRoom({
     onJoin: ({ room }) => {
-      console.log("[useRoomJoin] Room joined successfully:", room);
+      console.log("[useRoomJoin] => onJoin => joined room:", room.roomId);
     },
     onWaiting: (data) => {
-      console.warn("[useRoomJoin] Waiting to join room:", data);
+      console.warn("[useRoomJoin] => onWaiting =>", data);
+    },
+    onLeave: (data) => {
+      console.log("[useRoomJoin] => onLeave =>", data);
     },
     onFailed: (data) => {
-      console.error("[useRoomJoin] Failed to join room:", data);
+      console.error("[useRoomJoin] => onFailed =>", data);
     },
     onPeerJoin: (data) => {
-      console.log("[useRoomJoin] Peer joined room:", data);
+      console.log("[useRoomJoin] => onPeerJoin => new peer:", data);
     },
     onPeerLeft: (data) => {
-      console.warn("[useRoomJoin] Peer left room:", data);
+      console.warn("[useRoomJoin] => onPeerLeft => peer left:", data);
     },
   });
 
+  /**
+   * 3) A small helper for joining the room (with optional retries)
+   */
   async function joinRoomWithRetry(roomId: string, token: string) {
-    console.log("[useRoomJoin] => joinRoomWithRetry => calling joinRoom");
+    console.log("[useRoomJoin] => joinRoomWithRetry => calling joinRoom (mic off)");
     return await joinRoom({ roomId, token });
   }
 
@@ -53,95 +81,58 @@ export const useRoomJoin = (
       }
       return joinRoomWithRetry(roomId, huddleAccessToken);
     },
-    onSuccess: () => {
-      console.log("[useRoomJoin] => successfully joined");
+    onSuccess: (room) => {
+      console.log("[useRoomJoin] => joined room =>", room.roomId);
     },
     onError: (err) => {
       console.error("[useRoomJoin] => failed to join:", err);
     },
   });
 
-  // 1) Decide if we can attempt to join.
+  /**
+   * 4) Decide if we can join at all
+   */
   const canJoinRoom = useMemo(() => {
-    return (
-      options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
-      options.verifiedRoleAndAddressData?.verifiedRole
-    );
+    // e.g. if you have additional conditions, add them
+    const ok = options.verifiedRoleAndAddressData?.verifiedRoleAndAddress &&
+               options.verifiedRoleAndAddressData?.verifiedRole;
+    return !!ok;
   }, [options]);
 
-  // 2) Manage local audio
+  /**
+   * 5) As soon as we can join, and are "idle," we do so with mic/cam off
+   */
+  useEffect(() => {
+    if (!canJoinRoom) return;
+    if (roomJoinState !== "idle") return;
+    if (joinRoomMutation.isPending) return;
+
+    console.log("[useRoomJoin] => Attempting silent join =>", roomId);
+    joinRoomMutation.mutate();
+  }, [canJoinRoom, roomJoinState, joinRoomMutation, roomId]);
+
+  /**
+   * 6) Local Audio & Video hooks.
+   * We do NOT call enableAudio() or enableVideo() here, so we remain silent.
+   * The parent or some other logic can turn them on at the right time.
+   */
   const {
     stream: localAudioStream,
     isAudioOn,
     enableAudio,
+    disableAudio,
   } = useLocalAudio();
 
-  // 3) Pipeline
-  const { isRecording, cleanupAudio } = useAudioPipeline({
-    localAudioStream,
-    isAudioOn,
-    uploadUrl,
-  });
-
-  // 4) Local video
   const {
     stream: localVideoStream,
     isVideoOn,
     enableVideo,
+    disableVideo,
   } = useLocalVideo();
 
   /**
-   * The main ordering effect:
-   * (a) enableAudio() -> (b) pipeline starts -> (c) enableVideo() -> (d) joinRoom()
+   * 7) Track peer IDs if we want
    */
-  useEffect(() => {
-    // Step 0: Quick debug line
-    console.log(
-      `[useRoomJoin] effect-check => canJoinRoom=${canJoinRoom}, roomJoinState=${roomJoinState}, isPending=${joinRoomMutation.isPending}, isAudioOn=${isAudioOn}, isRecording=${isRecording}, isVideoOn=${isVideoOn}`
-    );
-
-    // 0. Must be allowed to join
-    if (!canJoinRoom) return;
-
-    // 1. Must not already be joining/joined
-    if (roomJoinState !== "idle") return;
-    if (joinRoomMutation.isPending) return;
-
-    // 2. If audio is not on yet, do that first
-    if (!isAudioOn) {
-      console.log("[useRoomJoin] => Step 1: enabling audio...");
-      enableAudio().catch((err) => console.error("enableAudio() failed:", err));
-      return;
-    }
-
-    // 3. If pipeline hasn't started recording yet, wait
-    if (!isRecording) {
-      console.log("[useRoomJoin] => Step 2: pipeline not recording; waiting...");
-      return;
-    }
-
-    // 4. If video not on yet, enable it
-    if (!isVideoOn) {
-      console.log("[useRoomJoin] => Step 3: enabling video...");
-      enableVideo().catch((err) => console.error("enableVideo() failed:", err));
-      return;
-    }
-
-    // 5. Finally, if audio+pipeline+video are all active, join
-    console.log("[useRoomJoin] => Step 4: calling joinRoom()...");
-    joinRoomMutation.mutate();
-  }, [
-    canJoinRoom,
-    roomJoinState,
-    joinRoomMutation,
-    isAudioOn,
-    isRecording,
-    isVideoOn,
-    enableAudio,
-    enableVideo,
-  ]);
-
-  // Track peer IDs
   const { peerIds: allPeerIds } = usePeerIds();
   const [peerIds, setPeerIds] = useState<string[]>([]);
 
@@ -153,12 +144,27 @@ export const useRoomJoin = (
     }
   }, [roomJoinState, allPeerIds]);
 
+  /**
+   * 8) Return everything the parent might want
+   */
   return {
+    // ~~~~~ Huddle Info ~~~~~
     roomJoinState,
+    isJoining: joinRoomMutation.isPending,
     peerIds,
+
+    // ~~~~~ Local Tracks ~~~~~
     localAudioStream,
+    isAudioOn,
+    enableAudio,
+    disableAudio,
+
     localVideoStream,
-    isRecording,
-    cleanupAudio,
+    isVideoOn,
+    enableVideo,
+    disableVideo,
+
+    // in case you need to leave from here
+    huddleLeaveRoom,
   };
 };
