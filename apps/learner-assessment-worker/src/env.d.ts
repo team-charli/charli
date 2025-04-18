@@ -6,4 +6,5 @@ export interface Env {
 	AUDIO_BUCKET: R2Bucket;
 	LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN: string;
 	TRANSCRIBE_PROVIDER: string;
+	AI: Ai
 }
