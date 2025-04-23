@@ -21,6 +21,7 @@ export const SPANISH_ERROR_CLASSES = [
   "past perfect subjunctive conjugation",
 
   // Other verb/mood issues
+	"conjugation error: invalid form",
   "incorrect verb infinitive vs conjugated",
   "mood selection error (indicative vs subjunctive)",
   "imperative mood conjugation",

@@ -14,6 +14,7 @@
 		"wrangler": "latest"
 	},
 	"dependencies": {
+		"@supabase/supabase-js": "^2.49.4",
 		"hono": "^4.7.4"
 	}
 }

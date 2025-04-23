@@ -24,6 +24,9 @@ export const SPANISH_ERROR_LABELS: Record<string, string> = {
   "number agreement": "Number Agreement Error",
   "subject-verb agreement": "Subject–Verb Agreement Error",
 
+	// General Conjugation
+	"conjugation error: invalid form": "Conjugation Error: Invalid Form",
+
   // Article and pronoun use
   "incorrect article (definite/indefinite)": "Article Error",
   "direct object pronoun misuse": "Direct Object Pronoun Error",

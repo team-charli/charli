@@ -4,7 +4,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2025-03-17",
   "compatibility_flags": ["nodejs_compat"],
-	"vars": {"TRANSCRIBE_PROVIDER": "huggingface"}, // Set to "aws" in production
+	"vars": {
+		"TRANSCRIBE_PROVIDER": "huggingface" // Set to "aws" in production
+		"SUPABASE_URL": "https://onhlhmondvxwwiwnruvo.supabase.co"
+	},
   "routes": [
     {
       "pattern": "learner-assessment-worker.charli.chat",

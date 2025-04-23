@@ -6,5 +6,26 @@ export interface Env {
 	AUDIO_BUCKET: R2Bucket;
 	LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN: string;
 	TRANSCRIBE_PROVIDER: string;
-	AI: Ai
+	AI: Ai;
+	SUPABASE_SERVICE_ROLE_KEY: string;
+	SUPABASE_URL: string;
 }
+// env.ts
+
+export interface Bindings {
+  AI: Ai;
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+
+  MISTAKE_DETECTOR_DO: DurableObjectNamespace;
+  MISTAKE_ANALYZER_DO: DurableObjectNamespace;
+  SCORECARD_PERSISTER_DO: DurableObjectNamespace;
+}
+
+export interface Env {
+  Bindings: Bindings;
+}
+
+// For DOs
+export interface DOEnv extends Bindings {}
+
