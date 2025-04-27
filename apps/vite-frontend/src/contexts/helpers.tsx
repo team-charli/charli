@@ -1,3 +1,4 @@
+//vite-frontend/src/contexts/helpers.tsx
 import { ExtendedSession, Session } from "@/types/types";
 
 export const classifySession = (session: Session): Omit<ExtendedSession, keyof Session> => {

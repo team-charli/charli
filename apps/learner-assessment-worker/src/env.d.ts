@@ -9,6 +9,7 @@ export interface Env {
 	AI: Ai;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	SUPABASE_URL: string;
+  ROBO_TEST_DO: Service<RoboTestDO>;
 }
 // env.ts
 

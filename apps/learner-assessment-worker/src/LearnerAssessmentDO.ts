@@ -1,21 +1,21 @@
 // apps/learner-assessment-worker/src/LearnerAssessmentDO.ts
+
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 interface TranscribedSegment {
 	peerId: string;
 	role: string;
 	text: string;
-	// start time in seconds offset from the first chunk's serverTime
-	// If you want sub-second alignment, we store chunk timestamps in DO
 	start: number;
 }
 
 export class LearnerAssessmentDO extends DurableObject<Env> {
 	private app = new Hono();
 	protected state: DurableObjectState;
+	private learnerDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private currentUtteranceChunks: Uint8Array[] = [];
 
 	constructor(state: DurableObjectState, env: Env) {
 		super(state, env);
@@ -32,43 +32,24 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 			const role = c.req.query('role') ?? 'unknown';
 			const peerId = c.req.query('peerId') ?? 'unknown';
+			const roboMode = c.req.query('roboMode') === 'true';
 			const chunk = new Uint8Array(await c.req.arrayBuffer());
-			if (chunk.length === 0) {
-				return c.text('No audio data', 400);
-			}
-			console.log(`[LearnerAssessmentDO] Received PCM chunk from peerId=${peerId}, role=${role}, size=${chunk.length}`);
-
+			if (chunk.length === 0) return c.text('No audio data', 400);
 			if (chunk.length > 131072) {
 				console.error(`[LearnerAssessmentDO] Chunk size ${chunk.length} > 131072`);
 				return c.text('Chunk too large', 400);
 			}
 
-			const peerChunkCounterKey = `chunkCounter:${peerId}`;
-			let chunkCounter = (await this.state.storage.get<number>(peerChunkCounterKey)) || 0;
-			const pcmKey = `${roomId}/${peerId}/pcm/${chunkCounter}.pcm`;
-			await this.env.AUDIO_BUCKET.put(pcmKey, chunk.buffer);
-			const serverTimestamp = Date.now();
-			await this.state.storage.put(`${pcmKey}:timestamp`, serverTimestamp);
-			await this.state.storage.put(`${pcmKey}:role`, role);
-			await this.state.storage.put(`${pcmKey}:peerId`, peerId);
-			chunkCounter++;
-			await this.state.storage.put(peerChunkCounterKey, chunkCounter);
+			console.log(`[LearnerAssessmentDO] Received PCM chunk from peerId=${peerId}, role=${role}, size=${chunk.length}`);
 
-			const batchSize = 87;
-			const justStoredIndex = chunkCounter - 1;
-			if (justStoredIndex % batchSize === batchSize - 1 || justStoredIndex === 0) {
-				const startChunk = Math.floor(justStoredIndex / batchSize) * batchSize;
-				const endChunk = justStoredIndex;
-				try {
-					const wavKey = await this.convertPcmBatchToWav(roomId, peerId, startChunk, endChunk);
-					console.log(`[LearnerAssessmentDO] Generated partial WAV: ${wavKey}`);
-					const wavKeysKey = `wavKeys:${peerId}`;
-					const existingWavKeys = (await this.state.storage.get<string[]>(wavKeysKey)) || [];
-					existingWavKeys.push(wavKey);
-					await this.state.storage.put(wavKeysKey, existingWavKeys);
-				} catch (err) {
-					console.error(`[LearnerAssessmentDO] Partial conversion failed for peerId=${peerId}, ${startChunk}-${endChunk}`, err);
-				}
+			if (role === 'learner') {
+				await this.handleFirstLearnerChunk(peerId, roboMode);
+			}
+
+			if (!roboMode) {
+				await this.handleStandardLearnerChunk(roomId, peerId, role, chunk);
+			} else {
+				await this.handleRoboModeLearnerChunk(roomId, peerId, role, chunk);
 			}
 
 			return c.text('chunk received', 200);
@@ -77,6 +58,111 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 	async fetch(request: Request) {
 		return this.app.fetch(request);
+	}
+
+	private async handleFirstLearnerChunk(peerId: string, roboMode: boolean) {
+		const peerChunkCounterKey = `chunkCounter:${peerId}`;
+		const chunkCounter = (await this.state.storage.get<number>(peerChunkCounterKey)) || 0;
+
+		if (chunkCounter === 0) {
+			const alreadyInitialized = await this.state.storage.get<boolean>('roboInitialized');
+			if (!alreadyInitialized) {
+				await this.state.storage.put('roboMode', roboMode);
+				await this.state.storage.put('roboInitialized', true);
+			}
+		}
+	}
+
+	private async handleStandardLearnerChunk(roomId: string, peerId: string, role: string, chunk: Uint8Array) {
+		await this.saveLearnerChunk(roomId, peerId, role, chunk);
+	}
+
+	private async handleRoboModeLearnerChunk(roomId: string, peerId: string, role: string, chunk: Uint8Array) {
+		await this.saveLearnerChunk(roomId, peerId, role, chunk);
+
+		// ✅ Append chunk to current utterance buffer
+		this.currentUtteranceChunks.push(chunk);
+
+		// ✅ Reset the 4000ms debounce timer
+		if (this.learnerDebounceTimer) clearTimeout(this.learnerDebounceTimer);
+
+		this.learnerDebounceTimer = setTimeout(async () => {
+			console.log('[LearnerAssessmentDO] Detected learner silence — triggering Robo reply.');
+
+			try {
+				const isRoboMode = await this.state.storage.get<boolean>('roboMode');
+				if (isRoboMode && this.currentUtteranceChunks.length > 0) {
+					const utteranceBuffer = this.concatChunks(this.currentUtteranceChunks);
+
+					// 🧠 Transcribe the full utterance
+					const learnerText = await this.transcribeLearnerUtterance(utteranceBuffer);
+
+					if (learnerText) {
+						const roboDO = this.env.ROBO_TEST_DO.get(this.env.ROBO_TEST_DO.idFromName(roomId));
+						await roboDO.fetch(`http://robo-test-mode/robo-teacher-reply`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ userText: learnerText, roomId }),
+						});
+						console.log('[LearnerAssessmentDO] Robo reply triggered with learner utterance.');
+					}
+				}
+			} catch (err) {
+				console.error('[LearnerAssessmentDO] Error triggering Robo reply:', err);
+			} finally {
+				// ✅ Always clear the buffer after a turn
+				this.currentUtteranceChunks = [];
+			}
+		}, 4000);
+	}
+
+	private concatChunks(chunks: Uint8Array[]): Uint8Array {
+		const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+		const result = new Uint8Array(totalLength);
+		let offset = 0;
+		for (const chunk of chunks) {
+			result.set(chunk, offset);
+			offset += chunk.length;
+		}
+		return result;
+	}
+
+	private async transcribeLearnerUtterance(utteranceBuffer: Uint8Array): Promise<string> {
+		try {
+			const res = await fetch('http://<your-fast-asr-endpoint>', {
+				method: 'POST',
+				headers: { 'Content-Type': 'audio/pcm' },
+				body: utteranceBuffer
+			});
+
+			if (!res.ok) {
+				console.error('[LearnerAssessmentDO] Fast ASR service error:', await res.text());
+				return '';
+			}
+
+			const { text } = await res.json<{ text: string }>();
+			console.log('[LearnerAssessmentDO] Full learner utterance transcript:', text);
+			return text || '';
+		} catch (err) {
+			console.error('[LearnerAssessmentDO] Error during utterance transcription:', err);
+			return '';
+		}
+	}
+
+	private async saveLearnerChunk(roomId: string, peerId: string, role: string, chunk: Uint8Array) {
+		const peerChunkCounterKey = `chunkCounter:${peerId}`;
+		let chunkCounter = (await this.state.storage.get<number>(peerChunkCounterKey)) || 0;
+
+		const pcmKey = `${roomId}/${peerId}/pcm/${chunkCounter}.pcm`;
+		await this.env.AUDIO_BUCKET.put(pcmKey, chunk.buffer);
+
+		const serverTimestamp = Date.now();
+		await this.state.storage.put(`${pcmKey}:timestamp`, serverTimestamp);
+		await this.state.storage.put(`${pcmKey}:role`, role);
+		await this.state.storage.put(`${pcmKey}:peerId`, peerId);
+
+		chunkCounter++;
+		await this.state.storage.put(peerChunkCounterKey, chunkCounter);
 	}
 
 	private async transcribeAndDiarizeAll(roomId: string) {
@@ -141,90 +227,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		await this.cleanupAll(roomId, peerIds);
 	}
 
-	private async convertPcmBatchToWav(roomId: string, peerId: string, startChunk: number, endChunk: number) {
-		const body = JSON.stringify({ roomId, startChunk, endChunk });
-		const response = await this.env.PCM_TO_WAV_WORKER.fetch(`http://pcm-to-wav-worker/convert/${roomId}`, {
-			method: 'POST',
-			body
-		});
-		if (!response.ok) {
-			const errText = await response.text();
-			throw new Error(`PCM->WAV conversion error: ${errText}`);
-		}
-		return await response.text();
-	}
-
-	private async transcribePeerWavs(roomId: string, peerId: string): Promise<TranscribedSegment[]> {
-		const wavKeysKey = `wavKeys:${peerId}`;
-		const wavKeys = (await this.state.storage.get<string[]>(wavKeysKey)) || [];
-		if (wavKeys.length === 0) {
-			console.log(`[transcribePeerWavs] No wavKeys for peerId=${peerId}`);
-			return [];
-		}
-
-		const role = await this.getPeerRole(roomId, peerId);
-		const segments: TranscribedSegment[] = [];
-		for (const wavKey of wavKeys) {
-			const asrSegments = await this.runAsrOnWav(roomId, wavKey, peerId, role);
-			segments.push(...asrSegments);
-		}
-		return segments;
-	}
-
-	private async getPeerRole(roomId: string, peerId: string): Promise<string> {
-		const firstChunkKey = `${roomId}/${peerId}/pcm/0.pcm:role`;
-		const role = (await this.state.storage.get<string>(firstChunkKey)) || "unknown";
-		return role;
-	}
-
-	private async runAsrOnWav(roomId: string, wavKey: string, peerId: string, role: string): Promise<TranscribedSegment[]> {
-		const wavObject = await this.env.AUDIO_BUCKET.get(wavKey);
-		if (!wavObject) throw new Error(`WAV not found: ${wavKey}`);
-		const wavData = await wavObject.arrayBuffer();
-
-		const provider = this.env.TRANSCRIBE_PROVIDER || 'aws';
-		const awsEndpoint = (provider === 'huggingface')
-			? 'https://router.huggingface.co/hf-inference/models/facebook/wav2vec2-large-xlsr-53-spanish'
-			: 'http://<aws-spot-ip>:5000/transcribe';
-
-		const headers: Record<string, string> = { 'Content-Type': 'audio/wav' };
-		if (provider === 'huggingface') {
-			headers['Authorization'] = `Bearer ${this.env.LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN}`;
-		}
-
-		const res = await fetch(awsEndpoint, { method: 'POST', headers, body: wavData });
-		if (!res.ok) {
-			const errorText = await res.text();
-			throw new Error(`Transcription failed: ${errorText}`);
-		}
-
-		const json = await res.json<{
-			text?: string;
-			segments?: Array<{ start: number; end: number; text: string }>;
-		}>();
-
-		if (!json.segments || json.segments.length === 0) {
-			const text = json.text || "";
-			return [{ peerId, role, start: 0, text }];
-		}
-
-		return json.segments.map(s => ({
-			peerId,
-			role,
-			start: s.start,
-			text: s.text,
-		}));
-	}
-
-	private async mergePeerTranscripts(allSegments: TranscribedSegment[]): Promise<string> {
-		allSegments.sort((a, b) => a.start - b.start);
-		const lines = allSegments.map(seg => {
-			const time = seg.start.toFixed(2).padStart(5, '0');
-			return `[${time}] ${seg.role}: "${seg.text}"`;
-		});
-		return lines.join('\n');
-	}
-
 	private async cleanupAll(roomId: string, peerIds: string[]) {
 		for (const peerId of peerIds) {
 			const chunkCounter = (await this.state.storage.get<number>(`chunkCounter:${peerId}`)) || 0;
@@ -262,4 +264,3 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		});
 	}
 }
-

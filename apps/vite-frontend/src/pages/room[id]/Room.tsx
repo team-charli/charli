@@ -11,6 +11,8 @@ import RemotePeerView from "./Components/RemotePeerView";
 import ControlRibbon from "./Components/ControlRibbon";
 import { useAudioPipeline } from "./hooks/useAudioPipeline";
 import { useComprehensiveHuddleMonitor } from "./hooks/usePeerConnectionMonitor";
+import { useRoboAudioPlayer } from './hooks/useRoboAudioPlayer';
+
 import useBellListener from "./hooks/useBellListener";
 
 export default function Room() {
@@ -54,9 +56,17 @@ export default function Room() {
    */
   const { peerId: localPeerId } = useLocalPeer();
 
+  const isRoboMode = import.meta.env.VITE_ROBO_MODE;
+
+  useRoboAudioPlayer(isRoboMode, roomId);
+
   const uploadUrl = useMemo(() => {
     if (!localPeerId) return null;
-    return `https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=${localPeerId}&role=${roomRole}`;
+    let url =  `https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=${localPeerId}&role=${roomRole}`;
+
+    if (isRoboMode) url += `&roboMode=true`;
+
+    return url;
   }, [roomId, localPeerId, roomRole]);
 
   /**
@@ -187,10 +197,10 @@ export default function Room() {
           {remotePeerIds.length === 0 ? (
             <div className="text-center text-white">No remote peers yet</div>
           ) : (
-            remotePeerIds.map((peerId) => (
-              <RemotePeerView key={peerId} peerId={peerId} />
-            ))
-          )}
+              remotePeerIds.map((peerId) => (
+                <RemotePeerView key={peerId} peerId={peerId} />
+              ))
+            )}
         </div>
       </div>
 
