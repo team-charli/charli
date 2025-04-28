@@ -1,3 +1,5 @@
+import { ScorecardOrchestratorDO } from "./ScorecardOrchestratorDO";
+
 // apps/learner-assessment-worker/src/env.ts
 export interface Env {
 	LEARNER_ASSESSMENT_DO: DurableObjectNamespace<LearnerAssessmentDO>;
@@ -10,6 +12,7 @@ export interface Env {
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	SUPABASE_URL: string;
   ROBO_TEST_DO: Service<RoboTestDO>;
+	SCORECARD_ORCHESTRATOR_DO:DurableObjectNamespace<ScorecardOrchestratorDO>
 }
 // env.ts
 

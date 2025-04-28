@@ -24,6 +24,13 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		this.app.post('/audio/:roomId', async (c) => {
 			const roomId = c.req.param('roomId');
 			const action = c.req.query('action');
+			const sessionId = c.req.param('sessionId');
+			const learnerId = c.req.param('learnerId');
+
+			if (sessionId && learnerId) {
+				await this.state.storage.put('sessionId', Number(sessionId));
+				await this.state.storage.put('learnerId', Number(learnerId));
+			}
 			if (action === 'end-session') {
 				console.log('[LearnerAssessmentDO] End-session triggered');
 				await this.transcribeAndDiarizeAll(roomId);
@@ -204,24 +211,34 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const mergedText = await this.mergePeerTranscripts(allPeerTranscripts);
 		console.log('[LearnerAssessmentDO] Merged transcript:\n', mergedText);
 
-		// Generate scorecard for the learner
-		// const scorecard = await this.generateLearnerScorecard(roomId, allPeerTranscripts);
-		// console.log('[LearnerAssessmentDO] Generated scorecard:\n', JSON.stringify(scorecard, null, 2));
+		const learnerSegments = allPeerTranscripts.filter(seg => seg.role === 'learner');
 
-		// const session = await this.fetchSessionByRoomId(roomId); // implement this separately
-		// if (scorecard) {
-		// 	const enrichedMistakes = await this.enrichMistakesWithFingerprints(scorecard.mistakes);
-		// 	await this.persistScorecardToSupabase(session.session_id, session.learner_id, {
-		// 		...scorecard,
-		// 		mistakes: enrichedMistakes
-		// 	});
-		// }
 
-		// Store scorecard temporarily
-		// await this.state.storage.put(`scorecard:${roomId}`, scorecard);
+		// Only send the (start, text) fields to ScorecardOrchestratorDO
+		const simplifiedLearnerSegments = learnerSegments.map(seg => ({
+			start: seg.start,
+			text: seg.text,
+		}));
 
-		// Broadcast transcript and scorecard
-		// await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard });
+		const session_id = await this.state.storage.get<number>('sessionId');
+		const learner_id = await this.state.storage.get<number>('learnerId');
+		if (!session_id || !learner_id) {
+			throw new Error('Missing sessionId or learnerId in storage.');
+		}
+
+		const orchestratorDO = this.env.SCORECARD_ORCHESTRATOR_DO.get(this.env.SCORECARD_ORCHESTRATOR_DO.idFromName(roomId));
+		const res = await orchestratorDO.fetch(`http://scorecard-orchestrator/scorecard/${roomId}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				learnerSegments: simplifiedLearnerSegments,
+				session_id,
+				learner_id
+			})
+		});
+
+		const { scorecard } = await res.json() as any;
+		await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard });
 
 		// Cleanup
 		await this.cleanupAll(roomId, peerIds);
