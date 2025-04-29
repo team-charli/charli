@@ -9,10 +9,28 @@ export class RoboTestDO extends DurableObject<Env> {
 	constructor(state: DurableObjectState, env: Env) {
 		super(state, env);
 
-		this.app.post('/robo-teacher-reply', async (c) => {
-			const { userText, roomId } = await c.req.json();
+		this.app.post('/generate-pcm-reply', async (c) => {
+			const { userText } = await c.req.json();
+			const pcmBuffer = await this.buildPcmReply(userText);
+			return new Response(pcmBuffer, {
+				headers: { 'Content-Type': 'application/octet-stream' }
+			});
+		});
+	}
 
-			// 🔁 Step 1: Generate Robo Text (LLM)
+	async fetch(request: Request) {
+		return this.app.fetch(request);
+	}
+
+	private async buildPcmReply(userText: string): Promise<Uint8Array> {
+		const replyText = await this.generateRoboReplyText(userText);
+		const mp3Audio = await this.convertTextToSpeech(replyText);
+		const pcmAudio = await this.decodeMp3ToPcm(mp3Audio);
+		return pcmAudio;
+	}
+
+	private async generateRoboReplyText(userText: string): Promise<string> {
+		try {
 			const llamaRes = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
 				messages: [
 					{ role: 'system', content: 'You are a friendly native Spanish speaker. Keep your replies short and conversational.' },
@@ -23,67 +41,50 @@ export class RoboTestDO extends DurableObject<Env> {
 			}) as { response: string };
 
 			const aiText = llamaRes.response.trim();
-			console.log('[RoboTestDO] LLM generated reply:', aiText);
+			console.log('[RoboTestDO] Generated reply text:', aiText);
+			return aiText;
+		} catch (err) {
+			console.error('[RoboTestDO] Error generating reply text:', err);
+			throw new Error('Failed to generate Robo reply text');
+		}
+	}
 
-			// 🔁 Step 2: TTS to MP3
+	private async convertTextToSpeech(text: string): Promise<Uint8Array> {
+		try {
 			const ttsRes = await this.env.AI.run('@cf/myshell-ai/melotts', {
-				prompt: aiText,
+				prompt: text,
 				lang: 'es'
-			}) as { audio: string }; // base64 MP3
+			}) as { audio: string };
 
 			const mp3Buffer = Uint8Array.from(atob(ttsRes.audio), c => c.charCodeAt(0));
+			return mp3Buffer;
+		} catch (err) {
+			console.error('[RoboTestDO] Error during TTS generation:', err);
+			throw new Error('Failed to convert text to speech');
+		}
+	}
 
-			// 🔁 Step 3: Decode MP3 -> PCM
-			const decoderEndpoint = 'http://<HETZNER_IP>:3000/decode';
+	private async decodeMp3ToPcm(mp3Buffer: Uint8Array): Promise<Uint8Array> {
+		try {
 			const form = new FormData();
 			form.append('file', new Blob([mp3Buffer], { type: 'audio/mpeg' }), 'audio.mp3');
 
-			const decodeRes = await fetch(decoderEndpoint, {
+			const decodeRes = await fetch('https://mp3-to-pcm.charli.chat/decode', {
 				method: 'POST',
 				body: form,
 			});
 
 			if (!decodeRes.ok) {
-				throw new Error(`[RoboTestDO] MP3 decoder failed: ${await decodeRes.text()}`);
+				const errText = await decodeRes.text();
+				console.error('[RoboTestDO] MP3 decode error response:', errText);
+				throw new Error('MP3 decode HTTP failure');
 			}
 
 			const pcmBuffer = new Uint8Array(await decodeRes.arrayBuffer());
-
-			// 🔁 Step 4: POST PCM chunks to learner-assessment-worker
-			const chunkSize = 131072;
-			for (let i = 0; i < pcmBuffer.length; i += chunkSize) {
-				const chunk = pcmBuffer.slice(i, i + chunkSize);
-				await fetch(`https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=simulated-teacher&role=teacher`, {
-					method: 'POST',
-					body: chunk,
-				});
-			}
-
-			// ✨ Step 4.5: Broadcast PCM for real-time playback
-			const pcmBase64 = btoa(String.fromCharCode(...pcmBuffer));
-
-			const relayDO = this.env.MESSAGE_RELAY_DO.get(
-				this.env.MESSAGE_RELAY_DO.idFromName(roomId)
-			);
-
-			await relayDO.fetch(`http://message-relay/broadcast/${roomId}`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					type: 'roboPcmBase64',
-					pcmBase64,
-				}),
-			});
-
-			// ✨ Step 5: Return normal JSON
-			return c.json({
-				responseText: aiText,
-				pcmBase64,
-			});
-		});
-	}
-
-	async fetch(request: Request) {
-		return this.app.fetch(request);
+			return pcmBuffer;
+		} catch (err) {
+			console.error('[RoboTestDO] Error decoding MP3 to PCM:', err);
+			throw new Error('Failed to decode MP3 to PCM');
+		}
 	}
 }
