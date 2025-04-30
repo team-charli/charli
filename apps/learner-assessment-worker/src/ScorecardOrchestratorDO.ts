@@ -1,67 +1,64 @@
 //ScorecardOrchestratorDO.ts
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
-import { DOEnv, Env } from './env';
+import { DOEnv } from './env';
 
 export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
-	private app = new Hono<DOEnv>();
+	private app = new Hono<{ Bindings: DOEnv }>();
 
-	constructor(private state: DurableObjectState, private env: Env) {
+	constructor(state: DurableObjectState, env: DOEnv) {
 		super(state, env);
-		this.state = state;
-		this.env = env;
 		this.app.post('/scorecard/:roomId', async (c) => {
 			const roomId = c.req.param('roomId');
 			const {
 				learnerSegments,
+				fullTranscript,
 				session_id,
 				learner_id
 			}: {
-					learnerSegments: { start: number; text: string }[];
-					session_id: number;
-					learner_id: number;
-				} = await c.req.json();
+				learnerSegments: { start: number; text: string }[];
+				fullTranscript: string;
+				session_id: number;
+				learner_id: number;
+			} = await c.req.json();
 
 			const learnerUtterances = learnerSegments.map(s => s.text);
-			const fullTranscript = learnerSegments.map(s => `[${s.start.toFixed(2)}] ${s.text}`).join('\n');
-
 			if (!learnerUtterances.length) {
 				return c.json({ error: 'No learner utterances provided' }, 400);
 			}
 
 			// Detect Mistakes
-			const detectorRes = await fetch(this.env.MISTAKE_DETECTOR_URL + '/detect', {
+			const detectorRes = await c.env.MISTAKE_DETECTOR_DO.fetch('/detect', {
 				method: 'POST',
 				body: JSON.stringify({ learnerUtterances, fullTranscript }),
 				headers: { 'Content-Type': 'application/json' }
 			});
-			const { mistakes } = await detectorRes.json();
+			const { mistakes } = await detectorRes.json() as any;
 
 			// Analyze Mistakes
-			const analyzerRes = await fetch(this.env.MISTAKE_ANALYZER_URL + '/analyze', {
+			const analyzerRes = await c.env.MISTAKE_ANALYZER_DO.fetch('/analyze', {
 				method: 'POST',
 				body: JSON.stringify({ detectedMistakes: mistakes }),
 				headers: { 'Content-Type': 'application/json' }
 			});
-			const { analyzedMistakes } = await analyzerRes.json();
+			const { analyzedMistakes } = await analyzerRes.json() as any;
 
 			// Score Aggregation
 			const utteranceCount = learnerUtterances.length;
-			const uniqueUtterancesWithErrors = new Set(analyzedMistakes.map(m => m.text)).size;
+			const uniqueUtterancesWithErrors = new Set(analyzedMistakes.map((m: any) => m.text)).size;
 			const languageAccuracy = Math.round(((utteranceCount - uniqueUtterancesWithErrors) / utteranceCount) * 100);
-			const conversationDifficulty = Math.max(2, Math.min(10, Math.ceil(utteranceCount / 4))); // placeholder heuristic
+			const conversationDifficulty = Math.max(2, Math.min(10, Math.ceil(utteranceCount / 4)));
 
-			// Persist
 			// Enrich
-			const enrichmentRes = await fetch(this.env.MISTAKE_ENRICHER_PIPELINE_DO_URL + '/enrich', {
+			const enrichmentRes = await c.env.MISTAKE_ENRICHER_PIPELINE_DO.fetch('/enrich', {
 				method: 'POST',
 				body: JSON.stringify({ learner_id, analyzedMistakes }),
 				headers: { 'Content-Type': 'application/json' }
 			});
-			const { enrichedMistakes } = await enrichmentRes.json();
+			const { enrichedMistakes } = await enrichmentRes.json() as any;
 
 			// Persist
-			await fetch(this.env.SCORECARD_PERSISTER_URL + '/persist', {
+			await c.env.SCORECARD_PERSISTER_DO.fetch('/persist', {
 				method: 'POST',
 				body: JSON.stringify({
 					session_id,
@@ -85,7 +82,6 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 	}
 
 	async fetch(request: Request) {
-		return this.app.fetch(request);
+		return this.app.fetch(request, this.env, {} as ExecutionContext);
 	}
 }
-

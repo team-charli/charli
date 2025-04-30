@@ -126,7 +126,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		console.log('[LearnerAssessmentDO] Merged transcript:\n', mergedText);
 
 		const learnerSegments = allPeerTranscripts.filter(seg => seg.role === 'learner');
-
+		const fullTranscript = allPeerTranscripts.map(seg => `[${seg.start.toFixed(2)}] ${seg.role}: "${seg.text}"`).join('\n');
 
 		// Only send the (start, text) fields to ScorecardOrchestratorDO
 		const simplifiedLearnerSegments = learnerSegments.map(seg => ({
@@ -146,6 +146,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				learnerSegments: simplifiedLearnerSegments,
+				fullTranscript,
 				session_id,
 				learner_id
 			})

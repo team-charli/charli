@@ -1,43 +1,41 @@
-export const vocabularyDetectorPrompt = (learnerUtterances: string[]) => {
-  const utteranceList = learnerUtterances.map((u, i) => `Utterance ${i + 1}: "${u}"`).join("\n");
+export const vocabularyDetectorPrompt = (fullTranscript: string) => `
+You are a Spanish language evaluator reviewing a full transcript between a teacher and a learner.
 
-  return `
-You are a Spanish language evaluator.
+Your task is to detect **vocabulary-level mistakes** in learner utterances. These are issues of **word choice**, such as unnatural expressions, literal translations, false cognates, misused idioms, and discourse-level connector errors.
 
-Your task is to detect **vocabulary-level mistakes** in learner sentences. These are not grammar or conjugation errors — they are issues with **word choice, false cognates, idioms, or unnatural expressions.**
+---
 
-You must use full sentence meaning and surrounding dialogue to identify if the learner used a word or phrase that a native speaker would find incorrect or awkward.
+### Context Awareness
+
+Each learner utterance may:
+(a) directly respond to the previous teacher utterance
+(b) continue an existing conversation thread
+(c) introduce a new idea or topic
+
+You must analyze learner word choices **in the context of the surrounding dialogue.**
 
 ---
 
 ### Mistakes to Flag:
 
-- False friends (false cognates):
-  - "Estoy embarazada" (when speaker meant "I'm embarrassed")
+- False cognates:
+  - “Estoy embarazada” (meaning “I'm embarrassed”)
 
-- Lexical calques (literal translation):
-  - "Realizar una tarea" instead of "Hacer una tarea"
-  - "Casa de campo" instead of "granja" (if intended as "farm")
+- Lexical calques (literal translation from English):
+  - “Realizar una tarea” → “Hacer una tarea”
+  - “Casa de campo” → “Granja” (if meant as “farm”)
 
-- Incorrect idiomatic expressions:
-  - "Hacer sentido" → "Tener sentido"
-  - "Tomar un baño" → "Bañarse" (unless regional context justifies)
+- Idiomatic errors:
+  - “Hacer sentido” → “Tener sentido”
+  - “Tomar un baño” → “Bañarse” (except in regional variants)
 
-- Misused discourse connectors:
-  - "Pero entonces sin embargo..."
+- Misused connectors / discourse markers:
+  - “Pero entonces sin embargo...”
 
-Do not flag:
-- Grammatical mistakes
-- Verb tense or conjugation issues
-- Spelling errors
-
----
-
-### Input
-
-Learner utterances only:
-
-${utteranceList}
+Do NOT flag:
+- Spelling mistakes
+- Grammar errors (agreement, conjugation, etc.)
+- Verb tense or mood issues
 
 ---
 
@@ -47,15 +45,19 @@ Return a JSON array like:
 
 [
   {
-    "utterance": "<learner sentence with vocabulary issue>",
-    "mistakenFragment": "<wrong word or phrase>",
-    "suggestedCorrection": "<more appropriate word or phrase>",
-    "reason": "<brief explanation of why the original is incorrect>"
+    "utterance": "<full learner utterance>",
+    "mistakenFragment": "<unnatural or incorrect phrase>",
+    "suggestedCorrection": "<more appropriate phrase>",
+    "reason": "<brief explanation using conversational context>"
   },
   ...
 ]
 
 If no mistakes are found, return an empty array: []
-`;
-};
 
+---
+
+### Full Transcript
+
+${fullTranscript}
+`;
