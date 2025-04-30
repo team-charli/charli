@@ -97,32 +97,32 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		 Chunk handlers
 		 ────────────────────────────────────────────────── */
 
-private async generateAndSaveRoboChunk(roomId: string, learnerPeerId: string, learnerChunk: Uint8Array) {
-  this.currentUtteranceChunks.push(learnerChunk);
+	private async generateAndSaveRoboChunk(roomId: string, learnerPeerId: string, learnerChunk: Uint8Array) {
+		this.currentUtteranceChunks.push(learnerChunk);
 
-  if (this.learnerDebounceTimer) clearTimeout(this.learnerDebounceTimer);
+		if (this.learnerDebounceTimer) clearTimeout(this.learnerDebounceTimer);
 
-  this.learnerDebounceTimer = setTimeout(async () => {
-    try {
-      if (this.currentUtteranceChunks.length === 0) return;
-      const utterance = this.concatChunks(this.currentUtteranceChunks);
-      const learnerText = await this.transcribeLearnerUtterance(utterance);
-      if (learnerText) {
-        const roboDO = this.env.ROBO_TEST_DO.get(this.env.ROBO_TEST_DO.idFromName(roomId));
-        await roboDO.fetch('http://robo-test-mode/robo-teacher-reply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userText: learnerText, roomId }),
-        });
-        console.log('[LearnerAssessmentDO] Robo reply triggered.');
-      }
-    } catch (err) {
-      console.error('[LearnerAssessmentDO] Robo reply error:', err);
-    } finally {
-      this.currentUtteranceChunks = [];
-    }
-  }, 4000);
-}
+		this.learnerDebounceTimer = setTimeout(async () => {
+			try {
+				if (this.currentUtteranceChunks.length === 0) return;
+				const utterance = this.concatChunks(this.currentUtteranceChunks);
+				const learnerText = await this.transcribeLearnerUtterance(utterance);
+				if (learnerText) {
+					const roboDO = this.env.ROBO_TEST_DO.get(this.env.ROBO_TEST_DO.idFromName(roomId));
+					await roboDO.fetch('http://robo-test-mode/robo-teacher-reply', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ userText: learnerText, roomId }),
+					});
+					console.log('[LearnerAssessmentDO] Robo reply triggered.');
+				}
+			} catch (err) {
+				console.error('[LearnerAssessmentDO] Robo reply error:', err);
+			} finally {
+				this.currentUtteranceChunks = [];
+			}
+		}, 4000);
+	}
 
 	/* ──────────────────────────────────────────────────
 		 Shared utilities (unchanged from original, trimmed)
@@ -137,14 +137,20 @@ private async generateAndSaveRoboChunk(roomId: string, learnerPeerId: string, le
 
 	private async transcribeLearnerUtterance(buf: Uint8Array): Promise<string> {
 		try {
-			const r = await fetch('http://<your-fast-asr-endpoint>', {
-				method: 'POST',
-				headers: { 'Content-Type': 'audio/pcm' },
-				body: buf
-			});
+			const provider = this.env.TRANSCRIBE_PROVIDER || 'aws';
+			const awsEndpoint = (provider === 'huggingface')
+				? 'https://router.huggingface.co/hf-inference/models/facebook/wav2vec2-large-xlsr-53-spanish'
+				: 'http://<aws-spot-ip>:5000/transcribe';
+
+			const headers: Record<string, string> = { 'Content-Type': 'audio/wav' };
+			if (provider === 'huggingface') {
+				headers['Authorization'] = `Bearer ${this.env.LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN}`;
+			}
+
+			const r = await fetch(awsEndpoint, { method: 'POST', headers, body: buf });
 			if (!r.ok) {
-				console.error('[LearnerAssessmentDO] ASR err:', await r.text());
-				return '';
+				const errorText = await r.text();
+				throw new Error(`Transcription failed: ${errorText}`);
 			}
 			const { text } = await r.json<{ text: string }>();
 			return text ?? '';
