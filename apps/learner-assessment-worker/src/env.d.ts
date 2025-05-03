@@ -31,5 +31,13 @@ export interface Env {
 }
 
 // For DOs
-export interface DOEnv extends Bindings {}
+export interface DOEnv {
+  AI: Ai;
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+  MISTAKE_DETECTOR_DO: Fetcher;
+  MISTAKE_ANALYZER_DO: Fetcher;
+  MISTAKE_ENRICHER_PIPELINE_DO: Fetcher;
+  SCORECARD_PERSISTER_DO: Fetcher;
+}
 
