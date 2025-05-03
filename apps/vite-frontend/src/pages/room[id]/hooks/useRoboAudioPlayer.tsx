@@ -2,11 +2,11 @@
 
 import { useEffect, useRef } from "react";
 
-export function useRoboAudioPlayer(roomId: string) {
+export function useRoboAudioPlayer(isRoboMode: boolean, roomId: string) {
   const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    if (import.meta.env.VITE_ROBO_MODE !== "true") return;
+    if (isRoboMode) return;
 
     const audioCtx = new AudioContext();
     audioContextRef.current = audioCtx;

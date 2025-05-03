@@ -10,7 +10,7 @@ import LocalPeerView from "./Components/LocalPeerView";
 import RemotePeerView from "./Components/RemotePeerView";
 import ControlRibbon from "./Components/ControlRibbon";
 import { useAudioPipeline } from "./hooks/useAudioPipeline";
-import { useComprehensiveHuddleMonitor } from "./hooks/usePeerConnectionMonitor";
+import { usePeerConnectionMonitor } from "./hooks/usePeerConnectionMonitor";
 import { useRoboAudioPlayer } from './hooks/useRoboAudioPlayer';
 
 import useBellListener from "./hooks/useBellListener";
@@ -56,7 +56,7 @@ export default function Room() {
    */
   const { peerId: localPeerId } = useLocalPeer();
 
-  const isRoboMode = import.meta.env.VITE_ROBO_MODE;
+  const isRoboMode = import.meta.env.VITE_ROBO_MODE === 'true';
 
   useRoboAudioPlayer(isRoboMode, roomId);
 
@@ -67,20 +67,16 @@ export default function Room() {
     if (isRoboMode) url += `&roboMode=true`;
 
     return url;
-  }, [roomId, localPeerId, roomRole]);
+  }, [roomId, localPeerId, roomRole, isRoboMode]);
 
-  /**
-   * 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn).
-   */
+  /** 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn). */
   const { isRecording, cleanupAudio } = useAudioPipeline({
     localAudioStream,
     isAudioOn,
     uploadUrl,
   });
 
-  /**
-   * 6) Enable mic once uploadUrl is valid (so pipeline captures from first sample)
-   */
+  /** 6) Enable mic once uploadUrl is valid (so pipeline captures from first sample) */
   useEffect(() => {
     if (!uploadUrl) return;
     if (!isAudioOn) {
@@ -89,9 +85,7 @@ export default function Room() {
     }
   }, [uploadUrl, isAudioOn, enableAudio]);
 
-  /**
-   * 7) Optionally auto-enable video once "connected"
-   */
+  /** 7) Optionally auto-enable video once "connected" */
   useEffect(() => {
     if (roomJoinState === "connected" && !isVideoOn) {
       console.log("[Room] => enabling video now that we are connected...");
@@ -99,20 +93,14 @@ export default function Room() {
     }
   }, [roomJoinState, isVideoOn, enableVideo]);
 
-  /**
-   * 8) We'll consider ourselves "connected" if Huddle state is "connected"
-   */
+  /** 8) We'll consider ourselves "connected" if Huddle state is "connected" */
   const isRoomConnected = roomJoinState === "connected";
 
-  /**
-   * 9) Misc. custom events + monitor
-   */
+  /** 9) Misc. custom events + monitor */
   useBellListener();
-  useComprehensiveHuddleMonitor(localAudioStream);
+  usePeerConnectionMonitor(localAudioStream);
 
-  /**
-   * 10) Transcript WebSocket
-   */
+  /** 10) Transcript WebSocket */
   useEffect(() => {
     const ws = new WebSocket(`wss://learner-assessment-worker.charli.chat/connect/${roomId}`);
     ws.onopen = () => console.log("[TranscriptListener] WebSocket connected.");
@@ -136,9 +124,7 @@ export default function Room() {
     return () => ws.close();
   }, [roomId]);
 
-  /**
-   * 11) Leave the room
-   */
+  /** 11) Leave the room */
   const { leaveRoom } = useRoomLeave(roomId);
 
   async function handleEndSession() {
@@ -156,7 +142,8 @@ export default function Room() {
 
       // optionally finalize with the server
       if (uploadUrl) {
-        const response = await fetch(`${uploadUrl}?action=end-session`, { method: "POST" });
+        const endUrl = `${uploadUrl}&action=end-session`;
+        const response = await fetch(endUrl, { method: "POST" });
         if (!response.ok) throw new Error("Server finalization failed");
         console.log("[Room] => server finalization triggered");
       }

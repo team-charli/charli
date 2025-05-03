@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useRoom } from '@huddle01/react/hooks';
 
-export function useComprehensiveHuddleMonitor(localAudioStream: MediaStream | null) {
+export function usePeerConnectionMonitor(localAudioStream: MediaStream | null) {
   const { room, state } = useRoom({
     onJoin: ({ room }) => {
       console.log('[HuddleMonitor] Joined room:', room.roomId, room.sessionId);

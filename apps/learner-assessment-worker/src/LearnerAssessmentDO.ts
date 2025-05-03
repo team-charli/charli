@@ -57,7 +57,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			/* ---------- 5. Dispatch ------------------------- */
 			console.log(`[LearnerAssessmentDO] recv pcm peer=${peerId} role=${role} size=${chunk.length}`);
 
-			await this.saveLearnerChunk(roomId, peerId, role, chunk);
+			await this.savePcmChunk(roomId, peerId, role, chunk);
 
 			const mode = await this.getSessionMode();
 			if (mode === 'robo') {
@@ -97,32 +97,78 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		 Chunk handlers
 		 ────────────────────────────────────────────────── */
 
-	private async generateAndSaveRoboChunk(roomId: string, learnerPeerId: string, learnerChunk: Uint8Array) {
-		this.currentUtteranceChunks.push(learnerChunk);
+/** Handle learner utterance → robo reply round-trip, then persist Robo PCM so it flows into the usual WAV→ASR path. */
+private async generateAndSaveRoboChunk(
+  roomId: string,
+  learnerPeerId: string,
+  learnerChunk: Uint8Array
+) {
+  // ── 0. collect learner chunks during debounce window ─────────
+  this.currentUtteranceChunks.push(learnerChunk);
+  if (this.learnerDebounceTimer) clearTimeout(this.learnerDebounceTimer);
 
-		if (this.learnerDebounceTimer) clearTimeout(this.learnerDebounceTimer);
+  this.learnerDebounceTimer = setTimeout(async () => {
+    if (this.currentUtteranceChunks.length === 0) return;
 
-		this.learnerDebounceTimer = setTimeout(async () => {
-			try {
-				if (this.currentUtteranceChunks.length === 0) return;
-				const utterance = this.concatChunks(this.currentUtteranceChunks);
-				const learnerText = await this.transcribeLearnerUtterance(utterance);
-				if (learnerText) {
-					const roboDO = this.env.ROBO_TEST_DO.get(this.env.ROBO_TEST_DO.idFromName(roomId));
-					await roboDO.fetch('http://robo-test-mode/robo-teacher-reply', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ userText: learnerText, roomId }),
-					});
-					console.log('[LearnerAssessmentDO] Robo reply triggered.');
-				}
-			} catch (err) {
-				console.error('[LearnerAssessmentDO] Robo reply error:', err);
-			} finally {
-				this.currentUtteranceChunks = [];
-			}
-		}, 4000);
-	}
+    try {
+      /* 1) Combine learner PCM → text (ASR) */
+      const utterance      = this.concatChunks(this.currentUtteranceChunks);
+      const learnerText    = await this.transcribeLearnerUtterance(utterance);
+      if (!learnerText) return;
+
+      /* 2) Get Robo reply */
+      const roboDO   = this.env.ROBO_TEST_DO.get(
+        this.env.ROBO_TEST_DO.idFromName(roomId)
+      );
+      const res = await roboDO.fetch(
+        "http://robo-test-mode/robo-teacher-reply",
+        {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ userText: learnerText, roomId })
+        }
+      );
+
+      if (!res.ok) {
+        console.error("[LearnerAssessmentDO] Robo HTTP", res.status);
+        return;
+      }
+
+      const { replyText, pcmBase64 } = await res.json<{
+        replyText: string;
+        pcmBase64: string;
+      }>();
+
+      /* 3) Broadcast reply text to room (optional subtitles) */
+      await this.broadcastToRoom(roomId, "roboReplyText", { text: replyText });
+
+      /* 4) Decode PCM and store as if it were a teacher peer */
+      const roboPcm = Uint8Array.from(
+        atob(pcmBase64),
+        c => c.charCodeAt(0)
+      );
+
+      const MAX = 131_072;                     // same limit as learners
+      for (let offset = 0; offset < roboPcm.length; offset += MAX) {
+        const slice = roboPcm.subarray(offset, offset + MAX);
+        await this.savePcmChunk(
+          roomId,
+          "roboPeer",
+          "teacher",
+          slice
+        );
+      }
+
+      console.log(
+        `[LearnerAssessmentDO] Robo reply stored (${roboPcm.length} bytes).`
+      );
+    } catch (err) {
+      console.error("[LearnerAssessmentDO] Robo reply error:", err);
+    } finally {
+      this.currentUtteranceChunks = [];
+    }
+  }, 4000); // ← debounce window
+}
 
 	/* ──────────────────────────────────────────────────
 		 Shared utilities (unchanged from original, trimmed)
@@ -160,7 +206,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		}
 	}
 
-	private async saveLearnerChunk(roomId: string, peerId: string, role: string, chunk: Uint8Array) {
+	private async savePcmChunk(roomId: string, peerId: string, role: string, chunk: Uint8Array) {
 		const keyCounter = `chunkCounter:${peerId}`;
 		let idx = (await this.state.storage.get<number>(keyCounter)) || 0;
 
