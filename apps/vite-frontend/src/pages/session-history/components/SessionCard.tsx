@@ -2,12 +2,11 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useQuery } from '@tanstack/react-query'
-import { Scorecard as ScorecardType, SessionData } from '../SessionHistory'
-import Scorecard from './Scorecard'
-import { PinataPayload } from '@/types/types'
+import { PinataPayload, SessionDataHistory } from '@/types/types'
+import Scorecard from './ScoreCard'
 
 interface Props {
-  session: SessionData
+  session: SessionDataHistory
   accuracyTrend: { idx: number; accuracy: number }[]
   idx: number
 }
