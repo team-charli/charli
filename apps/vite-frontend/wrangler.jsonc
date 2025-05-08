@@ -1,0 +1,17 @@
+// apps/vite-frontend/wrangler.jsonc
+{
+  "name": "charli-frontend",
+  "main": "./src/index.tsx", // this is a placeholder; plugin replaces this during build
+  "compatibility_date": "2025-05-07",
+  "compatibility_flags": ["streams_enable_constructors"],
+  "assets": {
+    "not_found_handling": "single-page-application"
+  },
+  "env": {
+    "production": {
+      "routes": ["charli.chat/*"],
+      "zone_id": "6c2094917d365d10fb20f5f14e5d4049",
+      "account_id": "c1d1f202453d0fe81fa2838acc91e60a"
+    }
+  }
+}

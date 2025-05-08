@@ -2,14 +2,16 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { cloudflare } from '@cloudflare/vite-plugin'
+
 import nodePolyfills from 'rollup-plugin-node-polyfills';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), /*sentryVitePlugin({
+  plugins: [react(), cloudflare(),/*sentryVitePlugin({
     org: "charlichat",
     project: "javascript-react"
-  })*/],
+  })*/ ],
 
   define: {
     global: "window",
