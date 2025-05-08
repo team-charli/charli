@@ -21,7 +21,7 @@ export default function SessionHistory() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col md:flex-row h-full overflow-hidden">
       <Sidebar
         sessions={sessions}
         open={sidebarOpen}

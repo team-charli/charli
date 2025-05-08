@@ -33,4 +33,14 @@
   :root {
     --radius: 0.5rem;
   }
+  
+  body {
+    scrollbar-gutter: stable;
+  }
+}
+
+@layer utilities {
+  .safe-p-inset {
+    padding: max(env(safe-area-inset-top),1rem) max(env(safe-area-inset-right),1rem) max(env(safe-area-inset-bottom),1rem) max(env(safe-area-inset-left),1rem);
+  }
 }

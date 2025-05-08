@@ -27,9 +27,9 @@ export default function SessionCard({ session, accuracyTrend, idx }: Props) {
       : 'fault'
 
   return (
-    <Card className="bg-yellow-100 p-4 space-y-4" id={String(session.session_id)}>
+    <Card className="bg-yellow-100 rounded-xl p-4 md:p-6 lg:p-8 space-y-4" id={String(session.session_id)}>
       <CardContent className="p-0 space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
           <span className="font-semibold">
             {new Date(session.created_at).toLocaleString()}
           </span>
@@ -49,7 +49,7 @@ export default function SessionCard({ session, accuracyTrend, idx }: Props) {
             <CollapsibleTrigger className="text-sm underline">
               {`Click to ${ipfsData ? 'collapse' : 'expand'} financial details`}
             </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 space-y-1 text-sm">
+            <CollapsibleContent className="mt-2 space-y-1 text-sm md:grid md:grid-cols-2 md:gap-6">
               <div>
                 <strong>Scenario:</strong> {ipfsData.scenario}
               </div>

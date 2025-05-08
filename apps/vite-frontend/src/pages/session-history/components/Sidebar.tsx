@@ -25,8 +25,8 @@ export default function Sidebar({ sessions, open, setOpen }: Props) {
   return (
     <aside
       className={cn(
-        'transition-transform duration-300 bg-white border-r shadow-lg md:w-64 w-64 z-20',
-        open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        'transition-transform duration-300 bg-white border-r shadow-lg w-64 md:w-64 lg:w-72 z-20 fixed md:static h-full md:translate-x-0 md:shrink-0',
+        open ? 'translate-x-0' : '-translate-x-full'
       )}
     >
       <div className="flex items-center justify-between p-4 md:hidden">
@@ -35,7 +35,7 @@ export default function Sidebar({ sessions, open, setOpen }: Props) {
           ✕
         </Button>
       </div>
-      <div className="p-4 space-y-2">
+      <div className="p-4 space-y-2 overflow-y-auto max-h-screen">
         {sessions.map((s, i) => (
           <Link
             key={s.session_id}
@@ -56,6 +56,13 @@ export default function Sidebar({ sessions, open, setOpen }: Props) {
           </Link>
         ))}
       </div>
+      <Button 
+        onClick={() => setOpen(true)} 
+        className="fixed bottom-4 right-4 md:hidden"
+        size="icon"
+      >
+        ≡
+      </Button>
     </aside>
   )
 }

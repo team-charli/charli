@@ -16,7 +16,7 @@ export default function CircularMeter({ value, size = 64, label }: Props) {
   else if (value < 75) stroke = 'stroke-yellow-600'
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="inline-flex flex-col items-center">
       <svg width={size} height={size} className="rotate-[-90deg]">
         <circle
           cx={size / 2}

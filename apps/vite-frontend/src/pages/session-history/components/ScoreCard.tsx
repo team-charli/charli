@@ -22,7 +22,7 @@ export default function Scorecard({ scorecard, trend, idx }: Props) {
   const { conversation_difficulty, language_accuracy, mistakes } = scorecard
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
       {/* meters */}
       <div className="flex flex-col items-center space-y-2 md:col-span-1">
         <CircularMeter value={conversation_difficulty * 10} label="Difficulty" />
@@ -41,7 +41,7 @@ export default function Scorecard({ scorecard, trend, idx }: Props) {
       </div>
 
       {/* trend chart */}
-      <div className="md:col-span-2 h-48">
+      <div className="md:col-span-2 h-40 sm:h-56 md:h-auto">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={trend}>
             <CartesianGrid strokeDasharray="3 3" />
