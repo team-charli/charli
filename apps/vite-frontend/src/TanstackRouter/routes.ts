@@ -2,6 +2,7 @@
 import { createRootRouteWithContext, createRoute, ErrorComponent, Outlet, redirect } from '@tanstack/react-router'
 import { RouterContext } from './router'
 import { routingLogger } from '@/App'
+// Removed Layout import to preserve original routing behavior
 
 // Page components
 import Entry from '@/pages/Entry'

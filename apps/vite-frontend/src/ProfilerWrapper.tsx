@@ -50,7 +50,9 @@ export const withProfiler = <P extends object>(
 
     return (
       <Profiler id={config.name} onRender={debugFlashCallback}>
-        <WrappedComponent {...props} />
+        <div className="w-full text-xs sm:text-sm md:text-base lg:text-base">
+          <WrappedComponent {...props} />
+        </div>
       </Profiler>
     );
   };

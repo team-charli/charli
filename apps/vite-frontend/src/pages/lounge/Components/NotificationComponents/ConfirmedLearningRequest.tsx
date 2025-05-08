@@ -59,28 +59,61 @@ const ConfirmedLearningRequest = ({ notification: sessionData }: ConfirmedLearni
   };
 
   return (
-    <div className="grid grid-cols-3">
-      <div className="col-start-2 col-span-2">
+    <div className="w-full">
+      <div className="flex flex-col">
+        <div className="mb-2 text-sm sm:text-base text-gray-600">
+          <span className="font-medium">Learning</span> from {sessionData.teacherName}
+        </div>
+        
         {isSessionSoon && sessionData.roomId ? (
-          <Link
-            className="flex items-center gap-2 w-1/2 border-2 border-neutral-700 bg-slate-100 hover:bg-slate-200 cursor-pointer px-2 py-1"
-            to="/room/$id"
-            params={{ id: sessionData.roomId ?? '' }}
-            search={{
-              roomRole: 'learner',
-              sessionId: sessionData.session_id?.toString() ?? '',
-              hashedLearnerAddress: sessionData?.hashed_learner_address ?? '',
-              hashedTeacherAddress: sessionData?.hashed_teacher_address ?? '',
-              controllerAddress: sessionData?.controller_address ?? '',
-            }}
-            onClick={handleClick}
-          >
-            <span className="inline-block w-3 h-3 bg-blue-500" />
-            {isLoading ? 'Loading...' : `Join: Charli with ${sessionData.teacherName} at ${displayLocalTime}`}
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-start sm:items-center">
+            <Link
+              className="flex items-center gap-2 w-full sm:w-auto 
+                      bg-blue-600 hover:bg-blue-700 text-white 
+                      px-3 sm:px-4 py-2 sm:py-2.5
+                      rounded-md text-sm sm:text-base
+                      transition-colors shadow-sm
+                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              to="/room/$id"
+              params={{ id: sessionData.roomId ?? '' }}
+              search={{
+                roomRole: 'learner',
+                sessionId: sessionData.session_id?.toString() ?? '',
+                hashedLearnerAddress: sessionData?.hashed_learner_address ?? '',
+                hashedTeacherAddress: sessionData?.hashed_teacher_address ?? '',
+                controllerAddress: sessionData?.controller_address ?? '',
+              }}
+              onClick={handleClick}
+            >
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+                <span>{isLoading ? 'Loading...' : 'Join Now'}</span>
+              </div>
+            </Link>
+            
+            <div className="text-xs sm:text-sm text-gray-600">
+              Session with <span className="font-medium">{sessionData.teacherName}</span> at <span className="font-medium">{displayLocalTime}</span>
+            </div>
+          </div>
         ) : (
-          <div className="flex items-center gap-2 bg-green-300 w-1/2 border-2 border-neutral-700 px-2 py-1">
-            {`Confirmed: Charli with ${sessionData.teacherName} on ${displayLocalDate} at ${displayLocalTime} in ${languageDisplay} ${countryEmoji}`}
+          <div className="bg-green-50 border border-green-200 rounded-md p-3 sm:p-4">
+            <div className="flex items-center gap-2 text-green-800 mb-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="font-medium">Confirmed Session</span>
+            </div>
+            <div className="text-sm sm:text-base flex flex-col">
+              <div>
+                <span className="text-gray-600">Teacher:</span> <span className="font-medium">{sessionData.teacherName}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Time:</span> <span className="font-medium">{displayLocalDate} at {displayLocalTime}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Language:</span> <span className="font-medium">{languageDisplay}</span> {countryEmoji}
+              </div>
+            </div>
           </div>
         )}
       </div>
