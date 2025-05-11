@@ -280,26 +280,8 @@ export class SessionManager extends DurableObject<DOEnv> {
             const sessionDuration = await this.state.storage.get<number>('sessionDuration');
             await this.startSessionTimer(c, peerData.joinedAt, validatedRole, sessionDuration);
           }
-          const recordingStarted = await this.state.storage.get<boolean>('recordingStarted');
 
           if (Object.keys(users).length === 2) {
-            if (!recordingStarted && Object.keys(users).length === 2) {
-              // Start the recording now that both are here
-              console.log('[SessionManager] Both joined => starting recording', new Date().toLocaleString('en-US', {timeZone: 'America/Cancun'}))
-
-              const { data: startRecRes, error } = await supabaseClient.functions.invoke('huddleRecording', {
-                method: 'POST',
-                body: JSON.stringify({ roomId: this.roomId, action: 'startHuddleRecording' }),
-              });
-
-              if (error) {
-                console.error('[startHuddleRecording] invoke error:', error);
-              } else {
-                console.log('[startHuddleRecording] response:', startRecRes);
-              }
-
-              await this.state.storage.put('recordingStarted', true);
-            }
             // Both users have joined
 
             const sessionTimer = c.env.SESSION_TIMER.get(
@@ -359,20 +341,7 @@ export class SessionManager extends DurableObject<DOEnv> {
               roomId: this.roomId
             })
           });
-        } else if (event.event === 'peer:trackPublished') {
-          const { id, track } = event.data;
-          console.log(`[SessionManager] peer ${id} published track: ${track}`);
-        } else if (event.event === 'recording:started') {
-          const recordingData = event.data;
-          console.log("Recording started =>", recordingData);
-        } else if (event.event === 'recording:ended') {
-          const recordingData = event.data;
-          console.log("Recording ended => final files:", recordingData);
-        } else if (event.event === 'recording:updated') {
-          const recordingData = event.data;
-          console.log("Recordingupdated => final files:", recordingData);
         }
-
         return c.text('OK');
       } catch (error) {
         console.error('SessionManager webhook error:', error);
