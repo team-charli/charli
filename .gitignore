@@ -47,10 +47,10 @@ lit_storage.db
 lit_storage
 # Sentry Config File
 .env.sentry-build-plugin
+.env.defaults
 .env.local
 .env.test
 .dev.vars
-
 # Serverless
 .serverless
 .webpack
