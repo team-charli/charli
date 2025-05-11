@@ -3,7 +3,8 @@ import { Hono } from 'jsr:@hono/hono'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { ethers } from 'https://esm.sh/ethers@5.7.0'
 import { LitNodeClientNodeJs } from 'https://esm.sh/@lit-protocol/lit-node-client-nodejs@7';
-import {createSiweMessageWithRecaps} from 'https://esm.sh/@lit-protocol/auth-helpers@6'
+import { createSiweMessageWithRecaps } from 'https://esm.sh/@lit-protocol/auth-helpers@6'
+import { JsonRpcProvider } from 'https://esm.sh/@ethersproject/providers';
 
 const app = new Hono();
 
@@ -18,9 +19,9 @@ app.get('/', async (c) => {
   const { data, error } = await supabase
     .from('sessions')
     .select(`
-sessions.*,
-user_data:user_address!inner(user_address)
-`)
+      sessions.*,
+      user_data:user_address!inner(user_address)
+    `)
     .eq('session_resolved', false)
     .gte('confirmed_time_date', now);
 
@@ -37,6 +38,10 @@ user_data:user_address!inner(user_address)
   const pinataSecret = Deno.env.get('PINATA_API_SECRET')!;
   const domain = Deno.env.get('DOMAIN')!;
   const origin = Deno.env.get('ORIGIN')!;
+  const usdcContractAddress = Deno.env.get('USDC_CONTRACT_ADDRESS')!;
+  const chain = Deno.env.get('CHAIN')!;
+  const chainId = Deno.env.get('CHAIN_ID')!;
+  const relayerIpfsId = Deno.env.get('RELAYER_IPFS_ID')!;
 
   const provider = new JsonRpcProvider(providerUrl);
   const wallet = new ethers.Wallet(privateKey, provider);
@@ -51,28 +56,20 @@ user_data:user_address!inner(user_address)
       hashed_learner_address,
       hashed_teacher_address,
       user_data,
+      refund_amount
     } = session;
 
     const learnerAddress = user_data.user_address;
     const retrieved_timestamp = new Date().toISOString();
-    const toSign = {
+
+    const reasonPayload = {
       hashed_learner_address,
       hashed_teacher_address,
       confirmed_time_date,
-      retrieved_timestamp,
+      retrieved_timestamp
     };
-    const worker_signature = await wallet.signMessage(JSON.stringify(toSign));
-    const ipfsData = { ...toSign, worker_signature };
-
-    await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'pinata_api_key': pinataApiKey,
-        'pinata_secret_api_key': pinataSecret,
-      },
-      body: JSON.stringify(ipfsData),
-    });
+    const worker_signature = await wallet.signMessage(JSON.stringify(reasonPayload));
+    const signedReason = JSON.stringify({ ...reasonPayload, worker_signature });
 
     const sessionSigs = await getSessionSigs(lit, wallet);
 
@@ -81,8 +78,14 @@ user_data:user_address!inner(user_address)
       sessionSigs,
       jsParams: {
         learnerAddress,
+        refundAmount: refund_amount, // number
+        usdcContractAddress,
         controllerAddress: controller_address,
-        controllerPublicKey: controller_public_key,
+        controllerPubKey: controller_public_key,
+        signedReason,
+        chain,
+        chainId,
+        relayerIpfsId,
       },
     });
 
@@ -102,10 +105,6 @@ async function getSessionSigs(lit: LitNodeClientNodeJs, wallet: ethers.Wallet) {
     expiration: string
     resourceAbilityRequests: any[]
   }) => {
-    if (!uri || !expiration || !resourceAbilityRequests) {
-      throw new Error('Missing required parameters');
-    }
-
     const toSign = await createSiweMessageWithRecaps({
       uri,
       expiration,
@@ -116,7 +115,6 @@ async function getSessionSigs(lit: LitNodeClientNodeJs, wallet: ethers.Wallet) {
     });
 
     const signature = await wallet.signMessage(toSign);
-
     return {
       sig: signature,
       derivedVia: 'web3.eth.personal.sign',
@@ -130,7 +128,7 @@ async function getSessionSigs(lit: LitNodeClientNodeJs, wallet: ethers.Wallet) {
     resourceAbilityRequests: [
       {
         resource: { baseUrl: '*', path: '', orgId: '' },
-        ability: 1, // LitAbility.LitActionExecution
+        ability: 1,
       },
     ],
     authNeededCallback,
