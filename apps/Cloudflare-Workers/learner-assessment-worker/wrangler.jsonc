@@ -5,8 +5,9 @@
   "compatibility_date": "2025-03-17",
   "compatibility_flags": ["nodejs_compat"],
 	"vars": {
-		"TRANSCRIBE_PROVIDER": "huggingface" // Set to "aws" in production
-		"SUPABASE_URL": "https://onhlhmondvxwwiwnruvo.supabase.co"
+		// the following vars are inserted in deploy script
+		// "TRANSCRIBE_PROVIDER": "huggingface" // Set to "aws" in production
+		// "SUPABASE_URL": "https://onhlhmondvxwwiwnruvo.supabase.co"
 	},
   "routes": [
     {

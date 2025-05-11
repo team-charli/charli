@@ -241,7 +241,7 @@ app.post('/webhook', async (c) => {
   }
 
   const data = await c.req.text();
-  const receiver = new WebhookReceiver({ apiKey: c.env.TEST_HUDDLE_API_KEY });
+  const receiver = new WebhookReceiver({ apiKey: c.env.HUDDLE_API_KEY });
 
   try {
     const eventData = await receiver.receive(data, signatureHeader);
