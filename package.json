@@ -2,10 +2,16 @@
   "name": "@charli/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "dev": "bun start-dev.ts"
+  }
+
   "private": true,
   "dependencies": {
     "class-variance-authority": "^0.7.1"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/bun": "^1.2.12",
+    "dotenv": "^16.5.0"
+  }
 }
