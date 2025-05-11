@@ -70,10 +70,15 @@ const refundLearnerAction = async () => {
       }
     });
 
+    const relayedTxHash =
+      typeof relayerResponse === 'string'
+        ? relayerResponse                               // e.g. raw tx hash string
+        : relayerResponse?.txHash ?? relayerResponse?.hash ?? null;
+
     Lit.Actions.setResponse({
       response: JSON.stringify({
         success: true,
-        relayerResponse
+        relayedTxHash                                   // 👈  ← EXACT SAME KEY used by transferControllerToTeacherAction
       })
     });
 

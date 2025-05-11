@@ -524,12 +524,6 @@ export class SessionManager extends DurableObject<DOEnv> {
           };
           failCID = await this.pinToPinata(JSON.stringify(errorRecord));
 
-          //const {error:debugError, data: debugData} = await supabaseClient.from('sessions')
-          //.select('session_resolved, finalized_ipfs_cid')
-          //.eq('huddle_room_id', this.roomId);
-          //
-          //console.log("debugData", debugData);
-
           const {error, data} = await supabaseClient.from('sessions')
             .update({'session_resolved': true, 'finalized_ipfs_cid': failCID})
             .eq('huddle_room_id', this.roomId)
@@ -573,6 +567,7 @@ export class SessionManager extends DurableObject<DOEnv> {
             pinnedAt: Date.now()
           };
           failCID = await this.pinToPinata(JSON.stringify(errorRecord));
+
           const {error, data} = await supabaseClient.from('sessions')
             .update({'session_resolved': true, 'finalized_ipfs_cid': failCID})
             .eq('huddle_room_id', this.roomId)

@@ -1,44 +1,89 @@
 // functions/resolveAbandonedSessions.ts
-import { Hono } from 'jsr:@hono/hono'
+import { Hono } from 'jsr:@hono/hono';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-import { ethers } from 'https://esm.sh/ethers@5.7.0'
-import { LitNodeClientNodeJs } from 'https://esm.sh/@lit-protocol/lit-node-client-nodejs@7';
-import { createSiweMessageWithRecaps } from 'https://esm.sh/@lit-protocol/auth-helpers@6'
+import { ethers } from 'https://esm.sh/ethers@5.7.0';
 import { JsonRpcProvider } from 'https://esm.sh/@ethersproject/providers';
+import { LitNodeClientNodeJs } from 'https://esm.sh/@lit-protocol/lit-node-client-nodejs@7';
+import { createSiweMessageWithRecaps } from 'https://esm.sh/@lit-protocol/auth-helpers@6';
 
 const app = new Hono();
 
+// ----- helpers -----
+const pinJson = async (pinataApiKey: string, pinataSecretApiKey: string, payload: unknown) => {
+  const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      pinata_api_key: pinataApiKey,
+      pinata_secret_api_key: pinataSecretApiKey
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`Pinata upload failed: ${await res.text()}`);
+  const { IpfsHash } = await res.json();
+  return IpfsHash as string;
+};
+
+const getSessionSigs = async (
+  lit: LitNodeClientNodeJs,
+  wallet: ethers.Wallet,
+  ability = 1
+) => {
+  const authNeededCallback = async ({
+    uri,
+    expiration,
+    resourceAbilityRequests
+  }: any) => {
+    const toSign = await createSiweMessageWithRecaps({
+      uri,
+      expiration,
+      resources: resourceAbilityRequests,
+      walletAddress: wallet.address,
+      nonce: await lit.getLatestBlockhash(),
+      litNodeClient: lit
+    });
+    const sig = await wallet.signMessage(toSign);
+    return {
+      sig,
+      derivedVia: 'web3.eth.personal.sign',
+      signedMessage: toSign,
+      address: wallet.address
+    };
+  };
+
+  return await lit.getSessionSigs({
+    chain: 'ethereum',
+    resourceAbilityRequests: [
+      { resource: { baseUrl: '*', path: '', orgId: '' }, ability }
+    ],
+    authNeededCallback
+  });
+};
+
+// ----- main handler -----
 app.get('/', async (c) => {
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  const now = new Date().toISOString();
-
-  const { data, error } = await supabase
+  const nowIso = new Date().toISOString();
+  const { data: sessions, error: selErr } = await supabase
     .from('sessions')
-    .select(`
-      sessions.*,
-      user_data:user_address!inner(user_address)
-    `)
+    .select('*')
     .eq('session_resolved', false)
-    .gte('confirmed_time_date', now);
+    .lte('confirmed_time_date', nowIso);
 
-  if (error) {
-    console.error('Failed to fetch sessions:', error);
-    return c.text('DB error', 500);
-  }
+  if (selErr) return c.text('DB query error', 500);
 
+  // env
   const providerUrl = Deno.env.get('PROVIDER_URL')!;
   const privateKey = Deno.env.get('DEV_PRIVATE_KEY')!;
   const litNetwork = Deno.env.get('LIT_NETWORK')!;
   const ipfsId = Deno.env.get('IPFS_ID')!;
   const pinataApiKey = Deno.env.get('PINATA_API_KEY')!;
   const pinataSecret = Deno.env.get('PINATA_API_SECRET')!;
-  const domain = Deno.env.get('DOMAIN')!;
-  const origin = Deno.env.get('ORIGIN')!;
-  const usdcContractAddress = Deno.env.get('USDC_CONTRACT_ADDRESS')!;
+  const daiContractAddress = Deno.env.get('DAI_CONTRACT_ADDRESS')!;
   const chain = Deno.env.get('CHAIN')!;
   const chainId = Deno.env.get('CHAIN_ID')!;
   const relayerIpfsId = Deno.env.get('RELAYER_IPFS_ID')!;
@@ -48,91 +93,104 @@ app.get('/', async (c) => {
   const lit = new LitNodeClientNodeJs({ network: litNetwork });
   await lit.connect();
 
-  for (const session of data ?? []) {
+  for (const s of sessions ?? []) {
     const {
-      controller_public_key,
+      id: session_id,
       controller_address,
+      controller_public_key,
       confirmed_time_date,
-      hashed_learner_address,
-      hashed_teacher_address,
+      requested_session_duration,
       user_data,
       refund_amount
-    } = session;
+    } = s;
 
-    const learnerAddress = user_data.user_address;
-    const retrieved_timestamp = new Date().toISOString();
+    const learner_address = user_data.user_address;
+    const scenario = 'abandoned_refund';
 
-    const reasonPayload = {
-      hashed_learner_address,
-      hashed_teacher_address,
+    // ---------- 1. build & pin pre-action record ----------
+    const prePayload = {
+      session_id,
+      learner_address,
+      controller_address,
+      controller_public_key,
       confirmed_time_date,
-      retrieved_timestamp
+      requested_session_duration,
+      scenario,
+      logic_notes: [
+        'session_resolved false',
+        'deadline passed',
+        'initiating refund'
+      ],
+      timestamp: Date.now()
     };
-    const worker_signature = await wallet.signMessage(JSON.stringify(reasonPayload));
-    const signedReason = JSON.stringify({ ...reasonPayload, worker_signature });
 
-    const sessionSigs = await getSessionSigs(lit, wallet);
+    let preCid: string;
+    try {
+      preCid = await pinJson(pinataApiKey, pinataSecret, prePayload);
+    } catch (e) {
+      console.error('[pin prePayload]', e);
+      continue; // skip this session; try again next run
+    }
 
-    const litResult = await lit.executeJs({
-      ipfsId,
-      sessionSigs,
-      jsParams: {
-        learnerAddress,
-        refundAmount: refund_amount, // number
-        usdcContractAddress,
-        controllerAddress: controller_address,
-        controllerPubKey: controller_public_key,
-        signedReason,
-        chain,
-        chainId,
-        relayerIpfsId,
-      },
-    });
+    // ---------- 2. execute Lit refund action ----------
+    let txHash: string | null = null;
+    let litSuccess = false;
+    try {
+      const sessionSigs = await getSessionSigs(lit, wallet);
+      const litRes = await lit.executeJs({
+        ipfsId,
+        sessionSigs,
+        jsParams: {
+          learnerAddress: learner_address,
+          refundAmount: refund_amount,
+          daiContractAddress,
+          controllerAddress: controller_address,
+          controllerPubKey: controller_public_key,
+          signedReason: JSON.stringify(prePayload),
+          ipfsCid: preCid,
+          chain,
+          chainId,
+          relayerIpfsId
+        }
+      });
 
-    console.log('Lit Action Result:', litResult);
+      const parsed = litRes?.response ? JSON.parse(litRes.response) : {};
+      if (parsed.success && parsed.relayedTxHash) {
+        litSuccess = true;
+        txHash = parsed.relayedTxHash;
+      }
+    } catch (e) {
+      console.error('[lit execute]', e);
+    }
+
+    // ---------- 3. pin final receipt (success or fail) ----------
+    const finalPayload = {
+      ...prePayload,
+      txHash,
+      refund_success: litSuccess,
+      pinnedAt: Date.now()
+    };
+
+    let finalCid: string;
+    try {
+      finalCid = await pinJson(pinataApiKey, pinataSecret, finalPayload);
+    } catch (e) {
+      console.error('[pin finalPayload]', e);
+      continue;
+    }
+
+    // ---------- 4. update DB ----------
+    await supabase
+      .from('sessions')
+      .update({
+        session_resolved: true,
+        finalized_ipfs_cid: finalCid
+      })
+      .eq('id', session_id);
   }
 
-  return c.text('Completed successfully');
+  await lit.disconnect();
+  return c.text('resolve-abandoned-sessions complete');
 });
-
-async function getSessionSigs(lit: LitNodeClientNodeJs, wallet: ethers.Wallet) {
-  const authNeededCallback = async ({
-    uri,
-    expiration,
-    resourceAbilityRequests,
-  }: {
-    uri: string
-    expiration: string
-    resourceAbilityRequests: any[]
-  }) => {
-    const toSign = await createSiweMessageWithRecaps({
-      uri,
-      expiration,
-      resources: resourceAbilityRequests,
-      walletAddress: wallet.address,
-      nonce: await lit.getLatestBlockhash(),
-      litNodeClient: lit,
-    });
-
-    const signature = await wallet.signMessage(toSign);
-    return {
-      sig: signature,
-      derivedVia: 'web3.eth.personal.sign',
-      signedMessage: toSign,
-      address: wallet.address,
-    };
-  };
-
-  return await lit.getSessionSigs({
-    chain: 'ethereum',
-    resourceAbilityRequests: [
-      {
-        resource: { baseUrl: '*', path: '', orgId: '' },
-        ability: 1,
-      },
-    ],
-    authNeededCallback,
-  });
-}
 
 export default app;
