@@ -45,14 +45,18 @@ Charli
 **/PROJECT.md
 lit_storage.db
 lit_storage
-# Sentry Config File
-.env.sentry-build-plugin
+
+.env.defaults.prod
+.env.defaults.dev
+.env.defaults
 .env.local
 .env.test
 .dev.vars
-
 # Serverless
 .serverless
 .webpack
 
+.claude
+
+.env.sentry-build-plugin
 

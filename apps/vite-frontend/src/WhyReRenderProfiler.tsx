@@ -39,7 +39,9 @@ function withRenderTracker<P extends object>(Component: ComponentType<P>) {
 
     return (
       <Profiler id={Component.displayName || Component.name || 'Component'} onRender={onRender}>
-        <Component {...props} />
+        <div className="debug-wrapper text-xs sm:text-sm md:text-base lg:text-base">
+          <Component {...props} />
+        </div>
       </Profiler>
     );
   }

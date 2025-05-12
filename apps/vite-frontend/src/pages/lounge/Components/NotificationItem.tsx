@@ -34,7 +34,7 @@ const NotificationItem = ({ notification }: NotificationItemProps) => {
   };
 
   return (
-    <div className="notification-item">
+    <div className="notification-item transition-all duration-200 hover:bg-gray-50 rounded-md">
       {renderNotification()}
     </div>
   );

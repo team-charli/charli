@@ -391,36 +391,44 @@ A ${shadingRadius} ${shadingRadius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "1rem",
-        alignItems: "center",
-      }}
-    >
+    <div className="flex flex-col gap-3 sm:gap-4 md:gap-5 items-center w-full">
       {/* Digital input + AM/PM toggle */}
-      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+      <div className="flex gap-2 sm:gap-3 items-center">
         <input
-          style={{ width: "100px", textAlign: "center" }}
+          className="w-20 sm:w-24 md:w-28 text-center py-1.5 sm:py-2 px-1 sm:px-2 
+                   border border-gray-300 rounded-md text-sm sm:text-base 
+                   focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           type="text"
           value={timeString}
           onChange={handleTimeStringChange}
         />
-        <button onClick={togglePeriod}>{period}</button>
+        <button 
+          onClick={togglePeriod}
+          className="bg-purple-600 hover:bg-purple-700 text-white font-medium 
+                   py-1.5 sm:py-2 px-3 sm:px-4 rounded-md text-sm sm:text-base 
+                   transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1"
+        >
+          {period}
+        </button>
       </div>
 
       {/* Hour vs. Minute mode buttons */}
-      <div style={{ display: "flex", gap: "0.5rem" }}>
+      <div className="flex gap-2 sm:gap-3 bg-gray-100 p-1 rounded-lg">
         <button
           onClick={() => handleModeClick("hour")}
-          style={{ fontWeight: mode === "hour" ? "bold" : "normal" }}
+          className={`py-1.5 px-3 sm:py-2 sm:px-4 rounded-md text-sm sm:text-base transition-all
+                     ${mode === "hour" 
+                       ? "bg-white text-purple-800 shadow-sm font-medium" 
+                       : "text-gray-600 hover:bg-gray-200"}`}
         >
           Hour
         </button>
         <button
           onClick={() => handleModeClick("minute")}
-          style={{ fontWeight: mode === "minute" ? "bold" : "normal" }}
+          className={`py-1.5 px-3 sm:py-2 sm:px-4 rounded-md text-sm sm:text-base transition-all
+                     ${mode === "minute" 
+                       ? "bg-white text-purple-800 shadow-sm font-medium" 
+                       : "text-gray-600 hover:bg-gray-200"}`}
         >
           Minute
         </button>
@@ -429,17 +437,18 @@ A ${shadingRadius} ${shadingRadius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
       {/* Analog clock */}
       <div
         ref={clockFaceRef}
-        style={{ position: "relative", width: "200px", height: "200px" }}
+        className="relative w-[160px] h-[160px] sm:w-[200px] sm:h-[200px] mt-2 mx-auto"
       >
         <svg
-          width={200}
-          height={200}
-          style={{ border: "1px solid lightgray", borderRadius: "50%" }}
+          width="100%"
+          height="100%"
+          viewBox="0 0 200 200"
+          className="border border-gray-200 rounded-full shadow-sm bg-white"
         >
           {/* Past shading if isToday */}
           {grayArc}
           {/* Center pivot */}
-          <circle cx={100} cy={100} r={2} fill="black" />
+          <circle cx={100} cy={100} r={3} fill="#6B5B95" />
           {/* Labels */}
           {numbers.map((val, i) => {
             const deg = (360 / 12) * i;
@@ -447,40 +456,50 @@ A ${shadingRadius} ${shadingRadius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
             const x = 100 + radius * Math.sin(rad);
             const y = 100 - radius * Math.cos(rad);
             return (
-              <text
-                key={val}
-                x={x}
-                y={y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize={14}
-                style={{ cursor: "pointer", userSelect: "none" }}
-                onClick={() => handleClockClick(val)}
-              >
-                {mode === "hour" ? val : pad(val)}
-              </text>
+              <g key={val} onClick={() => handleClockClick(val)}>
+                <circle 
+                  cx={x} 
+                  cy={y} 
+                  r={14} 
+                  className={`fill-transparent hover:fill-purple-100 cursor-pointer ${
+                    (mode === "hour" && val === hour) || (mode === "minute" && val === minute)
+                      ? "fill-purple-100"
+                      : ""
+                  }`} 
+                />
+                <text
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={14}
+                  className="cursor-pointer select-none fill-gray-800 font-medium"
+                >
+                  {mode === "hour" ? val : pad(val)}
+                </text>
+              </g>
             );
           })}
         </svg>
 
-        {/* Red clock hand (draggable) */}
+        {/* Clock hand (draggable) */}
         <div
           onMouseDown={
             mode === "minute" ? handleMinuteDragStart : handleHourDragStart
           }
+          className={`absolute left-[calc(50%-1px)] top-[20%] w-[2px] h-[30%] sm:h-[35%] bg-purple-600
+                      origin-bottom transform cursor-pointer`}
           style={{
-            position: "absolute",
-            left: `99px`,
-            top: `30px`,
-            width: "2px",
-            height: "70px",
-            backgroundColor: "red",
-            transformOrigin: "50% 100%",
             transform: `rotate(${handAngle}deg)`,
             transition: draggingRef.current ? "none" : "transform 0.2s ease-out",
-            cursor: mode === "minute" ? "pointer" : "grab",
           }}
-        />
+        >
+          <div className="absolute -left-1 -top-1 w-[6px] h-[6px] bg-purple-600 rounded-full"></div>
+        </div>
+      </div>
+      
+      <div className="text-xs sm:text-sm text-gray-500 mt-1 sm:mt-2">
+        {mode === "hour" ? "Click or drag to set hour" : "Click or drag to set minute"}
       </div>
     </div>
   );

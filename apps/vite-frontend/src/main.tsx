@@ -20,5 +20,17 @@ import * as Sentry from "@sentry/react";
 //});
 
 
-ReactDOM.createRoot(document.getElementById('root')!).render(<App />)
+// Add viewport meta tag for proper responsive design
+if (!document.querySelector('meta[name="viewport"]')) {
+  const meta = document.createElement('meta');
+  meta.name = 'viewport';
+  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+  document.getElementsByTagName('head')[0].appendChild(meta);
+}
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <div className="min-h-screen bg-slate-50 dark:bg-slate-900 antialiased text-slate-900 dark:text-slate-50">
+    <App />
+  </div>
+)
 

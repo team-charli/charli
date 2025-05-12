@@ -40,7 +40,8 @@ export const persister = experimental_createPersister({
 
 function CharliApp() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <div className="flex flex-col w-full min-h-screen px-3 py-2 sm:px-5 sm:py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 text-sm sm:text-base md:text-base lg:text-lg">
+      <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <JotaiProvider>
           <ReactQueryDevtools initialIsOpen={false} />
@@ -61,7 +62,8 @@ function CharliApp() {
           </SessionsProvider>
         </JotaiProvider>
       </AuthProvider>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </div>
   );
 }
 

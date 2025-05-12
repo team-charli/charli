@@ -2,10 +2,18 @@
   "name": "@charli/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "dev": "bun start-dev.ts"
+  },
   "private": true,
   "dependencies": {
     "class-variance-authority": "^0.7.1"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@lit-protocol/contracts-sdk": "^7.1.1",
+    "@types/bun": "^1.2.12",
+    "dotenv": "^16.5.0",
+    "ethers": "5.7.0",
+    "pinata": "^2.2.2"
+  }
 }

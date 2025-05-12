@@ -17,9 +17,20 @@ export default function BellRibbon() {
     });
   };
   return (
-    <>
-    {/* css draw border around div; make 3em x screenwidth*/}
-    <div onClick={() => void ringBell()} className="__Bell-Ribbon__">🔔</div>
-    </>
+    <div 
+      onClick={() => void ringBell()} 
+      className="w-full bg-blue-50 border-y border-blue-200 py-2 sm:py-3 px-4 sm:px-6 
+                flex items-center justify-center gap-2 
+                cursor-pointer hover:bg-blue-100 transition-colors duration-200
+                sticky top-0 z-20 shadow-sm"
+    >
+      <span className="text-lg sm:text-xl md:text-2xl">🔔</span>
+      <span className="text-sm sm:text-base md:text-lg font-medium text-blue-800">
+        Ring Bell
+      </span>
+      <span className="text-xs sm:text-sm text-blue-600 hidden sm:inline-block">
+        (Alerts all participants)
+      </span>
+    </div>
   )
 }

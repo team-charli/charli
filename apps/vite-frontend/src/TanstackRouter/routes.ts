@@ -2,6 +2,7 @@
 import { createRootRouteWithContext, createRoute, ErrorComponent, Outlet, redirect } from '@tanstack/react-router'
 import { RouterContext } from './router'
 import { routingLogger } from '@/App'
+// Removed Layout import to preserve original routing behavior
 
 // Page components
 import Entry from '@/pages/Entry'
@@ -17,6 +18,7 @@ import { loginRouteQueries } from './RouteQueries/loginRouteQueries'
 import { onboardRouteQueries } from './RouteQueries/onboardRouteQueries'
 import { loungeRouteQueries } from './RouteQueries/loungeRouteQueries'
 import { SupabaseClient } from '@supabase/supabase-js'
+import { EnhancedMistake } from '@/types/types'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
@@ -200,63 +202,137 @@ export const roomRoute = createRoute({
 });
 
 
-// Corrected loader using your existing setup:
-
 export const sessionHistoryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/session-history',
   component: SessionHistoryRoute,
   loader: async ({ context }) => {
-    const queryClient = context.queryClient;
-
-    const signinRedirectData = queryClient.getQueryData<{ idToken?: string }>(['signInRedirect']);
-    const persistedAuthData = queryClient.getQueryData<{ idToken?: string }>(['persistedAuthData']);
-
-    const idToken = signinRedirectData?.idToken || persistedAuthData?.idToken;
-
-    const supabaseClient = queryClient.getQueryData(['supabaseClient', idToken]) as SupabaseClient | undefined;
-
-    if (!supabaseClient) throw new Error('Supabase client unavailable');
-
-    // Retrieve the currently logged-in user's data directly
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) throw new Error('Unable to retrieve user data');
-
-    const userId = localStorage.getItem('userID');
+    const { queryClient } = context
+    const userId = localStorage.getItem('userID')
     if (!userId) throw new Error('no storage for userID key')
 
-    // Continue with your existing logic...
-    const queryKey = ['sessionHistory', userId];
+    const supabaseClient = queryClient.getQueryData(['supabaseClient']) as SupabaseClient | undefined
+    if (!supabaseClient) throw new Error('Supabase client unavailable')
 
-    const sessions = await queryClient.fetchQuery({
-      queryKey,
-      queryFn: async () => {
-        const { data, error } = await supabaseClient
-          .from('finalized_user_sessions')
-          .select('session_id, role, teaching_lang, finalized_ipfs_cid, created_at')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
+    // 1. base rows ---------------------------------------------------------------------------
+    const { data: sessions, error: sErr } = await supabaseClient
+      .from('finalized_user_sessions')
+      .select('session_id, role, teaching_lang, finalized_ipfs_cid, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (sErr) throw sErr
+    if (!sessions.length) return { sessions: [], accuracyTrend: [] }
 
-        if (error) throw new Error(error.message);
-        return data;
-      },
-    });
+    const ids = sessions.map((s) => s.session_id)
 
-    // Prefetch IPFS session data concurrently
+    const { data: scorecards, error: scErr } = await supabaseClient
+      .from('learner_scorecards')
+      .select('session_id, conversation_difficulty, language_accuracy')
+      .in('session_id', ids)
+    if (scErr) throw scErr
+
+    const { data: mistakes, error: mErr } = await supabaseClient
+      .from('learner_mistakes')
+      .select('id, session_id, type, text, correction, lemma_fingerprint')
+      .in('session_id', ids)
+    if (mErr) throw mErr
+
+    // 2. lifetime averages -------------------------------------------------------------------
+    const totalSessions = sessions.length
+    const lifetimeCounts: Record<string, number> = {}
+    for (const m of mistakes) {
+      const fp = m.lemma_fingerprint ?? `${m.text} → ${m.correction}`
+      lifetimeCounts[fp] = (lifetimeCounts[fp] ?? 0) + 1
+    }
+    const lifetimeAvg: Record<string, number> = {}
+    Object.entries(lifetimeCounts).forEach(([fp, cnt]) => {
+      lifetimeAvg[fp] = cnt / totalSessions
+    })
+
+    // 3. per-session enrichment --------------------------------------------------------------
+    const chronological = [...sessions].reverse()  // oldest → newest
+    const windowSize = 3
+    const sliding: Record<string, number[]> = {}   // fp -> recent % list
+    const enrichedBySession = new Map<number, EnhancedMistake[]>()
+
+    for (const sess of chronological) {
+      const rows = mistakes.filter((m) => m.session_id === sess.session_id)
+      const total = rows.length || 1
+
+      const byFp: Record<string, number> = {}
+      for (const m of rows) {
+        const fp = m.lemma_fingerprint ?? `${m.text} → ${m.correction}`
+        byFp[fp] = (byFp[fp] ?? 0) + 1
+      }
+
+      for (const m of rows) {
+        const fp = m.lemma_fingerprint ?? `${m.text} → ${m.correction}`
+        const count = byFp[fp]
+        const pct = count / total
+
+        const prev = sliding[fp] ?? []
+        const meanPrev = prev.length ? prev.reduce((a, b) => a + b, 0) / prev.length : null
+        let trend: 'up' | 'down' | null = null
+        if (meanPrev !== null && Math.abs(pct - meanPrev) >= 0.05) {
+          trend = pct > meanPrev ? 'up' : 'down'
+        }
+
+        const color = pct > 0.33 ? 'red' : pct >= 0.10 ? 'yellow' : 'green'
+
+        const enhanced: EnhancedMistake = {
+          ...m,
+          avg_frequency: lifetimeAvg[fp] ?? 0,
+          trend_arrow: trend,
+          session_frequency_color: color,
+          session_count: count
+        }
+        if (!enrichedBySession.has(sess.session_id)) enrichedBySession.set(sess.session_id, [])
+        enrichedBySession.get(sess.session_id)!.push(enhanced)
+      }
+
+      // update sliding window
+      Object.keys(byFp).forEach((fp) => {
+        const pct = byFp[fp] / total
+        sliding[fp] = [...(sliding[fp] ?? []), pct].slice(-windowSize)
+      })
+    }
+
+    // 4. assemble ---------------------------------------------------------------------------
+    const scMap = new Map(scorecards.map((sc) => [sc.session_id, sc]))
+    const enriched = sessions.map((s) => ({
+      ...s,
+      scorecard: {
+        ...scMap.get(s.session_id),
+        mistakes:
+        enrichedBySession.get(s.session_id)?.sort(
+          (a, b) => b.session_count - a.session_count
+        ) ?? []
+      }
+    }))
+
+    const accuracyTrend = enriched
+    .slice()
+    .reverse()
+    .map((s, idx) => ({ idx: idx + 1, accuracy: s.scorecard.language_accuracy }))
+
+    // 5. pre-fetch IPFS ---------------------------------------------------------------------
     await Promise.all(
-      sessions.map(session =>
+      enriched.map((s) =>
         queryClient.prefetchQuery({
-          queryKey: ['ipfsData', session.finalized_ipfs_cid],
+          queryKey: ['ipfsData', s.finalized_ipfs_cid],
           queryFn: () =>
-            fetch(`https://ipfs-proxy-worker.charli.chat/ipfs/${session.finalized_ipfs_cid}`).then(res => res.json()),
-          staleTime: Infinity,
+            fetch(`https://ipfs-proxy-worker.charli.chat/ipfs/${s.finalized_ipfs_cid}`).then((r) =>
+              r.json()
+            ),
+          staleTime: Infinity
         })
       )
-    );
+    )
 
-    return sessions;
-  },
-});
+    // NOTE: cast to 'any' so private types don’t leak outside this module
+    return { sessions: enriched, accuracyTrend } as any
+  }
+})
 
 
 

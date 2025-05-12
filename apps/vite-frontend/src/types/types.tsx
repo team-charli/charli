@@ -494,3 +494,61 @@ export interface PinataPayload {
   transactionHash: string;
   pinnedAt: number;
 }
+
+export interface EnhancedMistake {
+  id: number
+  session_id: number
+  type: string
+  text: string
+  correction: string
+  lemma_fingerprint: string | null
+  avg_frequency: number
+  trend_arrow: 'up' | 'down' | null
+  session_frequency_color: 'red' | 'yellow' | 'green'
+  /** how many times this fingerprint appeared in the current session */
+  session_count: number
+}
+
+export interface Mistake {
+  id: number
+  type: string
+  text: string
+  correction: string
+  avg_frequency: number | null
+  trend_arrow: 'up' | 'down' | null
+  session_frequency_color: 'red' | 'yellow' | 'green' | null
+  /** how many rows of this fingerprint appear in the current session */
+  session_count?: number
+}
+
+export interface Mistake {
+  id: number
+  type: string
+  text: string
+  correction: string
+  avg_frequency: number | null
+  trend_arrow: 'up' | 'down' | null
+  session_frequency_color: 'red' | 'yellow' | 'green' | null
+  session_count?: number
+}
+
+export interface Scorecard {
+  conversation_difficulty: number
+  language_accuracy: number
+  mistakes: Mistake[]
+}
+
+export interface SessionDataHistory {
+  session_id: number
+  created_at: string
+  role: 'teacher' | 'learner'
+  teaching_lang: string
+  finalized_ipfs_cid: string
+  scorecard: Scorecard
+}
+
+export interface LoaderReturn {
+  sessions: SessionDataHistory[]
+  accuracyTrend: { idx: number; accuracy: number }[]
+}
+

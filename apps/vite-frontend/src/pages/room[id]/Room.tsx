@@ -161,28 +161,54 @@ export default function Room() {
    * 13) Render local + remote UIs
    */
   return (
-    <div className="relative w-full h-screen bg-gray-900">
-      <div className="flex w-full h-[85%]">
-        {/* Left side: local user */}
-        <div className="flex-1 min-w-0 border-r border-gray-700">
-          <button
-            onClick={handleEndSession}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            End Session & Get Transcript
-          </button>
-          {/* Local preview */}
-          <LocalPeerView
-            isRoomConnected={isRoomConnected}
-            localVideoStream={localVideoStream}
-            isRecording={isRecording}
-          />
+    <div className="relative w-full h-screen bg-gray-900 flex flex-col">
+      {/* Control ribbon at the top */}
+      <div className="w-full">
+        <ControlRibbon />
+      </div>
+
+      {/* Main content area */}
+      <div className="flex-grow overflow-hidden flex flex-col sm:flex-row w-full">
+        {/* Left side: local user (on mobile, this appears below the remote peer) */}
+        <div className="w-full sm:w-1/3 lg:w-1/4 sm:min-h-0 sm:border-r border-gray-700 order-2 sm:order-1 flex flex-col">
+          <div className="flex-grow">
+            <LocalPeerView
+              isRoomConnected={isRoomConnected}
+              localVideoStream={localVideoStream}
+              isRecording={isRecording}
+            />
+          </div>
+
+          <div className="p-3 sm:p-4">
+            <button
+              onClick={handleEndSession}
+              className="w-full px-3 sm:px-4 py-2 sm:py-3
+                      bg-red-600 hover:bg-red-700 active:bg-red-800
+                      text-white text-sm sm:text-base font-medium
+                      rounded-lg shadow-sm
+                      transition-colors duration-200
+                      flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              End Session
+            </button>
+          </div>
         </div>
 
-        {/* Right side: remote peers */}
-        <div className="flex-1 min-w-0 border-l border-gray-700 p-4 flex flex-col gap-4">
+        {/* Right side: remote peers (on mobile, this appears above the local preview) */}
+        <div className="w-full sm:w-2/3 lg:w-3/4 sm:min-h-0 order-1 sm:order-2 flex-grow overflow-auto p-2 sm:p-4">
           {remotePeerIds.length === 0 ? (
-            <div className="text-center text-white">No remote peers yet</div>
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center bg-gray-800 bg-opacity-50 rounded-lg p-6 sm:p-8 max-w-md">
+                <div className="text-5xl sm:text-6xl mb-4">👋</div>
+                <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-white mb-2">Waiting for Partner</h3>
+                <p className="text-sm sm:text-base text-gray-300">
+                  Your session partner will join soon. Make sure your camera and microphone are working.
+                </p>
+              </div>
+            </div>
           ) : (
               remotePeerIds.map((peerId) => (
                 <RemotePeerView key={peerId} peerId={peerId} />
@@ -191,8 +217,36 @@ export default function Room() {
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0">
-        <ControlRibbon />
+      {/* Fixed controls at the bottom */}
+      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+        <div className="bg-gray-800 bg-opacity-75 backdrop-blur-sm rounded-full px-3 sm:px-4 py-2 sm:py-3 shadow-lg flex items-center gap-2 sm:gap-3">
+          <button
+            className={`p-2 sm:p-3 rounded-full ${isAudioOn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
+            onClick={() => isAudioOn ? disableAudio() : enableAudio()}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+          </button>
+
+          <button
+            className={`p-2 sm:p-3 rounded-full ${isVideoOn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
+            onClick={() => isVideoOn ? disableVideo() : enableVideo()}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+
+          <button
+            onClick={handleEndSession}
+            className="bg-red-600 hover:bg-red-700 text-white p-2 sm:p-3 rounded-full"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

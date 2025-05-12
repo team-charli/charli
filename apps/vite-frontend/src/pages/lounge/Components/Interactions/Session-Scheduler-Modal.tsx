@@ -13,47 +13,70 @@ function DayPicker({ selectedDay, onSelect }: DayPickerProps) {
   const weekdays = getUpcomingWeekdays()
 
   return (
-    <div className="flex flex-col gap-3 pt-6">
-      <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2 sm:gap-3 pt-3 sm:pt-4 md:pt-6">
+      <div className="flex flex-col gap-2 sm:gap-3">
         <Button
           variant="ghost"
           className={cn(
-            "h-12 rounded-full bg-[#6B5B95] text-lg font-normal text-white hover:bg-[#5d4f82]",
+            "h-10 sm:h-11 md:h-12 rounded-full bg-[#6B5B95] text-base sm:text-lg font-normal text-white hover:bg-[#5d4f82] transition-colors shadow-sm",
             selectedDay === "Today" && "bg-[#5d4f82]"
           )}
           onClick={() => onSelect("Today")}
         >
-          Today
+          <div className="flex items-center">
+            <span className="mr-2">Today</span>
+            <span className="text-xs opacity-75">
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          </div>
         </Button>
         <Button
           variant="ghost"
           className={cn(
-            "h-12 rounded-full bg-[#6B5B95] text-lg font-normal text-white hover:bg-[#5d4f82]",
+            "h-10 sm:h-11 md:h-12 rounded-full bg-[#6B5B95] text-base sm:text-lg font-normal text-white hover:bg-[#5d4f82] transition-colors shadow-sm",
             selectedDay === "Tomorrow" && "bg-[#5d4f82]"
           )}
           onClick={() => onSelect("Tomorrow")}
         >
-          Tomorrow
+          <div className="flex items-center">
+            <span className="mr-2">Tomorrow</span>
+            <span className="text-xs opacity-75">
+              {new Date(Date.now() + 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          </div>
         </Button>
       </div>
 
-      <Separator className="my-2 bg-gray-300" />
+      <Separator className="my-2 sm:my-3 bg-gray-300" />
 
       {/* Next 5 weekdays */}
-      <div className="flex flex-col gap-2">
-        {weekdays.map((day) => (
-          <Button
-            key={day}
-            variant="ghost"
-            className={cn(
-              "h-10 rounded-full bg-[#6B5B95] text-base font-normal text-white hover:bg-[#5d4f82]",
-              selectedDay === day && "bg-[#5d4f82]"
-            )}
-            onClick={() => onSelect(day)}
-          >
-            {day}
-          </Button>
-        ))}
+      <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-2.5">
+        {weekdays.map((day) => {
+          // Calculate the date for this weekday
+          const today = new Date();
+          const dayIndex = today.getDay();
+          const daysFromToday = (days.indexOf(day) - dayIndex + 7) % 7;
+          const dayDate = new Date(today.getTime() + (daysFromToday + 2) * 86400000); // +2 to start after tomorrow
+          
+          return (
+            <Button
+              key={day}
+              variant="ghost"
+              className={cn(
+                "h-9 sm:h-10 md:h-11 rounded-full bg-[#6B5B95] text-sm sm:text-base font-normal text-white hover:bg-[#5d4f82] transition-colors shadow-sm",
+                selectedDay === day && "bg-[#5d4f82]"
+              )}
+              onClick={() => onSelect(day)}
+            >
+              <div className="flex items-center justify-between w-full px-2">
+                <span>{day}</span>
+                <span className="text-xs opacity-75">
+                  {dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              </div>
+            </Button>
+          );
+        })}
       </div>
     </div>
   )
@@ -488,14 +511,49 @@ export function SessionSchedulerModal({
   return (
     <Dialog open={open} onOpenChange={(openState) => { if (!openState) { handleClose(); } onOpenChange(openState); }}>
       <DialogContent
-        className={cn("w-[400px] h-[600px] rounded-3xl border-0 bg-[#F5F5F5] p-6 shadow-xl")}
+        className={cn(
+          "w-[90vw] sm:w-[400px] md:w-[450px] lg:w-[500px]",
+          "h-[80vh] sm:h-[600px] md:h-[650px]",
+          "max-h-[90vh]",
+          "rounded-xl sm:rounded-2xl md:rounded-3xl",
+          "border-0 bg-[#F5F5F5]",
+          "p-4 sm:p-5 md:p-6",
+          "shadow-xl"
+        )}
       >
-        <DialogHeader>
-          <DialogTitle className="text-center text-2xl font-medium">
+        <DialogHeader className="mb-2 sm:mb-3 md:mb-4">
+          <DialogTitle className="text-center text-xl sm:text-2xl md:text-3xl font-medium">
             {getTitle()}
           </DialogTitle>
+          <div className="flex justify-center mt-1 sm:mt-2">
+            <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-500">
+              <div className={`h-2 w-2 rounded-full ${step >= 1 ? 'bg-purple-600' : 'bg-gray-300'}`}></div>
+              <div className={`h-2 w-2 rounded-full ${step >= 2 ? 'bg-purple-600' : 'bg-gray-300'}`}></div>
+              <div className={`h-2 w-2 rounded-full ${step >= 3 ? 'bg-purple-600' : 'bg-gray-300'}`}></div>
+              <div className={`h-2 w-2 rounded-full ${step >= 4 ? 'bg-purple-600' : 'bg-gray-300'}`}></div>
+            </div>
+          </div>
         </DialogHeader>
-        {renderScreen()}
+        
+        <div className="overflow-y-auto px-1 flex-grow max-h-[calc(80vh-100px)] sm:max-h-[450px]">
+          {renderScreen()}
+        </div>
+        
+        {step > 1 && (
+          <div className="mt-4 sm:mt-5 flex justify-start">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStep(step - 1)}
+              className="text-xs sm:text-sm rounded-full px-3 py-1.5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )
