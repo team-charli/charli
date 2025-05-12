@@ -4,8 +4,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "bun start-dev.ts"
-  }
-
+  },
   "private": true,
   "dependencies": {
     "class-variance-authority": "^0.7.1"
