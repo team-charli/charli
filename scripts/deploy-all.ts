@@ -5,6 +5,7 @@
  *    --only <regex>   deploy subset
  *    --prod           use .env.defaults.prod (default: .env.defaults.dev)
  */
+import { createLogger } from "./lib/logger.ts";
 import { $, file } from "bun";
 import { join, basename } from "path";
 import { ethers } from "ethers";
@@ -16,7 +17,10 @@ const ONLY_RE  = (() => { const i = Bun.argv.indexOf("--only"); return i > -1 ? 
 const IS_PROD  = Bun.argv.includes("--prod");
 type EnvMap    = Record<string,string>;
 
-function log(m:string){ console.log(DRY?`(dry) ${m}`:m); }
+const log = createLogger({
+  mode  : IS_PROD ? "prod" : "dev",
+  dryRun: DRY,
+});
 
 
 /*
