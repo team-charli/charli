@@ -9,6 +9,7 @@ import { $, file } from "bun";
 import { join, basename } from "path";
 import { ethers } from "ethers";
 import { LitContracts } from "@lit-protocol/contracts-sdk";
+import toml from "toml";
 
 const DRY      = Bun.argv.includes("--dry-run");
 const ONLY_RE  = (() => { const i = Bun.argv.indexOf("--only"); return i > -1 ? new RegExp(Bun.argv[i+1]) : null;})();
@@ -53,7 +54,7 @@ function log(m:string){ console.log(DRY?`(dry) ${m}`:m); }
     log(`  • Minted new relayer PKP with token ID: ${pkpInfo.tokenId}`);
     log(`  • Public key: ${pkpInfo.publicKey}`);
     log(`  • Ethereum address: ${pkpInfo.ethAddress}`);
-    
+
     // Set permissions for the PKP
     log("› Setting permissions for the new relayer PKP");
     await setupPkpPermissions(
@@ -64,11 +65,11 @@ function log(m:string){ console.log(DRY?`(dry) ${m}`:m); }
       dynamic.LIT_ACTION_CID_CHECKORRESETRELAYERNONCEACTION,
       dynamic.LIT_ACTION_CID_TRANSFERCONTROLLERTOTEACHERACTION
     );
-    
+
     // Burn the PKP to make permissions immutable
     log("› Burning the relayer PKP to make permissions immutable");
     await burnPkp(pkpInfo.tokenId);
-    
+
     // Update environment variables with the new PKP info
     log("› Updating environment variables with new PKP info");
     await updateEnvFile(
@@ -78,7 +79,7 @@ function log(m:string){ console.log(DRY?`(dry) ${m}`:m); }
         VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY: pkpInfo.publicKey
       }
     );
-    
+
     // Apply the updated environment variables to the current process
     process.env.RELAYER_PKP_TOKEN_ID = pkpInfo.tokenId;
     process.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY = pkpInfo.publicKey;
@@ -109,54 +110,30 @@ function log(m:string){ console.log(DRY?`(dry) ${m}`:m); }
  */
 async function mintRelayerPKP() {
   const PROVIDER_URL = "https://yellowstone-rpc.litprotocol.com";
-  const privateKey = process.env.RELAYER_MANAGER_PRIVATE_KEY!;
-  
-  if (!privateKey) {
-    throw new Error("RELAYER_MANAGER_PRIVATE_KEY environment variable is not set");
-  }
-  
+  const privateKey   = process.env.RELAYER_MANAGER_PRIVATE_KEY!;
+  if (!privateKey) throw new Error("RELAYER_MANAGER_PRIVATE_KEY not set");
+
   const provider = new ethers.providers.JsonRpcProvider(PROVIDER_URL);
-  const wallet = new ethers.Wallet(privateKey, provider);
-  
-  // Connect to Lit Protocol contracts
+  const wallet   = new ethers.Wallet(privateKey, provider);
+
+  /* ── connect to Lit contracts ─────────────────────────────── */
   const contractClient = new LitContracts({
-    signer: wallet,
+    signer : wallet,
     network: process.env.LIT_NETWORK as any || "datil-dev",
-    debug: false,
+    debug  : false,
   });
   await contractClient.connect();
-  
-  // Get mint cost
-  const mintCost = await contractClient.pkpNftContract.read.mintCost();
-  log(`PKP mint cost: ${ethers.utils.formatEther(mintCost)} ETH`);
-  
-  // Mint a standard PKP (type 2)
-  const mintTx = await contractClient.pkpNftContract.write.mint(2, {
-    value: mintCost,
-  });
-  
-  const receipt = await mintTx.wait();
-  log(`Mint transaction confirmed: ${receipt.transactionHash}`);
-  
-  // Extract PKP info from the receipt
-  const pkpMintedEvent = receipt.events?.find(
-    (event) => event.topics[0] === "0x3b2cc0657d0387a736293d66389f78e4c8025e413c7a1ee67b7707d4418c46b8"
-  );
-  
-  if (!pkpMintedEvent) {
-    throw new Error("PKP Minted event not found in transaction receipt");
-  }
-  
-  // Extract the public key from the event data
-  // The format depends on the exact event structure
-  const publicKey = "0x" + pkpMintedEvent.data.slice(130, 260);
-  const tokenId = ethers.utils.keccak256(publicKey);
-  const ethAddress = await contractClient.pkpNftContract.read.getEthAddress(tokenId);
-  
+
+  /* ── mint! (helper already handles fee + keyType=2) ───────── */
+  const { pkp, tx } = await contractClient.pkpNftContractUtils.write.mint();
+  await tx.wait();
+
+  log(`Mint transaction confirmed: ${tx.hash}`);
+
   return {
-    tokenId: ethers.BigNumber.from(tokenId).toString(),
-    publicKey,
-    ethAddress,
+    tokenId   : pkp.tokenId.toString(),
+    publicKey : pkp.publicKey,
+    ethAddress: pkp.ethAddress,
   };
 }
 
@@ -173,14 +150,14 @@ async function setupPkpPermissions(
 ) {
   const PROVIDER_URL = "https://yellowstone-rpc.litprotocol.com";
   const privateKey = process.env.RELAYER_MANAGER_PRIVATE_KEY!;
-  
+
   if (!privateKey) {
     throw new Error("RELAYER_MANAGER_PRIVATE_KEY environment variable is not set");
   }
-  
+
   const provider = new ethers.providers.JsonRpcProvider(PROVIDER_URL);
   const wallet = new ethers.Wallet(privateKey, provider);
-  
+
   // Connect to Lit Protocol contracts
   const contractClient = new LitContracts({
     signer: wallet,
@@ -188,9 +165,9 @@ async function setupPkpPermissions(
     debug: false,
   });
   await contractClient.connect();
-  
+
   log("Setting PKP permissions for Lit Actions...");
-  
+
   // Helper to add permission and verify it was set
   async function addAndVerify(cid: string, name: string) {
     log(`  • Adding permission for ${name} (${cid})`);
@@ -201,20 +178,33 @@ async function setupPkpPermissions(
     }
     return isPermitted;
   }
-  
+
   // Add permissions for all Lit Actions
-  const results = await Promise.all([
-    addAndVerify(permitCid, "permitAction"),
-    addAndVerify(transferFromCid, "transferFromAction"),
-    addAndVerify(relayerCid, "relayerAction"),
-    addAndVerify(resetNonceCid, "checkOrResetRelayerNonceAction"),
-    addAndVerify(transferCtrlCid, "transferControllerToTeacherAction"),
-  ]);
-  
-  if (results.every(Boolean)) {
-    log("✅ All permissions set successfully.");
-  } else {
-    throw new Error("One or more permissions failed to set.");
+  const actions: [string, string][] = [
+    [permitCid,        "permitAction"],
+    [transferFromCid,  "transferFromAction"],
+    [relayerCid,       "relayerAction"],
+    [resetNonceCid,    "checkOrResetRelayerNonceAction"],
+    [transferCtrlCid,  "transferControllerToTeacherAction"],
+  ];
+
+  const results: boolean[] = [];
+
+  for (const [cid, name] of actions) {
+    /*   1️⃣ send TX   */
+    log(`  • Adding permission for ${name} (${cid})`);
+    const tx = await contractClient.pkpPermissionsContractUtils.write
+      .addPermittedAction(tokenId, cid);
+
+    /*   2️⃣ wait so the nonce is mined before the next call   */
+    await tx.wait();
+
+    /*   3️⃣ verify   */
+    const ok = await contractClient.pkpPermissionsContractUtils.read
+      .isPermittedAction(tokenId, cid);
+    if (!ok) throw new Error(`Failed to set permission for ${name} (${cid})`);
+
+    results.push(ok);
   }
 }
 
@@ -224,18 +214,18 @@ async function setupPkpPermissions(
 async function burnPkp(tokenId: string) {
   const PROVIDER_URL = "https://yellowstone-rpc.litprotocol.com";
   const privateKey = process.env.RELAYER_MANAGER_PRIVATE_KEY!;
-  
+
   if (!privateKey) {
     throw new Error("RELAYER_MANAGER_PRIVATE_KEY environment variable is not set");
   }
-  
+
   const provider = new ethers.providers.JsonRpcProvider(PROVIDER_URL);
   const wallet = new ethers.Wallet(privateKey, provider);
-  
+
   // Connect to the PKP NFT contract directly using ethers
   const env = process.env.ACTION_ENV || "dev";
   let pkpNftAddress;
-  
+
   if (env === "dev") {
     pkpNftAddress = process.env.DEV_PKP_NFT_CONTRACT_ADDRESS;
   } else if (env === "test") {
@@ -243,24 +233,24 @@ async function burnPkp(tokenId: string) {
   } else {
     pkpNftAddress = process.env.PROD_PKP_NFT_CONTRACT_ADDRESS;
   }
-  
+
   if (!pkpNftAddress) {
     throw new Error(`Missing PKP NFT contract address for environment: ${env}`);
   }
-  
+
   // Basic ERC721 ABI for transferFrom
   const erc721Abi = ["function transferFrom(address from, address to, uint256 tokenId)"];
   const contract = new ethers.Contract(pkpNftAddress, erc721Abi, wallet);
-  
+
   // Burn address (technically not 0x0, but a designated "dead" address)
   const burnAddress = "0x0000000000000000000000000000000000000001";
-  
+
   // Transfer the PKP to the burn address
   log(`Burning PKP ${tokenId} by transferring to ${burnAddress}...`);
   const burnTx = await contract.transferFrom(wallet.address, burnAddress, tokenId, {
     gasLimit: 100000,
   });
-  
+
   const receipt = await burnTx.wait();
   log(`Burn transaction confirmed: ${receipt.transactionHash}`);
   return receipt;
@@ -273,10 +263,10 @@ async function updateEnvFile(filePath: string, newValues: Record<string, string>
   if (!(await file(filePath).exists())) {
     throw new Error(`Environment file ${filePath} does not exist`);
   }
-  
+
   let content = await file(filePath).text();
   const lines = content.split(/\r?\n/);
-  
+
   // Update or add each key-value pair
   for (const [key, value] of Object.entries(newValues)) {
     const regex = new RegExp(`^${key}=.*$`, "m");
@@ -288,7 +278,7 @@ async function updateEnvFile(filePath: string, newValues: Record<string, string>
       content += `\n${key}=${value}`;
     }
   }
-  
+
   // Write the updated content back to the file
   await file(filePath).write(content);
   log(`Updated environment file ${filePath} with new values`);
@@ -314,7 +304,7 @@ async function pinLitActions(dir: string): Promise<EnvMap> {
 
   // list *.ts files inside apps/LitActions
   const files = Bun.spawnSync(["bash", "-c", `ls ${dir}/*.ts`])
-    .stdout.toString().trim().split("\n").filter(Boolean);
+  .stdout.toString().trim().split("\n").filter(Boolean);
 
   for (const path of files) {
     const name   = basename(path).replace(/\.ts$/, "");       // e.g. transferFromAction
@@ -369,42 +359,166 @@ async function readEnv(p:string):Promise<EnvMap>{
   );
 }
 
-async function injectSecrets(t:{type:string,path:string},env:EnvMap){
-  if(t.type==="cf-worker"){
-    // bulk—create JSON object and pipe to wrangler
-    const json = JSON.stringify(env);
-    await $`echo ${json} | wrangler secret bulk --name ${basename(t.path)}${DRY?" --dry-run":""}`;
-  }else if(t.type==="supabase"){
-    const pairs=Object.entries(env).map(([k,v])=>`${k}=${v}`);
-    await $`supabase secrets set ${pairs.join(" ")} --project-ref onhlhmondvxwwiwnruvo${DRY?" --dry-run":""}`;
-  }
-}
+/*──────────────────────── HELPERS ─────────────────────────*/
 
-async function runDeploy(t:{type:string,path:string}){
-  // if package.json with deploy script exists, use it
-  const pkg = join(t.path, "package.json");
+async function injectSecrets(
+  t: { type: string; path: string },
+  env: EnvMap,
+) {
+  /* ---------- Cloudflare Worker ---------- */
+  if (t.type === "cf-worker") {
+    const name = basename(t.path);
 
-  // Special case for frontend - run dev in dev mode, deploy in prod mode
-  if (t.path === "apps/vite-frontend") {
-    if (!IS_PROD) {
-      log(`› Running vite-frontend in development mode`);
-      await $`bun run dev --cwd ${t.path}`;
-    } else {
-      log(`› Deploying vite-frontend to Cloudflare`);
-      await $`bun run deploy --cwd ${t.path}`;
+    /* 1️⃣ secrets that already exist on the remote worker ------------- */
+    const { stdout } =
+      await $`bunx wrangler secret list --name ${name} --format json`.quiet();
+    const existingSecretNames = new Set(
+      JSON.parse(stdout.toString()).map((k: any) => k.name),
+    );
+
+    /* 2️⃣ vars declared locally in wrangler.toml / .jsonc ------------- */
+    let declaredVarNames = new Set<string>();
+    for (const cfg of ["wrangler.toml", "wrangler.json", "wrangler.jsonc"]) {
+      const p = join(t.path, cfg);
+      if (await file(p).exists()) {
+        const raw = await file(p).text();
+        if (cfg.endsWith(".toml")) {
+          declaredVarNames = new Set(Object.keys(toml.parse(raw).vars ?? {}));
+        } else {
+          // strip // and /* */ comments before JSON.parse
+          const json = JSON.parse(raw.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, ""));
+          declaredVarNames = new Set(Object.keys(json.vars ?? {}));
+        }
+        break; // found the file we need
+      }
+    }
+
+    /* 3️⃣ fail fast on any duplicate key ------------------------------ */
+    const collisions = Object.keys(env).filter(
+      (k) => declaredVarNames.has(k)       // fail only if it's a plain var
+    );
+    if (collisions.length) {
+      log(`❌ ENV collision in ${name}: ${collisions.join(", ")}`);
+      process.exit(1);            // stop the orchestrator immediately
+    }
+
+    /* 4️⃣ upload only brand-new keys ---------------------------------- */
+    const freshOnly = Object.fromEntries(
+      Object.entries(env).filter(([k]) => !collisions.includes(k)),
+    );
+
+    if (Object.keys(freshOnly).length === 0) {
+      log(`ℹ️  all ${name} secrets already present – skipping`);
+      return;
+    }
+
+    try {
+      await $`echo ${JSON.stringify(freshOnly)} | bunx wrangler secret bulk --name ${name}`;
+    } catch (err) {
+      log(`⚠️  wrangler secret bulk failed for ${name}\n${(err as any).stderr ?? err}`);
     }
     return;
   }
 
-  // For all other packages
-  if (await file(pkg).exists() &&
-    JSON.parse(await file(pkg).text()).scripts?.deploy) {
-    await $`bun run deploy --cwd ${t.path}`;
-  }else if(t.type==="supabase"){
-    await $`supabase functions deploy --project-ref onhlhmondvxwwiwnruvo --cfw --import-map=false --no-verify-jwt --fail-on-warnings ${t.path}`;
-  }else{
-    log(`⚠️  no deploy script for ${t.path} (skipped)`);
+  /* ---------- Supabase ---------- */
+  if (t.type === "supabase") {
+    const pairs = Object.entries(env).map(([k, v]) => `${k}=${v}`);
+    await $`supabase secrets set ${pairs.join(" ")} \
+--project-ref onhlhmondvxwwiwnruvo${DRY ? " --dry-run" : ""}`;
   }
+}
+
+/*──────────────────────── DEPLOY ─────────────────────────*/
+async function runDeploy(t: { type: string; path: string }) {
+  const fnName      = basename(t.path);
+  const WORKDIR     = "apps";
+  const PROJECT_REF = "onhlhmondvxwwiwnruvo";
+
+  /* ---------- Supabase Edge Functions ---------- */
+  if (t.type === "supabase") {
+    if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(fnName)) {
+      log(`⏭️  skipping ${fnName} – not a deployable function folder`);
+      return;
+    }
+    if (DRY) {
+      log(`(dry) supabase functions deploy ${fnName}`);
+      return;
+    }
+    await $`supabase functions deploy ${fnName} \
+--project-ref ${PROJECT_REF} \
+--no-verify-jwt \
+--workdir ${WORKDIR}`;
+    return;
+  }
+
+  /* ---------- Cloudflare Workers ---------- */
+  if (t.type === "cf-worker") {
+    const wranglerToml = join(t.path, "wrangler.toml");
+    if (!(await file(wranglerToml).exists())) {
+      log(`⏭️  ${basename(t.path)} – no wrangler.toml, nothing to deploy`);
+      return;
+    }
+
+    /* guard against broken package.json -------------------------------- */
+    const pkgJsonPath = join(t.path, "package.json");
+    if (await file(pkgJsonPath).exists()) {
+      try { JSON.parse(await file(pkgJsonPath).text()); }
+      catch {
+        log(`⚠️  ${basename(t.path)} – invalid package.json, skipping`);
+        return;
+      }
+    }
+
+    const cmd = $`bunx wrangler deploy --config ${wranglerToml}`;
+    try {
+      if (DRY) log(`(dry) ${cmd.command.join(" ")}`);
+        else     await cmd;
+    } catch (err) {
+      /* Wrangler build errors: log & move on instead of crashing */
+      if (err instanceof Error) {
+        log(`⚠️  wrangler deploy failed for ${basename(t.path)} – skipping\n${err.stderr ?? err.message}`);
+        return;
+      }
+      throw err;
+    }
+    return;
+  }
+
+  /* ---------- Front-end ---------- */
+  if (t.path === "apps/vite-frontend") {
+    if (DRY) {
+      log(`(dry) vite-frontend ${IS_PROD ? "deploy" : "dev"} run`);
+      return;
+    }
+
+    if (IS_PROD) {
+      // production build + wrangler deploy (still fine under Bun)
+      log("› Deploying vite-frontend to Cloudflare");
+      await $`bun run deploy --cwd ${t.path}`;
+    } else {
+      // local dev server ⇢ run Vite inside real Node
+      log("› Running vite-frontend in development mode (node)");
+      await $`node node_modules/.bin/vite`.cwd(t.path);
+    }
+    return;
+  }
+
+  /* ---------- Generic package.json deploy script ---------- */
+  const pkgJson = join(t.path, "package.json");
+  if (
+    (await file(pkgJson).exists()) &&
+      JSON.parse(await file(pkgJson).text()).scripts?.deploy
+  ) {
+    if (DRY) {
+      log(`(dry) (cd ${t.path} && bun run deploy)`);
+      return;
+    }
+    await $`bun run deploy`.cwd(t.path);
+    return;
+  }
+
+  /* ---------- Nothing to do ---------- */
+  log(`⚠️  no deploy task for ${t.path} (skipped)`);
 }
 
 function findDirs(root:string){

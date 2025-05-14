@@ -17,7 +17,9 @@
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
-    "paths": {}
+    "paths": {
+      "worker_threads": ["node_modules/worker_threads"]
+    }
   },
   "exclude": [
     "node_modules",
