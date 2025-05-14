@@ -7,6 +7,10 @@
  *
  * It talks directly to the Lit PKP Permissions contract via
  * ethers.js, so you do *not* need the Supabase Edge Function.
+ * 
+ * NOTE: This script is now intended to be called from deploy-all.ts
+ * which handles minting a new PKP, setting permissions, and burning.
+ * The standalone version is still available for manual use.
  *
  * USAGE (example)
  *   bun run setup-pkp-permissions.ts \
