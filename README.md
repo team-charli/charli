@@ -26,7 +26,7 @@ Charli combines the motivation of human conversation with the precision of AI fe
 - `apps/supabase/` — Database migrations, edge functions, RLS
 - `apps/LitActions/` - IPFS deployed, immutible javascript functions, runnning in Lit Network nodes  
 - `apps/robo-test-mode` - Experminatal RoboTeacher for internal testing with public potential
-- `scripts/` — PKP provisioning, session automation, test harnesses
+- `scripts/` — Deployment Orchestrator, PKP provisioning, session automation, test harnesses
 
 Everything described in our YC application and video is implemented here.
 
