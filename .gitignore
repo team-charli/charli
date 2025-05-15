@@ -19,22 +19,22 @@ node_modules
 
 # IDE - VSCode
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+          !.vscode/settings.json
+          !.vscode/tasks.json
+          !.vscode/launch.json
+          !.vscode/extensions.json
 
 # misc
 /.sass-cache
 /connect.lock
 /coverage
-*.log
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
-**/*.env
+        *.log
+        /libpeerconnection.log
+        npm-debug.log
+        yarn-error.log
+        testem.log
+        /typings
+        **/*.env
 **/.wrangler/
 **/~/
 # System Files
@@ -55,4 +55,7 @@ lit_storage
 .serverless
 .webpack
 
-
+.env.defaults.dev
+.env.defaults.prod
+*.log
+*.claude
