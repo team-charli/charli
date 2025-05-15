@@ -60,3 +60,4 @@ lit_storage
 
 .env.sentry-build-plugin
 
+.lit-actions-cache.json
