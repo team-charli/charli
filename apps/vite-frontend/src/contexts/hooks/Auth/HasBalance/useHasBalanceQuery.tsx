@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { JsonRpcProvider, Contract, InterfaceAbi, parseUnits, Network } from 'ethers';
 import { authChainLogger } from '@/App';
-import { daiAbi} from '@/abis/daiABI';
+import { usdc_abi} from '@/abis/usdc_abi';
 import { IRelayPKP } from '@lit-protocol/types';
 
 interface HasBalanceQueryParams {
@@ -26,18 +26,18 @@ export const useHasBalanceQuery = ({queryKey, enabledDeps, queryFnData}:HasBalan
         return null;
       }
       try {
-        const daiAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
+        const usdcAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS_BASE_SEPOLIA;
         const url = import.meta.env.VITE_RPC_URL;
         const chainId = parseInt(import.meta.env.VITE_CHAIN_ID);
         const chainName = import.meta.env.VITE_RPC_CHAIN_NAME;
-        const abi = daiAbi as InterfaceAbi;
+        const abi = usdc_abi as InterfaceAbi;
 
         const network = { chainId, name: chainName};
         const provider = new JsonRpcProvider(url, network , { staticNetwork: true });
-        const daiContract = new Contract(daiAddress, abi, provider);
-        const balance = await daiContract.balanceOf(currentAccount.ethAddress);
-        const minBalanceDai = parseUnits('9', 18);
-        const hasBalance = balance >= minBalanceDai;
+        const usdcContract = new Contract(usdcAddress, abi, provider);
+        const balance = await usdcContract.balanceOf(currentAccount.ethAddress);
+        const minBalanceUsdc = parseUnits('9', 6);
+        const hasBalance = balance >= minBalanceUsdc;
         authChainLogger.info(`12b: hasBalance query finish:`, (Date.now() - startTime) / 1000);
 
 

@@ -37,7 +37,7 @@ export default function SessionCard({ session, accuracyTrend, idx }: Props) {
             <span className="font-medium">
               {outcome === 'success' ? '✅ Success' : '❌ Fault'} •{' '}
               {ipfsData.scenario === 'fault' ? '+' : '-'}
-              {0.3 * ipfsData.learnerData.sessionDuration} DAI
+              {0.3 * ipfsData.learnerData.sessionDuration} USDC
             </span>
           )}
         </div>

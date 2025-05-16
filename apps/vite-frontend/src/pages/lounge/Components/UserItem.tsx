@@ -26,7 +26,7 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
 //TODO: is the picker dialog blocking the request? if the dialog doesn't close the mutation doesn't seem to fire.
 //TODO: can't set time picker for the next day
 //TODO: can't manually manipulate the text in time picker
-  const {  toggleDateTimePicker, setToggleDateTimePicker, schedulerStep, setSchedulerStep, selectedDay, setSelectedDay, selectedTime, setSelectedTime, sessionLengthInputValue, setSessionLengthInputValue, renderSubmitConfirmation, setRenderSubmitConfirmation, dateTime, setDateTime, sessionDuration, amountDai } = learningRequestState;
+  const {  toggleDateTimePicker, setToggleDateTimePicker, schedulerStep, setSchedulerStep, selectedDay, setSelectedDay, selectedTime, setSelectedTime, sessionLengthInputValue, setSessionLengthInputValue, renderSubmitConfirmation, setRenderSubmitConfirmation, dateTime, setDateTime, sessionDuration, amountUsdc } = learningRequestState;
 
   const encryptLearnerAddress = useEncryptAddress();
 
@@ -45,7 +45,7 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
             secureSessionId,
           });
 
-        const actionParams = await signPermitAndCollectActionParams.mutateAsync({controllerAddress: controllerData.controller_address, provider, secureSessionId, requestedSessionDurationLearnerSig, sessionDuration, amountScaled: amountDai });
+        const actionParams = await signPermitAndCollectActionParams.mutateAsync({controllerAddress: controllerData.controller_address, provider, secureSessionId, requestedSessionDurationLearnerSig, sessionDuration, amountScaled: amountUsdc });
 
         const encryptLearnerAddressResult = await encryptLearnerAddress()
         const {ciphertext, dataToEncryptHash} = encryptLearnerAddressResult;

@@ -59,8 +59,8 @@ const providerUrl = Bun.env.PROVIDER_URL_BASE_SEPOLIA;
 const provider = new ethers.JsonRpcProvider(providerUrl);
 const rpcChain = Bun.env.CHAIN_NAME_FOR_ACTION_PARAMS_BASE_SEPOLIA;
 const rpcChainId = Bun.env.CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA;
-const daiContractAddress = Bun.env.DAI_CONTRACT_ADDRESS_BASE_SEPOLIA!;
-console.log("DAI_CONTRACT_ADDRESS_BASE_SEPOLIA", daiContractAddress )
+const usdcContractAddress = Bun.env.USDC_CONTRACT_ADDRESS_BASE_SEPOLIA!;
+console.log("USDC_CONTRACT_ADDRESS_BASE_SEPOLIA", usdcContractAddress )
 const ethereumRelayerPublicKey = Bun.env.CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
 
 const teacherPrivateKey = Bun.env.TEACHER_PRIVATEKEY;
@@ -68,7 +68,7 @@ const learnerPrivateKey = Bun.env.LEARNER_PRIVATEKEY;
 const workerPrivateKey = Bun.env.PRIVATE_KEY_WORKER_WALLET;
 // Define required environment variables
 const requiredEnvVars = {
-  daiContractAddress: daiContractAddress,
+  usdcContractAddress: usdcContractAddress,
   ethereumRelayerPublicKey: ethereumRelayerPublicKey,
   teacherPrivateKey: teacherPrivateKey,
   learnerPrivateKey: learnerPrivateKey,
@@ -230,10 +230,10 @@ beforeAll(async () => {
       'function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
       'function allowance(address owner, address spender) view returns (uint256)'
     ];
-    console.log("daiContractAddress", typeof daiContractAddress)
-    console.log("daiContractAddress", daiContractAddress)
+    console.log("usdcContractAddress", typeof usdcContractAddress)
+    console.log("usdcContractAddress", usdcContractAddress)
 
-    const daiContract = new ethers.Contract(daiContractAddress, daiContractAbi, provider);
+    const daiContract = new ethers.Contract(usdcContractAddress, daiContractAbi, provider);
 
     const currentAllowance = await daiContract.allowance(learnerWallet.address, controllerAddress);
     if (currentAllowance >= amountScaled) {
@@ -275,7 +275,7 @@ beforeAll(async () => {
       name: await daiContract.name(),
       version: '1',
       chainId: rpcChainId,
-      verifyingContract: daiContractAddress,
+      verifyingContract: usdcContractAddress,
     };
 
     // **Request Signature from the User**
@@ -307,7 +307,7 @@ test("permit", async () => {
       v,
       r,
       s,
-      daiContractAddress,
+      usdcContractAddress,
       relayerIpfsId: relayerActionIpfsId,
       rpcChain,
       rpcChainId,
@@ -377,7 +377,7 @@ test("transferFromLearnerToControllerAction", async () => {
     learnerAddressEncryptHash: encryptedData.transferFrom.learnerHashForTransferFrom,
     controllerAddress,
     controllerPubKey: controllerPubKey.startsWith("0x") ? controllerPubKey.slice(2) : controllerPubKey,
-    daiContractAddress,
+    usdcContractAddress,
     sessionDataLearnerSig,
     sessionDataTeacherSig,
     sessionDuration,
@@ -509,7 +509,7 @@ test("finalizeSession - non_fault scenario", async () => {
 
   // 5) (Optional) Check final DAI distribution
   const daiAbi = [ 'function balanceOf(address) view returns (uint256)' ];
-  const daiContract = new ethers.Contract(daiContractAddress, daiAbi, provider);
+  const daiContract = new ethers.Contract(usdcContractAddress, daiAbi, provider);
   const teacherBalanceAfter = await daiContract.balanceOf(teacherWallet.address);
   const controllerBalanceAfter = await daiContract.balanceOf(controllerAddress);
 
@@ -613,7 +613,7 @@ test("finalizeSession - fault scenario", async () => {
 
   // 4) check final DAI distribution
   const daiAbi = [ 'function balanceOf(address) view returns (uint256)' ];
-  const daiContract = new ethers.Contract(daiContractAddress, daiAbi, provider);
+  const daiContract = new ethers.Contract(usdcContractAddress, daiAbi, provider);
   const learnerBalanceAfter = await daiContract.balanceOf(learnerWallet.address);
   const controllerBalanceAfter = await daiContract.balanceOf(controllerAddress);
 

@@ -47,7 +47,7 @@ export const useLearningRequestState = () => {
     return 20
   }, [sessionLengthInputValue])
 
-  const amountDai: BigNumberish = useMemo(() => {
+  const amountUsdc: BigNumberish = useMemo(() => {
     return ethers.parseUnits(String(sessionDuration * 0.3), 18)
   }, [sessionDuration])
 
@@ -75,6 +75,6 @@ export const useLearningRequestState = () => {
     dateTime,
     setDateTime,
     sessionDuration,
-    amountDai,
+    amountUsdc,
   }
 }

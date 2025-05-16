@@ -64,7 +64,7 @@ const refundLearnerAction = async () => {
         env,
         callingActionId: Lit.Auth.actionIpfsIds[Lit.Auth.actionIpfsIds.length - 1],
         txData,
-        daiContractAddress: usdcContractAddress,
+        usdcContractAddress: usdcContractAddress,
         rpcChain: chain,
         rpcChainId: chainId,
       }

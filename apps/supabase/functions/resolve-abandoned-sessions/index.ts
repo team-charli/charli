@@ -83,7 +83,7 @@ app.get('/', async (c) => {
   const ipfsId = Deno.env.get('IPFS_ID')!;
   const pinataApiKey = Deno.env.get('PINATA_API_KEY')!;
   const pinataSecret = Deno.env.get('PINATA_API_SECRET')!;
-  const daiContractAddress = Deno.env.get('DAI_CONTRACT_ADDRESS')!;
+  const usdcContractAddress = Deno.env.get('USDC_CONTRACT_ADDRESS')!;
   const chain = Deno.env.get('CHAIN')!;
   const chainId = Deno.env.get('CHAIN_ID')!;
   const relayerIpfsId = Deno.env.get('RELAYER_IPFS_ID')!;
@@ -143,7 +143,7 @@ app.get('/', async (c) => {
         jsParams: {
           learnerAddress: learner_address,
           refundAmount: refund_amount,
-          daiContractAddress,
+          usdcContractAddress,
           controllerAddress: controller_address,
           controllerPubKey: controller_public_key,
           signedReason: JSON.stringify(prePayload),

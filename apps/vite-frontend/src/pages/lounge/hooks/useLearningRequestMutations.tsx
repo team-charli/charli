@@ -88,16 +88,16 @@ export const useLearningRequestMutations = () => {
 
         if (!pkpWallet) throw new Error('Wallet not initialized');
 
-        const daiContractAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
-        const daiContractAbi = [
+        const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS_BASE_SEPOLIA;
+        const usdcABI = [
           'function name() view returns (string)',
           'function nonces(address owner) view returns (uint256)',
           'function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
           'function allowance(address owner, address spender) view returns (uint256)'
         ];
-        const daiContract = new ethers.Contract(daiContractAddress, daiContractAbi, provider);
+        const usdcContract = new ethers.Contract(usdcContractAddress, usdcABI, provider);
 
-        const currentAllowance = await daiContract.allowance(pkpWallet.address, relayerAddress);
+        const currentAllowance = await usdcContract.allowance(pkpWallet.address, relayerAddress);
         if (currentAllowance >= amountScaled) {
           // Already approved
           console.log("Approval already set, skipping permit transaction");
@@ -109,15 +109,15 @@ export const useLearningRequestMutations = () => {
         const spender = relayerAddress;
         const value = amountScaled.toString();
         const deadline = (Math.floor(Date.now() / 1000) + 3600).toString();
-        const nonceBN = await daiContract.nonces(owner);
+        const nonceBN = await  usdcContract.nonces(owner);
         const nonce = nonceBN.toString();
 
         // Full typed-data domain
         const domain = {
-          name: await daiContract.name(),
+          name: await usdcContract.name(),
           version: '1',
           chainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
-          verifyingContract: daiContractAddress,
+          verifyingContract: usdcContractAddress,
         };
 
         const types = {
@@ -140,7 +140,7 @@ export const useLearningRequestMutations = () => {
         return {
           skipPermit: false,
           v, s, r, owner, spender, nonce, deadline, value,
-          daiContractAddress,
+          usdcContractAddress,
           relayerIpfsId: import.meta.env.VITE_RELAYER_ACTION_IPFSID,
           rpcChain: import.meta.env.VITE_RPC_CHAIN_NAME,
           rpcChainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
@@ -167,7 +167,7 @@ export const useLearningRequestMutations = () => {
     v: number,
     r: string,
     s: string,
-    daiContractAddress: AddressLike,
+    usdcContractAddress: AddressLike,
     relayerIpfsId: string,
     rpcChain: string,
     rpcChainId: string,
@@ -185,7 +185,7 @@ export const useLearningRequestMutations = () => {
       if (!actionParams) throw new Error('actionParams undefined');
       const {
         owner, spender, nonce, deadline, value, v, r, s,
-        daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
+        usdcContractAddress, relayerIpfsId, rpcChain, rpcChainId,
         secureSessionId, requestedSessionDurationLearnerSig, learnerAddress, duration, env
       } = actionParams;
 
@@ -195,7 +195,7 @@ export const useLearningRequestMutations = () => {
         sessionSigs,
         jsParams: {
           owner, spender, nonce, deadline, value, v, r, s,
-          daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
+          usdcContractAddress, relayerIpfsId, rpcChain, rpcChainId,
           secureSessionId, sessionIdAndDurationSig: requestedSessionDurationLearnerSig, learnerAddress, duration, env
         }
       });

@@ -25,7 +25,7 @@ const relayerAction = async () => {
   console.log("The relayerAddress nonce!: ", nonce);
 
   const unsignedTransaction = {
-    to: daiContractAddress,
+    to: usdcContractAddress,
     nonce,
     chainId: rpcChainId,
     data: txData,
