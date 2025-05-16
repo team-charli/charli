@@ -35,35 +35,25 @@ React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-[95%] sm:w-[90%] md:w-[85%] 
-        max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg 
-        translate-x-[-50%] translate-y-[-50%] 
-        gap-3 sm:gap-4 md:gap-5 
-        border border-neutral-200 
-        bg-white 
-        p-4 sm:p-5 md:p-6 lg:p-8 
-        shadow-lg 
-        rounded-lg sm:rounded-xl 
-        dark:border-neutral-800 dark:bg-neutral-950",
+      className={cn( "fixed left-[50%] top-[50%] z-50 grid w-[95%] sm:w-[90%] md:w-[85%] max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 sm:gap-4 md:gap-5 border border-neutral-200 bg-white p-4 sm:p-5 md:p-6 lg:p-8 shadow-lg rounded-lg sm:rounded-xl dark:border-neutral-800 dark:bg-neutral-950",
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-3 sm:right-4 top-3 sm:top-4 
-        rounded-full sm:rounded-md 
-        w-7 h-7 sm:w-8 sm:h-8 
+      <DialogPrimitive.Close className="absolute right-3 sm:right-4 top-3 sm:top-4
+        rounded-full sm:rounded-md
+        w-7 h-7 sm:w-8 sm:h-8
         flex items-center justify-center
         bg-gray-100 hover:bg-gray-200
-        opacity-70 
-        ring-offset-white 
-        transition-opacity duration-200 
-        hover:opacity-100 
-        focus:outline-hidden focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2 
-        disabled:pointer-events-none 
-        data-[state=open]:bg-neutral-100 data-[state=open]:text-neutral-500 
-        dark:ring-offset-neutral-950 dark:focus:ring-neutral-300 
+        opacity-70
+        ring-offset-white
+        transition-opacity duration-200
+        hover:opacity-100
+        focus:outline-hidden focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2
+        disabled:pointer-events-none
+        data-[state=open]:bg-neutral-100 data-[state=open]:text-neutral-500
+        dark:ring-offset-neutral-950 dark:focus:ring-neutral-300
         dark:data-[state=open]:bg-neutral-800 dark:data-[state=open]:text-neutral-400">
         <X className="h-4 w-4 sm:h-5 sm:w-5" />
         <span className="sr-only">Close</span>

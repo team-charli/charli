@@ -6,16 +6,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card"
-      className={cn(
-        "bg-white text-neutral-950 flex flex-col gap-4 sm:gap-5 md:gap-6 
-        rounded-lg sm:rounded-xl 
-        border border-neutral-200 
-        py-4 sm:py-5 md:py-6 
-        shadow-sm hover:shadow 
-        transition-shadow duration-200
-        dark:bg-neutral-950 dark:text-neutral-50 dark:border-neutral-800",
-        className
-      )}
+      className={cn( "bg-white text-neutral-950 flex flex-col gap-4 sm:gap-5 md:gap-6 rounded-lg sm:rounded-xl border border-neutral-200 py-4 sm:py-5 md:py-6 shadow-sm hover:shadow transition-shadow duration-200 dark:bg-neutral-950 dark:text-neutral-50 dark:border-neutral-800", className)}
       {...props}
     />
   )
@@ -26,13 +17,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1 sm:gap-1.5 md:gap-2 
-        px-4 sm:px-5 md:px-6 
-        has-data-[slot=card-action]:grid-cols-[1fr_auto] 
-        [.border-b]:pb-4 sm:[.border-b]:pb-5 md:[.border-b]:pb-6",
-        className
-      )}
-      {...props}
+        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1 sm:gap-1.5 md:gap-2 px-4 sm:px-5 md:px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-4 sm:[.border-b]:pb-5 md:[.border-b]:pb-6", className)} {...props}
     />
   )
 }
@@ -84,12 +69,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-footer"
-      className={cn("flex items-center justify-between flex-wrap gap-2 sm:gap-3 
-                   px-4 sm:px-5 md:px-6 
-                   [.border-t]:pt-4 sm:[.border-t]:pt-5 md:[.border-t]:pt-6 
-                   text-sm sm:text-base", 
-      className)}
-      {...props}
+      className={cn("flex items-center justify-between flex-wrap gap-2 sm:gap-3 px-4 sm:px-5 md:px-6 [.border-t]:pt-4 sm:[.border-t]:pt-5 md:[.border-t]:pt-6 text-sm sm:text-base", className)} {...props}
     />
   )
 }
