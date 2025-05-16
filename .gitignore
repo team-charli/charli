@@ -62,3 +62,4 @@ lit_storage
 
 .lit-actions-cache.json
 .log
+scripts/logs
