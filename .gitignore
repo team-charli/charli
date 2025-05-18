@@ -19,22 +19,22 @@ node_modules
 
 # IDE - VSCode
 .vscode/*
-          !.vscode/settings.json
-          !.vscode/tasks.json
-          !.vscode/launch.json
-          !.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
 # misc
 /.sass-cache
 /connect.lock
 /coverage
-        *.log
-        /libpeerconnection.log
-        npm-debug.log
-        yarn-error.log
-        testem.log
-        /typings
-        **/*.env
+*.log
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+**/*.env
 **/.wrangler/
 **/~/
 # System Files
@@ -45,17 +45,30 @@ Charli
 **/PROJECT.md
 lit_storage.db
 lit_storage
-# Sentry Config File
-.env.sentry-build-plugin
+
+.env.defaults.prod
+.env.defaults.dev
+.env.defaults
 .env.local
 .env.test
 .dev.vars
-
 # Serverless
 .serverless
 .webpack
 
-.env.defaults.dev
-.env.defaults.prod
-*.log
-*.claude
+.claude
+
+.env.sentry-build-plugin
+
+.lit-actions-cache.json
+# ── ignore everything inside mock-usdc ─────────────────────────────
+scripts/mock-usdc/*
+
+# ── except the two things you care about ──────────────────────────
+!scripts/mock-usdc/contracts/
+!scripts/mock-usdc/contracts/**        # the .sol file(s)
+
+!scripts/mock-usdc/broadcast/Deploy.s.sol/84532/run-latest.json
+
+# keep latest broadcast
+!scripts/mock-usdc/broadcast/Deploy.s.sol/84532/run-latest.json
