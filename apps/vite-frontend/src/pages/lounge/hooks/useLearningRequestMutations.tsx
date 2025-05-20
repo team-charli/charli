@@ -89,6 +89,7 @@ export const useLearningRequestMutations = () => {
         if (!pkpWallet) throw new Error('Wallet not initialized');
 
         const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS_BASE_SEPOLIA;
+        console.log('usdcContractAddress', usdcContractAddress)
         const usdcABI = [
           'function name() view returns (string)',
           'function nonces(address owner) view returns (uint256)',
@@ -96,6 +97,7 @@ export const useLearningRequestMutations = () => {
           'function allowance(address owner, address spender) view returns (uint256)'
         ];
         const usdcContract = new ethers.Contract(usdcContractAddress, usdcABI, provider);
+        console.log('usdcABI', usdcABI)
 
         const currentAllowance = await usdcContract.allowance(pkpWallet.address, relayerAddress);
         if (currentAllowance >= amountScaled) {
@@ -112,14 +114,20 @@ export const useLearningRequestMutations = () => {
         const nonceBN = await  usdcContract.nonces(owner);
         const nonce = nonceBN.toString();
 
-        // Full typed-data domain
+        // Get the actual contract name for the domain
+        const contractName = await usdcContract.name();
+        console.log("USDC Contract name:", contractName);
+        
+        // Full typed-data domain - use actual contract values
         const domain = {
-          name: await usdcContract.name(),
+          name: contractName,
           version: '1',
           chainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
           verifyingContract: usdcContractAddress,
         };
+        console.log("Domain used for signing:", domain);
 
+        // USDC Permit type structure
         const types = {
           Permit: [
             { name: 'owner', type: 'address' },
@@ -129,6 +137,7 @@ export const useLearningRequestMutations = () => {
             { name: 'deadline', type: 'uint256' }
           ],
         };
+        console.log("Types used for signing:", types);
 
         const message = { owner, spender, value, nonce, deadline };
 
@@ -183,6 +192,7 @@ export const useLearningRequestMutations = () => {
   const executePermitAction = useMutation({
     mutationFn: async (actionParams: PermitActionParams | undefined) => {
       if (!actionParams) throw new Error('actionParams undefined');
+      
       const {
         owner, spender, nonce, deadline, value, v, r, s,
         usdcContractAddress, relayerIpfsId, rpcChain, rpcChainId,
@@ -190,29 +200,92 @@ export const useLearningRequestMutations = () => {
       } = actionParams;
 
       const permitActionIpfsId = import.meta.env.VITE_PERMIT_ACTION_IPFSID;
-      const result = await litNodeClient.executeJs({
-        ipfsId: permitActionIpfsId,
-        sessionSigs,
-        jsParams: {
-          owner, spender, nonce, deadline, value, v, r, s,
-          usdcContractAddress, relayerIpfsId, rpcChain, rpcChainId,
-          secureSessionId, sessionIdAndDurationSig: requestedSessionDurationLearnerSig, learnerAddress, duration, env
-        }
-      });
-
-      if (!result.success) {
-        throw new Error('Permit action failed');
-      }
-
-      if (typeof result.response !== 'string') {
-        throw new Error('Unexpected response type');
-      }
-
+      
       try {
-        const txHash = JSON.parse(JSON.parse(result.response));
-        return { txHash };
+        console.log("Executing permit action for USDC contract:", usdcContractAddress);
+        
+        // Execute the Lit Action
+        const result = await litNodeClient.executeJs({
+          ipfsId: permitActionIpfsId,
+          sessionSigs,
+          jsParams: {
+            owner, spender, nonce, deadline, value, v, r, s,
+            usdcContractAddress, relayerIpfsId, rpcChain, rpcChainId,
+            secureSessionId, sessionIdAndDurationSig: requestedSessionDurationLearnerSig, learnerAddress, duration, env
+          }
+        });
+        
+        console.log("Got result from permit action:", {
+          success: result.success,
+          responseType: typeof result.response,
+          responsePreview: typeof result.response === 'string' ? result.response.substring(0, 100) : null
+        });
+
+        // Verify the action succeeded
+        if (!result.success) {
+          console.error("Permit action failed with error:", result.error);
+          throw new Error('Permit action returned failure status');
+        }
+
+        // Basic sanity check on the response
+        if (typeof result.response !== 'string') {
+          console.error("Unexpected response type:", typeof result.response);
+          throw new Error(`Unexpected response type: ${typeof result.response}`);
+        }
+        
+        console.log("Raw response from permit action:", result.response);
+        
+        // Simple approach for consistent extraction
+        const responseStr = result.response.toString();
+        
+        // Check if the response itself is the hash (starts with 0x and has ~66 chars)
+        if (responseStr.startsWith('0x') && responseStr.length >= 66) {
+          console.log("Response appears to be a direct transaction hash");
+          return { txHash: responseStr.substring(0, 66) };
+        }
+        
+        // If the response has quotes, it might be a JSON string
+        if (responseStr.includes('"')) {
+          try {
+            // Remove any extra quotes or formatting
+            const cleaned = responseStr.replace(/^["']+|["']+$/g, '');
+            const parsed = JSON.parse(cleaned);
+            
+            if (typeof parsed === 'string' && parsed.startsWith('0x')) {
+              console.log("Found hash in parsed JSON string:", parsed);
+              return { txHash: parsed };
+            }
+            
+            if (parsed && typeof parsed === 'object') {
+              const hash = 
+                parsed.txHash || 
+                parsed.hash || 
+                parsed.transactionHash || 
+                (typeof parsed.response === 'string' && parsed.response.startsWith('0x') ? parsed.response : null);
+              
+              if (hash) {
+                console.log("Found hash in parsed JSON object:", hash);
+                return { txHash: hash };
+              }
+            }
+          } catch (e) {
+            console.log("JSON parsing failed, will try regex extraction");
+          }
+        }
+        
+        // Fallback to regex extraction
+        const hashMatch = responseStr.match(/0x[a-fA-F0-9]{64}/);
+        if (hashMatch) {
+          console.log("Extracted tx hash using regex:", hashMatch[0]);
+          return { txHash: hashMatch[0] };
+        }
+        
+        // If we got here, we don't have a transaction hash - try using a hardcoded hash for debugging
+        console.error("Could not extract a transaction hash from response");
+        throw new Error("Could not extract transaction hash from response");
       } catch (error) {
-        throw new Error('Failed to parse transaction hash');
+        console.error("Error in permit action execution:", error);
+        throw new Error(`Permit action failed: ${error.message}`);
       }
     },
   });
