@@ -183,6 +183,37 @@ export const bolsaRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/bolsa',
   component: BolsaRoute,
+  onError: ({ error }) => console.error(error),
+
+  beforeLoad: ({ context }) => {
+    routingLogger.debug('bolsa route -> beforeLoad invoked');
+
+    const { queryClient, auth } = context
+    if (!auth || !auth.isSuccess) {
+      routingLogger.debug('bolsa route: auth not ready, returning early.');
+      return
+    }
+
+    const { isOnboarded, isLitLoggedIn } = loungeRouteQueries(queryClient)
+    routingLogger.info(`bolsa route: isLitLoggedIn=${isLitLoggedIn}, isOnboarded=${isOnboarded}`);
+
+    if (isLitLoggedIn && isOnboarded === false) {
+      routingLogger.info('bolsa route -> redirect to /onboard');
+      throw redirect({ to: '/onboard' });
+    }
+    if (!isLitLoggedIn && isOnboarded === false) {
+      routingLogger.info('bolsa route -> redirect to /');
+      throw redirect({ to: '/' });
+    }
+    if (!isLitLoggedIn) {
+      routingLogger.info('bolsa route -> redirect to /login');
+      throw redirect({ to: '/login' });
+    }
+    if (isOnboarded === false) {
+      routingLogger.info('bolsa route -> redirect to /');
+      throw redirect({ to: '/' });
+    }
+  },
 })
 
 // /room/$id

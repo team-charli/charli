@@ -39,7 +39,7 @@ const permitAction = async () => {
         env: env,
         callingActionId: Lit.Auth.actionIpfsIds[Lit.Auth.actionIpfsIds.length - 1],
         txData: permitTxData,
-        daiContractAddress: daiContractAddress,
+        usdcContractAddress: usdcContractAddress,
         rpcChain: rpcChain,
         rpcChainId: rpcChainId,
       },

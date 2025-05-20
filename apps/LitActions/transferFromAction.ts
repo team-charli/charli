@@ -68,7 +68,7 @@ async () => {
 
     const abi = [ "function transferFrom(address from, address to, uint256 value) returns (bool)" ];
 
-    const contract = new ethers.Contract(daiContractAddress, abi);
+    const contract = new ethers.Contract(usdcContractAddress, abi);
     const amountBigNumber = ethers.utils.parseUnits(amount, 6);
 
     const txData = contract.interface.encodeFunctionData("transferFrom", [decryptedLearnerAddress, controllerAddress, amountBigNumber]);
@@ -82,7 +82,7 @@ async () => {
             rpcChain,
             rpcChainId,
             accessControlConditions,
-            daiContractAddress,
+            usdcContractAddress,
             txData,
             learnerAddressCiphertext,
             learnerAddressEncryptHash,
@@ -118,7 +118,7 @@ async () => {
     //   learnerAddress: decryptedLearnerAddress,
     //   controllerAddress: controllerAddress,
     //   amount: amount,
-    //   daiContractAddress: daiContractAddress,
+    //   usdcContractAddress: usdcContractAddress,
     //   sessionId: sessionId,
     //   timestamp: Date.now()
     // };

@@ -3,7 +3,9 @@ import {Link} from '@tanstack/react-router';
 const MoneyBag = () => {
   return (
     <Link 
-      href="/bolsa" 
+      to="/bolsa"
+      from="/"
+      preload="intent"
       className="inline-block transform transition-transform duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-300 rounded-full p-1"
     >
       <div className="relative">

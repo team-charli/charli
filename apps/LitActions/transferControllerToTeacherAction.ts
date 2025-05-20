@@ -8,7 +8,7 @@
  * @param {string} learnerAddressCiphertext - Encrypted learner's Ethereum address
  * @param {string} learnerAddressEncryptHash - Hash used for learner address decryption
  * @param {string} controllerAddress - Ethereum address of the controller PKP holding the funds
- * @param {string} daiContractAddress - Address of the DAI token contract
+ * @param {string} usdcContractAddress - Address of the USDC token contract
  * @param {string} relayerIpfsId - IPFS CID of the relayer action
  * @param {string} env - Environment identifier (e.g. 'dev')
  * @param {string} rpcChain - RPC chain identifier
@@ -36,12 +36,12 @@ const transferControllerToTeacherAction = async () => {
     };
 
 
-    const daiAbi = ["function balanceOf(address) view returns (uint256)", "function transfer(address to, uint256 value) returns (bool)"];
+    const usdcAbi = ["function balanceOf(address) view returns (uint256)", "function transfer(address to, uint256 value) returns (bool)"];
     const rpcUrl = await Lit.Actions.getRpcUrl(rpcChain)
     const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-    const daiContract = new ethers.Contract(daiContractAddress, daiAbi, provider);
+    const usdcContract = new ethers.Contract(usdcContractAddress, usdcAbi, provider);
 
-    const amountBigNumber = await daiContract.balanceOf(controllerAddress);
+    const amountBigNumber = await usdcContract.balanceOf(controllerAddress);
 
     // Decrypt teacher and learner addresses
     let decryptedTeacherAddress, decryptedLearnerAddress;
@@ -80,8 +80,8 @@ const transferControllerToTeacherAction = async () => {
       recipientAddress = teacherData.isFault ? decryptedLearnerAddress : decryptedTeacherAddress;
     }
 
-    // Set up DAI transfer
-    const txData = daiContract.interface.encodeFunctionData("transfer", [
+    // Set up USDC transfer
+    const txData = usdcContract.interface.encodeFunctionData("transfer", [
       recipientAddress,
       amountBigNumber
     ]);
@@ -96,7 +96,7 @@ const transferControllerToTeacherAction = async () => {
             callingActionId: Lit.Auth.actionIpfsIds[0],
             rpcChain,
             rpcChainId,
-            daiContractAddress,
+            usdcContractAddress,
             txData,
             controllerAddress
           }

@@ -62,4 +62,17 @@ lit_storage
 
 .lit-actions-cache.json
 .log
-scripts/logs
+/scripts/logs/
+# ── ignore everything inside mock-usdc ─────────────────────────────
+scripts/mock-usdc/*
+
+
+# ── except the two things you care about ──────────────────────────
+!scripts/mock-usdc/contracts/
+!scripts/mock-usdc/contracts/**        # the .sol file(s)
+
+!scripts/mock-usdc/broadcast/Deploy.s.sol/84532/run-latest.json
+
+# keep latest broadcast
+!scripts/mock-usdc/broadcast/Deploy.s.sol/84532/run-latest.json
+>>>>>>> feature/bolsa-fixed

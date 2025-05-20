@@ -16,7 +16,7 @@ const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 const FINALIZE_LIT_ACTION_IPFS_CID = Deno.env.get('FINALIZE_LIT_ACTION_IPFS_CID') ?? "";
 
 // Optional environment references (customize or remove as needed):
-const daiContractAddress = Deno.env.get('DAI_CONTRACT_ADDRESS_BASE_SEPOLIA');
+const usdcContractAddress = Deno.env.get('USDC_CONTRACT_ADDRESS_BASE_SEPOLIA');
 const relayerIpfsId = Deno.env.get('RELAYER_IPFS_ID');
 const env = Deno.env.get('ACTION_ENV');
 const rpcChain = Deno.env.get('ACTION_RPC_CHAIN');
@@ -114,7 +114,7 @@ app.post('/', async (c) => {
         controllerAddress,
         finalizeEdgeAddress,
         accessControlConditions,
-        daiContractAddress,
+        usdcContractAddress,
         relayerIpfsId,
         env,
         rpcChain,

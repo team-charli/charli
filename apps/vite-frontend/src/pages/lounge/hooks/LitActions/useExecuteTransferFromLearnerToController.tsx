@@ -10,7 +10,7 @@ export const useExecuteTransferFromLearnerToController = () => {
   ) => {
 
     const transferFromActionIpfsId = import.meta.env.VITE_TRANSFER_FROM_ACTION_IPFSID;
-    const daiContractAddress= import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
+    const usdcContractAddress= import.meta.env.VITE_USDC_CONTRACT_ADDRESS_BASE_SEPOLIA;
     const rpcChainId = import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA;
     const ethereumRelayerPublicKey = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
     const relayerIpfsId = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_ACTION_IPFS_ID;
@@ -38,7 +38,7 @@ export const useExecuteTransferFromLearnerToController = () => {
         learnerAddressCiphertext: learnerAddressCipherText,
         learnerAddressEncryptHash,
         controllerAddress,
-        daiContractAddress,
+        usdcContractAddress,
         sessionDataLearnerSig: requestedSessionDurationLearnerSig,
         sessionDataTeacherSig: requestedSessionDurationTeacherSig,
         sessionDuration,

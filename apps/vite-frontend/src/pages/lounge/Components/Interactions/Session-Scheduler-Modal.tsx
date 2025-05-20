@@ -57,7 +57,7 @@ function DayPicker({ selectedDay, onSelect }: DayPickerProps) {
           const dayIndex = today.getDay();
           const daysFromToday = (days.indexOf(day) - dayIndex + 7) % 7;
           const dayDate = new Date(today.getTime() + (daysFromToday + 2) * 86400000); // +2 to start after tomorrow
-          
+
           return (
             <Button
               key={day}
@@ -310,11 +310,11 @@ interface ConfirmSessionProps {
   userName: string
   date: string
   sessionDuration: number
-  daiAmount: string
+  usdcAmount: string
   onConfirm: () => Promise<void>
 }
 
-function ConfirmSession({ userName, date, sessionDuration, daiAmount, onConfirm }: ConfirmSessionProps) {
+function ConfirmSession({ userName, date, sessionDuration, usdcAmount, onConfirm }: ConfirmSessionProps) {
   // Track whether the "Confirm" button has been clicked
   const [confirmDisabled, setConfirmDisabled] = React.useState(false);
 
@@ -347,7 +347,7 @@ function ConfirmSession({ userName, date, sessionDuration, daiAmount, onConfirm 
       </p>
 
       <p className="text-base">
-        After {userName} confirms your session, {daiAmount} will be{" "}
+        After {userName} confirms your session, {usdcAmount} will be{" "}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger className="text-blue-600 underline">
@@ -499,7 +499,7 @@ export function SessionSchedulerModal({
             userName={userName}
             date={dateLabel}
             sessionDuration={sessionDuration}
-            daiAmount={`${(sessionDuration * 0.3).toFixed(2)} DAI`}
+            usdcAmount={`${(sessionDuration * 0.3).toFixed(2)} USDC`}
             onConfirm={handleConfirmSubmission}
           />
         )
@@ -534,11 +534,11 @@ export function SessionSchedulerModal({
             </div>
           </div>
         </DialogHeader>
-        
+
         <div className="overflow-y-auto px-1 flex-grow max-h-[calc(80vh-100px)] sm:max-h-[450px]">
           {renderScreen()}
         </div>
-        
+
         {step > 1 && (
           <div className="mt-4 sm:mt-5 flex justify-start">
             <Button
