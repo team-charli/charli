@@ -122,16 +122,16 @@ export const useLearningRequestMutations = () => {
         const contractName = await usdcContract.name();
         console.log("USDC Contract name:", contractName);
 
-        // Full typed-data domain - use actual contract values
+        // Full typed-data domain - use actual Circle USDC contract values
         const domain = {
           name: contractName,
-          version: '1',
+          version: '2', // Circle's USDC uses version 2
           chainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
           verifyingContract: usdcContractAddress,
         };
         console.log("Domain used for signing:", domain);
 
-        // USDC Permit type structure
+        // USDC Permit type structure - matching Circle's USDC EIP-2612 implementation
         const types = {
           Permit: [
             { name: 'owner', type: 'address' },
@@ -143,6 +143,7 @@ export const useLearningRequestMutations = () => {
         };
         console.log("Types used for signing:", types);
 
+        // Include nonce in the message - Circle's USDC implementation requires it
         const message = { owner, spender, value, nonce, deadline };
 
         const signature = await pkpWallet._signTypedData(domain, types, message);
