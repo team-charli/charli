@@ -10,7 +10,9 @@ import LocalPeerView from "./Components/LocalPeerView";
 import RemotePeerView from "./Components/RemotePeerView";
 import ControlRibbon from "./Components/ControlRibbon";
 import { useAudioPipeline } from "./hooks/useAudioPipeline";
-import { useComprehensiveHuddleMonitor } from "./hooks/usePeerConnectionMonitor";
+import { usePeerConnectionMonitor } from "./hooks/usePeerConnectionMonitor";
+import { useRoboAudioPlayer } from './hooks/useRoboAudioPlayer';
+
 import useBellListener from "./hooks/useBellListener";
 
 export default function Room() {
@@ -54,23 +56,27 @@ export default function Room() {
    */
   const { peerId: localPeerId } = useLocalPeer();
 
+  const isRoboMode = import.meta.env.VITE_ROBO_MODE === 'true';
+
+  useRoboAudioPlayer(isRoboMode, roomId);
+
   const uploadUrl = useMemo(() => {
     if (!localPeerId) return null;
-    return `https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=${localPeerId}&role=${roomRole}`;
-  }, [roomId, localPeerId, roomRole]);
+    let url =  `https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=${localPeerId}&role=${roomRole}`;
 
-  /**
-   * 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn).
-   */
+    if (isRoboMode) url += `&roboMode=true`;
+
+    return url;
+  }, [roomId, localPeerId, roomRole, isRoboMode]);
+
+  /** 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn). */
   const { isRecording, cleanupAudio } = useAudioPipeline({
     localAudioStream,
     isAudioOn,
     uploadUrl,
   });
 
-  /**
-   * 6) Enable mic once uploadUrl is valid (so pipeline captures from first sample)
-   */
+  /** 6) Enable mic once uploadUrl is valid (so pipeline captures from first sample) */
   useEffect(() => {
     if (!uploadUrl) return;
     if (!isAudioOn) {
@@ -79,9 +85,7 @@ export default function Room() {
     }
   }, [uploadUrl, isAudioOn, enableAudio]);
 
-  /**
-   * 7) Optionally auto-enable video once "connected"
-   */
+  /** 7) Optionally auto-enable video once "connected" */
   useEffect(() => {
     if (roomJoinState === "connected" && !isVideoOn) {
       console.log("[Room] => enabling video now that we are connected...");
@@ -89,20 +93,14 @@ export default function Room() {
     }
   }, [roomJoinState, isVideoOn, enableVideo]);
 
-  /**
-   * 8) We'll consider ourselves "connected" if Huddle state is "connected"
-   */
+  /** 8) We'll consider ourselves "connected" if Huddle state is "connected" */
   const isRoomConnected = roomJoinState === "connected";
 
-  /**
-   * 9) Misc. custom events + monitor
-   */
+  /** 9) Misc. custom events + monitor */
   useBellListener();
-  useComprehensiveHuddleMonitor(localAudioStream);
+  usePeerConnectionMonitor(localAudioStream);
 
-  /**
-   * 10) Transcript WebSocket
-   */
+  /** 10) Transcript WebSocket */
   useEffect(() => {
     const ws = new WebSocket(`wss://learner-assessment-worker.charli.chat/connect/${roomId}`);
     ws.onopen = () => console.log("[TranscriptListener] WebSocket connected.");
@@ -126,9 +124,7 @@ export default function Room() {
     return () => ws.close();
   }, [roomId]);
 
-  /**
-   * 11) Leave the room
-   */
+  /** 11) Leave the room */
   const { leaveRoom } = useRoomLeave(roomId);
 
   async function handleEndSession() {
@@ -146,7 +142,8 @@ export default function Room() {
 
       // optionally finalize with the server
       if (uploadUrl) {
-        const response = await fetch(`${uploadUrl}?action=end-session`, { method: "POST" });
+        const endUrl = `${uploadUrl}&action=end-session`;
+        const response = await fetch(endUrl, { method: "POST" });
         if (!response.ok) throw new Error("Server finalization failed");
         console.log("[Room] => server finalization triggered");
       }
@@ -169,7 +166,7 @@ export default function Room() {
       <div className="w-full">
         <ControlRibbon />
       </div>
-      
+
       {/* Main content area */}
       <div className="flex-grow overflow-hidden flex flex-col sm:flex-row w-full">
         {/* Left side: local user (on mobile, this appears below the remote peer) */}
@@ -181,14 +178,14 @@ export default function Room() {
               isRecording={isRecording}
             />
           </div>
-          
+
           <div className="p-3 sm:p-4">
             <button
               onClick={handleEndSession}
-              className="w-full px-3 sm:px-4 py-2 sm:py-3 
-                      bg-red-600 hover:bg-red-700 active:bg-red-800 
-                      text-white text-sm sm:text-base font-medium 
-                      rounded-lg shadow-sm 
+              className="w-full px-3 sm:px-4 py-2 sm:py-3
+                      bg-red-600 hover:bg-red-700 active:bg-red-800
+                      text-white text-sm sm:text-base font-medium
+                      rounded-lg shadow-sm
                       transition-colors duration-200
                       flex items-center justify-center gap-2"
             >
@@ -221,11 +218,11 @@ export default function Room() {
           )}
         </div>
       </div>
-      
+
       {/* Fixed controls at the bottom */}
       <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
         <div className="bg-gray-800 bg-opacity-75 backdrop-blur-sm rounded-full px-3 sm:px-4 py-2 sm:py-3 shadow-lg flex items-center gap-2 sm:gap-3">
-          <button 
+          <button
             className={`p-2 sm:p-3 rounded-full ${isAudioOn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
             onClick={() => isAudioOn ? disableAudio() : enableAudio()}
           >
@@ -233,8 +230,8 @@ export default function Room() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
           </button>
-          
-          <button 
+
+          <button
             className={`p-2 sm:p-3 rounded-full ${isVideoOn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
             onClick={() => isVideoOn ? disableVideo() : enableVideo()}
           >
@@ -242,8 +239,8 @@ export default function Room() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
           </button>
-          
-          <button 
+
+          <button
             onClick={handleEndSession}
             className="bg-red-600 hover:bg-red-700 text-white p-2 sm:p-3 rounded-full"
           >

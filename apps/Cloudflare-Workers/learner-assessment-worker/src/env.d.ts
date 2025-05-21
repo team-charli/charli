@@ -11,6 +11,7 @@ export interface Env {
 	AI: Ai;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	SUPABASE_URL: string;
+  ROBO_TEST_DO: Service<RoboTestDO>;
 	SCORECARD_ORCHESTRATOR_DO:DurableObjectNamespace<ScorecardOrchestratorDO>
 }
 // env.ts

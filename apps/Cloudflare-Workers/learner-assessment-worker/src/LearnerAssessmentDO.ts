@@ -2,88 +2,260 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
+/** A diarized ASR segment returned by `runAsrOnWav` */
 interface TranscribedSegment {
 	peerId: string;
 	role: string;
 	text: string;
-	// start time in seconds offset from the first chunk's serverTime
-	// If you want sub-second alignment, we store chunk timestamps in DO
-	start: number;
+	start: number; // seconds offset from session start
 }
+
+type SessionMode = 'robo' | 'normal';
 
 export class LearnerAssessmentDO extends DurableObject<Env> {
 	private app = new Hono();
 	protected state: DurableObjectState;
 
+	/* ──────────────────────────────── runtime state ─────────────────────────────── */
+	private learnerDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private currentUtteranceChunks: Uint8Array[] = [];
+
 	constructor(state: DurableObjectState, env: Env) {
 		super(state, env);
 		this.state = state;
 
+		/* ────────── POST /audio/:roomId ────────── */
 		this.app.post('/audio/:roomId', async (c) => {
+			/* 1.  params / query  */
 			const roomId = c.req.param('roomId');
-			const action = c.req.query('action');
-			const sessionId = c.req.param('sessionId');
-			const learnerId = c.req.param('learnerId');
+			const q      = c.req.query();
+			const action = q['action'];
+			const role   = q['role']     ?? 'unknown';
+			const peerId = q['peerId']   ?? 'unknown';
 
-			if (sessionId && learnerId) {
-				await this.state.storage.put('sessionId', Number(sessionId));
-				await this.state.storage.put('learnerId', Number(learnerId));
+			const requestedRobo = q['roboMode'] === 'true';
+			const sessionIdStr  = q['sessionId'];
+			const learnerIdStr  = q['learnerId'];
+
+			/* 2.  store session-metadata once, or early-exit on end-session */
+			if (sessionIdStr && learnerIdStr) {
+				await this.storeSessionMetadata(Number(sessionIdStr), Number(learnerIdStr));
 			}
 			if (action === 'end-session') {
-				console.log('[LearnerAssessmentDO] End-session triggered');
+				console.log('[LearnerAssessmentDO] end-session');
 				await this.transcribeAndDiarizeAll(roomId);
 				return c.json({ status: 'transcription completed' });
 			}
 
-			const role = c.req.query('role') ?? 'unknown';
-			const peerId = c.req.query('peerId') ?? 'unknown';
-			const chunk = new Uint8Array(await c.req.arrayBuffer());
-			if (chunk.length === 0) {
-				return c.text('No audio data', 400);
-			}
-			console.log(`[LearnerAssessmentDO] Received PCM chunk from peerId=${peerId}, role=${role}, size=${chunk.length}`);
+			/* 3.  set session mode once (robo|normal) */
+			await this.initializeSessionMode(requestedRobo);
 
-			if (chunk.length > 131072) {
-				console.error(`[LearnerAssessmentDO] Chunk size ${chunk.length} > 131072`);
+			/* 4.  read + validate chunk */
+			const chunk = new Uint8Array(await c.req.arrayBuffer());
+			if (chunk.length === 0)            return c.text('No audio data', 400);
+			if (chunk.length > 131_072) {
+				console.error(`[LearnerAssessmentDO] chunk ${chunk.length} > 131_072`);
 				return c.text('Chunk too large', 400);
 			}
 
-			const peerChunkCounterKey = `chunkCounter:${peerId}`;
-			let chunkCounter = (await this.state.storage.get<number>(peerChunkCounterKey)) || 0;
-			const pcmKey = `${roomId}/${peerId}/pcm/${chunkCounter}.pcm`;
-			await this.env.AUDIO_BUCKET.put(pcmKey, chunk.buffer);
-			const serverTimestamp = Date.now();
-			await this.state.storage.put(`${pcmKey}:timestamp`, serverTimestamp);
-			await this.state.storage.put(`${pcmKey}:role`, role);
-			await this.state.storage.put(`${pcmKey}:peerId`, peerId);
-			chunkCounter++;
-			await this.state.storage.put(peerChunkCounterKey, chunkCounter);
+			/* 5.  persist chunk & optional robo flow */
+			console.log(`[LearnerAssessmentDO] pcm peer=${peerId} role=${role} size=${chunk.length}`);
+			await this.savePcmChunk(roomId, peerId, role, chunk);
 
-			const batchSize = 87;
-			const justStoredIndex = chunkCounter - 1;
-			if (justStoredIndex % batchSize === batchSize - 1 || justStoredIndex === 0) {
-				const startChunk = Math.floor(justStoredIndex / batchSize) * batchSize;
-				const endChunk = justStoredIndex;
-				try {
-					const wavKey = await this.convertPcmBatchToWav(roomId, peerId, startChunk, endChunk);
-					console.log(`[LearnerAssessmentDO] Generated partial WAV: ${wavKey}`);
-					const wavKeysKey = `wavKeys:${peerId}`;
-					const existingWavKeys = (await this.state.storage.get<string[]>(wavKeysKey)) || [];
-					existingWavKeys.push(wavKey);
-					await this.state.storage.put(wavKeysKey, existingWavKeys);
-				} catch (err) {
-					console.error(`[LearnerAssessmentDO] Partial conversion failed for peerId=${peerId}, ${startChunk}-${endChunk}`, err);
-				}
+			if (await this.getSessionMode() === 'robo') {
+				await this.generateAndSaveRoboChunk(roomId, peerId, chunk);
 			}
 
-			return c.text('chunk received', 200);
+			return c.text('chunk received');
 		});
 	}
 
+	/* ──────────────────────────────── Durable Object fetch ───────────────────────── */
 	async fetch(request: Request) {
 		return this.app.fetch(request);
+	}
+
+	/* ──────────────────────── session-mode helpers (storage only) ─────────────────── */
+	private async getSessionMode(): Promise<SessionMode> {
+		return (await this.state.storage.get<boolean>('roboMode')) ? 'robo' : 'normal';
+	}
+
+	private async initializeSessionMode(requestedRobo: boolean | undefined) {
+		if ((await this.state.storage.get('roboMode')) !== undefined) return; // already decided
+		const final = requestedRobo ?? false;
+		await this.state.storage.put('roboMode', final);
+		console.log(`[LearnerAssessmentDO] mode ${final ? 'robo' : 'normal'}`);
+	}
+
+	private async storeSessionMetadata(sessionId: number, learnerId: number) {
+		await this.state.storage.put('sessionId', sessionId);
+		await this.state.storage.put('learnerId', learnerId);
+	}
+
+	/* ───────────────────────────── learner → robo round-trip ─────────────────────── */
+	private async generateAndSaveRoboChunk(
+		roomId: string,
+		learnerPeerId: string,
+		learnerChunk: Uint8Array
+	) {
+		/* 0. collect chunks during debounce window */
+		this.currentUtteranceChunks.push(learnerChunk);
+		if (this.learnerDebounceTimer) clearTimeout(this.learnerDebounceTimer);
+
+		this.learnerDebounceTimer = setTimeout(async () => {
+			if (this.currentUtteranceChunks.length === 0) return;
+
+			try {
+				/* 1) pcm → learnerText */
+				const utterance   = this.concatChunks(this.currentUtteranceChunks);
+				const learnerText = await this.transcribeLearnerUtterance(utterance);
+				if (!learnerText) return;
+
+				/* 2) fetch robo reply (text + pcm) */
+				const roboDO = this.env.ROBO_TEST_DO.get(this.env.ROBO_TEST_DO.idFromName(roomId));
+				const res    = await roboDO.fetch('http://robo-test-mode/robo-teacher-reply', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ userText: learnerText, roomId })
+				});
+				if (!res.ok) {
+					console.error('[LearnerAssessmentDO] robo HTTP', res.status);
+					return;
+				}
+				const { replyText, pcmBase64 } = await res.json<{ replyText: string; pcmBase64: string }>();
+
+				/* 3) broadcast subtitle */
+				await this.broadcastToRoom(roomId, 'roboReplyText', { text: replyText });
+
+				/* 4) decode pcm → save via normal pipeline (peerId:"roboPeer", role:"teacher") */
+				const roboPcm = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0));
+				const MAX = 131_072;
+				for (let o = 0; o < roboPcm.length; o += MAX) {
+					await this.savePcmChunk(roomId, 'roboPeer', 'teacher', roboPcm.subarray(o, o + MAX));
+				}
+				console.log(`[LearnerAssessmentDO] stored robo reply (${roboPcm.length} bytes)`);
+			} catch (err) {
+				console.error('[LearnerAssessmentDO] robo reply error:', err);
+			} finally {
+				this.currentUtteranceChunks = [];
+			}
+		}, 4000);
+	}
+
+	/* ────────────────────────────── chunk persistence helpers ────────────────────── */
+	private async savePcmChunk(roomId: string, peerId: string, role: string, chunk: Uint8Array) {
+		const counterKey = `chunkCounter:${peerId}`;
+		let idx          = (await this.state.storage.get<number>(counterKey)) || 0;
+
+		const pcmKey = `${roomId}/${peerId}/pcm/${idx}.pcm`;
+		await this.env.AUDIO_BUCKET.put(pcmKey, chunk.buffer);
+
+		const now = Date.now();
+		await this.state.storage.put(`${pcmKey}:timestamp`, now);
+		await this.state.storage.put(`${pcmKey}:role`, role);
+		await this.state.storage.put(`${pcmKey}:peerId`, peerId);
+
+		idx++;
+		await this.state.storage.put(counterKey, idx);
+
+		/* batch-to-wav every 87 chunks (unchanged) */
+		const BATCH = 87;
+		if ((idx - 1) % BATCH === BATCH - 1 || idx === 1) {
+			const start = Math.floor((idx - 1) / BATCH) * BATCH;
+			const end   = idx - 1;
+			try {
+				const wavKey = await this.convertPcmBatchToWav(roomId, peerId, start, end);
+				const wavListKey = `wavKeys:${peerId}`;
+				const existing   = (await this.state.storage.get<string[]>(wavListKey)) || [];
+				existing.push(wavKey);
+				await this.state.storage.put(wavListKey, existing);
+			} catch (err) {
+				console.error('[LearnerAssessmentDO] partial WAV convert failed', err);
+			}
+		}
+	}
+
+	/* ───────────────────────── private util helpers (unchanged) ──────────────────── */
+	private concatChunks(chunks: Uint8Array[]) {
+		const len = chunks.reduce((s, c) => s + c.length, 0);
+		const out = new Uint8Array(len);
+		let o = 0;
+		for (const c of chunks) { out.set(c, o); o += c.length; }
+		return out;
+	}
+
+	private async transcribeLearnerUtterance(buf: Uint8Array): Promise<string> {
+		try {
+			const provider    = this.env.TRANSCRIBE_PROVIDER || 'aws';
+			const endpoint    = provider === 'huggingface'
+				? 'https://router.huggingface.co/hf-inference/models/facebook/wav2vec2-large-xlsr-53-spanish'
+				: 'http://<aws-spot-ip>:5000/transcribe';
+
+			const headers: Record<string,string> = { 'Content-Type': 'audio/wav' };
+			if (provider === 'huggingface') {
+				headers['Authorization'] = `Bearer ${this.env.LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN}`;
+			}
+
+			const r = await fetch(endpoint, { method: 'POST', headers, body: buf });
+			if (!r.ok) throw new Error(await r.text());
+			const { text } = await r.json<{ text: string }>();
+			return text ?? '';
+		} catch (e) {
+			console.error('[LearnerAssessmentDO] ASR exception:', e);
+			return '';
+		}
+	}
+	private async convertPcmBatchToWav(roomId: string, peerId: string, startChunk: number, endChunk: number) {
+		const body = JSON.stringify({ roomId, startChunk, endChunk });
+		const response = await this.env.PCM_TO_WAV_WORKER.fetch(`http://pcm-to-wav-worker/convert/${roomId}`, {
+			method: 'POST',
+			body
+		});
+		if (!response.ok) {
+			const errText = await response.text();
+			throw new Error(`PCM->WAV conversion error: ${errText}`);
+		}
+		return await response.text();
+	}
+
+
+	private async runAsrOnWav(roomId: string, wavKey: string, peerId: string, role: string): Promise<TranscribedSegment[]> {
+		const wavObject = await this.env.AUDIO_BUCKET.get(wavKey);
+		if (!wavObject) throw new Error(`WAV not found: ${wavKey}`);
+		const wavData = await wavObject.arrayBuffer();
+
+		const provider = this.env.TRANSCRIBE_PROVIDER || 'aws';
+		const awsEndpoint = (provider === 'huggingface')
+			? 'https://router.huggingface.co/hf-inference/models/facebook/wav2vec2-large-xlsr-53-spanish'
+			: 'http://<aws-spot-ip>:5000/transcribe';
+
+		const headers: Record<string, string> = { 'Content-Type': 'audio/wav' };
+		if (provider === 'huggingface') {
+			headers['Authorization'] = `Bearer ${this.env.LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN}`;
+		}
+
+		const res = await fetch(awsEndpoint, { method: 'POST', headers, body: wavData });
+		if (!res.ok) {
+			const errorText = await res.text();
+			throw new Error(`Transcription failed: ${errorText}`);
+		}
+
+		const json = await res.json<{
+			text?: string;
+			segments?: Array<{ start: number; end: number; text: string }>;
+		}>();
+
+		if (!json.segments || json.segments.length === 0) {
+			const text = json.text || "";
+			return [{ peerId, role, start: 0, text }];
+		}
+		return json.segments.map(s => ({
+			peerId,
+			role,
+			start: s.start,
+			text: s.text,
+		}));
 	}
 
 	private async transcribeAndDiarizeAll(roomId: string) {
@@ -159,81 +331,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		await this.cleanupAll(roomId, peerIds);
 	}
 
-	private async convertPcmBatchToWav(roomId: string, peerId: string, startChunk: number, endChunk: number) {
-		const body = JSON.stringify({ roomId, startChunk, endChunk });
-		const response = await this.env.PCM_TO_WAV_WORKER.fetch(`http://pcm-to-wav-worker/convert/${roomId}`, {
-			method: 'POST',
-			body
-		});
-		if (!response.ok) {
-			const errText = await response.text();
-			throw new Error(`PCM->WAV conversion error: ${errText}`);
-		}
-		return await response.text();
-	}
-
-	private async transcribePeerWavs(roomId: string, peerId: string): Promise<TranscribedSegment[]> {
-		const wavKeysKey = `wavKeys:${peerId}`;
-		const wavKeys = (await this.state.storage.get<string[]>(wavKeysKey)) || [];
-		if (wavKeys.length === 0) {
-			console.log(`[transcribePeerWavs] No wavKeys for peerId=${peerId}`);
-			return [];
-		}
-
-		const role = await this.getPeerRole(roomId, peerId);
-		const segments: TranscribedSegment[] = [];
-		for (const wavKey of wavKeys) {
-			const asrSegments = await this.runAsrOnWav(roomId, wavKey, peerId, role);
-			segments.push(...asrSegments);
-		}
-		return segments;
-	}
-
-	private async getPeerRole(roomId: string, peerId: string): Promise<string> {
-		const firstChunkKey = `${roomId}/${peerId}/pcm/0.pcm:role`;
-		const role = (await this.state.storage.get<string>(firstChunkKey)) || "unknown";
-		return role;
-	}
-
-	private async runAsrOnWav(roomId: string, wavKey: string, peerId: string, role: string): Promise<TranscribedSegment[]> {
-		const wavObject = await this.env.AUDIO_BUCKET.get(wavKey);
-		if (!wavObject) throw new Error(`WAV not found: ${wavKey}`);
-		const wavData = await wavObject.arrayBuffer();
-
-		const provider = this.env.TRANSCRIBE_PROVIDER || 'aws';
-		const awsEndpoint = (provider === 'huggingface')
-			? 'https://router.huggingface.co/hf-inference/models/facebook/wav2vec2-large-xlsr-53-spanish'
-			: 'http://<aws-spot-ip>:5000/transcribe';
-
-		const headers: Record<string, string> = { 'Content-Type': 'audio/wav' };
-		if (provider === 'huggingface') {
-			headers['Authorization'] = `Bearer ${this.env.LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN}`;
-		}
-
-		const res = await fetch(awsEndpoint, { method: 'POST', headers, body: wavData });
-		if (!res.ok) {
-			const errorText = await res.text();
-			throw new Error(`Transcription failed: ${errorText}`);
-		}
-
-		const json = await res.json<{
-			text?: string;
-			segments?: Array<{ start: number; end: number; text: string }>;
-		}>();
-
-		if (!json.segments || json.segments.length === 0) {
-			const text = json.text || "";
-			return [{ peerId, role, start: 0, text }];
-		}
-
-		return json.segments.map(s => ({
-			peerId,
-			role,
-			start: s.start,
-			text: s.text,
-		}));
-	}
-
 	private async mergePeerTranscripts(allSegments: TranscribedSegment[]): Promise<string> {
 		allSegments.sort((a, b) => a.start - b.start);
 		const lines = allSegments.map(seg => {
@@ -279,5 +376,27 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			body: JSON.stringify({ type, data }),
 		});
 	}
-}
 
+	private async transcribePeerWavs(roomId: string, peerId: string): Promise<TranscribedSegment[]> {
+		const wavKeysKey = `wavKeys:${peerId}`;
+		const wavKeys = (await this.state.storage.get<string[]>(wavKeysKey)) || [];
+		if (wavKeys.length === 0) {
+			console.log(`[transcribePeerWavs] No wavKeys for peerId=${peerId}`);
+			return [];
+		}
+
+		const role = await this.getPeerRole(roomId, peerId);
+		const segments: TranscribedSegment[] = [];
+		for (const wavKey of wavKeys) {
+			const asrSegments = await this.runAsrOnWav(roomId, wavKey, peerId, role);
+			segments.push(...asrSegments);
+		}
+		return segments;
+	}
+
+	private async getPeerRole(roomId: string, peerId: string): Promise<string> {
+		const firstChunkKey = `${roomId}/${peerId}/pcm/0.pcm:role`;
+		const role = (await this.state.storage.get<string>(firstChunkKey)) || "unknown";
+		return role;
+	}
+}
