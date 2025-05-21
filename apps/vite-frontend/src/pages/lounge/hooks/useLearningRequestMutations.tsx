@@ -53,7 +53,7 @@ export const useLearningRequestMutations = () => {
       secureSessionId: string;
     }) => {
       if (!pkpWallet) throw new Error('Wallet not initialized');
-      // 1. Construct the raw “session duration data” that you want both parties to sign
+      // 1. Construct the raw "session duration data" that you want both parties to sign
       const encodedData = ethers.concat([
         ethers.toUtf8Bytes(secureSessionId),
         ethers.toBeHex(sessionDuration),
@@ -83,17 +83,12 @@ export const useLearningRequestMutations = () => {
 >({
     mutationFn: async (params) => {
       try {
-        const relayerAddress = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS;
-        const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS_BASE_SEPOLIA;
-
-        console.log({relayerAddress, usdcContractAddress});
-        if (!relayerAddress || !usdcContractAddress) throw new Error(`don't have vite imports`)
-
         const { provider, amountScaled, secureSessionId, requestedSessionDurationLearnerSig, sessionDuration } = params;
+        const relayerAddress = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS;
 
         if (!pkpWallet) throw new Error('Wallet not initialized');
 
-        console.log('usdcContractAddress', usdcContractAddress)
+        const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS_BASE_SEPOLIA;
         const usdcABI = [
           'function name() view returns (string)',
           'function nonces(address owner) view returns (uint256)',
@@ -101,7 +96,6 @@ export const useLearningRequestMutations = () => {
           'function allowance(address owner, address spender) view returns (uint256)'
         ];
         const usdcContract = new ethers.Contract(usdcContractAddress, usdcABI, provider);
-        console.log('usdcABI', usdcABI)
 
         const currentAllowance = await usdcContract.allowance(pkpWallet.address, relayerAddress);
         if (currentAllowance >= amountScaled) {
@@ -115,23 +109,23 @@ export const useLearningRequestMutations = () => {
         const spender = relayerAddress;
         const value = amountScaled.toString();
         const deadline = (Math.floor(Date.now() / 1000) + 3600).toString();
-        const nonceBN = await  usdcContract.nonces(owner);
+        const nonceBN = await usdcContract.nonces(owner);
         const nonce = nonceBN.toString();
 
         // Get the actual contract name for the domain
         const contractName = await usdcContract.name();
         console.log("USDC Contract name:", contractName);
 
-        // Full typed-data domain - use actual contract values
+        // Full typed-data domain - use actual Circle USDC contract values
         const domain = {
           name: contractName,
-          version: '1',
+          version: '2', // Circle's USDC uses version 2
           chainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
           verifyingContract: usdcContractAddress,
         };
         console.log("Domain used for signing:", domain);
 
-        // USDC Permit type structure
+        // USDC Permit type structure - matching Circle's USDC EIP-2612 implementation
         const types = {
           Permit: [
             { name: 'owner', type: 'address' },
@@ -143,6 +137,7 @@ export const useLearningRequestMutations = () => {
         };
         console.log("Types used for signing:", types);
 
+        // Include nonce in the message - Circle's USDC implementation requires it
         const message = { owner, spender, value, nonce, deadline };
 
         const signature = await pkpWallet._signTypedData(domain, types, message);
@@ -222,7 +217,7 @@ export const useLearningRequestMutations = () => {
         // Get PKP information from environment variables
         const relayerPkpTokenId = import.meta.env.VITE_RELAYER_PKP_TOKEN_ID;
         const relayerPublicKey = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
-        
+
         // Debug: Log all relevant environment variables
         console.log("Environment variables:", {
           VITE_RELAYER_PKP_TOKEN_ID: import.meta.env.VITE_RELAYER_PKP_TOKEN_ID,
@@ -231,13 +226,13 @@ export const useLearningRequestMutations = () => {
           VITE_PERMIT_ACTION_IPFSID: import.meta.env.VITE_PERMIT_ACTION_IPFSID,
           VITE_RELAYER_ACTION_IPFSID: import.meta.env.VITE_RELAYER_ACTION_IPFSID
         });
-        
+
         console.log("Using PKP information:", {
           relayerPkpTokenId,
           relayerAddress: spender, // This is already the relayer address
           relayerPublicKey
         });
-        
+
         const result = await litNodeClient.executeJs({
           ipfsId: permitActionIpfsId,
           sessionSigs,
@@ -252,6 +247,7 @@ export const useLearningRequestMutations = () => {
           }
         });
 
+        // console.log("raw result", result)
         console.log("Got result from permit action:", {
           success: result.success,
           responseType: typeof result.response,
@@ -271,7 +267,14 @@ export const useLearningRequestMutations = () => {
           throw new Error(`Unexpected response type: ${typeof result.response}`);
         }
 
-        console.log("Raw response from permit action:", result.response);
+        // Log the raw response in as many ways as possible
+        console.log("%c ABSOLUTELY RAW RESPONSE FROM LIT:", "background: red; color: white; font-size: 20px");
+        console.log(result.response);
+        console.dir(result.response);
+        console.log("Raw response type:", Object.prototype.toString.call(result.response));
+        console.log("Raw response constructor:", result.response?.constructor?.name);
+        try { console.log("Raw response dump:", JSON.stringify(result.response, null, 2)); } catch (e) { console.log("Couldn't stringify raw response:", e); }
+        try { console.log("Raw response toString:", result.response.toString()); } catch (e) { console.log("Couldn't toString raw response:", e); }
 
         // Simple approach for consistent extraction
         const responseStr = result.response.toString();
@@ -318,8 +321,8 @@ export const useLearningRequestMutations = () => {
           return { txHash: hashMatch[0] };
         }
 
-        // If we got here, we don't have a transaction hash - try using a hardcoded hash for debugging
-        console.error("Could not extract a transaction hash from response");
+        // If we got here, we don't have a transaction hash - log error with response
+        console.error("Could not extract a transaction hash from response:", responseStr);
         throw new Error("Could not extract transaction hash from response");
       } catch (error) {
         console.error("Error in permit action execution:", error);
@@ -350,8 +353,9 @@ export const useLearningRequestMutations = () => {
 
       const { data, error } = await supabaseClient
         .from('sessions')
-        .update([{
+        .update({
           teacher_id: teacherID,
+          learner_id: userID,
           request_time_date: utcDateTime,
           request_origin: userID,
           teaching_lang: teachingLang,
@@ -361,8 +365,9 @@ export const useLearningRequestMutations = () => {
           secure_session_id: secureSessionId,
           learner_address_encrypt_hash: dataToEncryptHash,
           learner_address_cipher_text: ciphertext,
-          session_duration_data: sessionDurationData
-        }])
+          session_duration_data: sessionDurationData,
+          request_origin_type: 'learner' // This is required by the schema
+        })
         .eq('session_id', sessionId)
         .select();
 

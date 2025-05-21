@@ -165,6 +165,8 @@ const UserItem = ({ userName, userID, language, modeView }: UserItemProps) => {
           sessionDuration={sessionDuration}
           userName={userName}
           handleSubmitLearningRequest={handleSubmitLearningRequest}
+          teacherId={userID}
+          learnerId={loggedInUserId || 0}
         />
       )}
     </Dialog>

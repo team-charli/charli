@@ -33,18 +33,18 @@ const permitAction = async () => {
 
     // Call the Relayer Action to send the transaction
     console.log("Calling Relayer Action");
-    
+
     // Get the current action's IPFS ID
     const currentActionIpfsId = Lit.Auth.actionIpfsIds[Lit.Auth.actionIpfsIds.length - 1];
     console.log("Current action IPFS ID:", currentActionIpfsId);
-    
+
     // Log what relayer information we have available
     console.log("Relayer PKP information available:", {
       relayerPkpTokenId,
       relayerAddress,
       relayerPublicKey
     });
-    
+
     const relayerResponse = await Lit.Actions.call({
       ipfsId: relayerIpfsId,
       params: {
@@ -54,7 +54,6 @@ const permitAction = async () => {
         usdcContractAddress: usdcContractAddress,
         rpcChain: rpcChain,
         rpcChainId: rpcChainId,
-        // These variables will be available directly in the relayerAction scope
         relayerPkpTokenId,
         relayerAddress,
         relayerPublicKey
