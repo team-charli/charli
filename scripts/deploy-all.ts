@@ -45,7 +45,7 @@ async function main() {
   });
 
   const dynamic = await pinLitActions("apps/LitActions");
-  
+
   // Map LIT_ACTION_CID_* to VITE_*_IPFSID format for frontend compatibility
   if (dynamic.LIT_ACTION_CID_PERMITACTION) {
     dynamic.VITE_PERMIT_ACTION_IPFSID = dynamic.LIT_ACTION_CID_PERMITACTION;
@@ -63,7 +63,7 @@ async function main() {
   if (dynamic.LIT_ACTION_CID_CHECKORRESETRELAYERNONCEACTION) {
     dynamic.VITE_CLAIM_KEY_IPFS_ID = dynamic.LIT_ACTION_CID_CHECKORRESETRELAYERNONCEACTION;
   }
-  
+
   // Log the dynamic variables being passed to Vite for debugging
   log("\n=== Dynamic environment variables for Vite ===");
   for (const [key, value] of Object.entries(dynamic)) {
@@ -72,7 +72,7 @@ async function main() {
     }
   }
   log("==============\n");
-  
+
   const targets = collectTargets().filter(t => !ONLY_RE || ONLY_RE.test(t.path));
 
   log("\n=== Deploy targets ===");
@@ -97,7 +97,7 @@ async function main() {
       - checkOrResetRelayerNonceAction CID: ${dynamic.LIT_ACTION_CID_CHECKORRESETRELAYERNONCEACTION}
       - transferControllerToTeacherAction CID: ${dynamic.LIT_ACTION_CID_TRANSFERCONTROLLERTOTEACHERACTION}
     `);
-    
+
     await setupPkpPermissions(
       pkpInfo.tokenId,
       dynamic.LIT_ACTION_CID_PERMITACTION,
@@ -106,16 +106,16 @@ async function main() {
       dynamic.LIT_ACTION_CID_CHECKORRESETRELAYERNONCEACTION,
       dynamic.LIT_ACTION_CID_TRANSFERCONTROLLERTOTEACHERACTION
     );
-    
+
     // We'll do the permission verification right before starting the dev server
 
     // Burn the PKP to make permissions immutable
     log("› Burning the relayer PKP to make permissions immutable");
     await burnPkp(pkpInfo.tokenId);
-    
+
     // Fund the PKP with gas so it can execute transactions
     // Send 0.01 ETH for development, 0.005 ETH for production (since mainnet gas is more expensive)
-    const gasFundingAmount = IS_PROD ? "0.005" : "0.01";
+    const gasFundingAmount = IS_PROD ? "0.005" : "0.001";
     await fundPkpWithGas(pkpInfo.ethAddress, gasFundingAmount);
 
     // Update environment variables with the new PKP info
@@ -133,12 +133,12 @@ async function main() {
     process.env.RELAYER_PKP_TOKEN_ID = pkpInfo.tokenId;
     process.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY = pkpInfo.publicKey;
     process.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS = pkpInfo.ethAddress;
-    
+
     // Also update the dynamic object with the new PKP info
     dynamic.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY = pkpInfo.publicKey;
     dynamic.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS = pkpInfo.ethAddress;
     dynamic.VITE_RELAYER_PKP_TOKEN_ID = pkpInfo.tokenId; // Make token ID available to frontend
-    
+
     // Add variables for Supabase functions (without VITE_ prefix)
     dynamic.RELAYER_PKP_PUBLIC_KEY = pkpInfo.publicKey;
     dynamic.RELAYER_PKP_ADDRESS = pkpInfo.ethAddress;
@@ -290,7 +290,7 @@ async function verifyAllPermissions(
 
   // Also check specific permissions that are critical for your app flow
   log("  • Verifying critical permission flows...");
-  
+
   // 1. Check if permitAction can call relayerAction (this is the flow failing now)
   log(`    • Checking if permitAction can call relayerAction`);
   const permitCanCallRelayer = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(tokenId, relayerCid);
@@ -300,7 +300,7 @@ async function verifyAllPermissions(
     throw new Error(errorMsg);
   }
   log(`      ✅ permitAction can call relayerAction`);
-  
+
   // 2. Check if transferFromAction can use the PKP
   log(`    • Checking if transferFromAction has permission`);
   const transferFromHasPermission = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(tokenId, transferFromCid);
@@ -426,47 +426,47 @@ async function setupPkpPermissions(
 async function fundPkpWithGas(pkpAddress: string, amount: string) {
   // Determine which network we're on based on IS_PROD flag
   const networkName = IS_PROD ? "Base Mainnet" : "Base Sepolia";
-  const rpcUrl = IS_PROD 
-    ? process.env.PROVIDER_URL_BASE_MAINNET || "https://mainnet.base.org" 
+  const rpcUrl = IS_PROD
+    ? process.env.PROVIDER_URL_BASE_MAINNET || "https://mainnet.base.org"
     : process.env.PROVIDER_URL_BASE_SEPOLIA || "https://sepolia.base.org";
-  
+
   log(`› Funding PKP with gas on ${networkName}`);
   log(`  • PKP address: ${pkpAddress}`);
   log(`  • Amount: ${amount} ETH`);
-  
+
   const privateKey = process.env.RELAYER_MANAGER_PRIVATE_KEY!;
   if (!privateKey) {
     throw new Error("RELAYER_MANAGER_PRIVATE_KEY environment variable is not set");
   }
-  
+
   try {
     // Connect to the network
     const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
     const wallet = new ethers.Wallet(privateKey, provider);
-    
+
     // Check funder wallet balance
     const balance = await provider.getBalance(wallet.address);
     const formattedBalance = ethers.utils.formatEther(balance);
     log(`  • Funder wallet balance: ${formattedBalance} ETH`);
-    
+
     if (balance.lt(ethers.utils.parseEther(amount))) {
       log(`⚠️ Warning: Funder wallet has insufficient funds (${formattedBalance} ETH) to send ${amount} ETH`);
       // Continue execution, but log a warning
     }
-    
+
     // Send transaction
     const tx = await wallet.sendTransaction({
       to: pkpAddress,
       value: ethers.utils.parseEther(amount),
       gasLimit: 30000 // Explicit gas limit for a simple ETH transfer
     });
-    
+
     log(`  • Gas funding transaction sent: ${tx.hash}`);
-    
+
     // Wait for transaction to be mined
     const receipt = await tx.wait();
     log(`  • Gas funding transaction confirmed in block ${receipt.blockNumber}`);
-    
+
     return receipt.transactionHash;
   } catch (error) {
     log(`✖ Failed to fund PKP with gas: ${error.message}`);
@@ -852,17 +852,17 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
         // Verify all permissions properly
         // Determine the transferControllerToTeacher CID
         // Use the one from env if available (better), otherwise try to get from LIT_ACTION format
-        const transferCtrlCid = env.VITE_TRANSFER_CONTROLLER_TO_TEACHER_ACTION_IPFSID || 
+        const transferCtrlCid = env.VITE_TRANSFER_CONTROLLER_TO_TEACHER_ACTION_IPFSID ||
                                env.LIT_ACTION_CID_TRANSFERCONTROLLERTOTEACHERACTION;
-        
+
         if (!transferCtrlCid) {
           log(`⚠️ Warning: Could not find TRANSFER_CONTROLLER_TO_TEACHER CID in environment`);
         }
-        
+
         await verifyAllPermissions(
           tokenId,
           env.VITE_PERMIT_ACTION_IPFSID,
-          env.VITE_TRANSFER_FROM_ACTION_IPFSID, 
+          env.VITE_TRANSFER_FROM_ACTION_IPFSID,
           env.VITE_RELAYER_ACTION_IPFSID,
           env.VITE_CLAIM_KEY_IPFS_ID,
           transferCtrlCid || "" // Empty string fallback
