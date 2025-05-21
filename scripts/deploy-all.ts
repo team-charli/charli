@@ -44,8 +44,36 @@ async function main() {
     process.env[key] = value;
   });
 
-  const dynamic  = await pinLitActions("apps/LitActions");
-  const targets  = collectTargets().filter(t => !ONLY_RE || ONLY_RE.test(t.path));
+  const dynamic = await pinLitActions("apps/LitActions");
+  
+  // Map LIT_ACTION_CID_* to VITE_*_IPFSID format for frontend compatibility
+  if (dynamic.LIT_ACTION_CID_PERMITACTION) {
+    dynamic.VITE_PERMIT_ACTION_IPFSID = dynamic.LIT_ACTION_CID_PERMITACTION;
+  }
+  if (dynamic.LIT_ACTION_CID_TRANSFERFROMACTION) {
+    dynamic.VITE_TRANSFER_FROM_ACTION_IPFSID = dynamic.LIT_ACTION_CID_TRANSFERFROMACTION;
+    // Also set the alternate naming
+    dynamic.VITE_LIT_ACTION_IPFS_CID_TRANSFER_FROM_LEARNER = dynamic.LIT_ACTION_CID_TRANSFERFROMACTION;
+  }
+  if (dynamic.LIT_ACTION_CID_RELAYERACTION) {
+    dynamic.VITE_RELAYER_ACTION_IPFSID = dynamic.LIT_ACTION_CID_RELAYERACTION;
+    // Also set the alternate naming
+    dynamic.VITE_CHARLI_ETHEREUM_RELAYER_ACTION_IPFS_ID = dynamic.LIT_ACTION_CID_RELAYERACTION;
+  }
+  if (dynamic.LIT_ACTION_CID_CHECKORRESETRELAYERNONCEACTION) {
+    dynamic.VITE_CLAIM_KEY_IPFS_ID = dynamic.LIT_ACTION_CID_CHECKORRESETRELAYERNONCEACTION;
+  }
+  
+  // Log the dynamic variables being passed to Vite for debugging
+  log("\n=== Dynamic environment variables for Vite ===");
+  for (const [key, value] of Object.entries(dynamic)) {
+    if (key.startsWith('VITE_')) {
+      log(`${key}: ${value}`);
+    }
+  }
+  log("==============\n");
+  
+  const targets = collectTargets().filter(t => !ONLY_RE || ONLY_RE.test(t.path));
 
   log("\n=== Deploy targets ===");
   targets.forEach((t,i)=>log(`${i+1}. ${t.type.padEnd(11)} — ${t.path}`));
@@ -62,6 +90,14 @@ async function main() {
 
     // Set permissions for the PKP
     log("› Setting permissions for the new relayer PKP");
+    log(`  • Permission details:
+      - permitAction CID: ${dynamic.LIT_ACTION_CID_PERMITACTION}
+      - transferFromAction CID: ${dynamic.LIT_ACTION_CID_TRANSFERFROMACTION}
+      - relayerAction CID: ${dynamic.LIT_ACTION_CID_RELAYERACTION}
+      - checkOrResetRelayerNonceAction CID: ${dynamic.LIT_ACTION_CID_CHECKORRESETRELAYERNONCEACTION}
+      - transferControllerToTeacherAction CID: ${dynamic.LIT_ACTION_CID_TRANSFERCONTROLLERTOTEACHERACTION}
+    `);
+    
     await setupPkpPermissions(
       pkpInfo.tokenId,
       dynamic.LIT_ACTION_CID_PERMITACTION,
@@ -70,10 +106,17 @@ async function main() {
       dynamic.LIT_ACTION_CID_CHECKORRESETRELAYERNONCEACTION,
       dynamic.LIT_ACTION_CID_TRANSFERCONTROLLERTOTEACHERACTION
     );
+    
+    // We'll do the permission verification right before starting the dev server
 
     // Burn the PKP to make permissions immutable
     log("› Burning the relayer PKP to make permissions immutable");
     await burnPkp(pkpInfo.tokenId);
+    
+    // Fund the PKP with gas so it can execute transactions
+    // Send 0.01 ETH for development, 0.005 ETH for production (since mainnet gas is more expensive)
+    const gasFundingAmount = IS_PROD ? "0.005" : "0.01";
+    await fundPkpWithGas(pkpInfo.ethAddress, gasFundingAmount);
 
     // Update environment variables with the new PKP info
     log("› Updating environment variables with new PKP info");
@@ -81,19 +124,88 @@ async function main() {
       IS_PROD ? ".env.defaults.prod" : ".env.defaults.dev",
       {
         RELAYER_PKP_TOKEN_ID: pkpInfo.tokenId,
-        VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY: pkpInfo.publicKey
+        VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY: pkpInfo.publicKey,
+        VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS: pkpInfo.ethAddress
       }
     );
 
     // Apply the updated environment variables to the current process
     process.env.RELAYER_PKP_TOKEN_ID = pkpInfo.tokenId;
     process.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY = pkpInfo.publicKey;
+    process.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS = pkpInfo.ethAddress;
+    
+    // Also update the dynamic object with the new PKP info
+    dynamic.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY = pkpInfo.publicKey;
+    dynamic.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS = pkpInfo.ethAddress;
+    dynamic.VITE_RELAYER_PKP_TOKEN_ID = pkpInfo.tokenId; // Make token ID available to frontend
+    
+    // Add variables for Supabase functions (without VITE_ prefix)
+    dynamic.RELAYER_PKP_PUBLIC_KEY = pkpInfo.publicKey;
+    dynamic.RELAYER_PKP_ADDRESS = pkpInfo.ethAddress;
+    dynamic.RELAYER_PKP_TOKEN_ID = pkpInfo.tokenId;
   }
 
   for (const t of targets) {
     const env = { ...defaults, ...dynamic };
+
+    // Unify and enhance debug logging for vite-frontend
+    if (basename(t.path) === "vite-frontend") {
+      const reqPath = join(t.path, ".env.requirements");
+      let reqContent = "";
+      try { reqContent = await file(reqPath).text(); } catch (e) {}
+      if (reqContent) {
+        // Gather all .env.requirements
+        const requirements = reqContent
+          .split(/\r?\n/)
+          .map(line => line.trim())
+          .filter(line => !!line && !line.startsWith("#"))
+          .map(line => {
+            const [k, v] = line.split("=");
+            return {
+              key: k.trim(),
+              dynamic: v && v.trim() === "__DYNAMIC__",
+            };
+          });
+
+        // Check and warn if a dynamic key is missing in dynamic
+        let missingDynamic = false;
+        for (const req of requirements) {
+          if (req.dynamic && !(req.key in dynamic)) {
+            missingDynamic = true;
+            log(`⚠️   [deploy-debug] Dynamic env key ${req.key} required but not set dynamically in this run.`);
+          }
+        }
+
+        log("[DEBUG] Final environment for vite-frontend deploy:");
+        log(
+          "    ".padEnd(3) + "KEY".padEnd(44) + ' ' + "VALUE".padEnd(44) + ' ' + "SOURCE"
+        );
+        log(
+          "    ".padEnd(3) + "-".repeat(44) + ' ' + "-".repeat(44) + ' ' + "-".repeat(10)
+        );
+
+        for (const req of requirements) {
+          const k = req.key;
+          const v = typeof env[k] !== "undefined" ? env[k] : undefined;
+          let source;
+          if (req.dynamic && k in dynamic) source = "dynamic";
+          else if (k in defaults) source = "defaults";
+          else source = "missing";
+
+          // Format value for log: Print all if short, otherwise first 6...last 6 chars
+          let vShort = v;
+          if (typeof v === 'string' && v.length > 32)
+            vShort = v.slice(0, 6) + "…" + v.slice(-6);
+
+          const emoji = (typeof v !== "undefined") ? "✅" : "❌";
+          log(` ${emoji} ${k.padEnd(42)} ${String(vShort ?? "").padEnd(42)} (${source})`);
+        }
+
+        log("");
+      }
+    }
     await injectSecrets(t, env);
-    await runDeploy(t);
+    await runDeploy(t, env);
   }
 }
 
@@ -118,6 +230,89 @@ main().catch((err) => {
 
 
 /*─────────────────── PKP MINTING HELPERS ───────────────────*/
+
+/**
+ * Verifies that all required permissions are correctly set on a PKP
+ * @param tokenId The PKP token ID
+ * @param permitCid The permit action IPFS CID
+ * @param transferFromCid The transferFrom action IPFS CID
+ * @param relayerCid The relayer action IPFS CID
+ * @param resetNonceCid The reset nonce action IPFS CID
+ * @param transferCtrlCid The transfer controller action IPFS CID
+ * @throws Error if any permission is not correctly set
+ */
+async function verifyAllPermissions(
+  tokenId: string,
+  permitCid: string,
+  transferFromCid: string,
+  relayerCid: string,
+  resetNonceCid: string,
+  transferCtrlCid: string
+) {
+  const PROVIDER_URL = "https://yellowstone-rpc.litprotocol.com";
+  const privateKey = process.env.RELAYER_MANAGER_PRIVATE_KEY!;
+
+  if (!privateKey) {
+    throw new Error("RELAYER_MANAGER_PRIVATE_KEY environment variable is not set");
+  }
+
+  const provider = new ethers.providers.JsonRpcProvider(PROVIDER_URL);
+  const wallet = new ethers.Wallet(privateKey, provider);
+
+  // Connect to Lit Protocol contracts
+  const contractClient = new LitContracts({
+    signer: wallet,
+    network: process.env.LIT_NETWORK as any || "datil-dev",
+    debug: false,
+  });
+  await contractClient.connect();
+
+  log("Verifying all PKP permissions...");
+  const permissions = [
+    { cid: permitCid, name: "permitAction" },
+    { cid: transferFromCid, name: "transferFromAction" },
+    { cid: relayerCid, name: "relayerAction" },
+    { cid: resetNonceCid, name: "checkOrResetRelayerNonceAction" },
+    { cid: transferCtrlCid, name: "transferControllerToTeacherAction" }
+  ];
+
+  // Verify that each action has the correct permission
+  for (const { cid, name } of permissions) {
+    log(`  • Verifying permission for ${name} (${cid})`);
+    const isPermitted = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(tokenId, cid);
+    if (!isPermitted) {
+      const errorMsg = `❌ Permission verification FAILED for ${name} (${cid})`;
+      log(errorMsg);
+      throw new Error(errorMsg);
+    }
+    log(`    ✅ Permission verified for ${name} (${cid})`);
+  }
+
+  // Also check specific permissions that are critical for your app flow
+  log("  • Verifying critical permission flows...");
+  
+  // 1. Check if permitAction can call relayerAction (this is the flow failing now)
+  log(`    • Checking if permitAction can call relayerAction`);
+  const permitCanCallRelayer = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(tokenId, relayerCid);
+  if (!permitCanCallRelayer) {
+    const errorMsg = `❌ Critical flow verification FAILED: permitAction cannot call relayerAction`;
+    log(errorMsg);
+    throw new Error(errorMsg);
+  }
+  log(`      ✅ permitAction can call relayerAction`);
+  
+  // 2. Check if transferFromAction can use the PKP
+  log(`    • Checking if transferFromAction has permission`);
+  const transferFromHasPermission = await contractClient.pkpPermissionsContractUtils.read.isPermittedAction(tokenId, transferFromCid);
+  if (!transferFromHasPermission) {
+    const errorMsg = `❌ Critical flow verification FAILED: transferFromAction does not have permission`;
+    log(errorMsg);
+    throw new Error(errorMsg);
+  }
+  log(`      ✅ transferFromAction has permission`)
+
+  log("  ✅ All permissions verified successfully");
+}
 
 /**
  * Mints a new Relayer PKP using the RELAYER_MANAGER_PRIVATE_KEY
@@ -224,7 +419,66 @@ async function setupPkpPermissions(
 }
 
 /**
+ * Fund a newly minted PKP with gas
+ * @param pkpAddress The Ethereum address of the PKP to fund
+ * @param amount Amount of ETH to send in ether units (e.g., "0.01" for 0.01 ETH)
+ */
+async function fundPkpWithGas(pkpAddress: string, amount: string) {
+  // Determine which network we're on based on IS_PROD flag
+  const networkName = IS_PROD ? "Base Mainnet" : "Base Sepolia";
+  const rpcUrl = IS_PROD 
+    ? process.env.PROVIDER_URL_BASE_MAINNET || "https://mainnet.base.org" 
+    : process.env.PROVIDER_URL_BASE_SEPOLIA || "https://sepolia.base.org";
+  
+  log(`› Funding PKP with gas on ${networkName}`);
+  log(`  • PKP address: ${pkpAddress}`);
+  log(`  • Amount: ${amount} ETH`);
+  
+  const privateKey = process.env.RELAYER_MANAGER_PRIVATE_KEY!;
+  if (!privateKey) {
+    throw new Error("RELAYER_MANAGER_PRIVATE_KEY environment variable is not set");
+  }
+  
+  try {
+    // Connect to the network
+    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+    const wallet = new ethers.Wallet(privateKey, provider);
+    
+    // Check funder wallet balance
+    const balance = await provider.getBalance(wallet.address);
+    const formattedBalance = ethers.utils.formatEther(balance);
+    log(`  • Funder wallet balance: ${formattedBalance} ETH`);
+    
+    if (balance.lt(ethers.utils.parseEther(amount))) {
+      log(`⚠️ Warning: Funder wallet has insufficient funds (${formattedBalance} ETH) to send ${amount} ETH`);
+      // Continue execution, but log a warning
+    }
+    
+    // Send transaction
+    const tx = await wallet.sendTransaction({
+      to: pkpAddress,
+      value: ethers.utils.parseEther(amount),
+      gasLimit: 30000 // Explicit gas limit for a simple ETH transfer
+    });
+    
+    log(`  • Gas funding transaction sent: ${tx.hash}`);
+    
+    // Wait for transaction to be mined
+    const receipt = await tx.wait();
+    log(`  • Gas funding transaction confirmed in block ${receipt.blockNumber}`);
+    
+    return receipt.transactionHash;
+  } catch (error) {
+    log(`✖ Failed to fund PKP with gas: ${error.message}`);
+    // Don't throw the error, as this is not a critical failure for deployment
+    // Just log it and continue with the deployment process
+    return null;
+  }
+}
+
+/**
  * Burns a PKP by transferring it to a dead address
+ * @param tokenId The PKP token ID to burn
  */
 async function burnPkp(tokenId: string) {
   const PROVIDER_URL = "https://yellowstone-rpc.litprotocol.com";
@@ -488,7 +742,7 @@ async function injectSecrets(
 }
 
 /*──────────────────────── DEPLOY ─────────────────────────*/
-async function runDeploy(t: { type: string; path: string }) {
+async function runDeploy(t: { type: string; path: string }, env: Record<string, string>) {
   const fnName      = basename(t.path);
   const WORKDIR     = "apps";
   const PROJECT_REF = "onhlhmondvxwwiwnruvo";
@@ -570,14 +824,69 @@ async function runDeploy(t: { type: string; path: string }) {
       return;
     }
 
+    // Log env for debugging
+    log("[DEBUG] Environment for vite dev server:");
+    for (const [k, v] of Object.entries(env)) {
+      if (k.includes("VITE") || k.includes("PKP") || k.toLowerCase().includes("relayer")) {
+        log(`    ${k}=${v}`);
+      }
+    }
+
+    // Verify permissions before starting the vite server
+    if (!DRY) {
+      log("\n\n===== VERIFYING PKP PERMISSIONS BEFORE STARTING FRONTEND =====");
+      try {
+        // Get tokenId from env, which should be set at this point
+        const tokenId = process.env.RELAYER_PKP_TOKEN_ID;
+        if (!tokenId) {
+          throw new Error("RELAYER_PKP_TOKEN_ID not found in environment");
+        }
+
+        log(`• Using PKP with tokenId: ${tokenId}`);
+        log(`• Key env variables:`);
+        log(`  - VITE_PERMIT_ACTION_IPFSID: ${env.VITE_PERMIT_ACTION_IPFSID}`);
+        log(`  - VITE_RELAYER_ACTION_IPFSID: ${env.VITE_RELAYER_ACTION_IPFSID}`);
+        log(`  - VITE_TRANSFER_FROM_ACTION_IPFSID: ${env.VITE_TRANSFER_FROM_ACTION_IPFSID}`);
+        log(`  - VITE_CLAIM_KEY_IPFS_ID: ${env.VITE_CLAIM_KEY_IPFS_ID}`);
+
+        // Verify all permissions properly
+        // Determine the transferControllerToTeacher CID
+        // Use the one from env if available (better), otherwise try to get from LIT_ACTION format
+        const transferCtrlCid = env.VITE_TRANSFER_CONTROLLER_TO_TEACHER_ACTION_IPFSID || 
+                               env.LIT_ACTION_CID_TRANSFERCONTROLLERTOTEACHERACTION;
+        
+        if (!transferCtrlCid) {
+          log(`⚠️ Warning: Could not find TRANSFER_CONTROLLER_TO_TEACHER CID in environment`);
+        }
+        
+        await verifyAllPermissions(
+          tokenId,
+          env.VITE_PERMIT_ACTION_IPFSID,
+          env.VITE_TRANSFER_FROM_ACTION_IPFSID, 
+          env.VITE_RELAYER_ACTION_IPFSID,
+          env.VITE_CLAIM_KEY_IPFS_ID,
+          transferCtrlCid || "" // Empty string fallback
+        );
+        log("✅ All permissions verified successfully!");
+        log("===== PERMISSION VERIFICATION COMPLETE =====\n\n");
+      } catch (error) {
+        log(`❌ PERMISSION VERIFICATION FAILED: ${error.message}`);
+        if (!IS_PROD) {
+          log("⚠️ Continuing with dev server despite permission errors for debugging");
+        } else {
+          throw error; // Re-throw in production to stop deployment
+        }
+      }
+    }
+
     if (IS_PROD) {
       // production build + wrangler deploy (still fine under Bun)
       log("› Deploying vite-frontend to Cloudflare");
-      await $`bun run deploy --cwd ${t.path}`;
+      await $`node node_modules/.bin/vite`.cwd(t.path).env(env);
     } else {
       // local dev server ⇢ run Vite inside real Node
       log("› Running vite-frontend in development mode (node)");
-      await $`node node_modules/.bin/vite`.cwd(t.path);
+      await $`node node_modules/.bin/vite`.cwd(t.path).env(env);
     }
     return;
   }

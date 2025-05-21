@@ -14,6 +14,8 @@ export const useExecuteTransferFromLearnerToController = () => {
     const rpcChainId = import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA;
     const ethereumRelayerPublicKey = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
     const relayerIpfsId = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_ACTION_IPFS_ID;
+    const relayerPkpTokenId = import.meta.env.VITE_RELAYER_PKP_TOKEN_ID;
+    const relayerAddress = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS;
     const env = import.meta.env.VITE_ENVIRONMENT;
 
     const accessControlConditions = [
@@ -53,6 +55,10 @@ export const useExecuteTransferFromLearnerToController = () => {
         ethereumRelayerPublicKey,
         relayerIpfsId,
         env,
+        // Add relayer PKP information so LitActions can use the correct PKP
+        relayerPkpTokenId,
+        relayerAddress,
+        relayerPublicKey: ethereumRelayerPublicKey
       }
       //console.log("transferFrom jsParams", jsParams)
       const transferFromResult = await litNodeClient.executeJs({
