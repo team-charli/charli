@@ -98,7 +98,11 @@ const transferControllerToTeacherAction = async () => {
             rpcChainId,
             usdcContractAddress,
             txData,
-            controllerAddress
+            controllerAddress,
+            // Pass relayer PKP information
+            relayerPkpTokenId,
+            relayerAddress,
+            relayerPublicKey
           }
         });
       } catch (error) {

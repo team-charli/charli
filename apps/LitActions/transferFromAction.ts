@@ -86,6 +86,10 @@ async () => {
             txData,
             learnerAddressCiphertext,
             learnerAddressEncryptHash,
+            // Pass relayer PKP information
+            relayerPkpTokenId,
+            relayerAddress,
+            relayerPublicKey
           }});
       } catch(error) {
         throw new Error(error);

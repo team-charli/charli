@@ -67,6 +67,10 @@ const refundLearnerAction = async () => {
         usdcContractAddress: usdcContractAddress,
         rpcChain: chain,
         rpcChainId: chainId,
+        // Pass relayer PKP information
+        relayerPkpTokenId,
+        relayerAddress,
+        relayerPublicKey
       }
     });
 

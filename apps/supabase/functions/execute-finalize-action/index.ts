@@ -101,6 +101,17 @@ app.post('/', async (c) => {
 
     // 5. Execute Lit Action
     console.log('[execute-finalize-action] Calling Lit Action...');
+    // Get relayer PKP info from environment variables
+    const relayerPkpTokenId = Deno.env.get('RELAYER_PKP_TOKEN_ID');
+    const relayerAddress = Deno.env.get('RELAYER_PKP_ADDRESS');
+    const relayerPublicKey = Deno.env.get('RELAYER_PKP_PUBLIC_KEY');
+    
+    console.log('[execute-finalize-action] Using relayer PKP information:', {
+      relayerPkpTokenId,
+      relayerAddress,
+      relayerPublicKey
+    });
+    
     const results = await litNodeClient.executeJs({
       ipfsId: FINALIZE_LIT_ACTION_IPFS_CID,
       sessionSigs,
@@ -118,7 +129,11 @@ app.post('/', async (c) => {
         relayerIpfsId,
         env,
         rpcChain,
-        rpcChainId
+        rpcChainId,
+        // Pass relayer PKP information
+        relayerPkpTokenId,
+        relayerAddress,
+        relayerPublicKey
       }
     });
 

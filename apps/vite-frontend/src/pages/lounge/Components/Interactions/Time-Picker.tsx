@@ -284,6 +284,9 @@ function handleClockClick(value: number) {
     setTimeString(newVal)
     onChange(newVal)
 
+    // Notify parent that we've seen minute mode - this is needed for the "Next" button
+    onModeChange?.("minute")
+
     // No auto-switch needed in minute mode
   }
 }
@@ -318,6 +321,11 @@ function handleClockClick(value: number) {
     draggingRef.current = false;
     document.removeEventListener("mousemove", handleMinuteDrag);
     document.removeEventListener("mouseup", handleMinuteDragEnd);
+    
+    // Notify parent that we've interacted with minute mode
+    if (mode === "minute") {
+      onModeChange?.("minute");
+    }
   }
 
   // ------------------ HOUR DRAG ------------------
@@ -391,44 +399,36 @@ A ${shadingRadius} ${shadingRadius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:gap-4 md:gap-5 items-center w-full">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+        alignItems: "center",
+      }}
+    >
       {/* Digital input + AM/PM toggle */}
-      <div className="flex gap-2 sm:gap-3 items-center">
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
         <input
-          className="w-20 sm:w-24 md:w-28 text-center py-1.5 sm:py-2 px-1 sm:px-2 
-                   border border-gray-300 rounded-md text-sm sm:text-base 
-                   focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          style={{ width: "100px", textAlign: "center" }}
           type="text"
           value={timeString}
           onChange={handleTimeStringChange}
         />
-        <button 
-          onClick={togglePeriod}
-          className="bg-purple-600 hover:bg-purple-700 text-white font-medium 
-                   py-1.5 sm:py-2 px-3 sm:px-4 rounded-md text-sm sm:text-base 
-                   transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1"
-        >
-          {period}
-        </button>
+        <button onClick={togglePeriod}>{period}</button>
       </div>
 
       {/* Hour vs. Minute mode buttons */}
-      <div className="flex gap-2 sm:gap-3 bg-gray-100 p-1 rounded-lg">
+      <div style={{ display: "flex", gap: "0.5rem" }}>
         <button
           onClick={() => handleModeClick("hour")}
-          className={`py-1.5 px-3 sm:py-2 sm:px-4 rounded-md text-sm sm:text-base transition-all
-                     ${mode === "hour" 
-                       ? "bg-white text-purple-800 shadow-sm font-medium" 
-                       : "text-gray-600 hover:bg-gray-200"}`}
+          style={{ fontWeight: mode === "hour" ? "bold" : "normal" }}
         >
           Hour
         </button>
         <button
           onClick={() => handleModeClick("minute")}
-          className={`py-1.5 px-3 sm:py-2 sm:px-4 rounded-md text-sm sm:text-base transition-all
-                     ${mode === "minute" 
-                       ? "bg-white text-purple-800 shadow-sm font-medium" 
-                       : "text-gray-600 hover:bg-gray-200"}`}
+          style={{ fontWeight: mode === "minute" ? "bold" : "normal" }}
         >
           Minute
         </button>
@@ -437,18 +437,17 @@ A ${shadingRadius} ${shadingRadius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
       {/* Analog clock */}
       <div
         ref={clockFaceRef}
-        className="relative w-[160px] h-[160px] sm:w-[200px] sm:h-[200px] mt-2 mx-auto"
+        style={{ position: "relative", width: "200px", height: "200px" }}
       >
         <svg
-          width="100%"
-          height="100%"
-          viewBox="0 0 200 200"
-          className="border border-gray-200 rounded-full shadow-sm bg-white"
+          width={200}
+          height={200}
+          style={{ border: "1px solid lightgray", borderRadius: "50%" }}
         >
           {/* Past shading if isToday */}
           {grayArc}
           {/* Center pivot */}
-          <circle cx={100} cy={100} r={3} fill="#6B5B95" />
+          <circle cx={100} cy={100} r={2} fill="black" />
           {/* Labels */}
           {numbers.map((val, i) => {
             const deg = (360 / 12) * i;
@@ -456,50 +455,40 @@ A ${shadingRadius} ${shadingRadius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
             const x = 100 + radius * Math.sin(rad);
             const y = 100 - radius * Math.cos(rad);
             return (
-              <g key={val} onClick={() => handleClockClick(val)}>
-                <circle 
-                  cx={x} 
-                  cy={y} 
-                  r={14} 
-                  className={`fill-transparent hover:fill-purple-100 cursor-pointer ${
-                    (mode === "hour" && val === hour) || (mode === "minute" && val === minute)
-                      ? "fill-purple-100"
-                      : ""
-                  }`} 
-                />
-                <text
-                  x={x}
-                  y={y}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize={14}
-                  className="cursor-pointer select-none fill-gray-800 font-medium"
-                >
-                  {mode === "hour" ? val : pad(val)}
-                </text>
-              </g>
+              <text
+                key={val}
+                x={x}
+                y={y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={14}
+                style={{ cursor: "pointer", userSelect: "none" }}
+                onClick={() => handleClockClick(val)}
+              >
+                {mode === "hour" ? val : pad(val)}
+              </text>
             );
           })}
         </svg>
 
-        {/* Clock hand (draggable) */}
+        {/* Red clock hand (draggable) */}
         <div
           onMouseDown={
             mode === "minute" ? handleMinuteDragStart : handleHourDragStart
           }
-          className={`absolute left-[calc(50%-1px)] top-[20%] w-[2px] h-[30%] sm:h-[35%] bg-purple-600
-                      origin-bottom transform cursor-pointer`}
           style={{
+            position: "absolute",
+            left: `${centerX - 1}px`,
+            top: `${centerY - 70}px`,
+            width: "2px",
+            height: "70px",
+            backgroundColor: "red",
+            transformOrigin: "bottom center",
             transform: `rotate(${handAngle}deg)`,
             transition: draggingRef.current ? "none" : "transform 0.2s ease-out",
+            cursor: mode === "minute" ? "pointer" : "grab",
           }}
-        >
-          <div className="absolute -left-1 -top-1 w-[6px] h-[6px] bg-purple-600 rounded-full"></div>
-        </div>
-      </div>
-      
-      <div className="text-xs sm:text-sm text-gray-500 mt-1 sm:mt-2">
-        {mode === "hour" ? "Click or drag to set hour" : "Click or drag to set minute"}
+        />
       </div>
     </div>
   );

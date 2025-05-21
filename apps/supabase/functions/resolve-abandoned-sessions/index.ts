@@ -137,6 +137,11 @@ app.get('/', async (c) => {
     let litSuccess = false;
     try {
       const sessionSigs = await getSessionSigs(lit, wallet);
+      // Get relayer PKP info from environment variables
+      const relayerPkpTokenId = Deno.env.get('RELAYER_PKP_TOKEN_ID')!;
+      const relayerAddress = Deno.env.get('RELAYER_PKP_ADDRESS')!;
+      const relayerPublicKey = Deno.env.get('RELAYER_PKP_PUBLIC_KEY')!;
+      
       const litRes = await lit.executeJs({
         ipfsId,
         sessionSigs,
@@ -150,7 +155,11 @@ app.get('/', async (c) => {
           ipfsCid: preCid,
           chain,
           chainId,
-          relayerIpfsId
+          relayerIpfsId,
+          // Pass relayer PKP information
+          relayerPkpTokenId,
+          relayerAddress,
+          relayerPublicKey
         }
       });
 
