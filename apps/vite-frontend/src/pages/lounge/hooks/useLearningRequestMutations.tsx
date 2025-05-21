@@ -83,27 +83,21 @@ export const useLearningRequestMutations = () => {
 >({
     mutationFn: async (params) => {
       try {
-        const relayerAddress = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS;
-        const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS_BASE_SEPOLIA;
-
-        console.log({relayerAddress, usdcContractAddress});
-        if (!relayerAddress || !usdcContractAddress) throw new Error(`don't have vite imports`)
-
         const { provider, amountScaled, secureSessionId, requestedSessionDurationLearnerSig, sessionDuration } = params;
+        const relayerAddress = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS;
 
         if (!pkpWallet) throw new Error('Wallet not initialized');
 
-        console.log('usdcContractAddress', usdcContractAddress)
-        const usdcABI = [
+        const daiContractAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
+        const daiContractAbi = [
           'function name() view returns (string)',
           'function nonces(address owner) view returns (uint256)',
           'function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
           'function allowance(address owner, address spender) view returns (uint256)'
         ];
-        const usdcContract = new ethers.Contract(usdcContractAddress, usdcABI, provider);
-        console.log('usdcABI', usdcABI)
+        const daiContract = new ethers.Contract(daiContractAddress, daiContractAbi, provider);
 
-        const currentAllowance = await usdcContract.allowance(pkpWallet.address, relayerAddress);
+        const currentAllowance = await daiContract.allowance(pkpWallet.address, relayerAddress);
         if (currentAllowance >= amountScaled) {
           // Already approved
           console.log("Approval already set, skipping permit transaction");
@@ -115,23 +109,17 @@ export const useLearningRequestMutations = () => {
         const spender = relayerAddress;
         const value = amountScaled.toString();
         const deadline = (Math.floor(Date.now() / 1000) + 3600).toString();
-        const nonceBN = await  usdcContract.nonces(owner);
+        const nonceBN = await daiContract.nonces(owner);
         const nonce = nonceBN.toString();
 
-        // Get the actual contract name for the domain
-        const contractName = await usdcContract.name();
-        console.log("USDC Contract name:", contractName);
-
-        // Full typed-data domain - use actual Circle USDC contract values
+        // Full typed-data domain
         const domain = {
-          name: contractName,
-          version: '2', // Circle's USDC uses version 2
+          name: await daiContract.name(),
+          version: '1',
           chainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
-          verifyingContract: usdcContractAddress,
+          verifyingContract: daiContractAddress,
         };
-        console.log("Domain used for signing:", domain);
 
-        // USDC Permit type structure - matching Circle's USDC EIP-2612 implementation
         const types = {
           Permit: [
             { name: 'owner', type: 'address' },
@@ -141,9 +129,7 @@ export const useLearningRequestMutations = () => {
             { name: 'deadline', type: 'uint256' }
           ],
         };
-        console.log("Types used for signing:", types);
 
-        // Include nonce in the message - Circle's USDC implementation requires it
         const message = { owner, spender, value, nonce, deadline };
 
         const signature = await pkpWallet._signTypedData(domain, types, message);
@@ -154,7 +140,7 @@ export const useLearningRequestMutations = () => {
         return {
           skipPermit: false,
           v, s, r, owner, spender, nonce, deadline, value,
-          usdcContractAddress,
+          daiContractAddress,
           relayerIpfsId: import.meta.env.VITE_RELAYER_ACTION_IPFSID,
           rpcChain: import.meta.env.VITE_RPC_CHAIN_NAME,
           rpcChainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
@@ -181,7 +167,7 @@ export const useLearningRequestMutations = () => {
     v: number,
     r: string,
     s: string,
-    usdcContractAddress: AddressLike,
+    daiContractAddress: AddressLike,
     relayerIpfsId: string,
     rpcChain: string,
     rpcChainId: string,
@@ -197,134 +183,36 @@ export const useLearningRequestMutations = () => {
   const executePermitAction = useMutation({
     mutationFn: async (actionParams: PermitActionParams | undefined) => {
       if (!actionParams) throw new Error('actionParams undefined');
-
       const {
         owner, spender, nonce, deadline, value, v, r, s,
-        usdcContractAddress, relayerIpfsId, rpcChain, rpcChainId,
+        daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
         secureSessionId, requestedSessionDurationLearnerSig, learnerAddress, duration, env
       } = actionParams;
 
       const permitActionIpfsId = import.meta.env.VITE_PERMIT_ACTION_IPFSID;
+      const result = await litNodeClient.executeJs({
+        ipfsId: permitActionIpfsId,
+        sessionSigs,
+        jsParams: {
+          owner, spender, nonce, deadline, value, v, r, s,
+          daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
+          secureSessionId, sessionIdAndDurationSig: requestedSessionDurationLearnerSig, learnerAddress, duration, env
+        }
+      });
 
-      if (!permitActionIpfsId) {
-        console.log({permitActionIpfsId})
-        throw new Error (`no permitActionIpfsId injected from deploy-all.ts`)
+      if (!result.success) {
+        throw new Error('Permit action failed');
+      }
+
+      if (typeof result.response !== 'string') {
+        throw new Error('Unexpected response type');
       }
 
       try {
-        console.log("Executing permit action with details:", {
-          permitActionIpfsId,
-          relayerPkpAddress: import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS,
-          usdcContractAddress,
-          relayerIpfsId
-        });
-
-        // Execute the Lit Action
-        // Get PKP information from environment variables
-        const relayerPkpTokenId = import.meta.env.VITE_RELAYER_PKP_TOKEN_ID;
-        const relayerPublicKey = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
-        
-        // Debug: Log all relevant environment variables
-        console.log("Environment variables:", {
-          VITE_RELAYER_PKP_TOKEN_ID: import.meta.env.VITE_RELAYER_PKP_TOKEN_ID,
-          VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY: import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY,
-          VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS: import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS,
-          VITE_PERMIT_ACTION_IPFSID: import.meta.env.VITE_PERMIT_ACTION_IPFSID,
-          VITE_RELAYER_ACTION_IPFSID: import.meta.env.VITE_RELAYER_ACTION_IPFSID
-        });
-        
-        console.log("Using PKP information:", {
-          relayerPkpTokenId,
-          relayerAddress: spender, // This is already the relayer address
-          relayerPublicKey
-        });
-        
-        const result = await litNodeClient.executeJs({
-          ipfsId: permitActionIpfsId,
-          sessionSigs,
-          jsParams: {
-            owner, spender, nonce, deadline, value, v, r, s,
-            usdcContractAddress, relayerIpfsId, rpcChain, rpcChainId,
-            secureSessionId, sessionIdAndDurationSig: requestedSessionDurationLearnerSig, learnerAddress, duration, env,
-            // Add PKP information
-            relayerPkpTokenId,
-            relayerAddress: spender,
-            relayerPublicKey
-          }
-        });
-
-        console.log("Got result from permit action:", {
-          success: result.success,
-          responseType: typeof result.response,
-          responsePreview: typeof result.response === 'string' ? result.response : null,
-          error: result.error
-        });
-
-        // Verify the action succeeded
-        if (!result.success) {
-          console.error("Permit action failed with error:", result.error);
-          throw new Error('Permit action returned failure status');
-        }
-
-        // Basic sanity check on the response
-        if (typeof result.response !== 'string') {
-          console.error("Unexpected response type:", typeof result.response);
-          throw new Error(`Unexpected response type: ${typeof result.response}`);
-        }
-
-        console.log("Raw response from permit action:", result.response);
-
-        // Simple approach for consistent extraction
-        const responseStr = result.response.toString();
-
-        // Check if the response itself is the hash (starts with 0x and has ~66 chars)
-        if (responseStr.startsWith('0x') && responseStr.length >= 66) {
-          console.log("Response appears to be a direct transaction hash");
-          return { txHash: responseStr.substring(0, 66) };
-        }
-
-        // If the response has quotes, it might be a JSON string
-        if (responseStr.includes('"')) {
-          try {
-            // Remove any extra quotes or formatting
-            const cleaned = responseStr.replace(/^["']+|["']+$/g, '');
-            const parsed = JSON.parse(cleaned);
-
-            if (typeof parsed === 'string' && parsed.startsWith('0x')) {
-              console.log("Found hash in parsed JSON string:", parsed);
-              return { txHash: parsed };
-            }
-
-            if (parsed && typeof parsed === 'object') {
-              const hash =
-                parsed.txHash ||
-                  parsed.hash ||
-                  parsed.transactionHash ||
-                  (typeof parsed.response === 'string' && parsed.response.startsWith('0x') ? parsed.response : null);
-
-              if (hash) {
-                console.log("Found hash in parsed JSON object:", hash);
-                return { txHash: hash };
-              }
-            }
-          } catch (e) {
-            console.log("JSON parsing failed, will try regex extraction");
-          }
-        }
-
-        // Fallback to regex extraction
-        const hashMatch = responseStr.match(/0x[a-fA-F0-9]{64}/);
-        if (hashMatch) {
-          console.log("Extracted tx hash using regex:", hashMatch[0]);
-          return { txHash: hashMatch[0] };
-        }
-
-        // If we got here, we don't have a transaction hash - try using a hardcoded hash for debugging
-        console.error("Could not extract a transaction hash from response");
-        throw new Error("Could not extract transaction hash from response");
+        const txHash = JSON.parse(JSON.parse(result.response));
+        return { txHash };
       } catch (error) {
-        console.error("Error in permit action execution:", error);
-        throw new Error(`Permit action failed: ${error.message}`);
+        throw new Error('Failed to parse transaction hash');
       }
     },
   });
@@ -351,8 +239,9 @@ export const useLearningRequestMutations = () => {
 
       const { data, error } = await supabaseClient
         .from('sessions')
-        .update([{
+        .update({
           teacher_id: teacherID,
+          learner_id: userID,
           request_time_date: utcDateTime,
           request_origin: userID,
           teaching_lang: teachingLang,
@@ -362,8 +251,9 @@ export const useLearningRequestMutations = () => {
           secure_session_id: secureSessionId,
           learner_address_encrypt_hash: dataToEncryptHash,
           learner_address_cipher_text: ciphertext,
-          session_duration_data: sessionDurationData
-        }])
+          session_duration_data: sessionDurationData,
+          request_origin_type: 'learner' // This is required by the schema
+        })
         .eq('session_id', sessionId)
         .select();
 
