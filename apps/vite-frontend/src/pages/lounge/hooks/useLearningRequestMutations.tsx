@@ -53,7 +53,7 @@ export const useLearningRequestMutations = () => {
       secureSessionId: string;
     }) => {
       if (!pkpWallet) throw new Error('Wallet not initialized');
-      // 1. Construct the raw “session duration data” that you want both parties to sign
+      // 1. Construct the raw "session duration data" that you want both parties to sign
       const encodedData = ethers.concat([
         ethers.toUtf8Bytes(secureSessionId),
         ethers.toBeHex(sessionDuration),
@@ -88,16 +88,16 @@ export const useLearningRequestMutations = () => {
 
         if (!pkpWallet) throw new Error('Wallet not initialized');
 
-        const daiContractAddress = import.meta.env.VITE_DAI_CONTRACT_ADDRESS_BASE_SEPOLIA;
-        const daiContractAbi = [
+        const usdcContractAddress = import.meta.env.VITE_USDC_CONTRACT_ADDRESS_BASE_SEPOLIA;
+        const usdcABI = [
           'function name() view returns (string)',
           'function nonces(address owner) view returns (uint256)',
           'function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
           'function allowance(address owner, address spender) view returns (uint256)'
         ];
-        const daiContract = new ethers.Contract(daiContractAddress, daiContractAbi, provider);
+        const usdcContract = new ethers.Contract(usdcContractAddress, usdcABI, provider);
 
-        const currentAllowance = await daiContract.allowance(pkpWallet.address, relayerAddress);
+        const currentAllowance = await usdcContract.allowance(pkpWallet.address, relayerAddress);
         if (currentAllowance >= amountScaled) {
           // Already approved
           console.log("Approval already set, skipping permit transaction");
@@ -109,17 +109,23 @@ export const useLearningRequestMutations = () => {
         const spender = relayerAddress;
         const value = amountScaled.toString();
         const deadline = (Math.floor(Date.now() / 1000) + 3600).toString();
-        const nonceBN = await daiContract.nonces(owner);
+        const nonceBN = await usdcContract.nonces(owner);
         const nonce = nonceBN.toString();
 
-        // Full typed-data domain
-        const domain = {
-          name: await daiContract.name(),
-          version: '1',
-          chainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
-          verifyingContract: daiContractAddress,
-        };
+        // Get the actual contract name for the domain
+        const contractName = await usdcContract.name();
+        console.log("USDC Contract name:", contractName);
 
+        // Full typed-data domain - use actual Circle USDC contract values
+        const domain = {
+          name: contractName,
+          version: '2', // Circle's USDC uses version 2
+          chainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
+          verifyingContract: usdcContractAddress,
+        };
+        console.log("Domain used for signing:", domain);
+
+        // USDC Permit type structure - matching Circle's USDC EIP-2612 implementation
         const types = {
           Permit: [
             { name: 'owner', type: 'address' },
@@ -129,7 +135,9 @@ export const useLearningRequestMutations = () => {
             { name: 'deadline', type: 'uint256' }
           ],
         };
+        console.log("Types used for signing:", types);
 
+        // Include nonce in the message - Circle's USDC implementation requires it
         const message = { owner, spender, value, nonce, deadline };
 
         const signature = await pkpWallet._signTypedData(domain, types, message);
@@ -140,7 +148,7 @@ export const useLearningRequestMutations = () => {
         return {
           skipPermit: false,
           v, s, r, owner, spender, nonce, deadline, value,
-          daiContractAddress,
+          usdcContractAddress,
           relayerIpfsId: import.meta.env.VITE_RELAYER_ACTION_IPFSID,
           rpcChain: import.meta.env.VITE_RPC_CHAIN_NAME,
           rpcChainId: import.meta.env.VITE_CHAIN_ID_FOR_ACTION_PARAMS_BASE_SEPOLIA,
@@ -167,7 +175,7 @@ export const useLearningRequestMutations = () => {
     v: number,
     r: string,
     s: string,
-    daiContractAddress: AddressLike,
+    usdcContractAddress: AddressLike,
     relayerIpfsId: string,
     rpcChain: string,
     rpcChainId: string,
@@ -183,36 +191,142 @@ export const useLearningRequestMutations = () => {
   const executePermitAction = useMutation({
     mutationFn: async (actionParams: PermitActionParams | undefined) => {
       if (!actionParams) throw new Error('actionParams undefined');
+
       const {
         owner, spender, nonce, deadline, value, v, r, s,
-        daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
+        usdcContractAddress, relayerIpfsId, rpcChain, rpcChainId,
         secureSessionId, requestedSessionDurationLearnerSig, learnerAddress, duration, env
       } = actionParams;
 
       const permitActionIpfsId = import.meta.env.VITE_PERMIT_ACTION_IPFSID;
-      const result = await litNodeClient.executeJs({
-        ipfsId: permitActionIpfsId,
-        sessionSigs,
-        jsParams: {
-          owner, spender, nonce, deadline, value, v, r, s,
-          daiContractAddress, relayerIpfsId, rpcChain, rpcChainId,
-          secureSessionId, sessionIdAndDurationSig: requestedSessionDurationLearnerSig, learnerAddress, duration, env
-        }
-      });
 
-      if (!result.success) {
-        throw new Error('Permit action failed');
-      }
-
-      if (typeof result.response !== 'string') {
-        throw new Error('Unexpected response type');
+      if (!permitActionIpfsId) {
+        console.log({permitActionIpfsId})
+        throw new Error (`no permitActionIpfsId injected from deploy-all.ts`)
       }
 
       try {
-        const txHash = JSON.parse(JSON.parse(result.response));
-        return { txHash };
+        console.log("Executing permit action with details:", {
+          permitActionIpfsId,
+          relayerPkpAddress: import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS,
+          usdcContractAddress,
+          relayerIpfsId
+        });
+
+        // Execute the Lit Action
+        // Get PKP information from environment variables
+        const relayerPkpTokenId = import.meta.env.VITE_RELAYER_PKP_TOKEN_ID;
+        const relayerPublicKey = import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY;
+
+        // Debug: Log all relevant environment variables
+        console.log("Environment variables:", {
+          VITE_RELAYER_PKP_TOKEN_ID: import.meta.env.VITE_RELAYER_PKP_TOKEN_ID,
+          VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY: import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_PUBLIC_KEY,
+          VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS: import.meta.env.VITE_CHARLI_ETHEREUM_RELAYER_PKP_ADDRESS,
+          VITE_PERMIT_ACTION_IPFSID: import.meta.env.VITE_PERMIT_ACTION_IPFSID,
+          VITE_RELAYER_ACTION_IPFSID: import.meta.env.VITE_RELAYER_ACTION_IPFSID
+        });
+
+        console.log("Using PKP information:", {
+          relayerPkpTokenId,
+          relayerAddress: spender, // This is already the relayer address
+          relayerPublicKey
+        });
+
+        const result = await litNodeClient.executeJs({
+          ipfsId: permitActionIpfsId,
+          sessionSigs,
+          jsParams: {
+            owner, spender, nonce, deadline, value, v, r, s,
+            usdcContractAddress, relayerIpfsId, rpcChain, rpcChainId,
+            secureSessionId, sessionIdAndDurationSig: requestedSessionDurationLearnerSig, learnerAddress, duration, env,
+            // Add PKP information
+            relayerPkpTokenId,
+            relayerAddress: spender,
+            relayerPublicKey
+          }
+        });
+
+        // console.log("raw result", result)
+        console.log("Got result from permit action:", {
+          success: result.success,
+          responseType: typeof result.response,
+          responsePreview: typeof result.response === 'string' ? result.response : null,
+          error: result.error
+        });
+
+        // Verify the action succeeded
+        if (!result.success) {
+          console.error("Permit action failed with error:", result.error);
+          throw new Error('Permit action returned failure status');
+        }
+
+        // Basic sanity check on the response
+        if (typeof result.response !== 'string') {
+          console.error("Unexpected response type:", typeof result.response);
+          throw new Error(`Unexpected response type: ${typeof result.response}`);
+        }
+
+        // Log the raw response in as many ways as possible
+        console.log("%c ABSOLUTELY RAW RESPONSE FROM LIT:", "background: red; color: white; font-size: 20px");
+        console.log(result.response);
+        console.dir(result.response);
+        console.log("Raw response type:", Object.prototype.toString.call(result.response));
+        console.log("Raw response constructor:", result.response?.constructor?.name);
+        try { console.log("Raw response dump:", JSON.stringify(result.response, null, 2)); } catch (e) { console.log("Couldn't stringify raw response:", e); }
+        try { console.log("Raw response toString:", result.response.toString()); } catch (e) { console.log("Couldn't toString raw response:", e); }
+
+        // Simple approach for consistent extraction
+        const responseStr = result.response.toString();
+
+        // Check if the response itself is the hash (starts with 0x and has ~66 chars)
+        if (responseStr.startsWith('0x') && responseStr.length >= 66) {
+          console.log("Response appears to be a direct transaction hash");
+          return { txHash: responseStr.substring(0, 66) };
+        }
+
+        // If the response has quotes, it might be a JSON string
+        if (responseStr.includes('"')) {
+          try {
+            // Remove any extra quotes or formatting
+            const cleaned = responseStr.replace(/^["']+|["']+$/g, '');
+            const parsed = JSON.parse(cleaned);
+
+            if (typeof parsed === 'string' && parsed.startsWith('0x')) {
+              console.log("Found hash in parsed JSON string:", parsed);
+              return { txHash: parsed };
+            }
+
+            if (parsed && typeof parsed === 'object') {
+              const hash =
+                parsed.txHash ||
+                  parsed.hash ||
+                  parsed.transactionHash ||
+                  (typeof parsed.response === 'string' && parsed.response.startsWith('0x') ? parsed.response : null);
+
+              if (hash) {
+                console.log("Found hash in parsed JSON object:", hash);
+                return { txHash: hash };
+              }
+            }
+          } catch (e) {
+            console.log("JSON parsing failed, will try regex extraction");
+          }
+        }
+
+        // Fallback to regex extraction
+        const hashMatch = responseStr.match(/0x[a-fA-F0-9]{64}/);
+        if (hashMatch) {
+          console.log("Extracted tx hash using regex:", hashMatch[0]);
+          return { txHash: hashMatch[0] };
+        }
+
+        // If we got here, we don't have a transaction hash - log error with response
+        console.error("Could not extract a transaction hash from response:", responseStr);
+        throw new Error("Could not extract transaction hash from response");
       } catch (error) {
-        throw new Error('Failed to parse transaction hash');
+        console.error("Error in permit action execution:", error);
+        throw new Error(`Permit action failed: ${error.message}`);
       }
     },
   });

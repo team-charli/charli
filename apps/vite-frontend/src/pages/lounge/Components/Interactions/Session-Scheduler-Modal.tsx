@@ -7,6 +7,7 @@ import { AnalogDigitalTimePicker } from "./Time-Picker";
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useCheckSlotAvailability } from "../../hooks/useCheckSlotAvailability"
 
 
 function DayPicker({ selectedDay, onSelect }: DayPickerProps) {
@@ -91,7 +92,7 @@ export function TimePicker({
             value={value}
             onChange={onTimeChange}
             isToday={isToday}
-            forceMinute={forceMinute} // NEW: pass the “force minute” flag
+            forceMinute={forceMinute} // NEW: pass the "force minute" flag
             onModeChange={(newMode) => {
               if (newMode === "minute") {
                 setHasSeenMinute(true);
@@ -114,7 +115,7 @@ export function TimePicker({
               setForceMinute(true);
               return;
             }
-            // Otherwise, if they’ve already seen minute mode, proceed:
+            // Otherwise, if they've already seen minute mode, proceed:
             console.log("final timeString which will be submitted to db", value);
             onSelect(value);
           }}
@@ -141,7 +142,7 @@ export function DurationPicker({
   const standardDurations = ["1 hour", "45 minutes", "30 minutes"]
   // Second row
   const secondRowDurations = ["20 minutes", "Custom"]
-  // Third row for “4 minutes” testing
+  // Third row for "4 minutes" testing
   const testRowDurations = ["4 minutes"]
 
   // Local state for handling the custom input mode
@@ -371,11 +372,11 @@ interface SessionSchedulerModalProps {
   setSelectedTime: React.Dispatch<React.SetStateAction<string | null>>
 
   // 4) If you store dateTime in the parent, only keep these if actually used
-  // Remove them if you aren’t combining day/time inside the modal
+  // Remove them if you aren't combining day/time inside the modal
   // dateTime: Date | null
   // setDateTime: React.Dispatch<React.SetStateAction<Date | null>>
 
-  // 5) The parent’s input value for duration (always string here)
+  // 5) The parent's input value for duration (always string here)
   sessionLengthInputValue: string
   setSessionLengthInputValue: React.Dispatch<React.SetStateAction<string>>
 
@@ -385,6 +386,8 @@ interface SessionSchedulerModalProps {
 
   userName: string
   handleSubmitLearningRequest: any
+  teacherId: number
+  learnerId: number
 }
 
 export function SessionSchedulerModal({
@@ -401,10 +404,14 @@ export function SessionSchedulerModal({
   sessionDuration,
   userName,
   handleSubmitLearningRequest,
+  teacherId,
+  learnerId,
 }: SessionSchedulerModalProps) {
   // Provide fallback strings for day/time/duration if null or 0
   const dateLabel = selectedDay ?? "Unselected date"
   const durationLabel = `${sessionDuration} minutes`
+  const [checkingAvailability, setCheckingAvailability] = React.useState(false);
+  const [hasConflict, setHasConflict] = React.useState(false);
 
   const handleClose = () => {
     onOpenChange(false)
@@ -415,13 +422,39 @@ export function SessionSchedulerModal({
     setSessionLengthInputValue("20")
   }
 
+  const checkSlotAvailability = useCheckSlotAvailability();
+
   const handleConfirmSubmission = async () => {
     try {
-      // If you eventually want to produce a real Date from day/time,
-      // you can do that here or in the parent.
+      // If date and time are selected, check slot availability before submission
+      if (selectedDay && selectedTime) {
+        setCheckingAvailability(true);
+        setHasConflict(false);
+        
+        // Convert day/time selection to ISO string
+        const proposedDate = combineDayAndTime(selectedDay, selectedTime);
+        
+        // Check if the slot is available
+        const conflict = await checkSlotAvailability.mutateAsync({
+          teacherId,
+          learnerId,
+          proposedTime: proposedDate.toISOString(),
+          durationMinutes: sessionDuration,
+        });
+        
+        setCheckingAvailability(false);
+        
+        if (conflict) {
+          setHasConflict(true);
+          return;
+        }
+      }
+      
+      // If there's no conflict, proceed with the submission
       await handleSubmitLearningRequest();
       handleClose();
     } catch (error) {
+      setCheckingAvailability(false);
       console.error("Failed to submit learning request:", error);
     }
   }
@@ -472,13 +505,25 @@ export function SessionSchedulerModal({
         )
       case 4:
         return (
-          <ConfirmSession
-            userName={userName}
-            date={dateLabel}
-            sessionDuration={sessionDuration}
-            usdcAmount={`${(sessionDuration * 0.3).toFixed(2)} USDC`}
-            onConfirm={handleConfirmSubmission}
-          />
+          <>
+            <ConfirmSession
+              userName={userName}
+              date={dateLabel}
+              sessionDuration={sessionDuration}
+              usdcAmount={`${(sessionDuration * 0.3).toFixed(2)} USDC`}
+              onConfirm={handleConfirmSubmission}
+            />
+            {checkingAvailability && (
+              <div className="mt-4 text-center text-amber-600">
+                Checking time slot availability...
+              </div>
+            )}
+            {hasConflict && (
+              <div className="mt-4 text-center text-red-600">
+                This time slot conflicts with an existing session. Please select a different time.
+              </div>
+            )}
+          </>
         )
       default:
         return null
@@ -520,8 +565,19 @@ interface DayPickerProps {
   onSelect: (day: string) => void;
 }
 
-interface DurationPickerProps {
-  selectedDuration: string
-  onSelect: (duration: string) => void
+function combineDayAndTime(day: string, timeStr: string): Date {
+  const now = new Date()
+  if (day === "Tomorrow") now.setDate(now.getDate() + 1)
+  if (day !== "Today" && day !== "Tomorrow") {
+    // optionally handle Sunday/Monday, etc.; else do nothing
+  }
+  const parts = timeStr.trim().match(/^(\d{1,2}):(\d{1,2})\s?(AM|PM)?$/i)
+  if (!parts) return now
+  let hour = parseInt(parts[1], 10)
+  const minute = parseInt(parts[2], 10)
+  const period = (parts[3] || "AM").toUpperCase()
+  if (period === "PM" && hour < 12) hour += 12
+  if (period === "AM" && hour === 12) hour = 0
+  now.setHours(hour, minute, 0, 0)
+  return now
 }
-
