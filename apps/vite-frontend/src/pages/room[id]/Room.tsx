@@ -20,18 +20,23 @@ export default function Room() {
    * 1) Get room & role info from URL
    */
   const { id: roomId } = useParams({ from: "/room/$id" });
-  const { roomRole, hashedLearnerAddress, hashedTeacherAddress } = useSearch({
+  const { roomRole, hashedLearnerAddress, hashedTeacherAddress, roboTest, learnerId, sessionId } = useSearch({
     from: "/room/$id",
   });
 
   /**
-   * 2) Verify role/address if needed
+   * 2) Verify role/address if needed, or bypass verification for RoboTest
    */
-  const { data: verifiedRoleAndAddressData } = useVerifiyRoleAndAddress(
+  const { data: verificationData } = useVerifiyRoleAndAddress(
     hashedTeacherAddress,
     hashedLearnerAddress,
     roomRole
   );
+
+  // Create a verified data object for RoboTest mode to bypass address verification
+  const verifiedRoleAndAddressData = roboTest === 'true'
+    ? { verifiedRole: roomRole, verifiedRoleAndAddress: true }
+    : verificationData;
 
   /**
    * 3) Immediately join the room but with mic/camera OFF
@@ -56,7 +61,8 @@ export default function Room() {
    */
   const { peerId: localPeerId } = useLocalPeer();
 
-  const isRoboMode = import.meta.env.VITE_ROBO_MODE === 'true';
+  // Use roboTest parameter or environment variable to enable RoboMode
+  const isRoboMode = import.meta.env.VITE_ROBO_MODE === 'true' || roboTest === 'true';
 
   useRoboAudioPlayer(isRoboMode, roomId);
 
@@ -64,10 +70,15 @@ export default function Room() {
     if (!localPeerId) return null;
     let url =  `https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=${localPeerId}&role=${roomRole}`;
 
-    if (isRoboMode) url += `&roboMode=true`;
+    if (isRoboMode) {
+      url += `&roboMode=true`;
+      // Add the learnerId and sessionId if available from RoboTest mode
+      if (learnerId) url += `&learnerId=${learnerId}`;
+      if (sessionId) url += `&sessionId=${sessionId}`;
+    }
 
     return url;
-  }, [roomId, localPeerId, roomRole, isRoboMode]);
+  }, [roomId, localPeerId, roomRole, isRoboMode, learnerId, sessionId]);
 
   /** 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn). */
   const { isRecording, cleanupAudio } = useAudioPipeline({
@@ -221,34 +232,34 @@ export default function Room() {
 
       {/* Fixed controls at the bottom */}
       <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-        <div className="bg-gray-800 bg-opacity-75 backdrop-blur-sm rounded-full px-3 sm:px-4 py-2 sm:py-3 shadow-lg flex items-center gap-2 sm:gap-3">
-          <button
-            className={`p-2 sm:p-3 rounded-full ${isAudioOn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
-            onClick={() => isAudioOn ? disableAudio() : enableAudio()}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-          </button>
-
-          <button
-            className={`p-2 sm:p-3 rounded-full ${isVideoOn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
-            onClick={() => isVideoOn ? disableVideo() : enableVideo()}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </button>
-
-          <button
-            onClick={handleEndSession}
-            className="bg-red-600 hover:bg-red-700 text-white p-2 sm:p-3 rounded-full"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        {/* <div className="bg-gray-800 bg-opacity-75 backdrop-blur-sm rounded-full px-3 sm:px-4 py-2 sm:py-3 shadow-lg flex items-center gap-2 sm:gap-3"> */}
+        {/*   <button */}
+        {/*     className={`p-2 sm:p-3 rounded-full ${isAudioOn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`} */}
+        {/*     onClick={() => isAudioOn ? disableAudio() : enableAudio()} */}
+        {/*   > */}
+        {/*     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"> */}
+        {/*       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /> */}
+        {/*     </svg> */}
+        {/*   </button> */}
+        {/**/}
+        {/*   <button */}
+        {/*     className={`p-2 sm:p-3 rounded-full ${isVideoOn ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`} */}
+        {/*     onClick={() => isVideoOn ? disableVideo() : enableVideo()} */}
+        {/*   > */}
+        {/*     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"> */}
+        {/*       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /> */}
+        {/*     </svg> */}
+        {/*   </button> */}
+        {/**/}
+        {/*   <button */}
+        {/*     onClick={handleEndSession} */}
+        {/*     className="bg-red-600 hover:bg-red-700 text-white p-2 sm:p-3 rounded-full" */}
+        {/*   > */}
+        {/*     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"> */}
+        {/*       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> */}
+        {/*     </svg> */}
+        {/*   </button> */}
+        {/* </div> */}
       </div>
     </div>
   );

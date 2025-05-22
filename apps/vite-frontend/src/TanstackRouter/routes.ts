@@ -19,6 +19,7 @@ import { onboardRouteQueries } from './RouteQueries/onboardRouteQueries'
 import { loungeRouteQueries } from './RouteQueries/loungeRouteQueries'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { EnhancedMistake } from '@/types/types'
+import RoboTest from '@/pages/robo-test/RoboTest'
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
@@ -227,7 +228,8 @@ export const roomRoute = createRoute({
       sessionId: search.sessionId as string,
       hashedLearnerAddress: search.hashedLearnerAddress as string,
       hashedTeacherAddress: search.hashedTeacherAddress as string,
-      controllerAddress: search.controllerAddress as string
+      controllerAddress: search.controllerAddress as string,
+      roboTest: search.roboTest as string
     }
   },
 });
@@ -365,6 +367,13 @@ export const sessionHistoryRoute = createRoute({
   }
 })
 
+export const roboTestRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/robo-test',
+  component: RoboTest
+})
+
+
 
 
 // Create the final route tree
@@ -376,4 +385,5 @@ export const routeTree = rootRoute.addChildren([
   roomRoute,
   sessionHistoryRoute,
   bolsaRoute,
+  roboTestRoute
 ])
