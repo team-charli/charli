@@ -715,18 +715,31 @@ async function injectSecrets(
     }
 
     try {
-      // shell echo trick for stdin compatibility with all Bun
-      const bulkCmd = [
-        `echo '${JSON.stringify(freshOnly).replace(/'/g, "'\\''")}'`,
-        '|',
-        'bunx', 'wrangler', 'secret', 'bulk', '--name', name
-      ];
+      // Create a temporary JSON file with the secrets
+      const tempFile = `/tmp/wrangler-secrets-${Date.now()}.json`;
+      await Bun.write(tempFile, JSON.stringify(freshOnly));
+      
+      // Use explicit path to node_modules binary instead of bunx
+      const args = ['node_modules/.bin/wrangler', 'secret', 'bulk', tempFile, '--name', name];
       if (configFlag) {
         const arg = configFlag.split(' ')[1];
-        bulkCmd.push('--config', arg);
+        args.push('--config', arg);
       }
-      log(`ℹ️  [injectSecrets] Running: ${bulkCmd.join(' ')} (cwd: ${t.path})`);
-      await $`${bulkCmd.join(' ')}`.cwd(t.path);
+      
+      log(`ℹ️  [injectSecrets] Running: ${args.join(' ')} (cwd: ${t.path})`);
+      
+      // Run with proper working directory
+      const result = Bun.spawnSync(args, {
+        cwd: t.path,
+        stdio: ['inherit', 'inherit', 'inherit'],
+      });
+      
+      if (result.exitCode !== 0) {
+        throw new Error(`Failed with exit code ${result.exitCode}`);
+      }
+      
+      // Clean up the temporary file
+      await $`rm ${tempFile}`.quiet();
     } catch (err) {
       log(`⚠️  wrangler secret bulk failed for ${name}: ${(err && err.stderr) ? err.stderr : err}`);
     }
