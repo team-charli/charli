@@ -57,7 +57,7 @@ export function useRoboAudioPlayer(isRoboMode: boolean, roomId: string) {
           const data = JSON.parse(evt.data);
           console.log(`[useRoboAudioPlayer] Parsed message type: ${data.type}`);
           
-          if (data.type !== "roboPcmBase64") {
+          if (data.type !== "roboAudioMp3") {
             console.log(`[useRoboAudioPlayer] Ignoring non-audio message type: ${data.type}`);
             return;
           }
@@ -67,84 +67,15 @@ export function useRoboAudioPlayer(isRoboMode: boolean, roomId: string) {
             return;
           }
 
-          console.log(`[useRoboAudioPlayer] Processing PCM data, base64 length: ${data.pcmBase64.length}`);
+          console.log(`[useRoboAudioPlayer] Processing MP3 data, base64 length: ${data.mp3Base64.length}`);
           
           try {
-            // Convert base64 to binary
-            const pcmBinary = Uint8Array.from(atob(data.pcmBase64), (c) => c.charCodeAt(0));
-            console.log(`[useRoboAudioPlayer] Decoded PCM binary length: ${pcmBinary.length} bytes`);
+            // Convert base64 MP3 to binary
+            const mp3Binary = Uint8Array.from(atob(data.mp3Base64), (c) => c.charCodeAt(0));
+            console.log(`[useRoboAudioPlayer] Decoded MP3 binary length: ${mp3Binary.length} bytes`);
             
-            // Create WAV header - assuming 16-bit PCM, 48kHz, mono
-            const sampleRate = 48000;
-            const numChannels = 1;
-            const bitsPerSample = 16;
-            
-            // Create WAV header
-            const wavHeader = new ArrayBuffer(44);
-            const view = new DataView(wavHeader);
-            
-            // "RIFF" chunk descriptor
-            view.setUint8(0, "R".charCodeAt(0));
-            view.setUint8(1, "I".charCodeAt(0));
-            view.setUint8(2, "F".charCodeAt(0));
-            view.setUint8(3, "F".charCodeAt(0));
-            
-            // File size (36 + data size)
-            view.setUint32(4, 36 + pcmBinary.length, true);
-            
-            // "WAVE" format
-            view.setUint8(8, "W".charCodeAt(0));
-            view.setUint8(9, "A".charCodeAt(0));
-            view.setUint8(10, "V".charCodeAt(0));
-            view.setUint8(11, "E".charCodeAt(0));
-            
-            // "fmt " sub-chunk
-            view.setUint8(12, "f".charCodeAt(0));
-            view.setUint8(13, "m".charCodeAt(0));
-            view.setUint8(14, "t".charCodeAt(0));
-            view.setUint8(15, " ".charCodeAt(0));
-            
-            // Sub-chunk size (16 for PCM)
-            view.setUint32(16, 16, true);
-            
-            // Audio format (1 for PCM)
-            view.setUint16(20, 1, true);
-            
-            // Number of channels
-            view.setUint16(22, numChannels, true);
-            
-            // Sample rate
-            view.setUint32(24, sampleRate, true);
-            
-            // Byte rate
-            view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true);
-            
-            // Block align
-            view.setUint16(32, numChannels * (bitsPerSample / 8), true);
-            
-            // Bits per sample
-            view.setUint16(34, bitsPerSample, true);
-            
-            // "data" sub-chunk
-            view.setUint8(36, "d".charCodeAt(0));
-            view.setUint8(37, "a".charCodeAt(0));
-            view.setUint8(38, "t".charCodeAt(0));
-            view.setUint8(39, "a".charCodeAt(0));
-            
-            // Data size
-            view.setUint32(40, pcmBinary.length, true);
-            
-            // Combine header and PCM data
-            const wavData = new Uint8Array(wavHeader.byteLength + pcmBinary.length);
-            wavData.set(new Uint8Array(wavHeader), 0);
-            wavData.set(pcmBinary, wavHeader.byteLength);
-            
-            console.log(`[useRoboAudioPlayer] Created WAV data with header, total length: ${wavData.length} bytes`);
-            
-            // Try decoding the WAV data
-            const audioBuffer = await audioContextRef.current.decodeAudioData(
-              wavData.buffer
-            );
+            // Use Web Audio API to decode MP3 directly (much simpler!)
+            const audioBuffer = await audioContextRef.current.decodeAudioData(mp3Binary.buffer);
 
             const source = audioContextRef.current.createBufferSource();
             source.buffer = audioBuffer;

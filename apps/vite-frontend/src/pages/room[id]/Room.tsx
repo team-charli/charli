@@ -11,7 +11,6 @@ import RemotePeerView from "./Components/RemotePeerView";
 import ControlRibbon from "./Components/ControlRibbon";
 import { useAudioPipeline } from "./hooks/useAudioPipeline";
 import { usePeerConnectionMonitor } from "./hooks/usePeerConnectionMonitor";
-import { useRoboAudioPlayer } from './hooks/useRoboAudioPlayer';
 
 import useBellListener from "./hooks/useBellListener";
 
@@ -64,7 +63,6 @@ export default function Room() {
   // Use roboTest parameter or environment variable to enable RoboMode
   const isRoboMode = import.meta.env.VITE_ROBO_MODE === 'true' || roboTest === 'true';
 
-  useRoboAudioPlayer(isRoboMode, roomId);
 
   const uploadUrl = useMemo(() => {
     if (!localPeerId) return null;
@@ -79,6 +77,11 @@ export default function Room() {
 
     return url;
   }, [roomId, localPeerId, roomRole, isRoboMode, learnerId, sessionId]);
+
+  // Log the uploadUrl for debugging
+  useEffect(() => {
+    console.log('[Room] uploadUrl:', uploadUrl);
+  }, [uploadUrl]);
 
   /** 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn). */
   const { isRecording, cleanupAudio } = useAudioPipeline({
@@ -113,9 +116,17 @@ export default function Room() {
 
   /** 10) Transcript WebSocket */
   useEffect(() => {
+    let audioContext: AudioContext | null = null;
+
+    // Initialize AudioContext for audio playback
+    if (isRoboMode) {
+      audioContext = new AudioContext();
+      console.log("[TranscriptListener] AudioContext created for robo mode");
+    }
+
     const ws = new WebSocket(`wss://learner-assessment-worker.charli.chat/connect/${roomId}`);
     ws.onopen = () => console.log("[TranscriptListener] WebSocket connected.");
-    ws.onmessage = (evt) => {
+    ws.onmessage = async (evt) => {
       const message = JSON.parse(evt.data);
       switch (message.type) {
         case "partialTranscript":
@@ -127,13 +138,42 @@ export default function Room() {
         case "transcription-error":
           console.error("[TranscriptListener] Transcription error:", message.data.error);
           break;
+        case "roboReplyText":
+          console.log("[TranscriptListener] Robo reply text:", message.data.text);
+          break;
+        case "roboAudioMp3":
+          console.log("[TranscriptListener] Received robo audio MP3, length:", message.data.mp3Base64?.length);
+          if (audioContext && message.data.mp3Base64) {
+            try {
+              // Convert base64 MP3 to binary
+              const mp3Binary = Uint8Array.from(atob(message.data.mp3Base64), (c) => c.charCodeAt(0));
+              console.log("[TranscriptListener] Decoded MP3 binary length:", mp3Binary.length);
+              
+              // Decode and play the MP3 audio
+              const audioBuffer = await audioContext.decodeAudioData(mp3Binary.buffer);
+              const source = audioContext.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(audioContext.destination);
+              source.start();
+              console.log("[TranscriptListener] Robo audio playback started");
+            } catch (err) {
+              console.error("[TranscriptListener] Error playing robo audio:", err);
+            }
+          }
+          break;
         default:
           console.warn("[TranscriptListener] Unknown message type:", message.type);
       }
     };
     ws.onerror = (err) => console.error("[TranscriptListener] WebSocket error:", err);
-    return () => ws.close();
-  }, [roomId]);
+    
+    return () => {
+      ws.close();
+      if (audioContext) {
+        audioContext.close();
+      }
+    };
+  }, [roomId, isRoboMode]);
 
   /** 11) Leave the room */
   const { leaveRoom } = useRoomLeave(roomId);

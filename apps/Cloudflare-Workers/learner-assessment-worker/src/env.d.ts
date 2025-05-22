@@ -6,13 +6,16 @@ export interface Env {
 	MESSAGE_RELAY_DO: DurableObjectNamespace<MessageRelayDO>;
 	PCM_TO_WAV_WORKER: Service<PcmToWavWorker>;
 	AUDIO_BUCKET: R2Bucket;
-	LEARNER_ASSESSMENT_TRANSCRIBE_TOKEN: string;
-	TRANSCRIBE_PROVIDER: string;
 	AI: Ai;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	SUPABASE_URL: string;
   ROBO_TEST_DO: Service<RoboTestDO>;
-	SCORECARD_ORCHESTRATOR_DO:DurableObjectNamespace<ScorecardOrchestratorDO>
+	SCORECARD_ORCHESTRATOR_DO: DurableObjectNamespace<ScorecardOrchestratorDO>;
+	// Added for RoboAudio WebSocket connections
+	ROBO_AUDIO_CONNECTIONS?: Map<string, Map<string, WebSocket>>;
+  DEEPGRAM_API_KEY: string;
+  DEEPGRAM_URL: string;
+	DG_LANGUAGE?: string;
 }
 // env.ts
 

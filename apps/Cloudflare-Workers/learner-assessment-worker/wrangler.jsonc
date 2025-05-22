@@ -49,6 +49,10 @@
     {
       "binding": "PCM_TO_WAV_WORKER",
       "service": "pcm-to-wav-worker"
+    },
+    {
+      "binding": "ROBO_TEST_DO",
+      "service": "robo-test-mode"
     }
   ]
 }

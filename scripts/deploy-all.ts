@@ -718,26 +718,26 @@ async function injectSecrets(
       // Create a temporary JSON file with the secrets
       const tempFile = `/tmp/wrangler-secrets-${Date.now()}.json`;
       await Bun.write(tempFile, JSON.stringify(freshOnly));
-      
+
       // Use explicit path to node_modules binary instead of bunx
       const args = ['node_modules/.bin/wrangler', 'secret', 'bulk', tempFile, '--name', name];
       if (configFlag) {
         const arg = configFlag.split(' ')[1];
         args.push('--config', arg);
       }
-      
+
       log(`ℹ️  [injectSecrets] Running: ${args.join(' ')} (cwd: ${t.path})`);
-      
+
       // Run with proper working directory
       const result = Bun.spawnSync(args, {
         cwd: t.path,
         stdio: ['inherit', 'inherit', 'inherit'],
       });
-      
+
       if (result.exitCode !== 0) {
         throw new Error(`Failed with exit code ${result.exitCode}`);
       }
-      
+
       // Clean up the temporary file
       await $`rm ${tempFile}`.quiet();
     } catch (err) {
@@ -899,7 +899,7 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
     } else {
       // local dev server ⇢ run Vite inside real Node
       log("› Running vite-frontend in development mode (node)");
-      await $`node node_modules/.bin/vite`.cwd(t.path).env(env);
+      await $`node node_modules/.bin/vite --port 5173`.cwd(t.path).env(env);
     }
     return;
   }

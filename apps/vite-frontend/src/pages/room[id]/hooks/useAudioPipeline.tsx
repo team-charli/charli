@@ -107,11 +107,26 @@ export function useAudioPipeline({
         worklet.port.onmessage = async (e) => {
           const chunk = e.data as Uint8Array;
           console.log(`[useAudioPipeline] Sending PCM chunk, size: ${chunk.length}`, new Date().toISOString());
+          console.log(`[useAudioPipeline] Fetching to URL: ${uploadUrl}`);
+          
           try {
-            const resp = await fetch(uploadUrl, { method: "POST", body: chunk });
+            const startTime = Date.now();
+            const resp = await fetch(uploadUrl, { 
+              method: "POST", 
+              body: chunk,
+              headers: {
+                'Content-Type': 'application/octet-stream'
+              }
+            });
+            const endTime = Date.now();
+            
+            console.log(`[useAudioPipeline] Response received in ${endTime - startTime}ms, status: ${resp.status}`);
+            
             if (!resp.ok) {
               const errorText = await resp.text();
               console.error(`[useAudioPipeline] PCM upload failed: ${resp.status} - ${errorText}`);
+            } else {
+              console.log(`[useAudioPipeline] PCM upload successful: ${resp.status}`);
             }
           } catch (err) {
             console.error("[useAudioPipeline] PCM upload network error:", err);
