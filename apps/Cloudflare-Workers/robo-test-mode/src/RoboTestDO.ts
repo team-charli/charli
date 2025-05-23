@@ -86,20 +86,22 @@ export class RoboTestDO extends DurableObject<Env> {
     }
   }
 
-  /** Llama text → MyShell MeloTTS → MP3 (Uint8Array) */
-  private async convertTextToSpeech(text: string): Promise<Uint8Array> {
-    try {
-      const ttsRes = await this.env.AI.run('@cf/myshell-ai/melotts', {
-        prompt   : text.slice(0, 180),  // keep <200 chars
-        lang     : 'es'
-      }) as { audio: string };
+/** Llama text → MyShell MeloTTS → MP3 (Uint8Array) */
+private async convertTextToSpeech(text: string): Promise<Uint8Array> {
+  try {
+    // @ts-expect-error voice_id & speed not yet in workers-types
+    const { audio } = await this.env.AI.run('@cf/myshell-ai/melotts', {
+      prompt   : text.slice(0, 180), // <200 chars for TTS reliability
+      voice_id : 'es_female_01',     // Castilian Spanish female
+      speed    : 1.0                 // normal speed
+    }) as { audio: string };
 
-      return Uint8Array.from(atob(ttsRes.audio), c => c.charCodeAt(0));
-    } catch (err) {
-      console.error('[RoboTestDO] TTS error:', err);
-      throw new Error('Failed to convert text to speech');
-    }
+    return Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+  } catch (err) {
+    console.error('[RoboTestDO] TTS error:', err);
+    throw new Error('Failed to convert text to speech');
   }
+}
 
   /** Cloudflare R2 worker → MP3 → PCM (48 kHz / 16-bit / mono) */
   private async decodeMp3ToPcm(mp3Buf: Uint8Array): Promise<Uint8Array> {
