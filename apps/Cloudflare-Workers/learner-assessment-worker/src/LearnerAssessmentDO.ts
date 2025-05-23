@@ -30,8 +30,22 @@ type DGSocket = {
 };
 
 const DG_MODEL    = 'nova-2';
-const DG_LANGUAGE = 'es-MX';      // pick the accent you prefer
-const DEBOUNCE_MS = 2000;         // 2 s silence → send to robo
+const DG_LANGUAGE = 'es-MX';
+const DEBOUNCE_MS = 1200;         // silence duration before robo reply  
+const NOISE_FLOOR = 80;           // baseline noise level
+const SILENCE_RMS = 250;          // a touch more sensitive
+const MAX_UTTERANCE_MS = 8000;    // give the learner a full 8 s if needed
+
+/** RMS helper for 16-bit little-endian PCM amplitude detection */
+function rms(pcm: Uint8Array): number {
+  const dv = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+  let sumSq = 0;
+  for (let i = 0; i < dv.byteLength; i += 2) {
+    const v = dv.getInt16(i, true);
+    sumSq += v * v;
+  }
+  return Math.sqrt(sumSq / (dv.byteLength / 2));
+}
 
 export class LearnerAssessmentDO extends DurableObject<Env> {
   /* ------------------------------------------------------------------ */
@@ -41,84 +55,136 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
   /* runtime */
   private learnerDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private maxUtteranceTimer: ReturnType<typeof setTimeout> | null = null;
   private currentUtteranceChunks: Uint8Array[] = [];
   private dgSocket: DGSocket | null = null;
+  private reconnectAt: number = 0;
+  private heardSpeech: boolean = false;  // new flag per utterance
   /* ------------------------------------------------------------------ */
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
     this.state = state;
-
+    
+    // Optional build-id guard to handle DO resets after deployments
+    if (env.__BUILD_ID) {
+      this.initializeBuildGuard(env.__BUILD_ID);
+    }
     /* ────────── POST /audio/:roomId ────────── */
     this.app.post('/audio/:roomId', async c => {
-      /* 1. params & query ------------------------------------------------ */
-      const roomId = c.req.param('roomId');
-      const q      = c.req.query();
-      const action = q['action'];
-      const role   = q['role']   ?? 'unknown';
-      const peerId = q['peerId'] ?? 'unknown';
-
-      const requestedRobo = q['roboMode'] === 'true';
-      const sessionIdStr  = q['sessionId'];
-      const learnerIdStr  = q['learnerId'];
-
-      /* 2. store metadata or handle end-session ------------------------- */
-      if (sessionIdStr && learnerIdStr)
-        await this.storeSessionMetadata(sessionIdStr, learnerIdStr);
-
-      if (action === 'end-session') {
-        console.log('[LearnerAssessmentDO] end-session');
-        try {
-          await this.transcribeAndDiarizeAll(roomId);
-          this.dgSocket?.ws.close();
-          return c.json({ status: 'transcription completed' });
-        } catch (err) {
-          console.error('[LearnerAssessmentDO] end-session error:', err);
-          return c.json({ status: 'completed with errors', error: String(err) }, 200);
-        }
-      }
-
-      /* 3. decide session mode once ------------------------------------ */
-      await this.initializeSessionMode(requestedRobo);
-
-      /* 4. read + validate chunk --------------------------------------- */
-      const chunk = new Uint8Array(await c.req.arrayBuffer());
-      if (chunk.length === 0)       return c.text('No audio data', 400);
-      if (chunk.length > 131_072) { console.error('[LearnerAssessmentDO] chunk too large'); return c.text('Chunk too large', 400); }
-
-      /* 5. send to Deepgram & persist ---------------------------------- */
-      const dg = await this.getOrInitDG(roomId);
-      dg.ws.send(LearnerAssessmentDO.wavlify(chunk)); // 48 kHz WAV frame
-
-      await this.savePcmChunk(roomId, peerId, role, chunk);
-      if ((await this.getSessionMode()) === 'robo')
-        await this.generateAndSaveRoboChunk(roomId, peerId, chunk);
+      return this.handleAudioRequest(c);
     });
+    
+    /* ────────── POST /audio/:roomId{.*} fallback for timestamp suffixes ────────── */
+    this.app.post('/audio/:roomId{.*}', async c => {
+      return this.handleAudioRequest(c);
+    });
+  }
+
+  private async handleAudioRequest(c: any) {
+    /* 1. params & query ------------------------------------------------ */
+    const roomId = c.req.param('roomId');
+    const q      = c.req.query();
+    const action = q['action'];
+    const role   = q['role']   ?? 'unknown';
+    const peerId = q['peerId'] ?? 'unknown';
+
+    const requestedRobo = q['roboMode'] === 'true';
+    const sessionIdStr  = q['sessionId'];
+    const learnerIdStr  = q['learnerId'];
+
+    /* 2. store metadata or handle end-session ------------------------- */
+    if (sessionIdStr && learnerIdStr)
+      await this.storeSessionMetadata(sessionIdStr, learnerIdStr);
+
+    if (action === 'end-session') {
+      console.log('[LearnerAssessmentDO] end-session');
+      try {
+        await this.transcribeAndDiarizeAll(roomId);
+        this.dgSocket?.ws.close();
+        return c.json({ status: 'transcription completed' });
+      } catch (err) {
+        console.error('[LearnerAssessmentDO] end-session error:', err);
+        return c.json({ status: 'completed with errors', error: String(err) }, 200);
+      }
+    }
+
+    /* 3. decide session mode once ------------------------------------ */
+    await this.initializeSessionMode(requestedRobo);
+
+    /* 4. read + validate chunk --------------------------------------- */
+    const chunk = new Uint8Array(await c.req.arrayBuffer());
+    if (chunk.length === 0)       return c.text('No audio data', 400);
+    if (chunk.length > 131_072) { console.error('[LearnerAssessmentDO] chunk too large'); return c.text('Chunk too large', 400); }
+
+    /* 5. send to Deepgram & persist ---------------------------------- */
+    const sessionMode = await this.getSessionMode();
+    console.log(`[LearnerAssessmentDO] Storing metadata: sessionId=${sessionIdStr}, learnerId=${learnerIdStr}`);
+    console.log(`[LearnerAssessmentDO] mode ${sessionMode}`);
+
+    // Send to Deepgram in BOTH modes (normal and robo)
+    try {
+      const dg = await this.getOrInitDG(roomId);
+      await dg.ready;                       // 🆕  hold until `{type:"listening"}`
+      dg.ws.send(chunk); // raw PCM for linear16 encoding
+    } catch (err) {
+      console.error(`[LearnerAssessmentDO] Deepgram error: ${err}`);
+      // Set back-off on connection failure
+      this.reconnectAt = Date.now() + 5000;
+      // Continue processing - robo mode will get empty transcript
+    }
+
+    await this.savePcmChunk(roomId, peerId, role, chunk);
+    if (sessionMode === 'robo') {
+      console.log(`[LearnerAssessmentDO] Adding chunk to utterance collection, size=${chunk.length}, current chunks=${this.currentUtteranceChunks.length}`);
+      await this.generateAndSaveRoboChunk(roomId, peerId, chunk);
+    }
+
+    return c.json({ status: 'ok' });
   }
 
   /* ─────────────────────────── Deepgram socket ──────────────────────── */
   private async getOrInitDG(roomId: string): Promise<DGSocket> {
     if (this.dgSocket) return this.dgSocket;
+    
+    // Check if we need to wait before reconnecting
+    if (this.reconnectAt > Date.now()) {
+      throw new Error(`Deepgram reconnect back-off active until ${new Date(this.reconnectAt)}`);
+    }
 
-    const url = new URL(this.env.DEEPGRAM_URL ?? 'wss://api.deepgram.com/v1/listen');
-    url.searchParams.set('model',           DG_MODEL);
-    url.searchParams.set('language',        DG_LANGUAGE);
-    url.searchParams.set('sample_rate',     '48000');
-    url.searchParams.set('encoding',        'wav');      // <-- important
-    url.searchParams.set('diarize',         'true');
-    url.searchParams.set('filler_words',    'true');
-    url.searchParams.set('punctuate',       'false');
-    url.searchParams.set('interim_results', 'true');
-    url.searchParams.set('access_token',    this.env.DEEPGRAM_API_KEY);
+    const wsURL = new URL('wss://api.deepgram.com/v1/listen');
+    wsURL.searchParams.set('model',        'nova-2');
+    wsURL.searchParams.set('language',     'es-MX');
+    wsURL.searchParams.set('sample_rate',  '48000');
+    wsURL.searchParams.set('encoding',     'linear16');
+    wsURL.searchParams.set('diarize',      'true');
+    wsURL.searchParams.set('filler_words', 'true');
+    wsURL.searchParams.set('punctuate',    'false');
+    wsURL.searchParams.set('interim_results', 'false');
+    wsURL.searchParams.set('access_token', this.env.DEEPGRAM_API_KEY);   // <— official key name
 
-    const dgWS = new WebSocket(url.toString());
+    console.log('[DG] connecting', wsURL.toString());        // keep this
+
+    const dgWS = new WebSocket(wsURL.toString());            // **ONE ARG ONLY**
 
     let resolve!: () => void;
     const ready = new Promise<void>(r => (resolve = r));
 
     dgWS.addEventListener('open',  () => console.log('[DG] open'));
-    dgWS.addEventListener('error', e  => console.log('[DG] error', e));
-    dgWS.addEventListener('close', e  => console.log('[DG] close', e.code, e.reason));
+    dgWS.addEventListener('error', e  => {
+      console.log('[DG] error event:', e);
+      console.log('[DG] error message:', e.message || 'no message');
+      console.log('[DG] error type:', e.type || 'no type');
+    });
+    dgWS.addEventListener('close', e  => {
+      console.log('[DG] close code:', e.code, 'reason:', e.reason || 'no reason');
+      console.log('[DG] close message:', e.message || 'no message');
+      if (e.code !== 1000) {
+        // Abnormal close - set 2 second back-off
+        this.reconnectAt = Date.now() + 2000;
+        console.log(`[DG] Setting reconnect back-off until ${new Date(this.reconnectAt)}`);
+      }
+    });
     dgWS.addEventListener('message', evt => {
       const msg = JSON.parse(evt.data as string);
       if (msg.type === 'listening') { resolve(); return; }
@@ -169,6 +235,16 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
   /* ───────────────────────── Durable-object fetch ───────────────────── */
   async fetch(request: Request) { return this.app.fetch(request); }
 
+  /* ─────────────────────── Build guard helper ──────────────────────── */
+  private async initializeBuildGuard(buildId: string) {
+    const storedBuildId = await this.state.storage.get<string>('build');
+    if (buildId !== storedBuildId) {
+      console.log(`[LearnerAssessmentDO] Build ID changed from ${storedBuildId} to ${buildId}, clearing storage`);
+      await this.state.storage.deleteAll();
+      await this.state.storage.put('build', buildId);
+    }
+  }
+
   /* ───────────────────── session-mode helpers (storage) ─────────────── */
   private async getSessionMode(): Promise<SessionMode> {
     return (await this.state.storage.get<boolean>('roboMode')) ? 'robo' : 'normal';
@@ -192,52 +268,111 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     learnerPeerId: string,
     learnerChunk: Uint8Array
   ) {
-    /* 0. collect chunks during debounce */
+    /* 0. collect chunks and detect speech/silence */
     this.currentUtteranceChunks.push(learnerChunk);
-    if (this.learnerDebounceTimer) clearTimeout(this.learnerDebounceTimer);
 
-    this.learnerDebounceTimer = setTimeout(async () => {
-      if (this.currentUtteranceChunks.length === 0) return;
+    const isSpeech = rms(learnerChunk) > SILENCE_RMS;
+    console.log(`[LearnerAssessmentDO] Chunk RMS: ${rms(learnerChunk)}, isSpeech: ${isSpeech}`);
+    console.log(`[LearnerAssessmentDO] Adding chunk to utterance collection, size=${learnerChunk.length}, current chunks=${this.currentUtteranceChunks.length}`);
 
-      try {
-        /* 1. pcm → text (placeholder: last 50 learner words) */
-        const utterance = this.concatChunks(this.currentUtteranceChunks);
-        const learnerText = await this.transcribeLearnerUtterance(utterance);
-        if (!learnerText) return;
-
-        /* 2. call robo-test-mode Worker (service binding) */
-        const res = await this.env.ROBO_TEST_DO.fetch(
-          'http://robo-test-mode/robo-teacher-reply',
-          {
-            method : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body   : JSON.stringify({ userText: learnerText, roomId })
-          }
-        );
-        if (!res.ok) { console.error('[Robo-TTS] HTTP', res.status); return; }
-
-        const { replyText, pcmBase64 } = await res.json<{
-          replyText: string; pcmBase64: string;
-        }>();
-
-        /* 3. broadcast text & audio to browser(s) */
-        await this.broadcastToRoom(roomId, 'roboReplyText', { text: replyText });
-
-        const { broadcastRoboAudio } = await import('./index');
-        await broadcastRoboAudio(this.env, roomId, pcmBase64);
-
-        /* 4. store robo audio chunks as normal */
-        const roboPcm = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0));
-        const MAX = 131_072;
-        for (let o = 0; o < roboPcm.length; o += MAX) {
-          await this.savePcmChunk(roomId, 'roboPeer', 'teacher', roboPcm.subarray(o, o + MAX));
-        }
-      } catch (err) {
-        console.error('[LearnerAssessmentDO] robo reply error', err);
-      } finally {
-        this.currentUtteranceChunks = [];
+    if (isSpeech) {
+      this.heardSpeech = true;                 // new flag per utterance
+      // reset the "pause" timer only when we actually detected speech
+      if (this.learnerDebounceTimer) {
+        console.log('[LearnerAssessmentDO] Clearing existing debounce timer');
+        clearTimeout(this.learnerDebounceTimer);
       }
-    }, DEBOUNCE_MS);
+      console.log(`[LearnerAssessmentDO] Setting new debounce timer (${DEBOUNCE_MS}ms)`);
+      this.learnerDebounceTimer = setTimeout(() => this.flushUtterance(roomId), DEBOUNCE_MS);
+      
+      // Start max utterance timer if not already running
+      if (!this.maxUtteranceTimer) {
+        console.log(`[LearnerAssessmentDO] Starting max utterance timer (${MAX_UTTERANCE_MS}ms)`);
+        this.maxUtteranceTimer = setTimeout(() => this.flushUtterance(roomId), MAX_UTTERANCE_MS);
+      }
+    } else if (!this.heardSpeech) {
+      // ignore leading background noise; do NOT start debounce yet
+      return;
+    }
+  }
+
+  private async flushUtterance(roomId: string) {
+    console.log(`[LearnerAssessmentDO] flushUtterance fired at ${new Date().toISOString()}`);
+    console.log(`[LearnerAssessmentDO] Debounce timer fired, chunks=${this.currentUtteranceChunks.length}`);
+
+    if (this.currentUtteranceChunks.length === 0) return;
+
+    try {
+      /* 1. pcm → text (Deepgram stream + REST fallback) */
+      // Limit to 2 seconds of PCM (~192kB) to avoid >2MB uploads
+      const maxUtteranceSize = 192 * 1024; // 2 seconds at 48kHz 16-bit mono
+      const limitedChunks = this.currentUtteranceChunks.reduce((acc, chunk) => {
+        if (acc.totalSize + chunk.length <= maxUtteranceSize) {
+          acc.chunks.push(chunk);
+          acc.totalSize += chunk.length;
+        }
+        return acc;
+      }, { chunks: [] as Uint8Array[], totalSize: 0 });
+      
+      const utterance = this.concatChunks(limitedChunks.chunks);
+      let learnerText = await this.transcribeLearnerUtterance(utterance);
+      
+      // Fallback to Deepgram REST API if streaming failed
+      if (!learnerText && this.env.DEEPGRAM_API_KEY) {
+        console.log('[LearnerAssessmentDO] Trying Deepgram REST fallback');
+        const wav = LearnerAssessmentDO.wavlify(utterance);
+        learnerText = await this.oneShotTranscript(wav);
+      }
+      
+      console.log(`[LearnerAssessmentDO] Transcribed text: "${learnerText}"`);
+
+      if (!learnerText.trim()) {
+        console.log('[ASR] ignoring empty transcript');
+        return;                           // 🚫 do NOT call robo-reply pipeline
+      }
+
+      console.log(`[LearnerAssessmentDO] Fetching robo reply for text: "${learnerText}"`);
+
+      /* 2. call robo-test-mode Worker (service binding) */
+      const res = await this.env.ROBO_TEST_DO.fetch(
+        'http://robo-test-mode/robo-teacher-reply',
+        {
+          method : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body   : JSON.stringify({ userText: learnerText, roomId })
+        }
+      );
+      if (!res.ok) {
+        console.error(`[LearnerAssessmentDO] Robo service HTTP error: ${res.status}`);
+        return;
+      }
+
+      const { replyText, mp3Base64 } = await res.json<{
+        replyText: string; mp3Base64: string;
+      }>();
+
+      console.log(`[LearnerAssessmentDO] Got robo reply: "${replyText.substring(0, 50)}...", mp3Base64 length=${mp3Base64.length}`);
+
+      /* 3. broadcast text & audio to browser(s) */
+      console.log(`[LearnerAssessmentDO] Broadcasting robo reply text to room ${roomId}`);
+      await this.broadcastToRoom(roomId, 'roboReplyText', { text: replyText });
+
+      console.log(`[LearnerAssessmentDO] Broadcasting MP3 audio to frontend for room ${roomId}`);
+      await this.broadcastToRoom(roomId, 'roboAudioMp3', { mp3Base64 });
+      console.log(`[LearnerAssessmentDO] broadcast robo MP3 reply (${mp3Base64.length} chars base64)`);
+      console.log('[LearnerAssessmentDO] Robo reply dispatched OK');
+    } catch (err) {
+      console.error('[LearnerAssessmentDO] robo reply error', err);
+    } finally {
+      console.log('[LearnerAssessmentDO] Clearing utterance chunks and timers');
+      this.currentUtteranceChunks = [];
+      this.learnerDebounceTimer = null;
+      this.heardSpeech = false;  // reset flag for next utterance
+      if (this.maxUtteranceTimer) {
+        clearTimeout(this.maxUtteranceTimer);
+        this.maxUtteranceTimer = null;
+      }
+    }
   }
 
   /* ────────────────────── PCM chunk persistence helpers ─────────────── */
@@ -265,15 +400,127 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     return out;
   }
 
-  /* ───────── learner-utterance ASR placeholder (last 50 words) ──────── */
+  /* ───────── learner-utterance ASR (Deepgram words only) ──────── */
   private async transcribeLearnerUtterance(_: Uint8Array): Promise<string> {
-    await new Promise(r => setTimeout(r, 150)); // simulate small delay
-    return this.words.filter(w => w.role === 'learner').slice(-50).map(w => w.word).join(' ');
+    // ‼️ DO NOT synthesize words. Simply return whatever Deepgram gave us.
+    const words = this.words.filter(w => w.role === 'learner').slice(-50);
+    await new Promise(r => setTimeout(r, 50)); // tiny debounce to batch DG msgs
+    return words.map(w => w.word).join(' ');
   }
 
-  /* ────────────── batch diarisation & scorecard (unchanged) ─────────── */
-  /* … full transcribeAndDiarizeAll, mergePeerTranscripts, cleanupAll,
-       broadcastToRoom etc. remained exactly as we discussed … */
+  /* ───────── Deepgram REST API fallback ──────── */
+  private async oneShotTranscript(wavBuffer: Uint8Array): Promise<string> {
+    try {
+      console.log('[LearnerAssessmentDO] Calling Deepgram REST API with WAV buffer length:', wavBuffer.length);
+      
+      const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=es-MX&diarize=true', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${this.env.DEEPGRAM_API_KEY}`,
+          'Content-Type': 'audio/wav'
+        },
+        body: wavBuffer  // includes 44-byte RIFF header
+      });
+
+      if (!response.ok) {
+        console.error('[LearnerAssessmentDO] Deepgram REST API error:', response.status, response.statusText);
+        return '';
+      }
+
+      const result = await response.json() as any;
+      console.log('[LearnerAssessmentDO] Deepgram REST response:', JSON.stringify(result, null, 2));
+      
+      // Extract transcript from response
+      const transcript = result.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+      const metadata = result.metadata || {};
+      
+      if (transcript === '') {
+        console.log(`[DG-REST] EMPTY transcript, duration=${metadata.duration}s, sha=${metadata.sha256}`);
+        return '';
+      }
+      
+      console.log('[LearnerAssessmentDO] REST transcript:', transcript);
+      return transcript;
+    } catch (err) {
+      console.error('[LearnerAssessmentDO] Deepgram REST API error:', err);
+      return '';
+    }
+  }
+
+  /* ────────────── batch diarisation & scorecard ─────────── */
+  private async transcribeAndDiarizeAll(roomId: string) {
+    console.log(`[LearnerAssessmentDO] Starting transcribeAndDiarizeAll for room ${roomId}`);
+
+    // Get all peer IDs from stored metadata
+    const peerKeys = await this.state.storage.list({ prefix: `${roomId}/` });
+    const peerIds = Array.from(new Set(
+      Array.from(peerKeys.keys())
+        .map(k => k.toString().split('/')[1])
+        .filter(Boolean)
+    ));
+
+    console.log(`[LearnerAssessmentDO] Found ${peerIds.length} peers: ${peerIds.join(', ')}`);
+
+    if (peerIds.length === 0) {
+      console.log('[LearnerAssessmentDO] No peers found for transcription');
+      await this.broadcastToRoom(roomId, 'transcription-complete', { text: '', scorecard: null });
+      return;
+    }
+
+    // For now, just use the collected words from Deepgram
+    const transcript = this.words.map(w => w.word).join(' ');
+    console.log(`[LearnerAssessmentDO] Merged transcript: ${transcript}`);
+
+    if (!transcript.trim()) {
+      console.log('[LearnerAssessmentDO] Skipping scorecard generation due to missing data');
+      await this.broadcastToRoom(roomId, 'transcription-complete', { text: '', scorecard: null });
+      return;
+    }
+
+    // Generate scorecard would go here - for now, just broadcast completion
+    await this.broadcastToRoom(roomId, 'transcription-complete', { text: transcript, scorecard: null });
+
+    // Cleanup storage
+    console.log(`[LearnerAssessmentDO] Cleaning up storage for room ${roomId}`);
+    await this.cleanupAll(roomId);
+
+    console.log(`[LearnerAssessmentDO] transcribeAndDiarizeAll completed for room ${roomId}`);
+  }
+
+  private async broadcastToRoom(roomId: string, messageType: string, data: any) {
+    console.log(`[LearnerAssessmentDO] Broadcasting ${messageType} to room ${roomId}`);
+
+    try {
+      const relayDO = this.env.MESSAGE_RELAY_DO.get(
+        this.env.MESSAGE_RELAY_DO.idFromName(roomId)
+      );
+
+      console.log(`[LearnerAssessmentDO] Created MessageRelayDO instance for room ${roomId}`);
+
+      const payload = { type: messageType, data };
+      console.log(`[LearnerAssessmentDO] Sending payload: ${JSON.stringify(payload).substring(0, 200)}...`);
+
+      const response = await relayDO.fetch(`http://message-relay/broadcast/${roomId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      console.log(`[LearnerAssessmentDO] Broadcast successful, status: ${response.status}`);
+
+    } catch (err) {
+      console.error(`[LearnerAssessmentDO] Broadcast failed:`, err);
+    }
+  }
+
+  private async cleanupAll(roomId: string) {
+    // Clean up storage for the room
+    const keys = await this.state.storage.list({ prefix: `${roomId}/` });
+    const deleteKeys = Array.from(keys.keys());
+    if (deleteKeys.length > 0) {
+      await this.state.storage.delete(deleteKeys);
+    }
+  }
 
   /* ───────────── WAV header helper (little-endian RIFF) ─────────────── */
   private static wavlify(pcm: Uint8Array, sampleRate = 48_000, channels = 1) {

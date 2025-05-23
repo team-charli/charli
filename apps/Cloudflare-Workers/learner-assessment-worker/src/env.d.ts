@@ -16,6 +16,7 @@ export interface Env {
   DEEPGRAM_API_KEY: string;
   DEEPGRAM_URL: string;
 	DG_LANGUAGE?: string;
+	__BUILD_ID?: string;
 }
 // env.ts
 

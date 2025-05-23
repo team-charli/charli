@@ -18,10 +18,18 @@ export default function Room() {
   /**
    * 1) Get room & role info from URL
    */
-  const { id: roomId } = useParams({ from: "/room/$id" });
+  const { id: urlRoomId } = useParams({ from: "/room/$id" });
   const { roomRole, hashedLearnerAddress, hashedTeacherAddress, roboTest, learnerId, sessionId } = useSearch({
     from: "/room/$id",
   });
+
+  // Generate fresh roomId for robo mode to prevent DO reuse across deploys
+  const roomId = useMemo(() => {
+    if (roboTest === 'true') {
+      return `${urlRoomId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+    return urlRoomId;
+  }, [urlRoomId, roboTest]);
 
   /**
    * 2) Verify role/address if needed, or bypass verification for RoboTest
