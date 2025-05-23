@@ -31,7 +31,7 @@ type DGSocket = {
 
 const DG_MODEL    = 'nova-2';
 const DG_LANGUAGE = 'es-MX';
-const DEBOUNCE_MS = 1200;         // silence duration before robo reply  
+const DEBOUNCE_MS = 800;          // silence duration before robo reply  
 const NOISE_FLOOR = 80;           // baseline noise level
 const SILENCE_RMS = 250;          // a touch more sensitive
 const MAX_UTTERANCE_MS = 8000;    // give the learner a full 8 s if needed
@@ -62,6 +62,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
   private heardSpeech: boolean = false;  // new flag per utterance
   private replyCooldownUntil = 0;     // epoch ms
   private static readonly REPLY_COOLDOWN_MS = 3_000;
+  private flushInFlight = false;      // single-flight lock
+  private lastLearnerText = '';       // dedupe identical transcripts
   /* ------------------------------------------------------------------ */
 
   constructor(state: DurableObjectState, env: Env) {
@@ -164,12 +166,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     wsURL.searchParams.set('sample_rate',  '48000');
     wsURL.searchParams.set('encoding',     'linear16');
     wsURL.searchParams.set('diarize',      'true');
-    // Cloudflare WS client cannot send custom headers, so auth via ?access_token=
-    wsURL.searchParams.set('access_token', this.env.DEEPGRAM_API_KEY);
-
     console.log('[DG] connecting', wsURL.toString());        // keep this
 
-    const dgWS = new WebSocket(wsURL.toString());            // **ONE ARG ONLY**
+    const dgWS = new WebSocket(wsURL.toString(),
+                               ['token', this.env.DEEPGRAM_API_KEY]);
 
     let resolve!: () => void, reject!: (e:any) => void;
     const ready = new Promise<void>((r, j) => { resolve = r; reject = j; });
@@ -313,10 +313,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
   }
 
   private async flushUtterance(roomId: string) {
-    console.log(`[LearnerAssessmentDO] flushUtterance fired at ${new Date().toISOString()}`);
-    console.log(`[LearnerAssessmentDO] Debounce timer fired, chunks=${this.currentUtteranceChunks.length}`);
+    if (this.flushInFlight) return;
+    this.flushInFlight = true;
+    
+    try {
+      console.log(`[LearnerAssessmentDO] flushUtterance fired at ${new Date().toISOString()}`);
+      console.log(`[LearnerAssessmentDO] Debounce timer fired, chunks=${this.currentUtteranceChunks.length}`);
 
-    // Cancel any pending timers immediately
+      // Cancel any pending timers immediately
     if (this.learnerDebounceTimer) { clearTimeout(this.learnerDebounceTimer); this.learnerDebounceTimer = null; }
     if (this.maxUtteranceTimer)    { clearTimeout(this.maxUtteranceTimer);    this.maxUtteranceTimer = null; }
 
@@ -357,6 +361,13 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
         console.log('[ASR] ignoring empty transcript');
         return;                           // 🚫 do NOT call robo-reply pipeline
       }
+      
+      // Skip if identical to last transcript
+      if (learnerText === this.lastLearnerText) {
+        console.log('[ASR] ignoring duplicate transcript');
+        return;
+      }
+      this.lastLearnerText = learnerText;
 
       console.log(`[LearnerAssessmentDO] Fetching robo reply for text: "${learnerText}"`);
 
@@ -393,7 +404,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
       this.replyCooldownUntil = Date.now() + LearnerAssessmentDO.REPLY_COOLDOWN_MS;
     } catch (err) {
       console.error('[LearnerAssessmentDO] robo reply error', err);
+    }
     } finally {
+      this.flushInFlight = false;
       console.log('[LearnerAssessmentDO] Clearing utterance chunks and timers');
       this.resetUtteranceState();
     }
