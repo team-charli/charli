@@ -158,17 +158,17 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     wsURL.searchParams.set('sample_rate',  '48000');
     wsURL.searchParams.set('encoding',     'linear16');
     wsURL.searchParams.set('diarize',      'true');
-    wsURL.searchParams.set('filler_words', 'true');
-    wsURL.searchParams.set('punctuate',    'false');
-    wsURL.searchParams.set('interim_results', 'false');
+    // keep the handshake lean – extra, undocumented params break the TLS handshake
+    // (DG returns 400 → CF WS shows "TLS handshake failed").
+    // Default DG settings already give us no interim and no punctuation.
     wsURL.searchParams.set('access_token', this.env.DEEPGRAM_API_KEY);   // <— official key name
 
     console.log('[DG] connecting', wsURL.toString());        // keep this
 
     const dgWS = new WebSocket(wsURL.toString());            // **ONE ARG ONLY**
 
-    let resolve!: () => void;
-    const ready = new Promise<void>(r => (resolve = r));
+    let resolve!: () => void, reject!: (e:any) => void;
+    const ready = new Promise<void>((r, j) => { resolve = r; reject = j; });
 
     dgWS.addEventListener('open',  () => console.log('[DG] open'));
     dgWS.addEventListener('error', e  => {
@@ -183,10 +183,18 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
         // Abnormal close - set 2 second back-off
         this.reconnectAt = Date.now() + 2000;
         console.log(`[DG] Setting reconnect back-off until ${new Date(this.reconnectAt)}`);
+        reject(new Error(`WS closed code=${e.code}`));
       }
     });
     dgWS.addEventListener('message', evt => {
       const msg = JSON.parse(evt.data as string);
+      
+      if (msg.type === 'Error' || msg.error) {
+        console.log('[DG] WS error payload:', JSON.stringify(msg));
+        reject(new Error(msg.error || msg));
+        return;
+      }
+      
       if (msg.type === 'listening') { resolve(); return; }
 
       const alt = msg.channel?.alternatives?.[0];
@@ -304,8 +312,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
     try {
       /* 1. pcm → text (Deepgram stream + REST fallback) */
-      // Limit to 2 seconds of PCM (~192kB) to avoid >2MB uploads
-      const maxUtteranceSize = 192 * 1024; // 2 seconds at 48kHz 16-bit mono
+      // Allow up to ~10 s of audio (<1 MB) so short phrases aren't clipped
+      const maxUtteranceSize = 1_000_000;
       const limitedChunks = this.currentUtteranceChunks.reduce((acc, chunk) => {
         if (acc.totalSize + chunk.length <= maxUtteranceSize) {
           acc.chunks.push(chunk);
@@ -318,7 +326,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
       let learnerText = await this.transcribeLearnerUtterance(utterance);
       
       // Fallback to Deepgram REST API if streaming failed
-      if (!learnerText && this.env.DEEPGRAM_API_KEY) {
+      if ((!learnerText || !learnerText.trim()) && this.env.DEEPGRAM_API_KEY) {
         console.log('[LearnerAssessmentDO] Trying Deepgram REST fallback');
         const wav = LearnerAssessmentDO.wavlify(utterance);
         learnerText = await this.oneShotTranscript(wav);
