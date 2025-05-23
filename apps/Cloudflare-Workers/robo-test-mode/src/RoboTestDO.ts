@@ -90,8 +90,8 @@ export class RoboTestDO extends DurableObject<Env> {
   private async convertTextToSpeech(text: string): Promise<Uint8Array> {
     try {
       const ttsRes = await this.env.AI.run('@cf/myshell-ai/melotts', {
-        prompt: text,
-        lang:   'es'              // Spanish ISO-639-1 code
+        prompt   : text.slice(0, 180),  // keep <200 chars
+        lang     : 'es'
       }) as { audio: string };
 
       return Uint8Array.from(atob(ttsRes.audio), c => c.charCodeAt(0));
