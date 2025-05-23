@@ -60,6 +60,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
   private dgSocket: DGSocket | null = null;
   private reconnectAt: number = 0;
   private heardSpeech: boolean = false;  // new flag per utterance
+  private replyCooldownUntil = 0;     // epoch ms
+  private static readonly REPLY_COOLDOWN_MS = 3_000;
   /* ------------------------------------------------------------------ */
 
   constructor(state: DurableObjectState, env: Env) {
@@ -158,10 +160,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     wsURL.searchParams.set('sample_rate',  '48000');
     wsURL.searchParams.set('encoding',     'linear16');
     wsURL.searchParams.set('diarize',      'true');
-    // keep the handshake lean – extra, undocumented params break the TLS handshake
-    // (DG returns 400 → CF WS shows "TLS handshake failed").
-    // Default DG settings already give us no interim and no punctuation.
-    wsURL.searchParams.set('access_token', this.env.DEEPGRAM_API_KEY);   // <— official key name
+    // Cloudflare WS client cannot send custom headers, so use the URL token
+    wsURL.searchParams.set('token', this.env.DEEPGRAM_API_KEY);
 
     console.log('[DG] connecting', wsURL.toString());        // keep this
 
@@ -308,6 +308,17 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     console.log(`[LearnerAssessmentDO] flushUtterance fired at ${new Date().toISOString()}`);
     console.log(`[LearnerAssessmentDO] Debounce timer fired, chunks=${this.currentUtteranceChunks.length}`);
 
+    // Cancel any pending timers immediately
+    if (this.learnerDebounceTimer) { clearTimeout(this.learnerDebounceTimer); this.learnerDebounceTimer = null; }
+    if (this.maxUtteranceTimer)    { clearTimeout(this.maxUtteranceTimer);    this.maxUtteranceTimer = null; }
+
+    // Avoid overlapping answers
+    if (Date.now() < this.replyCooldownUntil) {
+      console.log('[Robo] skipping — cooldown still active');
+      this.resetUtteranceState();
+      return;
+    }
+
     if (this.currentUtteranceChunks.length === 0) return;
 
     try {
@@ -369,17 +380,24 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
       await this.broadcastToRoom(roomId, 'roboAudioMp3', { mp3Base64 });
       console.log(`[LearnerAssessmentDO] broadcast robo MP3 reply (${mp3Base64.length} chars base64)`);
       console.log('[LearnerAssessmentDO] Robo reply dispatched OK');
+      
+      // Set cooldown to prevent overlapping replies
+      this.replyCooldownUntil = Date.now() + LearnerAssessmentDO.REPLY_COOLDOWN_MS;
     } catch (err) {
       console.error('[LearnerAssessmentDO] robo reply error', err);
     } finally {
       console.log('[LearnerAssessmentDO] Clearing utterance chunks and timers');
-      this.currentUtteranceChunks = [];
-      this.learnerDebounceTimer = null;
-      this.heardSpeech = false;  // reset flag for next utterance
-      if (this.maxUtteranceTimer) {
-        clearTimeout(this.maxUtteranceTimer);
-        this.maxUtteranceTimer = null;
-      }
+      this.resetUtteranceState();
+    }
+  }
+
+  private resetUtteranceState() {
+    this.currentUtteranceChunks = [];
+    this.learnerDebounceTimer = null;
+    this.heardSpeech = false;
+    if (this.maxUtteranceTimer) {
+      clearTimeout(this.maxUtteranceTimer);
+      this.maxUtteranceTimer = null;
     }
   }
 
