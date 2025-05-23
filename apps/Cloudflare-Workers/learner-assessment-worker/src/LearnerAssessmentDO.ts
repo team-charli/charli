@@ -127,7 +127,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     // Send to Deepgram in BOTH modes (normal and robo)
     try {
       const dg = await this.getOrInitDG(roomId);
-      await dg.ready;                       // 🆕  hold until `{type:"listening"}`
+      await Promise.race([
+        dg.ready,
+        new Promise((_, rej) => setTimeout(() =>
+              rej(new Error('DG WS timeout waiting for "listening"')), 2000))
+      ]);
       dg.ws.send(chunk); // raw PCM for linear16 encoding
     } catch (err) {
       console.error(`[LearnerAssessmentDO] Deepgram error: ${err}`);
@@ -160,8 +164,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     wsURL.searchParams.set('sample_rate',  '48000');
     wsURL.searchParams.set('encoding',     'linear16');
     wsURL.searchParams.set('diarize',      'true');
-    // Cloudflare WS client cannot send custom headers, so use the URL token
-    wsURL.searchParams.set('token', this.env.DEEPGRAM_API_KEY);
+    // Cloudflare WS client cannot send custom headers, so auth via ?access_token=
+    wsURL.searchParams.set('access_token', this.env.DEEPGRAM_API_KEY);
 
     console.log('[DG] connecting', wsURL.toString());        // keep this
 
@@ -195,7 +199,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
         return;
       }
       
-      if (msg.type === 'listening') { resolve(); return; }
+      if (msg.type === 'listening') {
+        console.log('[DG] listening');
+        resolve();
+        return;
+      }
 
       const alt = msg.channel?.alternatives?.[0];
       if (!alt) return;
