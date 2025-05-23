@@ -5,12 +5,11 @@ import { Env } from './env';
 export class RoboTestDO extends DurableObject<Env> {
   private app = new Hono();
 
+  /* ───────────────────────── constructor ─────────────────────────── */
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
 
-    /* ------------------------------------------------- *
-     * Legacy endpoint (raw PCM reply)
-     * ------------------------------------------------- */
+    /* ---------- legacy PCM endpoint (QA only) ----------------------- */
     this.app.post('/generate-pcm-reply', async c => {
       const { userText } = await c.req.json();
       const pcmBuffer = await this.buildPcmReply(userText);
@@ -19,65 +18,72 @@ export class RoboTestDO extends DurableObject<Env> {
       });
     });
 
-    /* ------------------------------------------------- *
-     * New endpoint used by LearnerAssessmentDO
-     * ------------------------------------------------- */
+    /* ---------- main endpoint consumed by LearnerAssessmentDO ------- */
     this.app.post('/robo-teacher-reply', async c => {
       try {
         const { userText, roomId } = await c.req.json();
 
-        // 1) short Spanish reply
+        /* 1️⃣  short Spanish reply text */
         const replyText = await this.generateRoboReplyText(userText);
 
-        // 2) text-to-speech  → MP3  → PCM
-        const mp3Audio  = await this.convertTextToSpeech(replyText);
-        const pcmAudio  = await this.decodeMp3ToPcm(mp3Audio);
+        /* 2️⃣  Llama → MeloTTS → MP3 (Uint8Array) */
+        const mp3Bytes  = await this.convertTextToSpeech(replyText);
 
-        // 3) base64-encode PCM for JSON transport
-        const pcmBase64 = btoa(String.fromCharCode(...pcmAudio));
+        /* 3️⃣  base64 for transport */
+        const mp3Base64 = btoa(String.fromCharCode(...mp3Bytes));
 
-        console.log(`[RoboTestDO] Generated reply for ${roomId}: ${replyText.slice(0, 50)}…`);
+        console.log(
+          `[RoboTestDO] Generated reply for ${roomId}: `,
+          replyText.slice(0, 50), '…'
+        );
 
-        return c.json({ replyText, pcmBase64, status: 'success' });
+        return c.json({ status: 'success', replyText, mp3Base64 });
       } catch (err) {
         console.error('[RoboTestDO] Error in /robo-teacher-reply:', err);
         return c.json(
-          { status: 'error', message: err instanceof Error ? err.message : 'unknown' },
+          {
+            status:  'error',
+            message: err instanceof Error ? err.message : 'unknown'
+          },
           500
         );
       }
     });
   }
 
-  /* ------------------------------------------------- *
-   * Durable-object fetch entry
-   * ------------------------------------------------- */
+  /* ───────────────────────── fetch entry ──────────────────────────── */
   fetch(req: Request) {
     return this.app.fetch(req);
   }
 
-  /* ===============  helper pipeline  ================= */
+  /* ───────────────────────── helpers ──────────────────────────────── */
 
-  /** Text → MP3 → PCM (Uint8Array) */
+  /** QA helper: text → MP3 → PCM */
   private async buildPcmReply(userText: string): Promise<Uint8Array> {
     const reply = await this.generateRoboReplyText(userText);
     const mp3   = await this.convertTextToSpeech(reply);
     return this.decodeMp3ToPcm(mp3);
   }
 
-  /** Generate a short Spanish response via Llama-3 8-B-Instruct */
+  /** Ask Llama-3 for a short, friendly Spanish answer */
   private async generateRoboReplyText(userText: string): Promise<string> {
     try {
-      const llmRes = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-        messages: [
-          { role: 'system', content: 'You are a friendly native Spanish speaker. Keep replies short and conversational.' },
-          { role: 'user',   content: userText }
-        ],
-        max_tokens: 100,
-        temperature: 0.7
-      }) as { response: string };
+      const { response } = await this.env.AI.run(
+        '@cf/meta/llama-3.1-8b-instruct',
+        {
+          messages: [
+            {
+              role:    'system',
+              content: 'You are a friendly native Spanish speaker. Keep replies short and conversational.'
+            },
+            { role: 'user', content: userText }
+          ],
+          max_tokens: 100,
+          temperature: 0.7
+        }
+      ) as { response: string };
 
-      const txt = llmRes.response.trim();
+      const txt = response.trim();
       console.log('[RoboTestDO] Reply text →', txt);
       return txt;
     } catch (err) {
@@ -86,24 +92,26 @@ export class RoboTestDO extends DurableObject<Env> {
     }
   }
 
-/** Llama text → MyShell MeloTTS → MP3 (Uint8Array) */
-private async convertTextToSpeech(text: string): Promise<Uint8Array> {
-  try {
-    // @ts-expect-error voice_id & speed not yet in workers-types
-    const { audio } = await this.env.AI.run('@cf/myshell-ai/melotts', {
-      prompt   : text.slice(0, 180), // <200 chars for TTS reliability
-      voice_id : 'es_female_01',     // Castilian Spanish female
-      speed    : 1.0                 // normal speed
-    }) as { audio: string };
+  /** Llama text → MeloTTS → MP3 bytes */
+  private async convertTextToSpeech(text: string): Promise<Uint8Array> {
+    try {
+      /* eslint-disable @typescript-eslint/ban-ts-comment */
+      // @ts-expect-error voice_id & speed not yet in workers-types
+      const { audio } = await this.env.AI.run('@cf/myshell-ai/melotts', {
+        prompt   : text.slice(0, 180),  // <200 chars for TTS reliability
+        voice_id : 'es_female_01',      // Castilian Spanish female
+        speed    : 1.0                  // normal speed
+      }) as { audio: string };
+      /* eslint-enable @typescript-eslint/ban-ts-comment */
 
-    return Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-  } catch (err) {
-    console.error('[RoboTestDO] TTS error:', err);
-    throw new Error('Failed to convert text to speech');
+      return Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+    } catch (err) {
+      console.error('[RoboTestDO] TTS error:', err);
+      throw new Error('Failed to convert text to speech');
+    }
   }
-}
 
-  /** Cloudflare R2 worker → MP3 → PCM (48 kHz / 16-bit / mono) */
+  /** Optional helper for the legacy PCM endpoint */
   private async decodeMp3ToPcm(mp3Buf: Uint8Array): Promise<Uint8Array> {
     try {
       const form = new FormData();
