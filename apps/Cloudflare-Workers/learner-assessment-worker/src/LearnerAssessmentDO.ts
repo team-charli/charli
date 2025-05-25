@@ -31,7 +31,7 @@ type DGSocket = {
 
 const DG_MODEL    = 'nova-2';
 const DG_LANGUAGE = 'es-MX';
-const DEBOUNCE_MS = 800;          // silence duration before robo reply  
+const DEBOUNCE_MS = 800;          // silence duration before robo reply
 const NOISE_FLOOR = 80;           // baseline noise level
 const SILENCE_RMS = 250;          // a touch more sensitive
 const MAX_UTTERANCE_MS = 8000;    // give the learner a full 8 s if needed
@@ -70,7 +70,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
     this.state = state;
-    
+
     // Optional build-id guard to handle DO resets after deployments
     if (env.__BUILD_ID) {
       this.initializeBuildGuard(env.__BUILD_ID);
@@ -79,7 +79,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     this.app.post('/audio/:roomId', async c => {
       return this.handleAudioRequest(c);
     });
-    
+
     /* ────────── POST /audio/:roomId{.*} fallback for timestamp suffixes ────────── */
     this.app.post('/audio/:roomId{.*}', async c => {
       return this.handleAudioRequest(c);
@@ -130,11 +130,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     // Send to Deepgram in BOTH modes (normal and robo)
     try {
       const dg = await this.getOrInitDG(roomId);
-      await Promise.race([
-        dg.ready,
-        new Promise((_, rej) => setTimeout(() =>
-              rej(new Error('DG WS timeout waiting for "listening"')), 2000))
-      ]);
       dg.ws.send(chunk); // raw PCM for linear16 encoding
     } catch (err) {
       console.error(`[LearnerAssessmentDO] Deepgram error: ${err}`);
@@ -155,7 +150,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
   /* ─────────────────────────── Deepgram socket ──────────────────────── */
   private async getOrInitDG(roomId: string): Promise<DGSocket> {
     if (this.dgSocket) return this.dgSocket;
-    
+
     // Check if we need to wait before reconnecting
     if (this.reconnectAt > Date.now()) {
       throw new Error(`Deepgram reconnect back-off active until ${new Date(this.reconnectAt)}`);
@@ -193,13 +188,13 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
     });
     dgWS.addEventListener('message', evt => {
       const msg = JSON.parse(evt.data as string);
-      
+
       if (msg.type === 'Error' || msg.error) {
         console.log('[DG] WS error payload:', JSON.stringify(msg));
         reject(new Error(msg.error || msg));
         return;
       }
-      
+
       if (msg.type === 'listening') {
         console.log('[DG] listening');
         resolve();
@@ -301,7 +296,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
       }
       console.log(`[LearnerAssessmentDO] Setting new debounce timer (${DEBOUNCE_MS}ms)`);
       this.learnerDebounceTimer = setTimeout(() => this.flushUtterance(roomId), DEBOUNCE_MS);
-      
+
       // Start max utterance timer if not already running
       if (!this.maxUtteranceTimer) {
         console.log(`[LearnerAssessmentDO] Starting max utterance timer (${MAX_UTTERANCE_MS}ms)`);
@@ -316,7 +311,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
   private async flushUtterance(roomId: string) {
     if (this.flushInFlight) return;
     this.flushInFlight = true;
-    
+
     try {
       console.log(`[LearnerAssessmentDO] flushUtterance fired at ${new Date().toISOString()}`);
       console.log(`[LearnerAssessmentDO] Debounce timer fired, chunks=${this.currentUtteranceChunks.length}`);
@@ -345,24 +340,24 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
         }
         return acc;
       }, { chunks: [] as Uint8Array[], totalSize: 0 });
-      
+
       const utterance = this.concatChunks(limitedChunks.chunks);
       let learnerText = await this.transcribeLearnerUtterance(utterance);
-      
+
       // Fallback to Deepgram REST API if streaming failed
       if ((!learnerText || !learnerText.trim()) && this.env.DEEPGRAM_API_KEY) {
         console.log('[LearnerAssessmentDO] Trying Deepgram REST fallback');
         const wav = LearnerAssessmentDO.wavlify(utterance);
         learnerText = await this.oneShotTranscript(wav);
       }
-      
+
       console.log(`[LearnerAssessmentDO] Transcribed text: "${learnerText}"`);
 
       if (!learnerText.trim()) {
         console.log('[ASR] ignoring empty transcript');
         return;                           // 🚫 do NOT call robo-reply pipeline
       }
-      
+
       // Skip if identical to last transcript
       if (learnerText === this.lastLearnerText) {
         console.log('[ASR] ignoring duplicate transcript');
@@ -375,7 +370,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
       /* 2. generate utterance ID and call robo-test-mode Worker */
       this.utteranceCounter = (this.utteranceCounter ?? 0) + 1;
       const utteranceId = this.utteranceCounter;
-      
+
       const res = await this.env.ROBO_TEST_DO.fetch(
         'http://robo-test-mode/robo-teacher-reply',
         {
@@ -391,7 +386,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
       const response = await res.json<{ status: string; utteranceId: number }>();
       console.log(`[LearnerAssessmentDO] Robo service queued response for utteranceId: ${response.utteranceId}`);
-      
+
       // Set cooldown to prevent overlapping replies
       this.replyCooldownUntil = Date.now() + LearnerAssessmentDO.REPLY_COOLDOWN_MS;
     } catch (err) {
@@ -451,7 +446,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
   private async oneShotTranscript(wavBuffer: Uint8Array): Promise<string> {
     try {
       console.log('[LearnerAssessmentDO] Calling Deepgram REST API with WAV buffer length:', wavBuffer.length);
-      
+
       const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=es-MX&diarize=true', {
         method: 'POST',
         headers: {
@@ -468,16 +463,16 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
       const result = await response.json() as any;
       console.log('[LearnerAssessmentDO] Deepgram REST response:', JSON.stringify(result, null, 2));
-      
+
       // Extract transcript from response
       const transcript = result.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
       const metadata = result.metadata || {};
-      
+
       if (transcript === '') {
         console.log(`[DG-REST] EMPTY transcript, duration=${metadata.duration}s, sha=${metadata.sha256}`);
         return '';
       }
-      
+
       console.log('[LearnerAssessmentDO] REST transcript:', transcript);
       return transcript;
     } catch (err) {
