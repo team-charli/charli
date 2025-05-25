@@ -622,9 +622,12 @@ async function readEnv(p:string):Promise<EnvMap>{
   if(!(await file(p).exists())) return {};
   const txt=await file(p).text();
   return Object.fromEntries(
-    txt.split(/\r?\n/).filter(Boolean).map(l=>{
-      const [k,...v]=l.split("="); return [k.trim(),v.join("=").trim()];
-    }),
+    txt.split(/\r?\n/)
+      .filter(Boolean)
+      .filter(l => !l.trim().startsWith('#'))  // Skip comment lines
+      .map(l=>{
+        const [k,...v]=l.split("="); return [k.trim(),v.join("=").trim()];
+      }),
   );
 }
 
@@ -688,7 +691,11 @@ async function injectSecrets(
           declaredVarNames = new Set(Object.keys(toml.parse(raw).vars ?? {}));
         } else {
           // strip // and /* */ comments before JSON.parse
-          const json = JSON.parse(raw.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, ""));
+          const jsonString = raw
+            .replace(/\/\*[\s\S]*?\*\//g, "")  // Remove /* */ comments
+            .replace(/\/\/.*$/gm, "")          // Remove // comments
+            .replace(/,\s*([}\]])/g, "$1");     // Remove trailing commas
+          const json = JSON.parse(jsonString);
           declaredVarNames = new Set(Object.keys(json.vars ?? {}));
         }
         break; // found the file we need

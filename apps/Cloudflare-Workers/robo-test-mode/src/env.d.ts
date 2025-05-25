@@ -6,7 +6,7 @@ export interface Env {
   LEARNER_ASSESSMENT_DO: DurableObjectNamespace;
   MESSAGE_RELAY_DO: DurableObjectNamespace;
   ROBO_TEST_DO: DurableObjectNamespace;
-
+  ELEVEN_API_KEY: string;
   // Optional external services
   PCM_TO_WAV_WORKER?: Fetcher;
   WORKERS_AI?: Fetcher;
