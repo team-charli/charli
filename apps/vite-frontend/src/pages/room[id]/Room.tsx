@@ -125,6 +125,7 @@ export default function Room() {
   /** 10) Transcript WebSocket */
   useEffect(() => {
     let audioContext: AudioContext | null = null;
+    let lastPlayedUtteranceId = 0;
 
     // Initialize AudioContext for audio playback
     if (isRoboMode) {
@@ -147,11 +148,16 @@ export default function Room() {
           console.error("[TranscriptListener] Transcription error:", message.data.error);
           break;
         case "roboReplyText":
-          console.log("[TranscriptListener] Robo reply text:", message.data.text);
+          console.log("[TranscriptListener] Robo reply text:", message.data.text, "utteranceId:", message.data.utteranceId);
+          // Always render text subtitle and update last played ID
+          if (message.data.utteranceId) {
+            lastPlayedUtteranceId = message.data.utteranceId;
+          }
           break;
         case "roboAudioMp3":
-          console.log("[TranscriptListener] Received robo audio MP3, length:", message.data.mp3Base64?.length);
-          if (audioContext && message.data.mp3Base64) {
+          console.log("[TranscriptListener] Received robo audio MP3, utteranceId:", message.data.utteranceId, "length:", message.data.mp3Base64?.length);
+          // Only play audio if utteranceId >= lastPlayedUtteranceId
+          if (audioContext && message.data.mp3Base64 && message.data.utteranceId >= lastPlayedUtteranceId) {
             try {
               // Convert base64 MP3 to binary
               const mp3Binary = Uint8Array.from(atob(message.data.mp3Base64), (c) => c.charCodeAt(0));
@@ -163,10 +169,12 @@ export default function Room() {
               source.buffer = audioBuffer;
               source.connect(audioContext.destination);
               source.start();
-              console.log("[TranscriptListener] Robo audio playback started");
+              console.log(`[TranscriptListener] Robo audio playback started for utteranceId: ${message.data.utteranceId}`);
             } catch (err) {
               console.error("[TranscriptListener] Error playing robo audio:", err);
             }
+          } else if (message.data.utteranceId < lastPlayedUtteranceId) {
+            console.log(`[TranscriptListener] Skipping old audio utteranceId: ${message.data.utteranceId}, lastPlayed: ${lastPlayedUtteranceId}`);
           }
           break;
         default:

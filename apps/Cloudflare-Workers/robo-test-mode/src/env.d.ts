@@ -10,6 +10,7 @@ export interface Env {
   // Optional external services
   PCM_TO_WAV_WORKER?: Fetcher;
   WORKERS_AI?: Fetcher;
+  ROBO_TEST_DO: DurableObjectNamespace;
 
   // Workers AI binding
   AI: Ai;

@@ -29,20 +29,25 @@
 			{
 				"class_name": "RoboTestDO",   // MUST match the `export class` name
 				"name":       "ROBO_TEST_DO"  // What other workers call via service binding
+			},
+			{
+				"name":        "MESSAGE_RELAY_DO",
+				"class_name":  "MessageRelayDO",
+				"script_name": "learner-assessment-worker"   // ← remote DO binding
 			}
+
 		]
 	},
 	"observability": {
 		"enabled": true
 	},
 	"ai": { "binding": "AI" },
-	  "routes": [
-    {
-      "pattern": "robo-test.charli.chat",
-      "custom_domain": true
-    }
-  ],
-
+	"routes": [
+		{
+			"pattern": "robo-test.charli.chat",
+			"custom_domain": true
+		}
+	],
 
 	/**
 * Smart Placement

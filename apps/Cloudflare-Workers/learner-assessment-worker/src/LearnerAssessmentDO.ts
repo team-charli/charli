@@ -64,6 +64,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
   private static readonly REPLY_COOLDOWN_MS = 3_000;
   private flushInFlight = false;      // single-flight lock
   private lastLearnerText = '';       // dedupe identical transcripts
+  private utteranceCounter = 0;       // monotonic utterance ID
   /* ------------------------------------------------------------------ */
 
   constructor(state: DurableObjectState, env: Env) {
@@ -371,13 +372,16 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
       console.log(`[LearnerAssessmentDO] Fetching robo reply for text: "${learnerText}"`);
 
-      /* 2. call robo-test-mode Worker (service binding) */
+      /* 2. generate utterance ID and call robo-test-mode Worker */
+      this.utteranceCounter = (this.utteranceCounter ?? 0) + 1;
+      const utteranceId = this.utteranceCounter;
+      
       const res = await this.env.ROBO_TEST_DO.fetch(
         'http://robo-test-mode/robo-teacher-reply',
         {
           method : 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body   : JSON.stringify({ userText: learnerText, roomId })
+          body   : JSON.stringify({ userText: learnerText, roomId, utteranceId })
         }
       );
       if (!res.ok) {
@@ -385,20 +389,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
         return;
       }
 
-      const { replyText, mp3Base64 } = await res.json<{
-        replyText: string; mp3Base64: string;
-      }>();
-
-      console.log(`[LearnerAssessmentDO] Got robo reply: "${replyText.substring(0, 50)}...", mp3Base64 length=${mp3Base64.length}`);
-
-      /* 3. broadcast text & audio to browser(s) */
-      console.log(`[LearnerAssessmentDO] Broadcasting robo reply text to room ${roomId}`);
-      await this.broadcastToRoom(roomId, 'roboReplyText', { text: replyText });
-
-      console.log(`[LearnerAssessmentDO] Broadcasting MP3 audio to frontend for room ${roomId}`);
-      await this.broadcastToRoom(roomId, 'roboAudioMp3', { mp3Base64 });
-      console.log(`[LearnerAssessmentDO] broadcast robo MP3 reply (${mp3Base64.length} chars base64)`);
-      console.log('[LearnerAssessmentDO] Robo reply dispatched OK');
+      const response = await res.json<{ status: string; utteranceId: number }>();
+      console.log(`[LearnerAssessmentDO] Robo service queued response for utteranceId: ${response.utteranceId}`);
       
       // Set cooldown to prevent overlapping replies
       this.replyCooldownUntil = Date.now() + LearnerAssessmentDO.REPLY_COOLDOWN_MS;
