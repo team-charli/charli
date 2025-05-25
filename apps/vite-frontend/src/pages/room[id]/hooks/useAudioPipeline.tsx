@@ -26,7 +26,8 @@ pcmInt16[i] = Math.max(-32768, Math.min(32767, input[i] * 32767));
 this.buffer.push(pcmInt16);
 this.sampleCount += pcmInt16.length;
 
-if (this.sampleCount >= 64000) {
+// ~0.33 s of 48 kHz mono PCM (latency-friendly)
+if (this.sampleCount >= 16000) {
 const chunk = new Uint8Array(
 this.buffer.flatMap(b => Array.from(new Uint8Array(b.buffer)))
 );
