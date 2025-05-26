@@ -176,7 +176,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		wsURL.searchParams.set('diarize',          'true');       // speaker IDs
 
 		// 🔄 modern stream-control knobs
-		wsURL.searchParams.set('interim_results',  'true');       // rolling partials
+		wsURL.searchParams.set('interim_results',  'false');       // rolling partials
 		wsURL.searchParams.set('endpointing',      '300');        // ⏱ ms of silence that finalises an utterance
 		wsURL.searchParams.set('utterance_end_ms', '1000');       // ⏲ failsafe gap (optional but recommended)
 
@@ -261,9 +261,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 							);
 						}
 					}
-
-					// Live captioning
-					this.broadcastToRoom(roomId, 'partialTranscript', seg).catch(() => {});
 				}
 				return;
 			}
@@ -283,9 +280,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					text  : alt.transcript
 				};
 				this.dgSocket!.segments.push(seg);
-
-				// optional live captioning
-				this.broadcastToRoom(roomId, 'partialTranscript', seg).catch(() => {});
 			}
 
 			/* word-level detail */
