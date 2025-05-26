@@ -4,6 +4,14 @@ import { cors } from 'hono/cors';
 import { Env } from './env'
 import { MessageRelayDO } from './messageRelay';
 import { LearnerAssessmentDO } from './LearnerAssessmentDO';
+import { ScorecardOrchestratorDO } from './ScorecardOrchestratorDO';
+import { ScorecardPersisterDO } from './ScorecardPersisterDO';
+import { MistakeAnalyzerDO } from './MistakeAnalyzerDO';
+import { MistakeDetectorDO } from './MistakeDetectorDO';
+import { MistakeEnricherPipelineDO } from './MistakeEnricherPipelineDO';
+import { AvgFrequencyEnricherDO } from './AvgFrequencyEnricherDO';
+import { SessionFrequencyColorEnricherDO } from './SessionFrequencyColorEnricherDO';
+import { LemmaEnricherDO } from './LemmaEnricherDO';
 const app = new Hono<{ Bindings: Env }>()
 
 // Basic CORS setup
@@ -75,5 +83,10 @@ app.post('/audio/:roomId', async (c) => {
 	return assessmentDO.fetch(doRequest)
 })
 
-export { MessageRelayDO, LearnerAssessmentDO }
+export {
+  MessageRelayDO, LearnerAssessmentDO, ScorecardOrchestratorDO,
+  ScorecardPersisterDO, MistakeAnalyzerDO, MistakeDetectorDO,
+  MistakeEnricherPipelineDO, AvgFrequencyEnricherDO,
+  SessionFrequencyColorEnricherDO, LemmaEnricherDO
+}
 export default app

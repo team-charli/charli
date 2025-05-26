@@ -26,8 +26,8 @@ pcmInt16[i] = Math.max(-32768, Math.min(32767, input[i] * 32767));
 this.buffer.push(pcmInt16);
 this.sampleCount += pcmInt16.length;
 
-// ~0.33 s of 48 kHz mono PCM (latency-friendly)
-if (this.sampleCount >= 16000) {
+// flush when we have 8 k samples → 16 kB (satisfies Worker limit and 10 msg/s)
+if (this.sampleCount >= 8000) {
 const chunk = new Uint8Array(
 this.buffer.flatMap(b => Array.from(new Uint8Array(b.buffer)))
 );
@@ -107,27 +107,27 @@ export function useAudioPipeline({
         // Called whenever PCM data is ready to send
         worklet.port.onmessage = async (e) => {
           const chunk = e.data as Uint8Array;
-          console.log(`[useAudioPipeline] Sending PCM chunk, size: ${chunk.length}`, new Date().toISOString());
-          console.log(`[useAudioPipeline] Fetching to URL: ${uploadUrl}`);
-          
+          // console.log(`[useAudioPipeline] Sending PCM chunk, size: ${chunk.length}`, new Date().toISOString());
+          // console.log(`[useAudioPipeline] Fetching to URL: ${uploadUrl}`);
+
           try {
             const startTime = Date.now();
-            const resp = await fetch(uploadUrl, { 
-              method: "POST", 
+            const resp = await fetch(uploadUrl, {
+              method: "POST",
               body: chunk,
               headers: {
                 'Content-Type': 'application/octet-stream'
               }
             });
             const endTime = Date.now();
-            
-            console.log(`[useAudioPipeline] Response received in ${endTime - startTime}ms, status: ${resp.status}`);
-            
+
+            // console.log(`[useAudioPipeline] Response received in ${endTime - startTime}ms, status: ${resp.status}`);
+
             if (!resp.ok) {
               const errorText = await resp.text();
               console.error(`[useAudioPipeline] PCM upload failed: ${resp.status} - ${errorText}`);
             } else {
-              console.log(`[useAudioPipeline] PCM upload successful: ${resp.status}`);
+              // console.log(`[useAudioPipeline] PCM upload successful: ${resp.status}`);
             }
           } catch (err) {
             console.error("[useAudioPipeline] PCM upload network error:", err);
