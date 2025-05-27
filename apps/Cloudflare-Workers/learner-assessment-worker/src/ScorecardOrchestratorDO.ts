@@ -28,7 +28,10 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 			}
 
 			// Detect Mistakes
-			const detectorRes = await c.env.MISTAKE_DETECTOR_DO.fetch('/detect', {
+			const detectorStub = c.env.MISTAKE_DETECTOR_DO.get(
+				c.env.MISTAKE_DETECTOR_DO.idFromName(roomId)
+			);
+			const detectorRes = await detectorStub.fetch('/detect', {
 				method: 'POST',
 				body: JSON.stringify({ learnerUtterances, fullTranscript }),
 				headers: { 'Content-Type': 'application/json' }
@@ -36,7 +39,10 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 			const { mistakes } = await detectorRes.json() as any;
 
 			// Analyze Mistakes
-			const analyzerRes = await c.env.MISTAKE_ANALYZER_DO.fetch('/analyze', {
+			const analyzerStub = c.env.MISTAKE_ANALYZER_DO.get(
+				c.env.MISTAKE_ANALYZER_DO.idFromName(roomId)
+			);
+			const analyzerRes = await analyzerStub.fetch('/analyze', {
 				method: 'POST',
 				body: JSON.stringify({ detectedMistakes: mistakes }),
 				headers: { 'Content-Type': 'application/json' }
@@ -50,7 +56,10 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 			const conversationDifficulty = Math.max(2, Math.min(10, Math.ceil(utteranceCount / 4)));
 
 			// Enrich
-			const enrichmentRes = await c.env.MISTAKE_ENRICHER_PIPELINE_DO.fetch('/enrich', {
+			const enricherStub = c.env.MISTAKE_ENRICHER_PIPELINE_DO.get(
+				c.env.MISTAKE_ENRICHER_PIPELINE_DO.idFromName(roomId)
+			);
+			const enrichmentRes = await enricherStub.fetch('/enrich', {
 				method: 'POST',
 				body: JSON.stringify({ learner_id, analyzedMistakes }),
 				headers: { 'Content-Type': 'application/json' }
@@ -58,7 +67,10 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 			const { enrichedMistakes } = await enrichmentRes.json() as any;
 
 			// Persist
-			await c.env.SCORECARD_PERSISTER_DO.fetch('/persist', {
+			const persisterStub = c.env.SCORECARD_PERSISTER_DO.get(
+				c.env.SCORECARD_PERSISTER_DO.idFromName(roomId)
+			);
+			await persisterStub.fetch('/persist', {
 				method: 'POST',
 				body: JSON.stringify({
 					session_id,
