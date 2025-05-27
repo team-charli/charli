@@ -13,6 +13,7 @@ import { useAudioPipeline } from "./hooks/useAudioPipeline";
 import { usePeerConnectionMonitor } from "./hooks/usePeerConnectionMonitor";
 
 import useBellListener from "./hooks/useBellListener";
+import { useCharliOverlay } from "./hooks/useCharliOverlay";
 
 export default function Room() {
   /**
@@ -121,6 +122,9 @@ export default function Room() {
   /** 9) Misc. custom events + monitor */
   useBellListener();
   usePeerConnectionMonitor(localAudioStream);
+  
+  /** 9b) Charli overlay state */
+  const { isVisible: isCharliVisible, answer: charliAnswer, showOverlay, showAnswer, hideOverlay } = useCharliOverlay();
 
   /** 10) Transcript WebSocket */
   useEffect(() => {
@@ -177,6 +181,18 @@ export default function Room() {
             console.log(`[TranscriptListener] Skipping old audio utteranceId: ${message.data.utteranceId}, lastPlayed: ${lastPlayedUtteranceId}`);
           }
           break;
+        case "charliStart":
+          console.log("[TranscriptListener] Charli overlay started");
+          showOverlay();
+          break;
+        case "charliAnswer":
+          console.log("[TranscriptListener] Charli answer:", message.data.text);
+          showAnswer(message.data.text);
+          break;
+        case "teacherNotice":
+          console.log("[TranscriptListener] Teacher notice:", message.data.message);
+          // You could add a toast notification here if needed
+          break;
         default:
           console.warn("[TranscriptListener] Unknown message type:", message.type);
       }
@@ -189,7 +205,7 @@ export default function Room() {
         audioContext.close();
       }
     };
-  }, [roomId, isRoboMode]);
+  }, [roomId, isRoboMode, showOverlay, showAnswer]);
 
   /** 11) Leave the room */
   const { leaveRoom } = useRoomLeave(roomId);
@@ -229,6 +245,23 @@ export default function Room() {
    */
   return (
     <div className="relative w-full h-screen bg-gray-900 flex flex-col">
+      {/* Charli overlay */}
+      {isCharliVisible && (
+        <div className="fixed inset-0 bg-black flex items-center justify-center text-white z-50 animate-charli-down">
+          <div className="text-center">
+            <p className="text-3xl sm:text-5xl mb-10">
+              {charliAnswer ?? "Escuchando…"}
+            </p>
+            <button 
+              onClick={hideOverlay}
+              className="absolute top-4 right-4 text-2xl hover:text-gray-300 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Control ribbon at the top */}
       <div className="w-full">
         <ControlRibbon />

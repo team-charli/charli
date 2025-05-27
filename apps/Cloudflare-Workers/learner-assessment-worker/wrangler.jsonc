@@ -91,6 +91,10 @@
     {
       "binding": "ROBO_TEST_DO",
       "service": "robo-test-mode"
+    },
+    {
+      "binding": "HEY_CHARLI_WORKER",
+      "service": "hey-charli-worker"
     }
   ]
 }

@@ -23,6 +23,11 @@ interface WordInfo {
 
 type SessionMode = 'robo' | 'normal';
 
+enum CharliState {
+	Idle = 'idle',
+	AwaitingQuestion = 'awaiting_question'
+}
+
 type DGSocket = {
 	ws: WebSocket;                  // open WS to Deepgram
 	ready: Promise<void>;           // resolves when {"type":"listening"} arrives
@@ -202,6 +207,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		wsURL.searchParams.set('endpointing', '300');     // ≥ 200
 		wsURL.searchParams.set('utterance_end_ms', '3000');
 		wsURL.searchParams.set('vad_events',       'true');  // ← NEW (required)
+		
+		// Hey Charli keyword detection
+		wsURL.searchParams.set('keywords', 'hey charli');
+		wsURL.searchParams.set('keywords_priority', 'high');
 
 		if (!this.connectBannerLogged) {
 			console.log('[DG] connecting', wsURL.toString());
@@ -281,6 +290,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 								console.error('[DG] robo utterance processing error:', err)
 							);
 						}
+						
+						// Hey Charli detection for all modes
+						await this.handleCharliDetection(roomId, text);
 					}
 				}
 				return;
@@ -364,6 +376,46 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const learnerIdNum = typeof learnerId === 'string' ? parseInt(learnerId) : learnerId;
 		await this.state.storage.put('sessionId', sessionIdNum);
 		await this.state.storage.put('learnerId', learnerIdNum);
+	}
+
+	/* ───────────────────── charli state helpers ─────────────── */
+	private async getCharliState(): Promise<CharliState> {
+		return (await this.state.storage.get<CharliState>('charliState')) ?? CharliState.Idle;
+	}
+	private async setCharliState(state: CharliState) {
+		await this.state.storage.put('charliState', state);
+	}
+	
+	private async handleCharliDetection(roomId: string, text: string) {
+		const currentState = await this.getCharliState();
+		const normalizedText = text.toLowerCase().trim();
+		
+		if (currentState === CharliState.Idle && /hey charli/i.test(normalizedText)) {
+			await this.setCharliState(CharliState.AwaitingQuestion);
+			await this.broadcastToRoom(roomId, 'charliStart', {});
+		} else if (currentState === CharliState.AwaitingQuestion) {
+			await this.setCharliState(CharliState.Idle);
+			
+			// Delegate translation to HeyCharliDO
+			try {
+				const response = await this.env.HEY_CHARLI_WORKER.fetch('http://hey-charli/translate', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ question: text })
+				});
+				const { answer } = await response.json();
+				
+				await this.broadcastToRoom(roomId, 'charliAnswer', { text: answer });
+				await this.broadcastToRoom(roomId, 'teacherNotice', { 
+					message: 'El aprendiz está preguntando a Charli una pregunta.' 
+				});
+			} catch (error) {
+				console.error('[Charli] Translation error:', error);
+				await this.broadcastToRoom(roomId, 'charliAnswer', { 
+					text: 'Error en la traducción' 
+				});
+			}
+		}
 	}
 
 	/* ───────────────── learner → robo round-trip (smart-listen) ───────────── */
