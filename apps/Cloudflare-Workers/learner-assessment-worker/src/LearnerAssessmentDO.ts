@@ -178,7 +178,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		// 🔄 modern stream-control knobs
 		wsURL.searchParams.set('interim_results',  'true');       // rolling partials
 		wsURL.searchParams.set('endpointing',      '150');        // ⏱ ms of silence that finalises an utterance
-		wsURL.searchParams.set('utterance_end_ms', '15000');       // ⏲ failsafe gap (optional but recommended)
+		wsURL.searchParams.set('utterance_end_ms', '12000');       // ⏲ failsafe gap (optional but recommended)
 
 		// (optional) keep if you still want nicely-formatted text:
 		wsURL.searchParams.set('smart_format',     'false');       // punctuation & caps
