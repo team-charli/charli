@@ -274,6 +274,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 				if (text) {
 					console.log(`[DG] final ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
+					console.log(`[DG] speech_final=${msg.speech_final}, is_final=${msg.is_final}, duration=${duration}s`);
 
 					const seg: TranscribedSegment = {
 						peerId: speaker,
@@ -453,14 +454,13 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				return;
 			}
 			
-			// REMOVED: Aggressive prefix filtering was blocking legitimate final utterances
-			// With smart_format=true, Deepgram should send clean finals but we were seeing:
-			// - "No, me quiero en Playa del Carmen," (partial)  
-			// - "No, me quiero en Playa del Carmen porque me encanta el mar." (complete)
-			// The prefix filter blocked the complete version, preventing robo responses
-			console.log(`[ASR] Prefix filtering DISABLED - accepting all non-duplicate utterances`);
-			if (this.lastLearnerText && learnerText.startsWith(this.lastLearnerText) && learnerText.length > this.lastLearnerText.length) {
-				console.log(`[ASR] NOTE: This would have been filtered as prefix-duplicate: "${learnerText}" extends "${this.lastLearnerText}"`);
+			// Restore prefix filtering - Deepgram is still sending incremental results despite smart_format=true
+			// This prevents processing every incremental result as a separate utterance
+			if (this.lastLearnerText                    
+				&& learnerText.startsWith(this.lastLearnerText)
+				&& learnerText.length > this.lastLearnerText.length) {
+				console.log(`[ASR] ignoring prefix-duplicate (incremental result): "${learnerText}" extends "${this.lastLearnerText}"`);
+				return;
 			}
 			console.log(`[ASR] Processing new utterance: "${learnerText}"`);
 			this.lastLearnerText = learnerText;
