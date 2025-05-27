@@ -51,6 +51,17 @@ export class RoboTestDO extends DurableObject<Env> {
 					return new Response('ok', { status: 204 });
 				}
 
+				/* deduplication check ---------------------------------------- */
+				if (utteranceId) {
+					const processedKey = `processed_${utteranceId}`;
+					const alreadyProcessed = await this.state.storage.get(processedKey);
+					if (alreadyProcessed) {
+						console.log(`[RoboTestDO] Duplicate utteranceId ${utteranceId}, skipping`);
+						return new Response('duplicate', { status: 200 });
+					}
+					await this.state.storage.put(processedKey, true);
+				}
+
 				/* 1 · load history & add user message ----------------------- */
 				const history = await loadHistory(this.state);
 				history.push({ role: 'user', content: userText });

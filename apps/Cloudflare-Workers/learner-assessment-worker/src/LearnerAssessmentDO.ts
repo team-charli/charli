@@ -204,10 +204,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		// 🔄 modern stream-control knobs
 		wsURL.searchParams.set('interim_results',  'true');
-		wsURL.searchParams.set('endpointing', '300');     // ≥ 200
-		wsURL.searchParams.set('utterance_end_ms', '3000');
+		wsURL.searchParams.set('endpointing', '500');     // o3's golden bundle - proven stable
+		wsURL.searchParams.set('utterance_end_ms', '5000');
 		wsURL.searchParams.set('vad_events',       'true');  // ← NEW (required)
-		
+		wsURL.searchParams.set('smart_format',     'true');  // clean formatting
+
 		// Hey Charli keyword detection
 		wsURL.searchParams.set('keywords', 'hey charli');
 		wsURL.searchParams.set('keywords_priority', 'high');
@@ -285,12 +286,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					// For robo mode, trigger utterance processing for learner speech
 					if (role === 'learner') {
 						const sessionMode = await this.getSessionMode();
+						console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
 						if (sessionMode === 'robo') {
+							console.log(`[DG] Triggering flushUtterance for: "${text}"`);
 							this.flushUtterance(roomId, text).catch(err =>
 								console.error('[DG] robo utterance processing error:', err)
 							);
 						}
-						
+
 						// Hey Charli detection for all modes
 						await this.handleCharliDetection(roomId, text);
 					}
@@ -385,17 +388,17 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private async setCharliState(state: CharliState) {
 		await this.state.storage.put('charliState', state);
 	}
-	
+
 	private async handleCharliDetection(roomId: string, text: string) {
 		const currentState = await this.getCharliState();
 		const normalizedText = text.toLowerCase().trim();
-		
+
 		if (currentState === CharliState.Idle && /hey charli/i.test(normalizedText)) {
 			await this.setCharliState(CharliState.AwaitingQuestion);
 			await this.broadcastToRoom(roomId, 'charliStart', {});
 		} else if (currentState === CharliState.AwaitingQuestion) {
 			await this.setCharliState(CharliState.Idle);
-			
+
 			// Delegate translation to HeyCharliDO
 			try {
 				const response = await this.env.HEY_CHARLI_WORKER.fetch('http://hey-charli/translate', {
@@ -404,15 +407,15 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					body: JSON.stringify({ question: text })
 				});
 				const { answer } = await response.json();
-				
+
 				await this.broadcastToRoom(roomId, 'charliAnswer', { text: answer });
-				await this.broadcastToRoom(roomId, 'teacherNotice', { 
-					message: 'El aprendiz está preguntando a Charli una pregunta.' 
+				await this.broadcastToRoom(roomId, 'teacherNotice', {
+					message: 'El aprendiz está preguntando a Charli una pregunta.'
 				});
 			} catch (error) {
 				console.error('[Charli] Translation error:', error);
-				await this.broadcastToRoom(roomId, 'charliAnswer', { 
-					text: 'Error en la traducción' 
+				await this.broadcastToRoom(roomId, 'charliAnswer', {
+					text: 'Error en la traducción'
 				});
 			}
 		}
@@ -420,15 +423,22 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 	/* ───────────────── learner → robo round-trip (smart-listen) ───────────── */
 	private async flushUtterance(roomId: string, learnerText: string) {
-		if (this.flushInFlight) return;
+		if (this.flushInFlight) {
+			console.log('[ASR] flushUtterance called but already in flight');
+			return;
+		}
 		this.flushInFlight = true;
 
 		try {
-			console.log(`[LearnerAssessmentDO] flushUtterance fired at ${new Date().toISOString()}`);
+			console.log(`[LearnerAssessmentDO] flushUtterance fired at ${new Date().toISOString()} for text: "${learnerText}"`);
+			console.log(`[ASR] lastLearnerText was: "${this.lastLearnerText || 'null'}"`);
+			console.log(`[ASR] cooldown until: ${new Date(this.replyCooldownUntil || 0).toISOString()}`);
 
 			// Avoid overlapping answers
-			if (Date.now() < this.replyCooldownUntil) {
-				console.log('[Robo] skipping — cooldown still active');
+			const now = Date.now();
+			if (now < this.replyCooldownUntil) {
+				const remainingMs = this.replyCooldownUntil - now;
+				console.log(`[Robo] skipping — cooldown still active for ${remainingMs}ms`);
 				return;
 			}
 
@@ -437,19 +447,21 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				return;
 			}
 
-			// Skip if the new text is just an extension of the previous flush
-			if (this.lastLearnerText                    // only after the first flush
+			// Skip only exact duplicates - Deepgram should deliver clean final results
+			if (learnerText === this.lastLearnerText) {
+				console.log(`[ASR] ignoring exact duplicate transcript: "${learnerText}"`);
+				return;
+			}
+			
+			// TODO: Remove prefix filtering - with smart_format=true, Deepgram should deliver final utterances
+			// Keeping this temporarily with detailed logging to verify the issue
+			if (this.lastLearnerText                    
 				&& learnerText.startsWith(this.lastLearnerText)
 				&& learnerText.length > this.lastLearnerText.length) {
-				console.log('[ASR] ignoring prefix-duplicate transcript');
+				console.log(`[ASR] QUESTIONABLE: ignoring prefix-duplicate - this suggests Deepgram is sending incremental results when it should send final: "${learnerText}" starts with "${this.lastLearnerText}"`);
 				return;
 			}
-
-			// Skip if identical to last transcript
-			if (learnerText === this.lastLearnerText) {
-				console.log('[ASR] ignoring duplicate transcript');
-				return;
-			}
+			console.log(`[ASR] Processing new utterance: "${learnerText}"`);
 			this.lastLearnerText = learnerText;
 
 			console.log(`[LearnerAssessmentDO] Fetching robo reply for text: "${learnerText}"`);
