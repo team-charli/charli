@@ -622,9 +622,12 @@ async function readEnv(p:string):Promise<EnvMap>{
   if(!(await file(p).exists())) return {};
   const txt=await file(p).text();
   return Object.fromEntries(
-    txt.split(/\r?\n/).filter(Boolean).map(l=>{
-      const [k,...v]=l.split("="); return [k.trim(),v.join("=").trim()];
-    }),
+    txt.split(/\r?\n/)
+      .filter(Boolean)
+      .filter(l => !l.trim().startsWith('#'))  // Skip comment lines
+      .map(l=>{
+        const [k,...v]=l.split("="); return [k.trim(),v.join("=").trim()];
+      }),
   );
 }
 
@@ -688,7 +691,11 @@ async function injectSecrets(
           declaredVarNames = new Set(Object.keys(toml.parse(raw).vars ?? {}));
         } else {
           // strip // and /* */ comments before JSON.parse
-          const json = JSON.parse(raw.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, ""));
+          const jsonString = raw
+            .replace(/\/\*[\s\S]*?\*\//g, "")  // Remove /* */ comments
+            .replace(/\/\/.*$/gm, "")          // Remove // comments
+            .replace(/,\s*([}\]])/g, "$1");     // Remove trailing commas
+          const json = JSON.parse(jsonString);
           declaredVarNames = new Set(Object.keys(json.vars ?? {}));
         }
         break; // found the file we need
@@ -715,18 +722,31 @@ async function injectSecrets(
     }
 
     try {
-      // shell echo trick for stdin compatibility with all Bun
-      const bulkCmd = [
-        `echo '${JSON.stringify(freshOnly).replace(/'/g, "'\\''")}'`,
-        '|',
-        'bunx', 'wrangler', 'secret', 'bulk', '--name', name
-      ];
+      // Create a temporary JSON file with the secrets
+      const tempFile = `/tmp/wrangler-secrets-${Date.now()}.json`;
+      await Bun.write(tempFile, JSON.stringify(freshOnly));
+
+      // Use explicit path to node_modules binary instead of bunx
+      const args = ['node_modules/.bin/wrangler', 'secret', 'bulk', tempFile, '--name', name];
       if (configFlag) {
         const arg = configFlag.split(' ')[1];
-        bulkCmd.push('--config', arg);
+        args.push('--config', arg);
       }
-      log(`ℹ️  [injectSecrets] Running: ${bulkCmd.join(' ')} (cwd: ${t.path})`);
-      await $`${bulkCmd.join(' ')}`.cwd(t.path);
+
+      log(`ℹ️  [injectSecrets] Running: ${args.join(' ')} (cwd: ${t.path})`);
+
+      // Run with proper working directory
+      const result = Bun.spawnSync(args, {
+        cwd: t.path,
+        stdio: ['inherit', 'inherit', 'inherit'],
+      });
+
+      if (result.exitCode !== 0) {
+        throw new Error(`Failed with exit code ${result.exitCode}`);
+      }
+
+      // Clean up the temporary file
+      await $`rm ${tempFile}`.quiet();
     } catch (err) {
       log(`⚠️  wrangler secret bulk failed for ${name}: ${(err && err.stderr) ? err.stderr : err}`);
     }
@@ -886,7 +906,7 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
     } else {
       // local dev server ⇢ run Vite inside real Node
       log("› Running vite-frontend in development mode (node)");
-      await $`node node_modules/.bin/vite`.cwd(t.path).env(env);
+      await $`node node_modules/.bin/vite --port 5173`.cwd(t.path).env(env);
     }
     return;
   }

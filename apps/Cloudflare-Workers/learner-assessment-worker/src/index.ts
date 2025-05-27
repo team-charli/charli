@@ -4,6 +4,14 @@ import { cors } from 'hono/cors';
 import { Env } from './env'
 import { MessageRelayDO } from './messageRelay';
 import { LearnerAssessmentDO } from './LearnerAssessmentDO';
+import { ScorecardOrchestratorDO } from './ScorecardOrchestratorDO';
+import { ScorecardPersisterDO } from './ScorecardPersisterDO';
+import { MistakeAnalyzerDO } from './MistakeAnalyzerDO';
+import { MistakeDetectorDO } from './MistakeDetectorDO';
+import { MistakeEnricherPipelineDO } from './MistakeEnricherPipelineDO';
+import { AvgFrequencyEnricherDO } from './AvgFrequencyEnricherDO';
+import { SessionFrequencyColorEnricherDO } from './SessionFrequencyColorEnricherDO';
+import { LemmaEnricherDO } from './LemmaEnricherDO';
 const app = new Hono<{ Bindings: Env }>()
 
 // Basic CORS setup
@@ -53,14 +61,32 @@ app.get('/connect/:roomId', async (c) => {
 	return c.text('Failed to establish WebSocket connection', 500);
 });
 
+
+
 // Single endpoint for receiving audio data & end-session signal
-app.post('/audio/:roomId', (c) => {
+app.post('/audio/:roomId', async (c) => {
 	const roomId = c.req.param('roomId')
 	const assessmentDO = c.env.LEARNER_ASSESSMENT_DO.get(
 		c.env.LEARNER_ASSESSMENT_DO.idFromName(roomId)
 	)
-	return assessmentDO.fetch(c.req.raw)
+	
+	// Create a new request with the correct URL for the DO
+	const originalUrl = new URL(c.req.url);
+	const doUrl = `http://learner-assessment${originalUrl.pathname}${originalUrl.search}`;
+	
+	const doRequest = new Request(doUrl, {
+		method: c.req.method,
+		headers: c.req.header(),
+		body: c.req.raw.body,
+	});
+	
+	return assessmentDO.fetch(doRequest)
 })
 
-export { MessageRelayDO, LearnerAssessmentDO }
+export {
+  MessageRelayDO, LearnerAssessmentDO, ScorecardOrchestratorDO,
+  ScorecardPersisterDO, MistakeAnalyzerDO, MistakeDetectorDO,
+  MistakeEnricherPipelineDO, AvgFrequencyEnricherDO,
+  SessionFrequencyColorEnricherDO, LemmaEnricherDO
+}
 export default app

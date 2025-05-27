@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node node_modules/.bin/vite",
+    "dev": "node node_modules/.bin/vite --port 5173",
     "build": "node node_modules/.bin/vite build",
     "deploy": "node node_modules/.bin/vite build && wrangler deploy",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
