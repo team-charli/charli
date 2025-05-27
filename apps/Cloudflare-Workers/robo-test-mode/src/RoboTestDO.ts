@@ -25,6 +25,11 @@ export class RoboTestDO extends DurableObject<Env> {
 	constructor(private state: DurableObjectState, private env: Env) {
 		super(state, env);
 
+		// Optional build-id guard to handle DO resets after deployments
+		if (env.__BUILD_ID) {
+			this.initializeBuildGuard(env.__BUILD_ID);
+		}
+
 		/* compatibility QA route ---------------------------------------- */
 		this.app.post('/generate-pcm-reply', async (c) => {
 			const { userText } = await c.req.json();
@@ -98,6 +103,16 @@ export class RoboTestDO extends DurableObject<Env> {
 		}
 	}
 
+	/* ─────────────────── Build guard helper ──────────────────────── */
+	private async initializeBuildGuard(buildId: string) {
+		const storedBuildId = await this.state.storage.get<string>('build');
+		if (buildId !== storedBuildId) {
+			console.log(`[RoboTestDO] Build ID changed from ${storedBuildId} to ${buildId}, clearing storage`);
+			await this.state.storage.deleteAll();
+			await this.state.storage.put('build', buildId);
+		}
+	}
+
 	/* ───────────────── pipeline pieces ───────────────────────── */
 
 	private async buildPcmReply(text: string) {
@@ -115,11 +130,13 @@ export class RoboTestDO extends DurableObject<Env> {
 		}
 
 		const messages = buildChatMessages(history);
+		console.log('[RoboTestDO] Sending to Llama:', JSON.stringify(messages, null, 2));
 		const { response } = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
 			messages,
 			max_tokens: 100,
 			temperature: 0.7,
 		})) as { response: string };
+		console.log('[RoboTestDO] Llama response:', response);
 
 		return response.trim();
 	}
