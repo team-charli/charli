@@ -43,6 +43,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private reconnectAt: number = 0;
 	private replyCooldownUntil = 0;     // epoch ms
 	private static readonly REPLY_COOLDOWN_MS = 2_000;
+	private lastThrottleLog = 0;        // rate-limit the spam
+	private lastForwardLog  = 0;        // ditto for forward logs
+
 	private flushInFlight = false;      // single-flight lock
 	private lastLearnerText = '';       // dedupe identical transcripts
 	private utteranceCounter = 0;       // monotonic utterance ID
@@ -148,13 +151,23 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			const now = Date.now();
 			const timeSinceLastChunk = now - this.lastChunkTime;
 			if (timeSinceLastChunk < LearnerAssessmentDO.MIN_CHUNK_INTERVAL_MS) {
-				console.log(`[DG] throttling chunk, ${timeSinceLastChunk}ms since last`);
+				// Say it once every 2 s at most
+				if (now - this.lastThrottleLog > 2_000) {
+					console.log('[DG] throttling burst (dropping fast packets)');
+					this.lastThrottleLog = now;
+				}
 				return c.json({ status: 'throttled' });
 			}
 			this.lastChunkTime = now;
 
 			// Send binary PCM frames directly
 			dg.ws.send(chunk.buffer);
+
+			// Optional insight: one line per packet that *did* go through
+			if (now - this.lastForwardLog > 1_000) {            // 1-s guard
+				console.log('[DG] → forwarded', chunk.length, 'bytes');
+				this.lastForwardLog = now;
+			}
 		} catch (err) {
 			console.error(`[LearnerAssessmentDO] Deepgram error: ${err}`);
 			// Set back-off on connection failure
