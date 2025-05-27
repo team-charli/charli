@@ -89,7 +89,7 @@ export class RoboTestDO extends DurableObject<Env> {
    * ------------------------------------------------------------------ */
   private async convertTextToSpeech(text: string): Promise<Uint8Array> {
     const safePrompt = cleanForEleven(text);
-    const VOICE_ID = 'ay4iqk10DLwc8KGSrf2t'; // robo‑teacher – es‑MX female
+    const VOICE_ID = 'rixsIpPlTphvsJd2mI03'; // robo‑teacher – es‑MX female
 
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`, {
       method: 'POST',
