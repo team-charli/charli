@@ -42,12 +42,12 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private dgSocket: DGSocket | null = null;
 	private reconnectAt: number = 0;
 	private replyCooldownUntil = 0;     // epoch ms
-	private static readonly REPLY_COOLDOWN_MS = 3_000;
+	private static readonly REPLY_COOLDOWN_MS = 2_000;
 	private flushInFlight = false;      // single-flight lock
 	private lastLearnerText = '';       // dedupe identical transcripts
 	private utteranceCounter = 0;       // monotonic utterance ID
 	private lastChunkTime = 0;          // throttle for DG 10 msg/s limit
-	private static readonly MIN_CHUNK_INTERVAL_MS = 100; // 10 msg/s = 100ms between chunks
+	private static readonly MIN_CHUNK_INTERVAL_MS = 50; // 5 msg/s = 50ms between chunks
 	/* ------------------------------------------------------------------ */
 
 	constructor(state: DurableObjectState, env: Env) {
@@ -177,11 +177,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		// 🔄 modern stream-control knobs
 		wsURL.searchParams.set('interim_results',  'false');       // rolling partials
-		wsURL.searchParams.set('endpointing',      '300');        // ⏱ ms of silence that finalises an utterance
-		wsURL.searchParams.set('utterance_end_ms', '1000');       // ⏲ failsafe gap (optional but recommended)
+		wsURL.searchParams.set('endpointing',      '150');        // ⏱ ms of silence that finalises an utterance
+		wsURL.searchParams.set('utterance_end_ms', '15000');       // ⏲ failsafe gap (optional but recommended)
 
 		// (optional) keep if you still want nicely-formatted text:
-		wsURL.searchParams.set('smart_format',     'true');       // punctuation & caps
+		wsURL.searchParams.set('smart_format',     'false');       // punctuation & caps
 
 		// → NO MORE smart_listen
 		console.log('[DG] connecting', wsURL.toString());
