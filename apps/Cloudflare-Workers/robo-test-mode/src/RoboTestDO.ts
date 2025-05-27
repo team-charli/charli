@@ -22,7 +22,7 @@ function u8ToBase64(u8: Uint8Array): string {
 export class RoboTestDO extends DurableObject<Env> {
 	private app = new Hono();
 
-	constructor(state: DurableObjectState, env: Env) {
+	constructor(private state: DurableObjectState, private env: Env) {
 		super(state, env);
 
 		/* compatibility QA route ---------------------------------------- */
