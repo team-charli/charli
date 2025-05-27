@@ -48,6 +48,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private utteranceCounter = 0;       // monotonic utterance ID
 	private lastChunkTime = 0;          // throttle for DG 10 msg/s limit
 	private static readonly MIN_CHUNK_INTERVAL_MS = 50; // 5 msg/s = 50ms between chunks
+	private connectBannerLogged = false;   // ← new
+	private modeBannerLogged = false;
 	/* ------------------------------------------------------------------ */
 
 	constructor(state: DurableObjectState, env: Env) {
@@ -126,9 +128,16 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		if (chunk.length === 0)       return c.text('No audio data', 400);
 		if (chunk.length > 16_384) { console.error('[LearnerAssessmentDO] chunk too large'); return c.text('Chunk too large', 400); }
 
-		/* 5. send to Deepgram & persist ---------------------------------- */
-		const sessionMode = await this.getSessionMode();
-		console.log(`[LearnerAssessmentDO] mode ${sessionMode}`);
+		/* 5 a. drop chunks during Deepgram back-off ---------------------- */
+		if (this.reconnectAt > Date.now()) {
+			// DG is still in cool-down; ignore this PCM frame.
+			return c.json({
+				status: 'dg_backoff',
+				retryAfterMs: this.reconnectAt - Date.now()
+			});
+		}
+
+		/* 5 b. send to Deepgram & persist -------------------------------- */
 
 		// Send to Deepgram in BOTH modes (normal and robo)
 		try {
@@ -168,7 +177,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			throw new Error(`Deepgram reconnect back-off active until ${new Date(this.reconnectAt)}`);
 		}
 
-    const wsURL = new URL('wss://api.deepgram.com/v1/listen');
+		const wsURL = new URL('wss://api.deepgram.com/v1/listen');
 		wsURL.searchParams.set('model',            'nova-2');      // ASR model
 		wsURL.searchParams.set('language',         'es-MX');      // locale
 		wsURL.searchParams.set('sample_rate',      '48000');      // PCM rate
@@ -176,16 +185,15 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		wsURL.searchParams.set('diarize',          'true');       // speaker IDs
 
 		// 🔄 modern stream-control knobs
-		wsURL.searchParams.set('interim_results',  'true');       // rolling partials
-		wsURL.searchParams.set('endpointing',      '150');        // ⏱ ms of silence that finalises an utterance
-		wsURL.searchParams.set('utterance_end_ms', '12000');       // ⏲ failsafe gap (optional but recommended)
+		wsURL.searchParams.set('interim_results',  'true');
+		wsURL.searchParams.set('endpointing', '300');     // ≥ 200
+		wsURL.searchParams.set('utterance_end_ms', '3000');
+		wsURL.searchParams.set('vad_events',       'true');  // ← NEW (required)
 
-		// (optional) keep if you still want nicely-formatted text:
-		wsURL.searchParams.set('smart_format',     'false');       // punctuation & caps
-
-		// → NO MORE smart_listen
-		console.log('[DG] connecting', wsURL.toString());
-
+		if (!this.connectBannerLogged) {
+			console.log('[DG] connecting', wsURL.toString());
+			this.connectBannerLogged = true;
+		}
 		const dgWS = new WebSocket(wsURL.toString(), ['token', this.env.DEEPGRAM_API_KEY]);
 		(dgWS as unknown as { binaryType: string }).binaryType = 'arraybuffer';
 
@@ -209,7 +217,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				// Abnormal close - set 2 second back-off
 				this.reconnectAt = Date.now() + 2000;
 				console.log(`[DG] Setting reconnect back-off until ${new Date(this.reconnectAt)}`);
-					reject(new Error(`WS closed code=${e.code}`));
+				reject(new Error(`WS closed code=${e.code}`));
 			}
 		});
 		dgWS.addEventListener('message', async evt => {
@@ -333,6 +341,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const final = requestedRobo ?? false;
 		await this.state.storage.put('roboMode', final);
 		console.log(`[LearnerAssessmentDO] mode ${final ? 'robo' : 'normal'}`);
+		if (!this.modeBannerLogged) {
+			console.log(`[LearnerAssessmentDO] mode ${final ? 'robo' : 'normal'}`);
+			this.modeBannerLogged = true;           // ← never again this isolate
+		}
 	}
 	private async storeSessionMetadata(sessionId: number | string, learnerId: number | string) {
 		const sessionIdNum = typeof sessionId === 'string' ? parseInt(sessionId.replace('robo-', '')) : sessionId;
@@ -410,8 +422,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const counterKey = `chunkCounter:${peerId}`;
 		const idx = (await this.state.storage.get<number>(counterKey)) ?? 0;
 
-			// Batch metadata into single storage operation
-			const now = Date.now();
+		// Batch metadata into single storage operation
+		const now = Date.now();
 
 		await this.state.storage.put({
 			[counterKey]: idx + 1,

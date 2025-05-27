@@ -95,7 +95,7 @@ Tu interlocutor es un estudiante de nivel intermedio.
 	 * ------------------------------------------------------------------ */
 	private async convertTextToSpeech(text: string): Promise<Uint8Array> {
 		const safePrompt = cleanForEleven(text);
-		const VOICE_ID = 'rixsIpPlTphvsJd2mI03'; // robo‑teacher – es‑MX female
+		const VOICE_ID = 'v3V1d2rk6528UrLKRuy8'; // robo‑teacher – es‑MX female "medium lady"
 
 		const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`, {
 			method: 'POST',
@@ -107,6 +107,9 @@ Tu interlocutor es un estudiante de nivel intermedio.
 				text: safePrompt,
 				model_id: 'eleven_multilingual_v2', // Flash v2.5
 				output_format: 'mp3_44100_128',
+				voice_settings: {
+					speed: 0.8,
+				},
 			}),
 		});
 
