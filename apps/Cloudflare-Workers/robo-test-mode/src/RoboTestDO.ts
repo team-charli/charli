@@ -2,6 +2,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
+import { loadHistory, saveHistory, trimHistory, buildChatMessages, type Msg } from './lib/chatMemory';
 
 function cleanForEleven(text: string): string {
 	// 1. collapse Windows / mac newlines → space
@@ -35,9 +36,33 @@ export class RoboTestDO extends DurableObject<Env> {
 		this.app.post('/robo-teacher-reply', async (c) => {
 			try {
 				const { userText, roomId, utteranceId } = await c.req.json();
+				const url = new URL(c.req.url);
+				const action = url.searchParams.get('action');
+
+				/* immediate purge (happy path) */
+				if (action === 'end-session') {
+					await this.state.storage.deleteAll();
+					console.log('[RoboTestDO] session ended, storage purged');
+					return new Response('ok', { status: 204 });
+				}
+
+				/* 1 · load history & add user message ----------------------- */
+				const history = await loadHistory(this.state);
+				history.push({ role: 'user', content: userText });
+				console.log(`[RoboTestDO] history length = ${history.length}`);
 
 				/* 1 · generate Spanish sentence ----------------------------- */
-				const replyText = await this.generateRoboReplyText(userText);
+				const replyText = await this.generateRoboReplyText(history);
+
+				/* 3 · add assistant reply & save trimmed history ------------ */
+				history.push({ role: 'assistant', content: replyText });
+				const trimmed = trimHistory(history, 30);
+				await saveHistory(this.state, trimmed);
+
+				/* 4 · update activity & set alarm --------------------------- */
+				const timeout = 10 * 60_000; // 10 min hardcoded
+				await this.state.storage.put('lastActivity', Date.now());
+				await this.state.setAlarm(Date.now() + timeout);
 
 				/* 2 · text broadcast (instant) ------------------------------ */
 				await this.broadcast(roomId, 'roboReplyText', { utteranceId, text: replyText });
@@ -60,6 +85,19 @@ export class RoboTestDO extends DurableObject<Env> {
 		return this.app.fetch(req);
 	}
 
+	/* inactivity timeout (safety net) */
+	async alarm() {
+		const last = (await this.state.storage.get<number>('lastActivity')) ?? 0;
+		const timeout = 10 * 60_000; // 10 min hardcoded
+		if (Date.now() - last >= timeout) {
+			await this.state.storage.deleteAll();
+			console.log('[RoboTestDO] idle-purge');
+		} else {
+			// someone spoke again; reschedule just in case
+			await this.state.setAlarm(last + timeout);
+		}
+	}
+
 	/* ───────────────── pipeline pieces ───────────────────────── */
 
 	private async buildPcmReply(text: string) {
@@ -67,21 +105,18 @@ export class RoboTestDO extends DurableObject<Env> {
 		return this.decodeMp3ToPcm(mp3); // legacy only
 	}
 
-	private async generateRoboReplyText(userText: string): Promise<string> {
+	private async generateRoboReplyText(history: Msg[]): Promise<string> {
+		// Guard required environment variables
+		if (!this.env.AI) {
+			throw new Error('CF_AI_TOKEN not configured');
+		}
+		if (!this.env.ELEVEN_API_KEY) {
+			throw new Error('ELEVEN_API_KEY not configured');
+		}
+
+		const messages = buildChatMessages(history);
 		const { response } = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-			messages: [
-				{
-					role: 'system',
-					content: `Eres un hablante nativo de español de Mexico.
-Tu interlocutor es un estudiante de nivel intermedio.
-— Responde en un tono amistoso y natural.
-— NO corrijas errores; deja que pasen.
-— Haz al menos una pregunta abierta en cada turno para continuar la charla
-(sobre gustos, experiencias, planes, etc.).
-— Mantén las respuestas cortas (1-3 frases).`
-				},
-				{ role: 'user', content: userText },
-			],
+			messages,
 			max_tokens: 100,
 			temperature: 0.7,
 		})) as { response: string };
