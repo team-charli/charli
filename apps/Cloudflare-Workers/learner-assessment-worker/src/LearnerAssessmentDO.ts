@@ -453,13 +453,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				return;
 			}
 			
-			// TODO: Remove prefix filtering - with smart_format=true, Deepgram should deliver final utterances
-			// Keeping this temporarily with detailed logging to verify the issue
-			if (this.lastLearnerText                    
-				&& learnerText.startsWith(this.lastLearnerText)
-				&& learnerText.length > this.lastLearnerText.length) {
-				console.log(`[ASR] QUESTIONABLE: ignoring prefix-duplicate - this suggests Deepgram is sending incremental results when it should send final: "${learnerText}" starts with "${this.lastLearnerText}"`);
-				return;
+			// REMOVED: Aggressive prefix filtering was blocking legitimate final utterances
+			// With smart_format=true, Deepgram should send clean finals but we were seeing:
+			// - "No, me quiero en Playa del Carmen," (partial)  
+			// - "No, me quiero en Playa del Carmen porque me encanta el mar." (complete)
+			// The prefix filter blocked the complete version, preventing robo responses
+			console.log(`[ASR] Prefix filtering DISABLED - accepting all non-duplicate utterances`);
+			if (this.lastLearnerText && learnerText.startsWith(this.lastLearnerText) && learnerText.length > this.lastLearnerText.length) {
+				console.log(`[ASR] NOTE: This would have been filtered as prefix-duplicate: "${learnerText}" extends "${this.lastLearnerText}"`);
 			}
 			console.log(`[ASR] Processing new utterance: "${learnerText}"`);
 			this.lastLearnerText = learnerText;
