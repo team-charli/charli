@@ -62,7 +62,7 @@ export class RoboTestDO extends DurableObject<Env> {
 				/* 4 · update activity & set alarm --------------------------- */
 				const timeout = 10 * 60_000; // 10 min hardcoded
 				await this.state.storage.put('lastActivity', Date.now());
-				await this.state.setAlarm(Date.now() + timeout);
+				await this.state.storage.setAlarm(Date.now() + timeout);
 
 				/* 2 · text broadcast (instant) ------------------------------ */
 				await this.broadcast(roomId, 'roboReplyText', { utteranceId, text: replyText });
@@ -94,7 +94,7 @@ export class RoboTestDO extends DurableObject<Env> {
 			console.log('[RoboTestDO] idle-purge');
 		} else {
 			// someone spoke again; reschedule just in case
-			await this.state.setAlarm(last + timeout);
+			await this.state.storage.setAlarm(last + timeout);
 		}
 	}
 
