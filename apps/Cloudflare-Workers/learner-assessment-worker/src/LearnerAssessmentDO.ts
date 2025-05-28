@@ -264,7 +264,17 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				return;
 			}
 
-			// Modern format: check for Results with speech_final: true
+			// Log ALL Results messages for debugging with analysis
+			if (msg.type === 'Results') {
+				const text = msg.channel?.alternatives?.[0]?.transcript;
+				const hasText = Boolean(text && text.trim());
+				console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text || ''}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
+				
+				// Full raw message for detailed analysis
+				console.log(`[DG-DEBUG] Raw message:`, JSON.stringify(msg, null, 2));
+			}
+
+			// Handle speech_final messages (high confidence, for scorecard)
 			if (msg.type === 'Results' && msg.speech_final === true) {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				const speaker = String(msg.channel?.speaker ?? '0');
@@ -273,8 +283,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const duration = msg.duration ?? 0;
 
 				if (text) {
-					console.log(`[DG] final ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
-					console.log(`[DG] speech_final=${msg.speech_final}, is_final=${msg.is_final}, duration=${duration}s`);
+					console.log(`[DG] speech_final ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
+					console.log(`[DG] speech_final=${msg.speech_final}, is_final=${msg.is_final}, duration=${duration}s, start=${start}s`);
 
 					const seg: TranscribedSegment = {
 						peerId: speaker,
@@ -289,53 +299,46 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						const sessionMode = await this.getSessionMode();
 						console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
 						if (sessionMode === 'robo') {
-							console.log(`[DG] Triggering flushUtterance for: "${text}"`);
+							console.log(`[DG] Triggering flushUtterance for speech_final: "${text}"`);
 							this.flushUtterance(roomId, text).catch(err =>
 								console.error('[DG] robo utterance processing error:', err)
 							);
 						}
-
-						// Hey Charli detection for all modes
-						await this.handleCharliDetection(roomId, text);
 					}
 				}
-				return;
 			}
+			// Handle is_final messages (for robo responses only, not scorecard)  
+			else if (msg.type === 'Results' && msg.is_final === true && msg.speech_final !== true) {
+				const text = msg.channel?.alternatives?.[0]?.transcript;
+				const speaker = String(msg.channel?.speaker ?? '0');
+				const role = speaker === '0' ? 'learner' : 'teacher';
+				const start = msg.start ?? 0;
+				const duration = msg.duration ?? 0;
 
-			// Legacy handling for non-smart-listen messages (backwards compatibility)
-			const alt = msg.channel?.alternatives?.[0];
-			if (!alt) return;
-
-			/* sentence-level segment */
-			if (alt.transcript) {
-				const start   = alt.start ?? 0;
-				const speaker = String(msg.channel.speaker ?? '0');
-				const seg: TranscribedSegment = {
-					peerId: speaker,
-					role  : speaker === '0' ? 'learner' : 'teacher',
-					start,
-					text  : alt.transcript
-				};
-				this.dgSocket!.segments.push(seg);
-			}
-
-			/* word-level detail */
-			if (alt.words?.length) {
-				const speaker = String(msg.channel.speaker ?? '0');
-				const role    = speaker === '0' ? 'learner' : 'teacher';
-				for (const w of alt.words) {
-					this.words.push({
-						peerId: speaker,
-						role,
-						word : w.word,
-						start: w.start,
-						end  : w.end,
-						conf : w.confidence
-					});
+				if (text && role === 'learner') {
+					console.log(`[DG] is_final-only ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
+					console.log(`[DG] speech_final=${msg.speech_final}, is_final=${msg.is_final}, duration=${duration}s, start=${start}s`);
+					
+					const sessionMode = await this.getSessionMode();
+					console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
+					if (sessionMode === 'robo') {
+						console.log(`[DG] Triggering flushUtterance for is_final: "${text}"`);
+						this.flushUtterance(roomId, text).catch(err =>
+							console.error('[DG] robo utterance processing error:', err)
+						);
+					}
 				}
 			}
-		});
 
+			// Handle Hey Charli detection for both speech_final and is_final messages
+			if (msg.type === 'Results' && (msg.speech_final === true || msg.is_final === true)) {
+				const text = msg.channel?.alternatives?.[0]?.transcript;
+				if (text) {
+					await this.handleCharliDetection(roomId, text);
+				}
+			}
+			return;
+		});
 
 		this.dgSocket = { ws: dgWS, ready, segments: [] };
 		try {

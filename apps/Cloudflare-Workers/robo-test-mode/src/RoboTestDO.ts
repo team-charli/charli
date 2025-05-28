@@ -55,11 +55,18 @@ export class RoboTestDO extends DurableObject<Env> {
 				if (utteranceId) {
 					const processedKey = `processed_${utteranceId}`;
 					const alreadyProcessed = await this.state.storage.get(processedKey);
+					
+					// Debug logging to understand what's happening
+					const allKeys = await this.state.storage.list();
+					console.log(`[RoboTestDO-DEBUG] All storage keys:`, Array.from(allKeys.keys()));
+					console.log(`[RoboTestDO-DEBUG] Checking key: ${processedKey}, found: ${alreadyProcessed}, roomId: ${roomId}`);
+					
 					if (alreadyProcessed) {
 						console.log(`[RoboTestDO] Duplicate utteranceId ${utteranceId}, skipping`);
 						return new Response('duplicate', { status: 200 });
 					}
 					await this.state.storage.put(processedKey, true);
+					console.log(`[RoboTestDO-DEBUG] Stored key: ${processedKey}`);
 				}
 
 				/* 1 · load history & add user message ----------------------- */
