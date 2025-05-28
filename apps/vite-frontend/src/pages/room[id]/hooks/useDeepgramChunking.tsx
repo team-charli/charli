@@ -36,7 +36,9 @@ interface UseDeepgramChunkingProps {
 const CHUNK_TARGET_DURATION_MS = 4000; // 4 seconds target
 const MAX_CHUNK_DURATION_MS = 4800; // Hard limit at 4.8s
 const VAD_SILENCE_THRESHOLD = 0.01; // Amplitude threshold for silence detection
-const VAD_SILENCE_DURATION_MS = 300; // Minimum silence duration to trigger chunk boundary
+const VAD_SILENCE_DURATION_MS = 500; // Minimum silence duration to trigger chunk boundary (increased)
+const UTTERANCE_END_SILENCE_MS = 1500; // Silence duration to mark utterance as complete
+const EARLY_FINALIZATION_MS = 1000; // Allow early chunk finalization after this silence
 const SAMPLE_RATE = 48000;
 const BYTES_PER_SAMPLE = 2; // 16-bit PCM
 
@@ -56,6 +58,12 @@ export function useDeepgramChunking({
   const lastSilenceStartRef = useRef<number>(0);
   const currentUtteranceStartRef = useRef<number>(0);
   
+  // Utterance lifecycle management
+  const currentUtteranceIdRef = useRef<string | null>(null);
+  const utteranceEndTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isUtteranceCompleteRef = useRef(false);
+  const lastChunkEndTimeRef = useRef<number>(0);
+  
   // WebSocket connections for each chunk
   const activeConnectionsRef = useRef<Map<string, {
     ws: WebSocket;
@@ -74,6 +82,32 @@ export function useDeepgramChunking({
     
     return rms < VAD_SILENCE_THRESHOLD;
   }, []);
+
+  // Generate a new utterance ID
+  const generateUtteranceId = useCallback(() => {
+    return `utterance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
+
+  // Start a new utterance
+  const startNewUtterance = useCallback(() => {
+    if (currentUtteranceIdRef.current) {
+      console.log('[DeepgramChunking] Warning: Starting new utterance while previous still active');
+    }
+    
+    currentUtteranceIdRef.current = generateUtteranceId();
+    isUtteranceCompleteRef.current = false;
+    currentUtteranceStartRef.current = Date.now();
+    
+    // Clear any existing end timer
+    if (utteranceEndTimerRef.current) {
+      clearTimeout(utteranceEndTimerRef.current);
+      utteranceEndTimerRef.current = null;
+    }
+    
+    console.log(`[DeepgramChunking] Started new utterance: ${currentUtteranceIdRef.current}`);
+    return currentUtteranceIdRef.current;
+  }, [generateUtteranceId]);
+
 
   // Create a new Deepgram WebSocket connection for a chunk
   const createDeepgramConnection = useCallback((chunkId: string, audioChunk: AudioChunk) => {
@@ -183,7 +217,12 @@ export function useDeepgramChunking({
   // Assemble current transcript from all chunks
   const assembleCurrentTranscript = useCallback((isInterim: boolean = false) => {
     const sortedSegments = utteranceBufferRef.current
-      .sort((a, b) => a.chunkId.localeCompare(b.chunkId))
+      .sort((a, b) => {
+        // Extract timestamps from chunkId for proper ordering (chunk_1_timestamp)
+        const timestampA = parseInt(a.chunkId.split('_').pop() || '0');
+        const timestampB = parseInt(b.chunkId.split('_').pop() || '0');
+        return timestampA - timestampB;
+      })
       .filter(seg => seg.text.trim().length > 0);
     
     if (sortedSegments.length === 0) return;
@@ -191,31 +230,34 @@ export function useDeepgramChunking({
     // Simple concatenation with space separation
     let assembledText = sortedSegments.map(seg => seg.text.trim()).join(' ');
     
-    // Basic punctuation cleanup at chunk boundaries
+    // Minimal cleanup - preserve verbatim content as required
     assembledText = assembledText
-      .replace(/\.\s+([a-z])/g, '. $1') // Fix mid-sentence periods
-      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/\s+/g, ' ') // Normalize whitespace only
       .trim();
     
     onTranscriptUpdate(assembledText, !isInterim);
   }, [onTranscriptUpdate]);
 
   // Send chunked transcript to server
-  const sendChunkedTranscript = useCallback(async (segments: TranscriptSegment[], isComplete: boolean) => {
-    if (!uploadUrl) return;
-
-    const utteranceId = `utterance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const sendChunkedTranscript = useCallback(async (utteranceId: string, segments: TranscriptSegment[], isComplete: boolean) => {
+    if (!uploadUrl || !utteranceId) return;
     
-    // Convert to server format
-    const serverSegments: ChunkedTranscriptSegment[] = segments.map(seg => ({
-      chunkId: seg.chunkId,
-      speakerRole,
-      text: seg.text,
-      confidence: seg.confidence,
-      startTime: Date.now(), // In a real implementation, track actual start times
-      endTime: Date.now(),
-      isPartial: seg.isPartial
-    }));
+    // Convert to server format with proper timing
+    const serverSegments: ChunkedTranscriptSegment[] = segments.map(seg => {
+      // Extract timestamp from chunkId for proper ordering
+      const chunkTimestamp = seg.chunkId.split('_').pop();
+      const startTime = chunkTimestamp ? parseInt(chunkTimestamp) : Date.now();
+      
+      return {
+        chunkId: seg.chunkId,
+        speakerRole,
+        text: seg.text,
+        confidence: seg.confidence,
+        startTime,
+        endTime: startTime + 100, // Approximate end time
+        isPartial: seg.isPartial
+      };
+    });
 
     try {
       // Extract roomId from uploadUrl
@@ -247,29 +289,66 @@ export function useDeepgramChunking({
     }
   }, [uploadUrl, speakerRole, onError]);
 
+  // Schedule utterance completion after silence
+  const scheduleUtteranceEnd = useCallback((delayMs: number) => {
+    if (utteranceEndTimerRef.current) {
+      clearTimeout(utteranceEndTimerRef.current);
+    }
+    
+    utteranceEndTimerRef.current = setTimeout(() => {
+      if (!isUtteranceCompleteRef.current && currentUtteranceIdRef.current) {
+        console.log(`[DeepgramChunking] Auto-completing utterance after ${delayMs}ms silence: ${currentUtteranceIdRef.current}`);
+        finalizeCurrentUtterance();
+      }
+    }, delayMs);
+  }, []);
+
+  // Finalize the current utterance
+  const finalizeCurrentUtterance = useCallback(() => {
+    if (!currentUtteranceIdRef.current || isUtteranceCompleteRef.current) {
+      return;
+    }
+
+    console.log(`[DeepgramChunking] Finalizing utterance: ${currentUtteranceIdRef.current}`);
+    
+    const finalSegments = utteranceBufferRef.current.filter(seg => !seg.isPartial);
+    if (finalSegments.length > 0) {
+      sendChunkedTranscript(currentUtteranceIdRef.current, finalSegments, true);
+      assembleCurrentTranscript(false);
+    }
+
+    // Mark as complete and clean up
+    isUtteranceCompleteRef.current = true;
+    utteranceBufferRef.current = [];
+    
+    if (utteranceEndTimerRef.current) {
+      clearTimeout(utteranceEndTimerRef.current);
+      utteranceEndTimerRef.current = null;
+    }
+    
+    // Reset for next utterance
+    currentUtteranceIdRef.current = null;
+  }, [sendChunkedTranscript, assembleCurrentTranscript]);
+
   // Check if we can assemble a complete utterance
   const checkAndAssembleUtterance = useCallback(() => {
+    if (!currentUtteranceIdRef.current) {
+      return; // No active utterance
+    }
+
     const finalSegments = utteranceBufferRef.current.filter(seg => !seg.isPartial);
     const allActiveChunks = Array.from(activeConnectionsRef.current.values());
     const completedChunks = allActiveChunks.filter(conn => conn.isComplete);
     
-    // If all active chunks are complete, assemble final utterance
-    if (allActiveChunks.length > 0 && completedChunks.length === allActiveChunks.length) {
-      console.log('[DeepgramChunking] All chunks complete, assembling final utterance');
-      
-      // Send to server
-      sendChunkedTranscript(finalSegments, true);
-      
-      // Also provide local feedback
-      assembleCurrentTranscript(false);
-      
-      // Clear utterance buffer for next utterance
-      utteranceBufferRef.current = [];
-    } else if (utteranceBufferRef.current.length > 0) {
-      // Send interim results
-      sendChunkedTranscript(utteranceBufferRef.current, false);
+    // Send interim results if we have any segments
+    if (utteranceBufferRef.current.length > 0 && !isUtteranceCompleteRef.current) {
+      sendChunkedTranscript(currentUtteranceIdRef.current, utteranceBufferRef.current, false);
       assembleCurrentTranscript(true);
     }
+    
+    // Don't auto-finalize just because chunks are complete
+    // Wait for proper silence detection or explicit stop
+    console.log(`[DeepgramChunking] Chunk completed, ${completedChunks.length}/${allActiveChunks.length} chunks done`);
   }, [assembleCurrentTranscript, sendChunkedTranscript]);
 
   // Create a new audio chunk
@@ -302,21 +381,32 @@ export function useDeepgramChunking({
     audioBufferRef.current.push(...samples);
 
     const now = Date.now();
+    const isSilent = detectSilence(samples);
+    
+    // Start new utterance if we don't have one
+    if (!currentUtteranceIdRef.current && !isSilent) {
+      startNewUtterance();
+    }
     
     // Initialize first chunk if needed
-    if (!currentChunkRef.current) {
+    if (!currentChunkRef.current && !isSilent) {
       currentChunkRef.current = createNewChunk();
-      currentUtteranceStartRef.current = now;
       console.log('[DeepgramChunking] Started new chunk:', currentChunkRef.current.id);
     }
 
+    if (!currentChunkRef.current) return; // No chunk to process
+
     const chunkDuration = now - currentChunkRef.current.startTime;
-    const isSilent = detectSilence(samples);
     
     // Track silence periods
     if (isSilent && lastSilenceStartRef.current === 0) {
       lastSilenceStartRef.current = now;
     } else if (!isSilent) {
+      // Clear any pending utterance end timer since user is speaking
+      if (utteranceEndTimerRef.current) {
+        clearTimeout(utteranceEndTimerRef.current);
+        utteranceEndTimerRef.current = null;
+      }
       lastSilenceStartRef.current = 0;
     }
 
@@ -326,10 +416,18 @@ export function useDeepgramChunking({
     let shouldCompleteChunk = false;
     let reason = '';
 
-    if (chunkDuration >= MAX_CHUNK_DURATION_MS) {
+    // Early finalization for short utterances
+    if (silenceDuration >= EARLY_FINALIZATION_MS && chunkDuration >= 1000) {
+      shouldCompleteChunk = true;
+      reason = 'early finalization - user stopped speaking';
+    }
+    // Max duration reached (hard limit)
+    else if (chunkDuration >= MAX_CHUNK_DURATION_MS) {
       shouldCompleteChunk = true;
       reason = 'max duration reached';
-    } else if (chunkDuration >= CHUNK_TARGET_DURATION_MS && silenceDuration >= VAD_SILENCE_DURATION_MS) {
+    }
+    // Natural pause at target duration
+    else if (chunkDuration >= CHUNK_TARGET_DURATION_MS && silenceDuration >= VAD_SILENCE_DURATION_MS) {
       shouldCompleteChunk = true;
       reason = 'natural pause detected';
     }
@@ -347,6 +445,7 @@ export function useDeepgramChunking({
       currentChunkRef.current.audioData = chunkAudioData;
       currentChunkRef.current.endTime = now;
       currentChunkRef.current.isComplete = true;
+      lastChunkEndTimeRef.current = now;
 
       console.log(`[DeepgramChunking] Completing chunk ${currentChunkRef.current.id} (${reason}): ${chunkDuration}ms, ${chunkAudioData.length} bytes`);
 
@@ -357,8 +456,19 @@ export function useDeepgramChunking({
       currentChunkRef.current = null;
       audioBufferRef.current = [];
       lastSilenceStartRef.current = 0;
+      
+      // Schedule utterance end if there's been sufficient silence
+      if (silenceDuration >= EARLY_FINALIZATION_MS) {
+        scheduleUtteranceEnd(UTTERANCE_END_SILENCE_MS - silenceDuration);
+      }
     }
-  }, [uploadUrl, isProcessing, createNewChunk, detectSilence, createDeepgramConnection]);
+    
+    // Schedule utterance end for ongoing silence (without completing chunk)
+    if (silenceDuration >= UTTERANCE_END_SILENCE_MS && currentUtteranceIdRef.current && !utteranceEndTimerRef.current) {
+      console.log('[DeepgramChunking] Long silence detected, scheduling utterance end');
+      scheduleUtteranceEnd(100); // Very short delay since we've already waited
+    }
+  }, [uploadUrl, isProcessing, createNewChunk, detectSilence, createDeepgramConnection, startNewUtterance, scheduleUtteranceEnd]);
 
   // Start processing
   const startProcessing = useCallback(() => {
@@ -371,6 +481,11 @@ export function useDeepgramChunking({
   const stopProcessing = useCallback(async () => {
     console.log('[DeepgramChunking] Stopping audio processing');
     setIsProcessing(false);
+
+    // Finalize any pending utterance
+    if (currentUtteranceIdRef.current && !isUtteranceCompleteRef.current) {
+      finalizeCurrentUtterance();
+    }
 
     // Finalize any remaining chunk
     if (currentChunkRef.current && audioBufferRef.current.length > 0) {
@@ -401,12 +516,22 @@ export function useDeepgramChunking({
     });
     activeConnectionsRef.current.clear();
 
+    // Clear any pending timers
+    if (utteranceEndTimerRef.current) {
+      clearTimeout(utteranceEndTimerRef.current);
+      utteranceEndTimerRef.current = null;
+    }
+
     // Reset state
     currentChunkRef.current = null;
     audioBufferRef.current = [];
     utteranceBufferRef.current = [];
     chunkCounterRef.current = 0;
-  }, [createDeepgramConnection]);
+    currentUtteranceIdRef.current = null;
+    isUtteranceCompleteRef.current = false;
+    lastSilenceStartRef.current = 0;
+    lastChunkEndTimeRef.current = 0;
+  }, [createDeepgramConnection, finalizeCurrentUtterance]);
 
   return {
     processAudioData,

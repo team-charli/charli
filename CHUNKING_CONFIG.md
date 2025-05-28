@@ -37,8 +37,17 @@ The chunking behavior can be adjusted in `/apps/vite-frontend/src/pages/room[id]
 const CHUNK_TARGET_DURATION_MS = 4000; // 4 seconds target
 const MAX_CHUNK_DURATION_MS = 4800; // Hard limit at 4.8s
 const VAD_SILENCE_THRESHOLD = 0.01; // Amplitude threshold for silence detection
-const VAD_SILENCE_DURATION_MS = 300; // Minimum silence duration to trigger chunk boundary
+const VAD_SILENCE_DURATION_MS = 500; // Minimum silence duration to trigger chunk boundary
+const UTTERANCE_END_SILENCE_MS = 1500; // Silence duration to mark utterance as complete
+const EARLY_FINALIZATION_MS = 1000; // Allow early chunk finalization after this silence
 ```
+
+### Key Improvements in v2.0:
+- **Persistent Utterance IDs**: Each continuous speech segment maintains the same utteranceId across multiple chunks
+- **Smart Utterance End Detection**: Only finalizes utterances after proper silence periods (1.5s), not just chunk boundaries
+- **Early Finalization**: Completes short utterances quickly when 1s+ silence is detected
+- **Improved Sorting**: Uses actual timestamps instead of string comparison for correct chunk ordering
+- **Minimal Punctuation Processing**: Preserves verbatim Spanish content with only whitespace normalization
 
 ## Operating Modes
 
@@ -112,12 +121,32 @@ Payload:
 3. Test in both Robo Mode and human sessions
 
 ### Verification Points
-- [ ] Continuous speech beyond 5 seconds is captured
-- [ ] Natural pause detection works correctly
-- [ ] Transcripts maintain verbatim accuracy
-- [ ] Robo responses trigger on complete utterances
-- [ ] Human session transcripts are preserved for scorecard
-- [ ] Real-time captions display properly
+- [ ] **Continuous Speech**: 10+ second monologues are captured as single utterances
+- [ ] **Natural Pause Detection**: Brief pauses (0.5s) don't end utterances, longer pauses (1.5s+) do
+- [ ] **Verbatim Accuracy**: Spanish speech preserves filler words, exact pronunciation, no auto-correction
+- [ ] **Robo Response Timing**: Robot waits for complete utterance before responding (no mid-speech interruption)
+- [ ] **Human Session Integration**: Teacher and learner transcripts are properly attributed and stored
+- [ ] **Real-time Captions**: Live transcript updates smoothly during speech
+- [ ] **Early Finalization**: Short utterances (1-2 words) complete quickly after 1s silence
+- [ ] **Chunk Ordering**: Multi-chunk utterances display in correct sequence (especially >9 chunks)
+
+### Test Scenarios
+
+1. **Long Monologue Test** (>10 seconds continuous Spanish)
+   - Expected: Single utteranceId, multiple chunks, one final transcript
+   - Verify: Robo responds only after speaker stops, not at 5s mark
+
+2. **Short Response Test** (1-2 word answers)
+   - Expected: Quick finalization after ~1s silence
+   - Verify: Minimal latency, immediate robo response
+
+3. **Interrupted Speech Test** (pause mid-sentence, continue)
+   - Expected: Same utteranceId maintained across pause
+   - Verify: Complete sentence assembled, no premature finalization
+
+4. **Rapid Exchange Test** (quick back-and-forth)
+   - Expected: Separate utteranceIds for each speaker turn
+   - Verify: Clean speaker attribution, no cross-contamination
 
 ### Performance Metrics
 - Chunk duration should average 3-4 seconds

@@ -202,20 +202,19 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	}
 
 	private assembleUtterance(segments: ChunkedTranscriptSegment[]): string {
-		// Sort segments by chunk ID (which includes timestamp)
+		// Sort segments by start time for proper chronological order
 		const sortedSegments = segments
 			.filter(s => s.text.trim().length > 0)
-			.sort((a, b) => a.chunkId.localeCompare(b.chunkId));
+			.sort((a, b) => a.startTime - b.startTime);
 
 		if (sortedSegments.length === 0) return '';
 
 		// Simple concatenation with space separation
 		let assembledText = sortedSegments.map(s => s.text.trim()).join(' ');
 
-		// Basic punctuation cleanup at chunk boundaries
+		// Minimal cleanup - preserve verbatim content as required
 		assembledText = assembledText
-			.replace(/\.\s+([a-z])/g, '. $1') // Fix mid-sentence periods
-			.replace(/\s+/g, ' ') // Normalize whitespace
+			.replace(/\s+/g, ' ') // Normalize whitespace only
 			.trim();
 
 		return assembledText;
