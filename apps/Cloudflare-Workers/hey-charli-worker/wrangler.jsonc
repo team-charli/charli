@@ -1,0 +1,33 @@
+{
+  "name": "hey-charli-worker",
+  "main": "src/HeyCharliDO.ts",
+  "compatibility_date": "2025-05-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "ai": {
+    "binding": "AI"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "HEY_CHARLI_DO",
+        "class_name": "HeyCharliDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["HeyCharliDO"]
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+			"routes": [
+		{
+			"pattern": "hey-charli.charli.chat",
+			"custom_domain": true
+		}
+	],
+
+}

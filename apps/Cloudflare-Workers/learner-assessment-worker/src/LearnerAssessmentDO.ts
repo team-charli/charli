@@ -23,6 +23,11 @@ interface WordInfo {
 
 type SessionMode = 'robo' | 'normal';
 
+enum CharliState {
+	Idle = 'idle',
+	AwaitingQuestion = 'awaiting_question'
+}
+
 type DGSocket = {
 	ws: WebSocket;                  // open WS to Deepgram
 	ready: Promise<void>;           // resolves when {"type":"listening"} arrives
@@ -199,9 +204,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		// 🔄 modern stream-control knobs
 		wsURL.searchParams.set('interim_results',  'true');
-		wsURL.searchParams.set('endpointing', '300');     // ≥ 200
-		wsURL.searchParams.set('utterance_end_ms', '3000');
+		wsURL.searchParams.set('endpointing', '500');     // o3's golden bundle - proven stable
+		wsURL.searchParams.set('utterance_end_ms', '5000');
 		wsURL.searchParams.set('vad_events',       'true');  // ← NEW (required)
+		wsURL.searchParams.set('smart_format',     'true');  // clean formatting
+
+		// Hey Charli keyword detection
+		wsURL.searchParams.set('keywords', 'hey charli');
+		wsURL.searchParams.set('keywords_priority', 'high');
 
 		if (!this.connectBannerLogged) {
 			console.log('[DG] connecting', wsURL.toString());
@@ -254,7 +264,17 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				return;
 			}
 
-			// Modern format: check for Results with speech_final: true
+			// Log ALL Results messages for debugging with analysis
+			if (msg.type === 'Results') {
+				const text = msg.channel?.alternatives?.[0]?.transcript;
+				const hasText = Boolean(text && text.trim());
+				console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text || ''}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
+				
+				// Full raw message for detailed analysis
+				console.log(`[DG-DEBUG] Raw message:`, JSON.stringify(msg, null, 2));
+			}
+
+			// Handle speech_final messages (high confidence, for scorecard)
 			if (msg.type === 'Results' && msg.speech_final === true) {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				const speaker = String(msg.channel?.speaker ?? '0');
@@ -263,7 +283,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const duration = msg.duration ?? 0;
 
 				if (text) {
-					console.log(`[DG] final ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
+					console.log(`[DG] speech_final ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
+					console.log(`[DG] speech_final=${msg.speech_final}, is_final=${msg.is_final}, duration=${duration}s, start=${start}s`);
 
 					const seg: TranscribedSegment = {
 						peerId: speaker,
@@ -276,50 +297,48 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					// For robo mode, trigger utterance processing for learner speech
 					if (role === 'learner') {
 						const sessionMode = await this.getSessionMode();
+						console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
 						if (sessionMode === 'robo') {
+							console.log(`[DG] Triggering flushUtterance for speech_final: "${text}"`);
 							this.flushUtterance(roomId, text).catch(err =>
 								console.error('[DG] robo utterance processing error:', err)
 							);
 						}
 					}
 				}
-				return;
 			}
+			// Handle is_final messages (for robo responses only, not scorecard)  
+			else if (msg.type === 'Results' && msg.is_final === true && msg.speech_final !== true) {
+				const text = msg.channel?.alternatives?.[0]?.transcript;
+				const speaker = String(msg.channel?.speaker ?? '0');
+				const role = speaker === '0' ? 'learner' : 'teacher';
+				const start = msg.start ?? 0;
+				const duration = msg.duration ?? 0;
 
-			// Legacy handling for non-smart-listen messages (backwards compatibility)
-			const alt = msg.channel?.alternatives?.[0];
-			if (!alt) return;
-
-			/* sentence-level segment */
-			if (alt.transcript) {
-				const start   = alt.start ?? 0;
-				const speaker = String(msg.channel.speaker ?? '0');
-				const seg: TranscribedSegment = {
-					peerId: speaker,
-					role  : speaker === '0' ? 'learner' : 'teacher',
-					start,
-					text  : alt.transcript
-				};
-				this.dgSocket!.segments.push(seg);
-			}
-
-			/* word-level detail */
-			if (alt.words?.length) {
-				const speaker = String(msg.channel.speaker ?? '0');
-				const role    = speaker === '0' ? 'learner' : 'teacher';
-				for (const w of alt.words) {
-					this.words.push({
-						peerId: speaker,
-						role,
-						word : w.word,
-						start: w.start,
-						end  : w.end,
-						conf : w.confidence
-					});
+				if (text && role === 'learner') {
+					console.log(`[DG] is_final-only ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
+					console.log(`[DG] speech_final=${msg.speech_final}, is_final=${msg.is_final}, duration=${duration}s, start=${start}s`);
+					
+					const sessionMode = await this.getSessionMode();
+					console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
+					if (sessionMode === 'robo') {
+						console.log(`[DG] Triggering flushUtterance for is_final: "${text}"`);
+						this.flushUtterance(roomId, text).catch(err =>
+							console.error('[DG] robo utterance processing error:', err)
+						);
+					}
 				}
 			}
-		});
 
+			// Handle Hey Charli detection for both speech_final and is_final messages
+			if (msg.type === 'Results' && (msg.speech_final === true || msg.is_final === true)) {
+				const text = msg.channel?.alternatives?.[0]?.transcript;
+				if (text) {
+					await this.handleCharliDetection(roomId, text);
+				}
+			}
+			return;
+		});
 
 		this.dgSocket = { ws: dgWS, ready, segments: [] };
 		try {
@@ -366,17 +385,64 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		await this.state.storage.put('learnerId', learnerIdNum);
 	}
 
+	/* ───────────────────── charli state helpers ─────────────── */
+	private async getCharliState(): Promise<CharliState> {
+		return (await this.state.storage.get<CharliState>('charliState')) ?? CharliState.Idle;
+	}
+	private async setCharliState(state: CharliState) {
+		await this.state.storage.put('charliState', state);
+	}
+
+	private async handleCharliDetection(roomId: string, text: string) {
+		const currentState = await this.getCharliState();
+		const normalizedText = text.toLowerCase().trim();
+
+		if (currentState === CharliState.Idle && /hey charli/i.test(normalizedText)) {
+			await this.setCharliState(CharliState.AwaitingQuestion);
+			await this.broadcastToRoom(roomId, 'charliStart', {});
+		} else if (currentState === CharliState.AwaitingQuestion) {
+			await this.setCharliState(CharliState.Idle);
+
+			// Delegate translation to HeyCharliDO
+			try {
+				const response = await this.env.HEY_CHARLI_WORKER.fetch('http://hey-charli/translate', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ question: text })
+				});
+				const { answer } = await response.json();
+
+				await this.broadcastToRoom(roomId, 'charliAnswer', { text: answer });
+				await this.broadcastToRoom(roomId, 'teacherNotice', {
+					message: 'El aprendiz está preguntando a Charli una pregunta.'
+				});
+			} catch (error) {
+				console.error('[Charli] Translation error:', error);
+				await this.broadcastToRoom(roomId, 'charliAnswer', {
+					text: 'Error en la traducción'
+				});
+			}
+		}
+	}
+
 	/* ───────────────── learner → robo round-trip (smart-listen) ───────────── */
 	private async flushUtterance(roomId: string, learnerText: string) {
-		if (this.flushInFlight) return;
+		if (this.flushInFlight) {
+			console.log('[ASR] flushUtterance called but already in flight');
+			return;
+		}
 		this.flushInFlight = true;
 
 		try {
-			console.log(`[LearnerAssessmentDO] flushUtterance fired at ${new Date().toISOString()}`);
+			console.log(`[LearnerAssessmentDO] flushUtterance fired at ${new Date().toISOString()} for text: "${learnerText}"`);
+			console.log(`[ASR] lastLearnerText was: "${this.lastLearnerText || 'null'}"`);
+			console.log(`[ASR] cooldown until: ${new Date(this.replyCooldownUntil || 0).toISOString()}`);
 
 			// Avoid overlapping answers
-			if (Date.now() < this.replyCooldownUntil) {
-				console.log('[Robo] skipping — cooldown still active');
+			const now = Date.now();
+			if (now < this.replyCooldownUntil) {
+				const remainingMs = this.replyCooldownUntil - now;
+				console.log(`[Robo] skipping — cooldown still active for ${remainingMs}ms`);
 				return;
 			}
 
@@ -385,22 +451,27 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				return;
 			}
 
-			// Skip if the new text is just an extension of the previous flush
-			if (this.lastLearnerText                    // only after the first flush
+			// Skip only exact duplicates - Deepgram should deliver clean final results
+			if (learnerText === this.lastLearnerText) {
+				console.log(`[ASR] ignoring exact duplicate transcript: "${learnerText}"`);
+				return;
+			}
+			
+			// Restore prefix filtering - Deepgram is still sending incremental results despite smart_format=true
+			// This prevents processing every incremental result as a separate utterance
+			if (this.lastLearnerText                    
 				&& learnerText.startsWith(this.lastLearnerText)
 				&& learnerText.length > this.lastLearnerText.length) {
-				console.log('[ASR] ignoring prefix-duplicate transcript');
+				console.log(`[ASR] ignoring prefix-duplicate (incremental result): "${learnerText}" extends "${this.lastLearnerText}"`);
 				return;
 			}
-
-			// Skip if identical to last transcript
-			if (learnerText === this.lastLearnerText) {
-				console.log('[ASR] ignoring duplicate transcript');
-				return;
-			}
+			console.log(`[ASR] Processing new utterance: "${learnerText}"`);
 			this.lastLearnerText = learnerText;
 
 			console.log(`[LearnerAssessmentDO] Fetching robo reply for text: "${learnerText}"`);
+
+			// Set cooldown BEFORE making the call to prevent race conditions
+			this.replyCooldownUntil = Date.now() + LearnerAssessmentDO.REPLY_COOLDOWN_MS;
 
 			/* generate utterance ID and call robo-test-mode Worker */
 			this.utteranceCounter = (this.utteranceCounter ?? 0) + 1;
@@ -418,9 +489,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 			const response = await res.json<{ status: string; utteranceId: number }>();
 			console.log(`[LearnerAssessmentDO] Robo service queued response for utteranceId: ${response.utteranceId}`);
-
-			// Set cooldown to prevent overlapping replies
-			this.replyCooldownUntil = Date.now() + LearnerAssessmentDO.REPLY_COOLDOWN_MS;
 		} catch (err) {
 			console.error('[LearnerAssessmentDO] robo reply error', err);
 		} finally {

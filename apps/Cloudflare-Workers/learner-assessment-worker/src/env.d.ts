@@ -5,6 +5,7 @@ export interface Env {
 	LEARNER_ASSESSMENT_DO: DurableObjectNamespace<LearnerAssessmentDO>;
 	MESSAGE_RELAY_DO: DurableObjectNamespace<MessageRelayDO>;
 	PCM_TO_WAV_WORKER: Service<PcmToWavWorker>;
+	HEY_CHARLI_WORKER: Fetcher;
 	AI: Ai;
 	SUPABASE_SERVICE_ROLE_KEY: string;
 	SUPABASE_URL: string;
