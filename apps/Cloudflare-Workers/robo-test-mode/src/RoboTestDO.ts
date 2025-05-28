@@ -63,7 +63,7 @@ export class RoboTestDO extends DurableObject<Env> {
 					
 					if (alreadyProcessed) {
 						console.log(`[RoboTestDO] Duplicate utteranceId ${utteranceId}, skipping`);
-						return Response.json({ status: 'duplicate', utteranceId }, 200);
+						return Response.json({ status: 'duplicate', utteranceId }, { status: 200 });
 					}
 					await this.state.storage.put(processedKey, true);
 					console.log(`[RoboTestDO-DEBUG] Stored key: ${processedKey}`);
