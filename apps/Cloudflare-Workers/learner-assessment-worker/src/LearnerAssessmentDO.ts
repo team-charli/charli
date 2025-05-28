@@ -470,6 +470,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 			console.log(`[LearnerAssessmentDO] Fetching robo reply for text: "${learnerText}"`);
 
+			// Set cooldown BEFORE making the call to prevent race conditions
+			this.replyCooldownUntil = Date.now() + LearnerAssessmentDO.REPLY_COOLDOWN_MS;
+
 			/* generate utterance ID and call robo-test-mode Worker */
 			this.utteranceCounter = (this.utteranceCounter ?? 0) + 1;
 			const utteranceId = this.utteranceCounter;
@@ -486,9 +489,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 			const response = await res.json<{ status: string; utteranceId: number }>();
 			console.log(`[LearnerAssessmentDO] Robo service queued response for utteranceId: ${response.utteranceId}`);
-
-			// Set cooldown to prevent overlapping replies
-			this.replyCooldownUntil = Date.now() + LearnerAssessmentDO.REPLY_COOLDOWN_MS;
 		} catch (err) {
 			console.error('[LearnerAssessmentDO] robo reply error', err);
 		} finally {
