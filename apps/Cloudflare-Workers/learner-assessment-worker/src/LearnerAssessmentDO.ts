@@ -21,6 +21,17 @@ interface WordInfo {
 	conf: number;  // 0-1 confidence
 }
 
+/** Chunked transcript segment for reassembly */
+interface ChunkedTranscriptSegment {
+	chunkId: string;
+	speakerRole: string;
+	text: string;
+	confidence: number;
+	startTime: number;
+	endTime: number;
+	isPartial: boolean;
+}
+
 type SessionMode = 'robo' | 'normal';
 
 enum CharliState {
@@ -58,6 +69,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private static readonly MIN_CHUNK_INTERVAL_MS = 50; // 5 msg/s = 50ms between chunks
 	private connectBannerLogged = false;   // ← new
 	private modeBannerLogged = false;
+	
+	// Chunked transcription state
+	private utteranceBuffer: Map<string, ChunkedTranscriptSegment[]> = new Map(); // keyed by utteranceId
+	private currentUtteranceId: string | null = null;
+	private lastUtteranceEndTime = 0;
 	/* ------------------------------------------------------------------ */
 
 	constructor(state: DurableObjectState, env: Env) {
@@ -91,6 +107,118 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 			return c.json({ ok: true });
 		});
+
+		/* ────────── POST /chunked-transcript/:roomId ────────── */
+		this.app.post('/chunked-transcript/:roomId', async c => {
+			return this.handleChunkedTranscript(c);
+		});
+	}
+
+	private async handleChunkedTranscript(c: any) {
+		const roomId = c.req.param('roomId');
+		const body = await c.req.json<{
+			utteranceId: string;
+			segments: ChunkedTranscriptSegment[];
+			isComplete: boolean;
+			speakerRole: 'learner' | 'teacher';
+		}>();
+
+		console.log(`[LearnerAssessmentDO] Received chunked transcript for utterance ${body.utteranceId}: ${body.segments.length} segments, complete: ${body.isComplete}`);
+
+		// Store segments in utterance buffer
+		if (!this.utteranceBuffer.has(body.utteranceId)) {
+			this.utteranceBuffer.set(body.utteranceId, []);
+		}
+
+		const utteranceSegments = this.utteranceBuffer.get(body.utteranceId)!;
+		
+		// Add new segments
+		for (const segment of body.segments) {
+			// Remove any existing segment with same chunkId (replace)
+			const existingIndex = utteranceSegments.findIndex(s => s.chunkId === segment.chunkId);
+			if (existingIndex >= 0) {
+				utteranceSegments[existingIndex] = segment;
+			} else {
+				utteranceSegments.push(segment);
+			}
+		}
+
+		if (body.isComplete) {
+			// Assemble complete utterance
+			const assembledText = this.assembleUtterance(utteranceSegments);
+			console.log(`[LearnerAssessmentDO] Assembled complete utterance: "${assembledText}"`);
+
+			// Process based on role
+			if (body.speakerRole === 'learner') {
+				const sessionMode = await this.getSessionMode();
+				if (sessionMode === 'robo') {
+					console.log(`[LearnerAssessmentDO] Processing learner utterance in robo mode: "${assembledText}"`);
+					this.flushUtterance(roomId, assembledText).catch(err =>
+						console.error('[LearnerAssessmentDO] robo utterance processing error:', err)
+					);
+				}
+
+				// Add to segments for final scorecard
+				const segment: TranscribedSegment = {
+					peerId: '0', // learner
+					role: 'learner',
+					text: assembledText,
+					start: Math.min(...utteranceSegments.map(s => s.startTime)) / 1000 // convert to seconds
+				};
+				
+				if (!this.dgSocket) {
+					// Initialize dgSocket structure if using chunked mode
+					this.dgSocket = {
+						ws: {} as WebSocket, // placeholder
+						ready: Promise.resolve(),
+						segments: []
+					};
+				}
+				this.dgSocket.segments.push(segment);
+			}
+
+			// Broadcast complete transcript
+			await this.broadcastToRoom(roomId, 'partialTranscript', {
+				speakerRole: body.speakerRole,
+				text: assembledText,
+				isComplete: true,
+				utteranceId: body.utteranceId
+			});
+
+			// Clean up buffer
+			this.utteranceBuffer.delete(body.utteranceId);
+		} else {
+			// Broadcast interim result
+			const interimText = this.assembleUtterance(utteranceSegments);
+			await this.broadcastToRoom(roomId, 'partialTranscript', {
+				speakerRole: body.speakerRole,
+				text: interimText,
+				isComplete: false,
+				utteranceId: body.utteranceId
+			});
+		}
+
+		return c.json({ status: 'ok', utteranceId: body.utteranceId });
+	}
+
+	private assembleUtterance(segments: ChunkedTranscriptSegment[]): string {
+		// Sort segments by chunk ID (which includes timestamp)
+		const sortedSegments = segments
+			.filter(s => s.text.trim().length > 0)
+			.sort((a, b) => a.chunkId.localeCompare(b.chunkId));
+
+		if (sortedSegments.length === 0) return '';
+
+		// Simple concatenation with space separation
+		let assembledText = sortedSegments.map(s => s.text.trim()).join(' ');
+
+		// Basic punctuation cleanup at chunk boundaries
+		assembledText = assembledText
+			.replace(/\.\s+([a-z])/g, '. $1') // Fix mid-sentence periods
+			.replace(/\s+/g, ' ') // Normalize whitespace
+			.trim();
+
+		return assembledText;
 	}
 
 	private async handleAudioRequest(c: any) {

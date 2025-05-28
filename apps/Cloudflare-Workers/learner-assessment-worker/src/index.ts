@@ -83,6 +83,26 @@ app.post('/audio/:roomId', async (c) => {
 	return assessmentDO.fetch(doRequest)
 })
 
+// Endpoint for receiving chunked transcripts
+app.post('/chunked-transcript/:roomId', async (c) => {
+	const roomId = c.req.param('roomId')
+	const assessmentDO = c.env.LEARNER_ASSESSMENT_DO.get(
+		c.env.LEARNER_ASSESSMENT_DO.idFromName(roomId)
+	)
+	
+	// Create a new request with the correct URL for the DO
+	const originalUrl = new URL(c.req.url);
+	const doUrl = `http://learner-assessment${originalUrl.pathname}${originalUrl.search}`;
+	
+	const doRequest = new Request(doUrl, {
+		method: c.req.method,
+		headers: c.req.header(),
+		body: c.req.raw.body,
+	});
+	
+	return assessmentDO.fetch(doRequest)
+})
+
 export {
   MessageRelayDO, LearnerAssessmentDO, ScorecardOrchestratorDO,
   ScorecardPersisterDO, MistakeAnalyzerDO, MistakeDetectorDO,

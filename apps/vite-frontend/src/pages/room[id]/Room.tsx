@@ -79,6 +79,27 @@ export default function Room() {
   
   // State for robo teacher captions
   const [roboCaption, setRoboCaption] = useState<string>('');
+  
+  // State for chunked transcription
+  const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
+  
+  // Transcript update handlers
+  const handleTranscriptUpdate = (text: string, isComplete: boolean) => {
+    setLiveTranscript(text);
+    if (isComplete) {
+      console.log('[Room] Complete transcript received:', text);
+      // You could send this to analytics or display it differently
+    } else {
+      console.log('[Room] Interim transcript:', text);
+    }
+  };
+  
+  const handleTranscriptError = (error: string) => {
+    console.error('[Room] Transcript error:', error);
+    setTranscriptError(error);
+    setTimeout(() => setTranscriptError(null), 5000); // Clear error after 5s
+  };
 
 
   const uploadUrl = useMemo(() => {
@@ -101,10 +122,12 @@ export default function Room() {
   }, [uploadUrl]);
 
   /** 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn). */
-  const { isRecording, cleanupAudio } = useAudioPipeline({
+  const { isRecording, cleanupAudio, isChunking, useChunking } = useAudioPipeline({
     localAudioStream,
     isAudioOn,
     uploadUrl,
+    onTranscriptUpdate: handleTranscriptUpdate,
+    onTranscriptError: handleTranscriptError,
   });
 
   /** 6) Enable mic once uploadUrl is valid (so pipeline captures from first sample) */
@@ -289,6 +312,20 @@ export default function Room() {
               localVideoStream={localVideoStream}
               isRecording={isRecording}
             />
+            
+            {/* Live transcript display for chunked mode */}
+            {useChunking && (liveTranscript || transcriptError) && (
+              <div className="mt-2 p-2 bg-gray-800 bg-opacity-75 rounded text-xs text-white">
+                {transcriptError ? (
+                  <div className="text-red-400">Error: {transcriptError}</div>
+                ) : (
+                  <div>
+                    <div className="text-gray-400 mb-1">Live Transcript {isChunking ? '🔴' : '⏸️'}:</div>
+                    <div className="text-green-400">{liveTranscript}</div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="p-3 sm:p-4">
@@ -318,7 +355,9 @@ export default function Room() {
             <div className="h-full flex items-center justify-center">
               <div className="text-center bg-gray-900 bg-opacity-70 rounded-lg p-6 sm:p-8 max-w-4xl w-full">
                 <div className="text-4xl sm:text-5xl mb-6">🤖</div>
-                <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-white mb-4">Robo Teacher</h3>
+                <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-white mb-4">
+                  Robo Teacher {useChunking && <span className="text-sm text-green-400">(Chunked Mode)</span>}
+                </h3>
                 <div 
                   className="text-white transition-all duration-500 ease-in-out min-h-[100px] flex items-center justify-center"
                   style={{ 
@@ -331,6 +370,13 @@ export default function Room() {
                 >
                   {roboCaption || 'Esperando tu primera palabra...'}
                 </div>
+                {/* Show chunked transcript if available */}
+                {useChunking && liveTranscript && (
+                  <div className="mt-4 p-3 bg-blue-900 bg-opacity-50 rounded text-sm text-blue-200">
+                    <div className="font-medium mb-1">Your Speech (Live):</div>
+                    <div className="italic">"{liveTranscript}"</div>
+                  </div>
+                )}
               </div>
             </div>
           ) : remotePeerIds.length === 0 ? (

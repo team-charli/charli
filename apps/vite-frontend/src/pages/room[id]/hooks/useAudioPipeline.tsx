@@ -1,5 +1,6 @@
 // ~/Projects/charli/apps/vite-frontend/src/pages/room[id]/hooks/useAudioPipeline.ts
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useDeepgramChunking } from "./useDeepgramChunking";
 
 const workletScript = `
 class PCMProcessor extends AudioWorkletProcessor {
@@ -61,10 +62,14 @@ export function useAudioPipeline({
   localAudioStream,
   isAudioOn,
   uploadUrl,
+  onTranscriptUpdate,
+  onTranscriptError,
 }: {
     localAudioStream: MediaStream | null;
     isAudioOn: boolean;
     uploadUrl: string | null;
+    onTranscriptUpdate?: (text: string, isComplete: boolean) => void;
+    onTranscriptError?: (error: string) => void;
   }) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -76,6 +81,35 @@ export function useAudioPipeline({
 
   // This was in your original code, if you still need to track session ends
   const endSessionRef = useRef(false);
+  
+  // Chunking state
+  const useChunking = import.meta.env.VITE_ENABLE_CHUNKING === 'true';
+  const audioChunkBuffer = useRef<Uint8Array[]>([]);
+  
+  // Extract role from uploadUrl
+  const extractedRole = useMemo(() => {
+    if (!uploadUrl) return 'learner';
+    try {
+      const url = new URL(uploadUrl);
+      const role = url.searchParams.get('role');
+      return (role === 'teacher' || role === 'learner') ? role : 'learner';
+    } catch {
+      return 'learner';
+    }
+  }, [uploadUrl]);
+
+  // Deepgram chunking hook
+  const {
+    processAudioData,
+    startProcessing: startChunking,
+    stopProcessing: stopChunking,
+    isProcessing: isChunking
+  } = useDeepgramChunking({
+    uploadUrl,
+    onTranscriptUpdate: onTranscriptUpdate || (() => {}),
+    onError: onTranscriptError || (() => {}),
+    speakerRole: extractedRole
+  });
 
   /**
    * Sets up the AudioWorklet pipeline
@@ -107,30 +141,30 @@ export function useAudioPipeline({
         // Called whenever PCM data is ready to send
         worklet.port.onmessage = async (e) => {
           const chunk = e.data as Uint8Array;
-          // console.log(`[useAudioPipeline] Sending PCM chunk, size: ${chunk.length}`, new Date().toISOString());
-          // console.log(`[useAudioPipeline] Fetching to URL: ${uploadUrl}`);
+          
+          if (useChunking) {
+            // Use Deepgram chunking for continuous transcription
+            processAudioData(chunk);
+          } else {
+            // Original behavior: send directly to server
+            try {
+              const startTime = Date.now();
+              const resp = await fetch(uploadUrl, {
+                method: "POST",
+                body: chunk,
+                headers: {
+                  'Content-Type': 'application/octet-stream'
+                }
+              });
+              const endTime = Date.now();
 
-          try {
-            const startTime = Date.now();
-            const resp = await fetch(uploadUrl, {
-              method: "POST",
-              body: chunk,
-              headers: {
-                'Content-Type': 'application/octet-stream'
+              if (!resp.ok) {
+                const errorText = await resp.text();
+                console.error(`[useAudioPipeline] PCM upload failed: ${resp.status} - ${errorText}`);
               }
-            });
-            const endTime = Date.now();
-
-            // console.log(`[useAudioPipeline] Response received in ${endTime - startTime}ms, status: ${resp.status}`);
-
-            if (!resp.ok) {
-              const errorText = await resp.text();
-              console.error(`[useAudioPipeline] PCM upload failed: ${resp.status} - ${errorText}`);
-            } else {
-              // console.log(`[useAudioPipeline] PCM upload successful: ${resp.status}`);
+            } catch (err) {
+              console.error("[useAudioPipeline] PCM upload network error:", err);
             }
-          } catch (err) {
-            console.error("[useAudioPipeline] PCM upload network error:", err);
           }
         };
 
@@ -141,6 +175,12 @@ export function useAudioPipeline({
 
         setIsRecording(true);
         console.log("[useAudioPipeline] Recording started", new Date().toISOString());
+        
+        // Start chunking if enabled
+        if (useChunking) {
+          startChunking();
+          console.log("[useAudioPipeline] Deepgram chunking started");
+        }
 
         // Early flush after a short delay:
         setTimeout(() => {
@@ -178,6 +218,13 @@ export function useAudioPipeline({
 
   const cleanupAudio = async () => {
     console.log("[useAudioPipeline] cleanupAudio called:", new Date().toISOString());
+    
+    // Stop chunking if enabled
+    if (useChunking && isChunking) {
+      console.log("[useAudioPipeline] Stopping Deepgram chunking");
+      await stopChunking();
+    }
+    
     await flush();
     if (workletRef.current) workletRef.current.disconnect();
     if (sourceRef.current) sourceRef.current.disconnect();
@@ -207,5 +254,9 @@ export function useAudioPipeline({
 
     // If your "end session" logic still depends on this, we expose it
     endSessionRef,
+    
+    // Chunking status
+    isChunking: useChunking && isChunking,
+    useChunking,
   };
 }
