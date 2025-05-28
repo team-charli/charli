@@ -1,6 +1,6 @@
 // ~/Projects/charli/apps/vite-frontend/src/pages/room[id]/Room.tsx
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useLocalPeer } from "@huddle01/react/hooks";
 import { useVerifiyRoleAndAddress } from "./hooks/useVerifiyRoleAndAddress";
@@ -71,6 +71,14 @@ export default function Room() {
 
   // Use roboTest parameter or environment variable to enable RoboMode
   const isRoboMode = import.meta.env.VITE_ROBO_MODE === 'true' || roboTest === 'true';
+  
+  // Debug logging
+  console.log('[Room] roboTest from URL:', roboTest);
+  console.log('[Room] VITE_ROBO_MODE env:', import.meta.env.VITE_ROBO_MODE);
+  console.log('[Room] isRoboMode calculated:', isRoboMode);
+  
+  // State for robo teacher captions
+  const [roboCaption, setRoboCaption] = useState<string>('');
 
 
   const uploadUrl = useMemo(() => {
@@ -153,6 +161,10 @@ export default function Room() {
           break;
         case "roboReplyText":
           console.log("[TranscriptListener] Robo reply text:", message.data.text, "utteranceId:", message.data.utteranceId);
+          // Update robo captions - let CSS handle transitions
+          if (message.data.text) {
+            setRoboCaption(message.data.text);
+          }
           // Always render text subtitle and update last played ID
           if (message.data.utteranceId) {
             lastPlayedUtteranceId = message.data.utteranceId;
@@ -299,7 +311,29 @@ export default function Room() {
 
         {/* Right side: remote peers (on mobile, this appears above the local preview) */}
         <div className="w-full sm:w-2/3 lg:w-3/4 sm:min-h-0 order-1 sm:order-2 flex-grow overflow-auto p-2 sm:p-4">
-          {remotePeerIds.length === 0 ? (
+          {/* Debug info */}
+          {console.log('🤖 [DEBUG] remotePeerIds:', remotePeerIds, 'length:', remotePeerIds.length, 'isRoboMode:', isRoboMode)}
+          
+          {isRoboMode ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center bg-gray-900 bg-opacity-70 rounded-lg p-6 sm:p-8 max-w-4xl w-full">
+                <div className="text-4xl sm:text-5xl mb-6">🤖</div>
+                <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-white mb-4">Robo Teacher</h3>
+                <div 
+                  className="text-white transition-all duration-500 ease-in-out min-h-[100px] flex items-center justify-center"
+                  style={{ 
+                    fontSize: '32px', 
+                    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                    fontWeight: '500',
+                    lineHeight: '1.4',
+                    opacity: roboCaption ? 1 : 0.5
+                  }}
+                >
+                  {roboCaption || 'Esperando tu primera palabra...'}
+                </div>
+              </div>
+            </div>
+          ) : remotePeerIds.length === 0 ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center bg-gray-800 bg-opacity-50 rounded-lg p-6 sm:p-8 max-w-md">
                 <div className="text-5xl sm:text-6xl mb-4">👋</div>

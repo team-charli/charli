@@ -17,6 +17,57 @@ const ONLY_RE  = (() => { const i = Bun.argv.indexOf("--only"); return i > -1 ? 
 const IS_PROD  = Bun.argv.includes("--prod");
 type EnvMap    = Record<string,string>;
 
+// Error collection system
+type ErrorReport = {
+  type: 'warning' | 'error';
+  source: string;
+  message: string;
+  timestamp: Date;
+};
+
+const errorReports: ErrorReport[] = [];
+
+function collectError(type: 'warning' | 'error', source: string, message: string) {
+  errorReports.push({
+    type,
+    source,
+    message,
+    timestamp: new Date()
+  });
+}
+
+function reportAccumulatedErrors() {
+  if (errorReports.length === 0) {
+    log("\n✅ No warnings or errors accumulated during deployment.");
+    return;
+  }
+
+  log("\n" + "=".repeat(60));
+  log("📋 ACCUMULATED WARNINGS AND ERRORS REPORT");
+  log("=".repeat(60));
+  
+  const warnings = errorReports.filter(r => r.type === 'warning');
+  const errors = errorReports.filter(r => r.type === 'error');
+  
+  if (warnings.length > 0) {
+    log(`\n⚠️  WARNINGS (${warnings.length}):`);
+    warnings.forEach((w, i) => {
+      log(`${i + 1}. [${w.source}] ${w.message}`);
+    });
+  }
+  
+  if (errors.length > 0) {
+    log(`\n❌ ERRORS (${errors.length}):`);
+    errors.forEach((e, i) => {
+      log(`${i + 1}. [${e.source}] ${e.message}`);
+    });
+  }
+  
+  log("\n" + "=".repeat(60));
+  log(`Summary: ${warnings.length} warning(s), ${errors.length} error(s)`);
+  log("=".repeat(60) + "\n");
+}
+
 const log = createLogger({
   mode  : IS_PROD ? "prod" : "dev",
   dryRun: DRY,
@@ -172,7 +223,9 @@ async function main() {
         for (const req of requirements) {
           if (req.dynamic && !(req.key in dynamic)) {
             missingDynamic = true;
-            log(`⚠️   [deploy-debug] Dynamic env key ${req.key} required but not set dynamically in this run.`);
+            const msg = `Dynamic env key ${req.key} required but not set dynamically in this run.`;
+            log(`⚠️   [deploy-debug] ${msg}`);
+            collectError('warning', 'vite-frontend-env', msg);
           }
         }
 
@@ -450,7 +503,9 @@ async function fundPkpWithGas(pkpAddress: string, amount: string) {
     log(`  • Funder wallet balance: ${formattedBalance} ETH`);
 
     if (balance.lt(ethers.utils.parseEther(amount))) {
-      log(`⚠️ Warning: Funder wallet has insufficient funds (${formattedBalance} ETH) to send ${amount} ETH`);
+      const msg = `Funder wallet has insufficient funds (${formattedBalance} ETH) to send ${amount} ETH`;
+      log(`⚠️ Warning: ${msg}`);
+      collectError('warning', 'pkp-funding', msg);
       // Continue execution, but log a warning
     }
 
@@ -469,7 +524,9 @@ async function fundPkpWithGas(pkpAddress: string, amount: string) {
 
     return receipt.transactionHash;
   } catch (error) {
-    log(`✖ Failed to fund PKP with gas: ${error.message}`);
+    const msg = `Failed to fund PKP with gas: ${error.message}`;
+    log(`✖ ${msg}`);
+    collectError('error', 'pkp-funding', msg);
     // Don't throw the error, as this is not a critical failure for deployment
     // Just log it and continue with the deployment process
     return null;
@@ -659,13 +716,17 @@ async function injectSecrets(
     try {
       cmdResult = await $`bunx ${wranglerArgs}`.quiet().cwd(t.path);
     } catch (err) {
-      log(`⚠️  wrangler secret list failed for ${name}: ${err?.stderr ?? err?.message ?? err}`);
+      const msg = `wrangler secret list failed for ${name}: ${err?.stderr ?? err?.message ?? err}`;
+      log(`⚠️  ${msg}`);
+      collectError('warning', 'wrangler-secrets', msg);
       if (err?.stdout) log(`[injectSecrets] stdout:\n${err.stdout}`);
       if (err?.stderr) log(`[injectSecrets] stderr:\n${err.stderr}`);
       log(`[injectSecrets] Will treat this as 'no secrets', and continue.`);
     }
     if (cmdResult && cmdResult.exitCode !== 0) {
-      log(`⚠️  wrangler secret list exit code for ${name}: ${cmdResult.exitCode}`);
+      const msg = `wrangler secret list exit code for ${name}: ${cmdResult.exitCode}`;
+      log(`⚠️  ${msg}`);
+      collectError('warning', 'wrangler-secrets', msg);
       log(`[injectSecrets] stdout:\n${cmdResult.stdout}`);
       log(`[injectSecrets] stderr:\n${cmdResult.stderr}`);
     }
@@ -674,9 +735,10 @@ async function injectSecrets(
         ? JSON.parse(cmdResult.stdout.toString())
         : [];
     } catch (jsonErr) {
-      log(`⚠️  Failed to parse wrangler secret list output as JSON for ${name}`);
+      const msg = `Failed to parse wrangler secret list output as JSON for ${name}: ${jsonErr}`;
+      log(`⚠️  ${msg}`);
+      collectError('warning', 'wrangler-secrets', msg);
       log(`[injectSecrets] Raw stdout was: ${cmdResult?.stdout}`);
-      log(`[injectSecrets] Parse error: ${jsonErr}`);
       secretJson = [];
     }
     const existingSecretNames = new Set((secretJson).map((k: any) => k.name));
@@ -726,20 +788,17 @@ async function injectSecrets(
       const tempFile = `/tmp/wrangler-secrets-${Date.now()}.json`;
       await Bun.write(tempFile, JSON.stringify(freshOnly));
 
-      // Use explicit path to node_modules binary instead of bunx
-      const args = ['node_modules/.bin/wrangler', 'secret', 'bulk', tempFile, '--name', name];
+      // Use bunx wrangler like other wrangler commands in this script
+      const wranglerArgs = ['wrangler', 'secret', 'bulk', tempFile, '--name', name];
       if (configFlag) {
         const arg = configFlag.split(' ')[1];
-        args.push('--config', arg);
+        wranglerArgs.push('--config', arg);
       }
 
-      log(`ℹ️  [injectSecrets] Running: ${args.join(' ')} (cwd: ${t.path})`);
+      log(`ℹ️  [injectSecrets] Running: bunx ${wranglerArgs.join(' ')} (cwd: ${t.path})`);
 
-      // Run with proper working directory
-      const result = Bun.spawnSync(args, {
-        cwd: t.path,
-        stdio: ['inherit', 'inherit', 'inherit'],
-      });
+      // Run with proper working directory, consistent with deploy commands
+      const result = await $`bunx ${wranglerArgs}`.cwd(t.path);
 
       if (result.exitCode !== 0) {
         throw new Error(`Failed with exit code ${result.exitCode}`);
@@ -748,7 +807,9 @@ async function injectSecrets(
       // Clean up the temporary file
       await $`rm ${tempFile}`.quiet();
     } catch (err) {
-      log(`⚠️  wrangler secret bulk failed for ${name}: ${(err && err.stderr) ? err.stderr : err}`);
+      const msg = `wrangler secret bulk failed for ${name}: ${(err && err.stderr) ? err.stderr : err}`;
+      log(`⚠️  ${msg}`);
+      collectError('error', 'wrangler-secrets', msg);
     }
     return;
   }
@@ -783,7 +844,9 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
         --no-verify-jwt \
         --workdir ${WORKDIR}`;
     } catch (err) {
-      log(`✖ Deploy failed for ${fnName}!`);
+      const msg = `Deploy failed for ${fnName}: ${err?.stderr?.toString() || err?.message || err}`;
+      log(`✖ ${msg}`);
+      collectError('error', 'supabase-deploy', msg);
       if (err && (err.stdout || err.stderr)) {
         if (err.stdout) log(`[stdout]:\n${err.stdout.toString()}`);
         if (err.stderr) log(`[stderr]:\n${err.stderr.toString()}`);
@@ -829,7 +892,9 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
     } catch (err) {
       /* Wrangler build errors: log & move on instead of crashing */
       if (err instanceof Error) {
-        log(`⚠️  wrangler deploy failed for ${basename(t.path)} – skipping\n${err.stderr ?? err.message}`);
+        const msg = `wrangler deploy failed for ${basename(t.path)}: ${err.stderr ?? err.message}`;
+        log(`⚠️  ${msg} – skipping`);
+        collectError('warning', 'cf-worker-deploy', msg);
         return;
       }
       throw err;
@@ -876,7 +941,9 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
                                env.LIT_ACTION_CID_TRANSFERCONTROLLERTOTEACHERACTION;
 
         if (!transferCtrlCid) {
-          log(`⚠️ Warning: Could not find TRANSFER_CONTROLLER_TO_TEACHER CID in environment`);
+          const msg = `Could not find TRANSFER_CONTROLLER_TO_TEACHER CID in environment`;
+          log(`⚠️ Warning: ${msg}`);
+          collectError('warning', 'vite-frontend-env', msg);
         }
 
         await verifyAllPermissions(
@@ -890,7 +957,9 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
         log("✅ All permissions verified successfully!");
         log("===== PERMISSION VERIFICATION COMPLETE =====\n\n");
       } catch (error) {
-        log(`❌ PERMISSION VERIFICATION FAILED: ${error.message}`);
+        const msg = `PERMISSION VERIFICATION FAILED: ${error.message}`;
+        log(`❌ ${msg}`);
+        collectError('error', 'pkp-permissions', msg);
         if (!IS_PROD) {
           log("⚠️ Continuing with dev server despite permission errors for debugging");
         } else {
@@ -898,6 +967,9 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
         }
       }
     }
+
+    // Report all accumulated errors and warnings
+    reportAccumulatedErrors();
 
     if (IS_PROD) {
       // production build + wrangler deploy (still fine under Bun)
