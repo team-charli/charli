@@ -12,6 +12,7 @@ import { MistakeEnricherPipelineDO } from './MistakeEnricherPipelineDO';
 import { AvgFrequencyEnricherDO } from './AvgFrequencyEnricherDO';
 import { SessionFrequencyColorEnricherDO } from './SessionFrequencyColorEnricherDO';
 import { LemmaEnricherDO } from './LemmaEnricherDO';
+import { TeacherScorecardPersisterDO } from './TeacherScorecardPersisterDO';
 const app = new Hono<{ Bindings: Env }>()
 
 // Basic CORS setup
@@ -87,6 +88,7 @@ export {
   MessageRelayDO, LearnerAssessmentDO, ScorecardOrchestratorDO,
   ScorecardPersisterDO, MistakeAnalyzerDO, MistakeDetectorDO,
   MistakeEnricherPipelineDO, AvgFrequencyEnricherDO,
-  SessionFrequencyColorEnricherDO, LemmaEnricherDO
+  SessionFrequencyColorEnricherDO, LemmaEnricherDO,
+  TeacherScorecardPersisterDO
 }
 export default app
