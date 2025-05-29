@@ -76,6 +76,11 @@ export default function Room() {
   
   // State for robo teacher captions
   const [roboCaption, setRoboCaption] = useState<string>('');
+  const [conversationState, setConversationState] = useState<'idle' | 'listening' | 'processing' | 'thinking' | 'responding'>('idle');
+  // Debouncing refs to prevent rapid oscillation
+  const lastStateChangeRef = useRef<number>(0);
+  const stateDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const listeningThresholdCountRef = useRef<number>(0);
 
 
   const uploadUrl = useMemo(() => {
@@ -103,6 +108,7 @@ export default function Room() {
     isAudioOn,
     uploadUrl,
   });
+
 
   /** 6) Enable mic once uploadUrl is valid (so pipeline captures from first sample) */
   useEffect(() => {

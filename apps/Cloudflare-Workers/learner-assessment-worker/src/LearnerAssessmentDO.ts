@@ -42,8 +42,6 @@ type DGSocket = {
 	silenceStartTime: number;       // timestamp when silence started
 	endpointingTimer: any;          // timer for endpointing detection
 	utteranceEndTimer: any;         // timer for utterance end detection
-	recentAudioLevel: number;       // recent audio level in dB
-	recentAmbientLevel: number;     // recent ambient noise level in dB
 	customThinkingTimer?: any;      // custom thinking time timer
 	lastInterimText?: string;       // latest interim transcript text
 	pendingThinkingProcess?: boolean; // flag for thinking process state
@@ -151,18 +149,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		if (chunk.length === 0)       return c.text('No audio data', 400);
 		if (chunk.length > 16_384) { console.error('[LearnerAssessmentDO] chunk too large'); return c.text('Chunk too large', 400); }
 
-		/* 4.1. log ambient noise levels for endpointing debugging -------- */
-		const audioLevelDB = c.req.header('X-Audio-Level-DB');
-		const ambientNoiseDB = c.req.header('X-Ambient-Noise-DB');
-		if (audioLevelDB && ambientNoiseDB && audioLevelDB !== '-Infinity') {
-			console.log(`[NOISE-ANALYSIS] Audio: ${parseFloat(audioLevelDB).toFixed(1)}dB, Ambient: ${parseFloat(ambientNoiseDB).toFixed(1)}dB, Chunk: ${chunk.length}B`);
-
-			// Store noise levels in DGSocket for correlation with endpointing events
-			if (this.dgSocket) {
-				this.dgSocket.recentAudioLevel = parseFloat(audioLevelDB);
-				this.dgSocket.recentAmbientLevel = parseFloat(ambientNoiseDB);
-			}
-		}
 
 		/* 5 a. drop chunks during Deepgram back-off ---------------------- */
 		if (this.reconnectAt > Date.now()) {
@@ -390,7 +376,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 					console.log(`[DG] speech_final ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
 					console.log(`[DG-TIMING] ✅ speech_final fired after ${actualSilence}ms silence, ${timeSinceLastSpeech}ms since last speech`);
-					console.log(`[DG-TIMING] ✅ Ambient conditions: Audio=${this.dgSocket?.recentAudioLevel?.toFixed(1) || 'N/A'}dB, Noise=${this.dgSocket?.recentAmbientLevel?.toFixed(1) || 'N/A'}dB`);
 
 					// Clear timing trackers since we got the expected speech_final
 					if (this.dgSocket) {
@@ -554,8 +539,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			silenceStartTime: 0,
 			endpointingTimer: null,
 			utteranceEndTimer: null,
-			recentAudioLevel: -Infinity,
-			recentAmbientLevel: -Infinity,
 			customThinkingTimer: null,
 			lastInterimText: '',
 			pendingThinkingProcess: false
