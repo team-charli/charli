@@ -205,9 +205,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		// 🔄 modern stream-control knobs
 		wsURL.searchParams.set('interim_results',  'true');
 		wsURL.searchParams.set('endpointing', '500');     // o3's golden bundle - proven stable
-		wsURL.searchParams.set('utterance_end_ms', '5000');
 		wsURL.searchParams.set('vad_events',       'true');  // ← NEW (required)
 		wsURL.searchParams.set('smart_format',     'true');  // clean formatting
+    wsURL.searchParams.set('endpointing', '10000');     // 10s thinking time
 
 		// Hey Charli keyword detection
 		wsURL.searchParams.set('keywords', 'hey charli');
@@ -269,7 +269,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				const hasText = Boolean(text && text.trim());
 				console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text || ''}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
-				
+
 				// Full raw message for detailed analysis
 				console.log(`[DG-DEBUG] Raw message:`, JSON.stringify(msg, null, 2));
 			}
@@ -307,7 +307,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					}
 				}
 			}
-			// Handle is_final messages (for robo responses only, not scorecard)  
+			// Handle is_final messages (for robo responses only, not scorecard)
 			else if (msg.type === 'Results' && msg.is_final === true && msg.speech_final !== true) {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				const speaker = String(msg.channel?.speaker ?? '0');
@@ -318,7 +318,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				if (text && role === 'learner') {
 					console.log(`[DG] is_final-only ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
 					console.log(`[DG] speech_final=${msg.speech_final}, is_final=${msg.is_final}, duration=${duration}s, start=${start}s`);
-					
+
 					const sessionMode = await this.getSessionMode();
 					console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
 					if (sessionMode === 'robo') {
@@ -456,10 +456,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				console.log(`[ASR] ignoring exact duplicate transcript: "${learnerText}"`);
 				return;
 			}
-			
+
 			// Restore prefix filtering - Deepgram is still sending incremental results despite smart_format=true
 			// This prevents processing every incremental result as a separate utterance
-			if (this.lastLearnerText                    
+			if (this.lastLearnerText
 				&& learnerText.startsWith(this.lastLearnerText)
 				&& learnerText.length > this.lastLearnerText.length) {
 				console.log(`[ASR] ignoring prefix-duplicate (incremental result): "${learnerText}" extends "${this.lastLearnerText}"`);
