@@ -32,7 +32,8 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
         session_id,
         learner_id,
         teacher_id,
-        bellEvents = []
+        bellEvents = [],
+        sessionStartMs
       }: {
         learnerSegments: { start: number; text: string }[];
         fullTranscript: string;
@@ -40,6 +41,7 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
         learner_id: number;
         teacher_id: number;
         bellEvents?: BellEvent[];
+        sessionStartMs?: number;
       } = await c.req.json();
 
       /* ---------------- learner‑side scoring ------------- */
@@ -116,9 +118,66 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
           .map((m: any) => ({ text: m.text, start: startByText.get(m.text) ?? -1 }))
           .filter((m) => m.start >= 0);
 
-        // convert bell timestamps to session‑relative seconds
-        const sessionStartMs = bellEvents.length > 0 ? Math.min(...bellEvents.map((b) => b.ts)) : Date.now();
-        const bellTimesInSec = bellEvents.map((b) => (b.ts - sessionStartMs) / 1000);
+        // convert bell timestamps to session‑relative seconds using true session start time
+        // The key insight: learnerSegments.start values are relative to session start (seconds)
+        // while bellEvents.ts values are absolute epoch timestamps (ms)
+        // We need to establish a common reference point
+        let sessionTimelineOffsetMs: number;
+        
+        if (sessionStartMs) {
+          // Use provided session start time (ideal case from session-time-tracker)
+          sessionTimelineOffsetMs = sessionStartMs;
+          console.log(`[TeacherScorecard] Using provided sessionStartMs: ${sessionStartMs}`);
+        } else if (learnerSegments.length > 0 && bellEvents.length > 0) {
+          // Better approach: Find correlation between segments and bells to establish timeline
+          // Look for the segment that occurs closest in time to any bell event
+          let bestCorrelation = { segmentStart: 0, bellMs: 0, timeDiff: Infinity };
+          
+          for (const segment of learnerSegments) {
+            for (const bell of bellEvents) {
+              // For each segment-bell pair, calculate what the session start would be
+              // if this segment corresponds to this bell timing
+              const impliedSessionStart = bell.ts - (segment.start * 1000);
+              
+              // Check how well this aligns other segments with other bells
+              let totalAlignment = 0;
+              let alignmentCount = 0;
+              
+              for (const otherSegment of learnerSegments) {
+                const segmentAbsoluteTime = impliedSessionStart + (otherSegment.start * 1000);
+                for (const otherBell of bellEvents) {
+                  const timeDiff = Math.abs(segmentAbsoluteTime - otherBell.ts);
+                  if (timeDiff <= 5000) { // Within 5 seconds
+                    totalAlignment += (5000 - timeDiff); // Higher score for closer alignment
+                    alignmentCount++;
+                  }
+                }
+              }
+              
+              if (alignmentCount > 0) {
+                const avgAlignment = totalAlignment / alignmentCount;
+                if (avgAlignment > bestCorrelation.timeDiff) {
+                  bestCorrelation = {
+                    segmentStart: segment.start,
+                    bellMs: bell.ts,
+                    timeDiff: avgAlignment
+                  };
+                }
+              }
+            }
+          }
+          
+          sessionTimelineOffsetMs = bestCorrelation.bellMs - (bestCorrelation.segmentStart * 1000);
+          console.log(`[TeacherScorecard] Calculated sessionStart via correlation: segment ${bestCorrelation.segmentStart}s -> bell ${bestCorrelation.bellMs}ms = session start ${sessionTimelineOffsetMs}`);
+        } else {
+          // Fallback: Use first bell as session start (maintains backward compatibility)
+          sessionTimelineOffsetMs = bellEvents.length > 0 ? Math.min(...bellEvents.map((b) => b.ts)) : Date.now();
+          console.log(`[TeacherScorecard] Fallback to first bell timestamp: ${sessionTimelineOffsetMs}`);
+        }
+        
+        const bellTimesInSec = bellEvents.map((b) => (b.ts - sessionTimelineOffsetMs) / 1000);
+        console.log(`[TeacherScorecard] Bell times in session seconds:`, bellTimesInSec);
+        console.log(`[TeacherScorecard] Mistake times in session seconds:`, mistakeTimes.map(m => m.start));
 
         let correctBells = 0;
         let extraBells = 0;
