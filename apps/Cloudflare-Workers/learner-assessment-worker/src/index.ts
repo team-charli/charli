@@ -23,7 +23,7 @@ app.use('*', async (c, next) => {
 		return cors({
 			origin: requestOrigin,
 			allowMethods: ['POST', 'GET', 'OPTIONS'],
-			allowHeaders: ['Content-Type', 'Authorization', 'huddle01-signature'],
+			allowHeaders: ['Content-Type', 'Authorization', 'huddle01-signature', 'X-Audio-Level-DB', 'X-Ambient-Noise-DB'],
 			exposeHeaders: ['Content-Length'],
 			maxAge: 600,
 			credentials: true,

@@ -19,6 +19,14 @@ this.flushRequested = true;
 process(inputs, outputs, parameters) {
 const input = inputs[0][0];
 if (input) {
+// Calculate RMS (Root Mean Square) for volume level
+let sum = 0;
+for (let i = 0; i < input.length; i++) {
+sum += input[i] * input[i];
+}
+const rms = Math.sqrt(sum / input.length);
+const decibels = rms > 0 ? 20 * Math.log10(rms) : -Infinity;
+
 const pcmInt16 = new Int16Array(input.length);
 for (let i = 0; i < input.length; i++) {
 pcmInt16[i] = Math.max(-32768, Math.min(32767, input[i] * 32767));
@@ -26,12 +34,20 @@ pcmInt16[i] = Math.max(-32768, Math.min(32767, input[i] * 32767));
 this.buffer.push(pcmInt16);
 this.sampleCount += pcmInt16.length;
 
+// Send volume level to main thread for monitoring
+this.port.postMessage({ 
+type: 'volume', 
+rms: rms, 
+decibels: decibels,
+timestamp: currentTime 
+});
+
 // flush when we have 8 k samples → 16 kB (satisfies Worker limit and 10 msg/s)
 if (this.sampleCount >= 8000) {
 const chunk = new Uint8Array(
 this.buffer.flatMap(b => Array.from(new Uint8Array(b.buffer)))
 );
-this.port.postMessage(chunk);
+this.port.postMessage({ type: 'audio', data: chunk });
 this.buffer = [];
 this.sampleCount = 0;
 }
@@ -41,7 +57,7 @@ if (this.flushRequested && this.sampleCount > 0) {
 const chunk = new Uint8Array(
 this.buffer.flatMap(b => Array.from(new Uint8Array(b.buffer)))
 );
-this.port.postMessage(chunk);
+this.port.postMessage({ type: 'audio', data: chunk });
 this.buffer = [];
 this.sampleCount = 0;
 this.flushRequested = false;
@@ -74,6 +90,14 @@ export function useAudioPipeline({
   const [isRecording, setIsRecording] = useState(false);
   const [hasCleanedUp, setHasCleanedUp] = useState(false);
 
+  // Ambient noise monitoring
+  const [currentVolume, setCurrentVolume] = useState(0);
+  const [currentDecibels, setCurrentDecibels] = useState(-Infinity);
+  const [ambientNoiseLevel, setAmbientNoiseLevel] = useState(-Infinity);
+  const volumeHistoryRef = useRef<number[]>([]);
+  const currentDecibelsRef = useRef(-Infinity);
+  const ambientNoiseLevelRef = useRef(-Infinity);
+
   // This was in your original code, if you still need to track session ends
   const endSessionRef = useRef(false);
 
@@ -104,33 +128,60 @@ export function useAudioPipeline({
         const worklet = new AudioWorkletNode(audioContext, "pcm-processor");
         workletRef.current = worklet;
 
-        // Called whenever PCM data is ready to send
+        // Called whenever PCM data or volume info is ready
         worklet.port.onmessage = async (e) => {
-          const chunk = e.data as Uint8Array;
-          // console.log(`[useAudioPipeline] Sending PCM chunk, size: ${chunk.length}`, new Date().toISOString());
-          // console.log(`[useAudioPipeline] Fetching to URL: ${uploadUrl}`);
+          const message = e.data;
+          
+          if (message.type === 'audio') {
+            // Handle audio data upload
+            const chunk = message.data as Uint8Array;
+            // console.log(`[useAudioPipeline] Sending PCM chunk, size: ${chunk.length}`, new Date().toISOString());
 
-          try {
-            const startTime = Date.now();
-            const resp = await fetch(uploadUrl, {
-              method: "POST",
-              body: chunk,
-              headers: {
-                'Content-Type': 'application/octet-stream'
+            try {
+              const startTime = Date.now();
+              const resp = await fetch(uploadUrl, {
+                method: "POST",
+                body: chunk,
+                headers: {
+                  'Content-Type': 'application/octet-stream',
+                  'X-Audio-Level-DB': currentDecibelsRef.current.toString(),
+                  'X-Ambient-Noise-DB': ambientNoiseLevelRef.current.toString()
+                }
+              });
+              const endTime = Date.now();
+
+              if (!resp.ok) {
+                const errorText = await resp.text();
+                console.error(`[useAudioPipeline] PCM upload failed: ${resp.status} - ${errorText}`);
               }
-            });
-            const endTime = Date.now();
-
-            // console.log(`[useAudioPipeline] Response received in ${endTime - startTime}ms, status: ${resp.status}`);
-
-            if (!resp.ok) {
-              const errorText = await resp.text();
-              console.error(`[useAudioPipeline] PCM upload failed: ${resp.status} - ${errorText}`);
-            } else {
-              // console.log(`[useAudioPipeline] PCM upload successful: ${resp.status}`);
+            } catch (err) {
+              console.error("[useAudioPipeline] PCM upload network error:", err);
             }
-          } catch (err) {
-            console.error("[useAudioPipeline] PCM upload network error:", err);
+          } else if (message.type === 'volume') {
+            // Handle volume monitoring
+            const { rms, decibels } = message;
+            setCurrentVolume(rms);
+            setCurrentDecibels(decibels);
+            currentDecibelsRef.current = decibels;
+            
+            // Track volume history for ambient noise calculation
+            volumeHistoryRef.current.push(decibels);
+            
+            // Keep only last 100 samples (roughly 2-3 seconds at 48kHz)
+            if (volumeHistoryRef.current.length > 100) {
+              volumeHistoryRef.current.shift();
+            }
+            
+            // Calculate ambient noise level (10th percentile of recent volume)
+            if (volumeHistoryRef.current.length >= 20) {
+              const sorted = [...volumeHistoryRef.current].filter(v => v !== -Infinity).sort((a, b) => a - b);
+              if (sorted.length > 0) {
+                const tenthPercentileIndex = Math.floor(sorted.length * 0.1);
+                const newAmbientLevel = sorted[tenthPercentileIndex];
+                setAmbientNoiseLevel(newAmbientLevel);
+                ambientNoiseLevelRef.current = newAmbientLevel;
+              }
+            }
           }
         };
 
@@ -157,7 +208,7 @@ export function useAudioPipeline({
     if (localAudioStream && isAudioOn && !isRecording) {
       startProcessing();
     }
-  }, [localAudioStream, isAudioOn, isRecording, uploadUrl, hasCleanedUp, uploadUrl]);
+  }, [localAudioStream, isAudioOn, isRecording, uploadUrl, hasCleanedUp]);
 
   /**
    * Flushes any buffered audio data.
@@ -207,5 +258,10 @@ export function useAudioPipeline({
 
     // If your "end session" logic still depends on this, we expose it
     endSessionRef,
+
+    // Volume monitoring for debugging Deepgram endpointing
+    currentVolume,
+    currentDecibels,
+    ambientNoiseLevel,
   };
 }

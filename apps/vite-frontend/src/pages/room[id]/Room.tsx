@@ -72,10 +72,7 @@ export default function Room() {
   // Use roboTest parameter or environment variable to enable RoboMode
   const isRoboMode = import.meta.env.VITE_ROBO_MODE === 'true' || roboTest === 'true';
   
-  // Debug logging
-  console.log('[Room] roboTest from URL:', roboTest);
-  console.log('[Room] VITE_ROBO_MODE env:', import.meta.env.VITE_ROBO_MODE);
-  console.log('[Room] isRoboMode calculated:', isRoboMode);
+  // Debug logging removed - was causing infinite re-renders
   
   // State for robo teacher captions
   const [roboCaption, setRoboCaption] = useState<string>('');
@@ -311,8 +308,7 @@ export default function Room() {
 
         {/* Right side: remote peers (on mobile, this appears above the local preview) */}
         <div className="w-full sm:w-2/3 lg:w-3/4 sm:min-h-0 order-1 sm:order-2 flex-grow overflow-auto p-2 sm:p-4">
-          {/* Debug info */}
-          {console.log('🤖 [DEBUG] remotePeerIds:', remotePeerIds, 'length:', remotePeerIds.length, 'isRoboMode:', isRoboMode)}
+          {/* Debug info removed - was causing infinite re-renders */}
           
           {isRoboMode ? (
             <div className="h-full flex items-center justify-center">
