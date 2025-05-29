@@ -136,6 +136,19 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		if (chunk.length === 0)       return c.text('No audio data', 400);
 		if (chunk.length > 16_384) { console.error('[LearnerAssessmentDO] chunk too large'); return c.text('Chunk too large', 400); }
 
+		/* 4.1. log ambient noise levels for endpointing debugging -------- */
+		const audioLevelDB = c.req.header('X-Audio-Level-DB');
+		const ambientNoiseDB = c.req.header('X-Ambient-Noise-DB');
+		if (audioLevelDB && ambientNoiseDB && audioLevelDB !== '-Infinity') {
+			console.log(`[NOISE-ANALYSIS] Audio: ${parseFloat(audioLevelDB).toFixed(1)}dB, Ambient: ${parseFloat(ambientNoiseDB).toFixed(1)}dB, Chunk: ${chunk.length}B`);
+			
+			// Store noise levels in DGSocket for correlation with endpointing events
+			if (this.dgSocket) {
+				this.dgSocket.recentAudioLevel = parseFloat(audioLevelDB);
+				this.dgSocket.recentAmbientLevel = parseFloat(ambientNoiseDB);
+			}
+		}
+
 		/* 5 a. drop chunks during Deepgram back-off ---------------------- */
 		if (this.reconnectAt > Date.now()) {
 			// DG is still in cool-down; ignore this PCM frame.
@@ -202,19 +215,20 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		wsURL.searchParams.set('encoding',         'linear16');   // PCM encoding
 		wsURL.searchParams.set('diarize',          'true');       // speaker IDs
 
-		// 🔄 modern stream-control knobs
+		// 🔄 Remove utterance_end_ms limit to allow longer thinking time (5-10s)
 		wsURL.searchParams.set('interim_results',  'true');
-		wsURL.searchParams.set('endpointing', '500');     // o3's golden bundle - proven stable
-		wsURL.searchParams.set('vad_events',       'true');  // ← NEW (required)
-		wsURL.searchParams.set('smart_format',     'true');  // clean formatting
-    wsURL.searchParams.set('endpointing', '10000');     // 10s thinking time
+		wsURL.searchParams.set('endpointing', '8000');      // 8s audio silence → speech_final (longer thinking time)
+		// wsURL.searchParams.set('utterance_end_ms', '5000'); // REMOVED - was limiting thinking time to 5s
+		
+		// Enable VAD events as backup for endpointing
+		wsURL.searchParams.set('vad_events', 'true');  // Voice activity detection backup
+		// wsURL.searchParams.set('smart_format', 'true'); // DISABLED - might interfere
+		// wsURL.searchParams.set('keywords', 'hey charli'); // DISABLED - might interfere
+		// wsURL.searchParams.set('keywords_priority', 'high'); // DISABLED
 
-		// Hey Charli keyword detection
-		wsURL.searchParams.set('keywords', 'hey charli');
-		wsURL.searchParams.set('keywords_priority', 'high');
-
+		console.log('[DG] ALWAYS LOG: connecting with URL:', wsURL.toString());
 		if (!this.connectBannerLogged) {
-			console.log('[DG] connecting', wsURL.toString());
+			console.log('[DG] connecting with NEW PARAMS (8s endpointing, no utterance_end_ms)', wsURL.toString());
 			this.connectBannerLogged = true;
 		}
 		const dgWS = new WebSocket(wsURL.toString(), ['token', this.env.DEEPGRAM_API_KEY]);
@@ -264,11 +278,81 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				return;
 			}
 
+			// Handle VAD events for voice activity detection
+			if (msg.type === 'SpeechStarted') {
+				console.log('[DG-VAD] Speech activity started');
+				if (this.dgSocket) {
+					this.dgSocket.lastSpeechTime = Date.now();
+					// Clear any pending silence timers
+					if (this.dgSocket.endpointingTimer) {
+						clearTimeout(this.dgSocket.endpointingTimer);
+						this.dgSocket.endpointingTimer = null;
+					}
+				}
+				return;
+			}
+
+			if (msg.type === 'UtteranceEnd') {
+				console.log('[DG-VAD] Utterance ended - could trigger response after longer pause');
+				// This gives us more control over when to consider speech "done"
+				// without the 5-second utterance_end_ms limit
+				return;
+			}
+
 			// Log ALL Results messages for debugging with analysis
 			if (msg.type === 'Results') {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				const hasText = Boolean(text && text.trim());
+				const now = Date.now();
+				
+				// Track speech timing for endpointing analysis
+				if (hasText && !msg.speech_final && !msg.is_final) {
+					// Interim results indicate ongoing speech
+					if (this.dgSocket) {
+						this.dgSocket.lastSpeechTime = now;
+						// Clear any silence tracking during active speech
+						if (this.dgSocket.silenceStartTime > 0) {
+							console.log(`[DG-TIMING] Speech resumed after ${(now - this.dgSocket.silenceStartTime)}ms of silence`);
+							this.dgSocket.silenceStartTime = 0;
+						}
+						// Clear any pending timers during active speech
+						if (this.dgSocket.endpointingTimer) {
+							clearTimeout(this.dgSocket.endpointingTimer);
+							this.dgSocket.endpointingTimer = null;
+							console.log(`[DG-TIMING] Cleared endpointing timer due to ongoing speech`);
+						}
+						if (this.dgSocket.utteranceEndTimer) {
+							clearTimeout(this.dgSocket.utteranceEndTimer);
+							this.dgSocket.utteranceEndTimer = null;
+							console.log(`[DG-TIMING] Cleared utterance_end timer due to ongoing speech`);
+						}
+					}
+				} else if (!hasText && this.dgSocket && this.dgSocket.lastSpeechTime > 0) {
+					// Empty interim results might indicate silence starting
+					if (this.dgSocket.silenceStartTime === 0) {
+						this.dgSocket.silenceStartTime = now;
+						console.log(`[DG-TIMING] Silence detected, starting countdown timers`);
+						
+						// Start 3-second endpointing countdown
+						this.dgSocket.endpointingTimer = setTimeout(() => {
+							console.log(`[DG-TIMING] ⏰ 3-second endpointing threshold reached - expecting speech_final soon`);
+						}, 3000);
+						
+						// Start 5-second utterance_end countdown
+						this.dgSocket.utteranceEndTimer = setTimeout(() => {
+							console.log(`[DG-TIMING] ⏰ 5-second utterance_end threshold reached - expecting is_final soon`);
+						}, 5000);
+					}
+				}
+				
+				// Enhanced timing analysis for final results
+				const silenceDuration = this.dgSocket?.silenceStartTime > 0 ? 
+					(now - this.dgSocket.silenceStartTime) : 0;
+				const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime > 0 ? 
+					(now - this.dgSocket.lastSpeechTime) : 0;
+				
 				console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text || ''}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
+				console.log(`[DG-TIMING] Silence: ${silenceDuration}ms, Since last speech: ${timeSinceLastSpeech}ms`);
 
 				// Full raw message for detailed analysis
 				console.log(`[DG-DEBUG] Raw message:`, JSON.stringify(msg, null, 2));
@@ -283,7 +367,31 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const duration = msg.duration ?? 0;
 
 				if (text) {
+					const now = Date.now();
+					const actualSilence = this.dgSocket?.silenceStartTime > 0 ? 
+						(now - this.dgSocket.silenceStartTime) : 0;
+					const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime > 0 ? 
+						(now - this.dgSocket.lastSpeechTime) : 0;
+					
 					console.log(`[DG] speech_final ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
+					console.log(`[DG-TIMING] ✅ speech_final fired after ${actualSilence}ms silence, ${timeSinceLastSpeech}ms since last speech`);
+					console.log(`[DG-TIMING] ✅ Ambient conditions: Audio=${this.dgSocket?.recentAudioLevel?.toFixed(1) || 'N/A'}dB, Noise=${this.dgSocket?.recentAmbientLevel?.toFixed(1) || 'N/A'}dB`);
+
+					// Clear timing trackers since we got the expected speech_final
+					if (this.dgSocket) {
+						if (this.dgSocket.endpointingTimer) {
+							clearTimeout(this.dgSocket.endpointingTimer);
+							this.dgSocket.endpointingTimer = null;
+							console.log(`[DG-TIMING] Cleared endpointing timer (speech_final succeeded)`);
+						}
+						if (this.dgSocket.utteranceEndTimer) {
+							clearTimeout(this.dgSocket.utteranceEndTimer);
+							this.dgSocket.utteranceEndTimer = null;
+							console.log(`[DG-TIMING] Cleared utterance_end timer (speech_final succeeded)`);
+						}
+						this.dgSocket.silenceStartTime = 0;
+						this.dgSocket.lastSpeechTime = 0;
+					}
 					console.log(`[DG] speech_final=${msg.speech_final}, is_final=${msg.is_final}, duration=${duration}s, start=${start}s`);
 
 					const seg: TranscribedSegment = {
@@ -298,16 +406,38 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					if (role === 'learner') {
 						const sessionMode = await this.getSessionMode();
 						console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
-						if (sessionMode === 'robo') {
+						if (sessionMode === 'robo' && !this.dgSocket?.pendingThinkingProcess) {
 							console.log(`[DG] Triggering flushUtterance for speech_final: "${text}"`);
 							this.flushUtterance(roomId, text).catch(err =>
 								console.error('[DG] robo utterance processing error:', err)
 							);
+						} else if (sessionMode === 'robo' && this.dgSocket?.pendingThinkingProcess) {
+							console.log(`[DG] Skipping speech_final processing - already handling via thinking timer: "${text}"`);
 						}
 					}
 				}
 			}
-			// Handle is_final messages (for robo responses only, not scorecard)
+			// Handle interim results to track ongoing speech and implement custom thinking time
+			else if (msg.type === 'Results' && !msg.is_final && !msg.speech_final) {
+				const text = msg.channel?.alternatives?.[0]?.transcript?.trim();
+				const speaker = String(msg.channel?.speaker ?? '0');
+				const role = speaker === '0' ? 'learner' : 'teacher';
+				
+				if (text && role === 'learner' && this.dgSocket) {
+					// Update latest interim text and speech timing
+					this.dgSocket.lastInterimText = text;
+					this.dgSocket.lastSpeechTime = Date.now();
+					
+					// Clear any existing thinking timer since speech is ongoing
+					if (this.dgSocket.customThinkingTimer) {
+						clearTimeout(this.dgSocket.customThinkingTimer);
+						this.dgSocket.customThinkingTimer = null;
+						this.dgSocket.pendingThinkingProcess = false;
+						console.log('[DG-THINKING] Cleared thinking timer - learner speech ongoing');
+					}
+				}
+			}
+			// Handle is_final with custom thinking time logic
 			else if (msg.type === 'Results' && msg.is_final === true && msg.speech_final !== true) {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				const speaker = String(msg.channel?.speaker ?? '0');
@@ -315,23 +445,84 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const start = msg.start ?? 0;
 				const duration = msg.duration ?? 0;
 
-				if (text && role === 'learner') {
-					console.log(`[DG] is_final-only ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
-					console.log(`[DG] speech_final=${msg.speech_final}, is_final=${msg.is_final}, duration=${duration}s, start=${start}s`);
+				if (text && role === 'learner' && this.dgSocket) {
+					const now = Date.now();
+					const timeSinceLastSpeech = this.dgSocket.lastSpeechTime > 0 ?
+						(now - this.dgSocket.lastSpeechTime) : 0;
 
-					const sessionMode = await this.getSessionMode();
-					console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
-					if (sessionMode === 'robo') {
-						console.log(`[DG] Triggering flushUtterance for is_final: "${text}"`);
-						this.flushUtterance(roomId, text).catch(err =>
-							console.error('[DG] robo utterance processing error:', err)
-						);
+					console.log(`[DG-THINKING] is_final received for learner after ${timeSinceLastSpeech}ms: "${text}"`);
+
+					// If this is a premature is_final (< 5 seconds since last speech), start thinking timer
+					if (timeSinceLastSpeech < 5000) {
+						const thinkingTimeMs = 7000; // 7 seconds total thinking time
+						const remainingThinkingTime = thinkingTimeMs - timeSinceLastSpeech;
+
+						console.log(`[DG-THINKING] 🧠 Starting ${remainingThinkingTime}ms thinking timer for: "${text}"`);
+
+						// Set flag to prevent speech_final from also processing this utterance
+						this.dgSocket.pendingThinkingProcess = true;
+
+						// Clear any existing timer
+						if (this.dgSocket.customThinkingTimer) {
+							clearTimeout(this.dgSocket.customThinkingTimer);
+						}
+
+						// Start new thinking timer
+						this.dgSocket.customThinkingTimer = setTimeout(async () => {
+							console.log(`[DG-THINKING] ⏰ Thinking time expired, processing utterance: "${text}"`);
+
+							// Use the most recent interim text if available, otherwise use the is_final text
+							const finalText = this.dgSocket?.lastInterimText || text;
+
+							const sessionMode = await this.getSessionMode();
+							if (sessionMode === 'robo') {
+								console.log(`[DG-THINKING] Triggering flushUtterance after thinking time: "${finalText}"`);
+								this.flushUtterance(roomId, finalText).catch(err =>
+									console.error('[DG-THINKING] robo utterance processing error:', err)
+								);
+							}
+
+							// Clear the timer reference and flag
+							if (this.dgSocket) {
+								this.dgSocket.customThinkingTimer = null;
+								this.dgSocket.pendingThinkingProcess = false;
+							}
+						}, remainingThinkingTime);
+
+					} else {
+						// Sufficient time has passed, process immediately
+						console.log(`[DG-THINKING] ✅ Sufficient thinking time elapsed (${timeSinceLastSpeech}ms), processing: "${text}"`);
+
+						// Set flag to prevent speech_final from also processing this utterance
+						this.dgSocket.pendingThinkingProcess = true;
+
+						const sessionMode = await this.getSessionMode();
+						if (sessionMode === 'robo') {
+							console.log(`[DG-THINKING] Triggering immediate flushUtterance: "${text}"`);
+							this.flushUtterance(roomId, text).catch(err =>
+								console.error('[DG-THINKING] robo utterance processing error:', err)
+							);
+						}
+
+						// Clear flag after processing
+						this.dgSocket.pendingThinkingProcess = false;
 					}
+
+					// Clear standard timing trackers
+					if (this.dgSocket.endpointingTimer) {
+						clearTimeout(this.dgSocket.endpointingTimer);
+						this.dgSocket.endpointingTimer = null;
+					}
+					if (this.dgSocket.utteranceEndTimer) {
+						clearTimeout(this.dgSocket.utteranceEndTimer);
+						this.dgSocket.utteranceEndTimer = null;
+					}
+					this.dgSocket.silenceStartTime = 0;
 				}
 			}
 
-			// Handle Hey Charli detection for both speech_final and is_final messages
-			if (msg.type === 'Results' && (msg.speech_final === true || msg.is_final === true)) {
+			// Handle Hey Charli detection for speech_final messages only
+			if (msg.type === 'Results' && msg.speech_final === true) {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				if (text) {
 					await this.handleCharliDetection(roomId, text);
@@ -340,7 +531,20 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			return;
 		});
 
-		this.dgSocket = { ws: dgWS, ready, segments: [] };
+		this.dgSocket = { 
+			ws: dgWS, 
+			ready, 
+			segments: [],
+			lastSpeechTime: 0,
+			silenceStartTime: 0,
+			endpointingTimer: null,
+			utteranceEndTimer: null,
+			recentAudioLevel: -Infinity,
+			recentAmbientLevel: -Infinity,
+			customThinkingTimer: null,
+			lastInterimText: '',
+			pendingThinkingProcess: false
+		};
 		try {
 			await ready;
 			return this.dgSocket;
@@ -358,9 +562,17 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private async initializeBuildGuard(buildId: string) {
 		const storedBuildId = await this.state.storage.get<string>('build');
 		if (buildId !== storedBuildId) {
-			console.log(`[LearnerAssessmentDO] Build ID changed from ${storedBuildId} to ${buildId}, clearing storage`);
+			console.log(`[LearnerAssessmentDO] Build ID changed from ${storedBuildId} to ${buildId}, clearing storage AND resetting Deepgram connection`);
 			await this.state.storage.deleteAll();
 			await this.state.storage.put('build', buildId);
+			
+			// Force close existing Deepgram connection to ensure new parameters take effect
+			if (this.dgSocket?.ws.readyState === WebSocket.OPEN) {
+				console.log(`[LearnerAssessmentDO] Closing old Deepgram connection due to build ID change`);
+				this.dgSocket.ws.close(1000);
+			}
+			this.dgSocket = null;
+			this.connectBannerLogged = false; // Allow new connection log
 		}
 	}
 
