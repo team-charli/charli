@@ -28,6 +28,12 @@ enum CharliState {
 	AwaitingQuestion = 'awaiting_question'
 }
 
+// Safe to adjust: Total thinking time for robo-teacher responses (milliseconds)
+// - Higher values = longer delays but encourage more thoughtful responses
+// - Lower values = faster responses but may feel rushed for complex thoughts
+// - Recommended range: 4000-7000ms (4-7 seconds)
+const THINKING_TIME_MS = 5000;
+
 type DGSocket = {
 	ws: WebSocket;                  // open WS to Deepgram
 	ready: Promise<void>;           // resolves when {"type":"listening"} arrives
@@ -150,7 +156,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const ambientNoiseDB = c.req.header('X-Ambient-Noise-DB');
 		if (audioLevelDB && ambientNoiseDB && audioLevelDB !== '-Infinity') {
 			console.log(`[NOISE-ANALYSIS] Audio: ${parseFloat(audioLevelDB).toFixed(1)}dB, Ambient: ${parseFloat(ambientNoiseDB).toFixed(1)}dB, Chunk: ${chunk.length}B`);
-			
+
 			// Store noise levels in DGSocket for correlation with endpointing events
 			if (this.dgSocket) {
 				this.dgSocket.recentAudioLevel = parseFloat(audioLevelDB);
@@ -228,7 +234,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		wsURL.searchParams.set('interim_results',  'true');
 		wsURL.searchParams.set('endpointing', '8000');      // 8s audio silence → speech_final (longer thinking time)
 		// wsURL.searchParams.set('utterance_end_ms', '5000'); // REMOVED - was limiting thinking time to 5s
-		
+
 		// Enable VAD events as backup for endpointing
 		wsURL.searchParams.set('vad_events', 'true');  // Voice activity detection backup
 		// wsURL.searchParams.set('smart_format', 'true'); // DISABLED - might interfere
@@ -313,7 +319,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				const hasText = Boolean(text && text.trim());
 				const now = Date.now();
-				
+
 				// Track speech timing for endpointing analysis
 				if (hasText && !msg.speech_final && !msg.is_final) {
 					// Interim results indicate ongoing speech
@@ -341,25 +347,25 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					if (this.dgSocket.silenceStartTime === 0) {
 						this.dgSocket.silenceStartTime = now;
 						console.log(`[DG-TIMING] Silence detected, starting countdown timers`);
-						
+
 						// Start 3-second endpointing countdown
 						this.dgSocket.endpointingTimer = setTimeout(() => {
 							console.log(`[DG-TIMING] ⏰ 3-second endpointing threshold reached - expecting speech_final soon`);
 						}, 3000);
-						
+
 						// Start 5-second utterance_end countdown
 						this.dgSocket.utteranceEndTimer = setTimeout(() => {
 							console.log(`[DG-TIMING] ⏰ 5-second utterance_end threshold reached - expecting is_final soon`);
 						}, 5000);
 					}
 				}
-				
+
 				// Enhanced timing analysis for final results
-				const silenceDuration = this.dgSocket?.silenceStartTime && this.dgSocket.silenceStartTime > 0 ? 
+				const silenceDuration = this.dgSocket?.silenceStartTime && this.dgSocket.silenceStartTime > 0 ?
 					(now - this.dgSocket.silenceStartTime) : 0;
-				const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime && this.dgSocket.lastSpeechTime > 0 ? 
+				const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime && this.dgSocket.lastSpeechTime > 0 ?
 					(now - this.dgSocket.lastSpeechTime) : 0;
-				
+
 				console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text || ''}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
 				console.log(`[DG-TIMING] Silence: ${silenceDuration}ms, Since last speech: ${timeSinceLastSpeech}ms`);
 
@@ -377,11 +383,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 				if (text) {
 					const now = Date.now();
-					const actualSilence = this.dgSocket?.silenceStartTime && this.dgSocket.silenceStartTime > 0 ? 
+					const actualSilence = this.dgSocket?.silenceStartTime && this.dgSocket.silenceStartTime > 0 ?
 						(now - this.dgSocket.silenceStartTime) : 0;
-					const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime && this.dgSocket.lastSpeechTime > 0 ? 
+					const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime && this.dgSocket.lastSpeechTime > 0 ?
 						(now - this.dgSocket.lastSpeechTime) : 0;
-					
+
 					console.log(`[DG] speech_final ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
 					console.log(`[DG-TIMING] ✅ speech_final fired after ${actualSilence}ms silence, ${timeSinceLastSpeech}ms since last speech`);
 					console.log(`[DG-TIMING] ✅ Ambient conditions: Audio=${this.dgSocket?.recentAudioLevel?.toFixed(1) || 'N/A'}dB, Noise=${this.dgSocket?.recentAmbientLevel?.toFixed(1) || 'N/A'}dB`);
@@ -431,12 +437,12 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const text = msg.channel?.alternatives?.[0]?.transcript?.trim();
 				const speaker = String(msg.channel?.speaker ?? '0');
 				const role = speaker === '0' ? 'learner' : 'teacher';
-				
+
 				if (text && role === 'learner' && this.dgSocket) {
 					// Update latest interim text and speech timing
 					this.dgSocket.lastInterimText = text;
 					this.dgSocket.lastSpeechTime = Date.now();
-					
+
 					// Clear any existing thinking timer since speech is ongoing
 					if (this.dgSocket.customThinkingTimer) {
 						clearTimeout(this.dgSocket.customThinkingTimer);
@@ -463,7 +469,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 					// If this is a premature is_final (< 5 seconds since last speech), start thinking timer
 					if (timeSinceLastSpeech < 5000) {
-						const thinkingTimeMs = 7000; // 7 seconds total thinking time
+						const thinkingTimeMs = THINKING_TIME_MS;
 						const remainingThinkingTime = thinkingTimeMs - timeSinceLastSpeech;
 
 						console.log(`[DG-THINKING] 🧠 Starting ${remainingThinkingTime}ms thinking timer for: "${text}"`);
@@ -540,9 +546,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			return;
 		});
 
-		this.dgSocket = { 
-			ws: dgWS, 
-			ready, 
+		this.dgSocket = {
+			ws: dgWS,
+			ready,
 			segments: [],
 			lastSpeechTime: 0,
 			silenceStartTime: 0,
@@ -574,7 +580,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			console.log(`[LearnerAssessmentDO] Build ID changed from ${storedBuildId} to ${buildId}, clearing storage AND resetting Deepgram connection`);
 			await this.state.storage.deleteAll();
 			await this.state.storage.put('build', buildId);
-			
+
 			// Force close existing Deepgram connection to ensure new parameters take effect
 			if (this.dgSocket?.ws.readyState === WebSocket.OPEN) {
 				console.log(`[LearnerAssessmentDO] Closing old Deepgram connection due to build ID change`);
