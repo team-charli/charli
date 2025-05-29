@@ -77,10 +77,6 @@ export default function Room() {
   // State for robo teacher captions and conversation insights
   const [roboCaption, setRoboCaption] = useState<string>('');
   const [conversationState, setConversationState] = useState<'idle' | 'listening' | 'processing' | 'thinking' | 'responding'>('idle');
-  const [audioQuality, setAudioQuality] = useState<'poor' | 'good' | 'excellent'>('good');
-  const [processingProgress, setProcessingProgress] = useState<number>(0);
-  const [isDeepgramReady, setIsDeepgramReady] = useState<boolean>(false);
-
   // Debouncing refs to prevent rapid oscillation
   const lastStateChangeRef = useRef<number>(0);
   const stateDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -107,82 +103,13 @@ export default function Room() {
   }, [uploadUrl]);
 
   /** 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn). */
-  const { isRecording, cleanupAudio, currentDecibels, ambientNoiseLevel } = useAudioPipeline({
+  const { isRecording, cleanupAudio } = useAudioPipeline({
     localAudioStream,
     isAudioOn,
     uploadUrl,
   });
 
-  // Monitor audio quality for conversation insights (debounced)
-  useEffect(() => {
-    const updateAudioQuality = () => {
-      if (currentDecibels === -Infinity) {
-        setAudioQuality('poor');
-      } else if (currentDecibels > ambientNoiseLevel + 10) {
-        setAudioQuality('excellent');
-      } else if (currentDecibels > ambientNoiseLevel + 5) {
-        setAudioQuality('good');
-      } else {
-        setAudioQuality('poor');
-      }
-    };
 
-    // Debounce audio quality updates to prevent rapid changes
-    const timeoutId = setTimeout(updateAudioQuality, 300);
-    return () => clearTimeout(timeoutId);
-  }, [currentDecibels, ambientNoiseLevel]);
-
-  // Track conversation states with smoothing to prevent oscillation
-  useEffect(() => {
-    if (!isRoboMode) return;
-
-    const now = Date.now();
-    const isLoudEnough = currentDecibels > ambientNoiseLevel + 6; // Higher threshold to prevent noise
-    
-    // Prevent rapid state changes (minimum 500ms between changes)
-    if (now - lastStateChangeRef.current < 500) return;
-
-    if (isRecording) {
-      if (isLoudEnough) {
-        // Require sustained speech before switching to listening
-        listeningThresholdCountRef.current += 1;
-        if (listeningThresholdCountRef.current >= 3 && conversationState !== 'listening') {
-          setConversationState('listening');
-          lastStateChangeRef.current = now;
-        }
-      } else {
-        // Reset the counter when audio drops
-        listeningThresholdCountRef.current = 0;
-        
-        // Only transition from listening to processing after a delay
-        if (conversationState === 'listening') {
-          if (stateDebounceTimeoutRef.current) {
-            clearTimeout(stateDebounceTimeoutRef.current);
-          }
-          
-          stateDebounceTimeoutRef.current = setTimeout(() => {
-            setConversationState('processing');
-            lastStateChangeRef.current = Date.now();
-            
-            // Then transition to thinking after 1 second
-            setTimeout(() => {
-              setConversationState('thinking');
-            }, 1000);
-          }, 1500); // Wait 1.5 seconds of silence before processing
-        }
-      }
-    } else if (conversationState !== 'idle' && conversationState !== 'responding') {
-      setConversationState('idle');
-      lastStateChangeRef.current = now;
-      listeningThresholdCountRef.current = 0;
-    }
-
-    return () => {
-      if (stateDebounceTimeoutRef.current) {
-        clearTimeout(stateDebounceTimeoutRef.current);
-      }
-    };
-  }, [isRecording, currentDecibels, ambientNoiseLevel, isRoboMode, conversationState]);
 
   /** 6) Enable mic once uploadUrl is valid (so pipeline captures from first sample) */
   useEffect(() => {
