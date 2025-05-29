@@ -172,19 +172,40 @@ export default function Room() {
           // Only play audio if utteranceId >= lastPlayedUtteranceId
           if (audioContext && message.data.mp3Base64 && message.data.utteranceId >= lastPlayedUtteranceId) {
             try {
+              console.log("[TranscriptListener] ⏳ Starting robo audio decode/playback process");
+              
               // Convert base64 MP3 to binary
               const mp3Binary = Uint8Array.from(atob(message.data.mp3Base64), (c) => c.charCodeAt(0));
               console.log("[TranscriptListener] Decoded MP3 binary length:", mp3Binary.length);
               
-              // Decode and play the MP3 audio
+              // Force AudioContext to resume if suspended (coordinate with recording)
+              if (audioContext.state === 'suspended') {
+                console.log("[TranscriptListener] 🔊 Resuming suspended AudioContext for playback");
+                await audioContext.resume();
+              }
+              
+              // Decode and play the MP3 audio with error handling
               const audioBuffer = await audioContext.decodeAudioData(mp3Binary.buffer);
               const source = audioContext.createBufferSource();
               source.buffer = audioBuffer;
+              
+              // Add error handling and completion logging
+              source.onended = () => {
+                console.log(`[TranscriptListener] ✅ Robo audio playback completed for utteranceId: ${message.data.utteranceId}`);
+              };
+              
+              source.onerror = (err) => {
+                console.error(`[TranscriptListener] ❌ Audio source error for utteranceId: ${message.data.utteranceId}`, err);
+              };
+              
               source.connect(audioContext.destination);
-              source.start();
-              console.log(`[TranscriptListener] Robo audio playback started for utteranceId: ${message.data.utteranceId}`);
+              source.start(0); // Start immediately
+              console.log(`[TranscriptListener] 🎵 Robo audio playback started for utteranceId: ${message.data.utteranceId}`);
             } catch (err) {
-              console.error("[TranscriptListener] Error playing robo audio:", err);
+              console.error("[TranscriptListener] ❌ Error playing robo audio:", err);
+              // Additional debugging for AudioContext state
+              console.log("[TranscriptListener] AudioContext state:", audioContext.state);
+              console.log("[TranscriptListener] AudioContext sample rate:", audioContext.sampleRate);
             }
           } else if (message.data.utteranceId < lastPlayedUtteranceId) {
             console.log(`[TranscriptListener] Skipping old audio utteranceId: ${message.data.utteranceId}, lastPlayed: ${lastPlayedUtteranceId}`);
