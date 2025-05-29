@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
+import { callWithRetry } from './lib/aiGateway';
 
 import { lemmaFingerprintPrompt } from './Prompts/Enrichments/lemmaFingerprintPrompt';
 
@@ -25,15 +26,19 @@ export class LemmaEnricherDO extends DurableObject<Env> {
       }
 
       const prompt = lemmaFingerprintPrompt(analyzedMistakes);
-      const response = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-        messages: [
-          { role: 'system', content: 'You are a Spanish grammar enrichment assistant.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 1000,
-        response_format: { type: 'json_object' },
-        temperature: 0
-      }) as { response: string };
+      const response = await callWithRetry(
+        '@cf/meta/llama-3.1-8b-instruct',
+        {
+          messages: [
+            { role: 'system', content: 'You are a Spanish grammar enrichment assistant.' },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 1000,
+          response_format: { type: 'json_object' },
+          temperature: 0
+        },
+        this.env
+      ) as { response: string };
 
       try {
         const fingerprints = JSON.parse(response.response) as string[];

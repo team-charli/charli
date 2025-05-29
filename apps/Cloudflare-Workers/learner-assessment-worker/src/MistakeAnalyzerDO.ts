@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
+import { callWithRetry } from './lib/aiGateway';
 
 import { SPANISH_ERROR_CLASSES } from './SPANISH_ERROR_CLASSES';
 import { vocabularyAnalyzerPrompt } from './Prompts/Analyzer/vocabularyAnalyzerPrompt';
@@ -64,15 +65,19 @@ this.app.post('/analyze', async (c) => {
         continue;
     }
 
-    const response = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [
-        { role: 'system', content: 'You are a Spanish grammar assistant.' },
-        { role: 'user', content: prompt }
-      ],
-      max_tokens: 1500,
-      response_format: { type: 'json_object' },
-      temperature: 0.2,
-    }) as { response: string };
+    const response = await callWithRetry(
+      '@cf/meta/llama-3.1-8b-instruct',
+      {
+        messages: [
+          { role: 'system', content: 'You are a Spanish grammar assistant.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 1500,
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+      },
+      this.env
+    ) as { response: string };
 
     try {
       const analyzed = JSON.parse(response.response) as AnalyzedMistake[];

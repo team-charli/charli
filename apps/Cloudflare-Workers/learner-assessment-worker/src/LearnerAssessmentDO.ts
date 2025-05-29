@@ -32,10 +32,19 @@ type DGSocket = {
 	ws: WebSocket;                  // open WS to Deepgram
 	ready: Promise<void>;           // resolves when {"type":"listening"} arrives
 	segments: TranscribedSegment[]; // all segs we’ve received so far
+	lastSpeechTime: number;         // timestamp of last speech activity
+	silenceStartTime: number;       // timestamp when silence started
+	endpointingTimer: any;          // timer for endpointing detection
+	utteranceEndTimer: any;         // timer for utterance end detection
+	recentAudioLevel: number;       // recent audio level in dB
+	recentAmbientLevel: number;     // recent ambient noise level in dB
+	customThinkingTimer?: any;      // custom thinking time timer
+	lastInterimText?: string;       // latest interim transcript text
+	pendingThinkingProcess?: boolean; // flag for thinking process state
 };
 
-const DG_MODEL    = 'nova-2';
-const DG_LANGUAGE = 'es-MX';
+// const DG_MODEL    = 'nova-2';
+// const DG_LANGUAGE = 'es-MX';
 
 export class LearnerAssessmentDO extends DurableObject<Env> {
 	/* ------------------------------------------------------------------ */
@@ -346,9 +355,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				}
 				
 				// Enhanced timing analysis for final results
-				const silenceDuration = this.dgSocket?.silenceStartTime > 0 ? 
+				const silenceDuration = this.dgSocket?.silenceStartTime && this.dgSocket.silenceStartTime > 0 ? 
 					(now - this.dgSocket.silenceStartTime) : 0;
-				const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime > 0 ? 
+				const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime && this.dgSocket.lastSpeechTime > 0 ? 
 					(now - this.dgSocket.lastSpeechTime) : 0;
 				
 				console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text || ''}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
@@ -368,9 +377,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 				if (text) {
 					const now = Date.now();
-					const actualSilence = this.dgSocket?.silenceStartTime > 0 ? 
+					const actualSilence = this.dgSocket?.silenceStartTime && this.dgSocket.silenceStartTime > 0 ? 
 						(now - this.dgSocket.silenceStartTime) : 0;
-					const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime > 0 ? 
+					const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime && this.dgSocket.lastSpeechTime > 0 ? 
 						(now - this.dgSocket.lastSpeechTime) : 0;
 					
 					console.log(`[DG] speech_final ${role} utterance (⏱ ${duration.toFixed(2)}s): "${text}"`);
@@ -622,7 +631,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ question: text })
 				});
-				const { answer } = await response.json();
+				const { answer } = await response.json() as { answer: string };
 
 				await this.broadcastToRoom(roomId, 'charliAnswer', { text: answer });
 				await this.broadcastToRoom(roomId, 'teacherNotice', {

@@ -17,6 +17,10 @@ export interface Env {
   DEEPGRAM_URL: string;
 	DG_LANGUAGE?: string;
 	__BUILD_ID?: string;
+	// AI Gateway
+	AI_GATEWAY_URL: string;
+	AI_GATEWAY_AUTH_TOKEN: string;
+	AI_SESSION_TOKEN_LIMIT?: string;
 }
 // env.ts
 
@@ -28,6 +32,11 @@ export interface Bindings {
   MISTAKE_DETECTOR_DO: DurableObjectNamespace;
   MISTAKE_ANALYZER_DO: DurableObjectNamespace;
   SCORECARD_PERSISTER_DO: DurableObjectNamespace;
+  
+  // AI Gateway
+  AI_GATEWAY_URL: string;
+  AI_GATEWAY_AUTH_TOKEN: string;
+  AI_SESSION_TOKEN_LIMIT?: string;
 }
 
 export interface Env {
@@ -43,5 +52,10 @@ export interface DOEnv {
   MISTAKE_ANALYZER_DO: Fetcher;
   MISTAKE_ENRICHER_PIPELINE_DO: Fetcher;
   SCORECARD_PERSISTER_DO: Fetcher;
+  
+  // AI Gateway
+  AI_GATEWAY_URL: string;
+  AI_GATEWAY_AUTH_TOKEN: string;
+  AI_SESSION_TOKEN_LIMIT?: string;
 }
 

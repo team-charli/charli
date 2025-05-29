@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
+import { callWithRetry } from './lib/aiGateway';
 
 import { morphologyDetectorPrompt } from './Prompts/Detector/morphologyDetectorPrompt';
 import { tenseUsageDetectorPrompt } from './Prompts/Detector/tenseUsageDetectorPrompt';
@@ -66,15 +67,19 @@ export class MistakeDetectorDO extends DurableObject<Env> {
 	}
 
 	private async runDetector(prompt: string): Promise<Omit<DetectedMistake, 'categoryHint'>[]> {
-		const response = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-			messages: [
-				{ role: 'system', content: 'You are a Spanish mistake detector.' },
-				{ role: 'user', content: prompt }
-			],
-			max_tokens: 1000,
-			response_format: { type: 'json_object' },
-			temperature: 0.2,
-		}) as { response: string };
+		const response = await callWithRetry(
+			'@cf/meta/llama-3.1-8b-instruct',
+			{
+				messages: [
+					{ role: 'system', content: 'You are a Spanish mistake detector.' },
+					{ role: 'user', content: prompt }
+				],
+				max_tokens: 1000,
+				response_format: { type: 'json_object' },
+				temperature: 0.2,
+			},
+			this.env
+		) as { response: string };
 
 		try {
 			const parsed = JSON.parse(response.response);
