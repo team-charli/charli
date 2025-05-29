@@ -32,7 +32,11 @@ enum CharliState {
 // - Higher values = longer delays but encourage more thoughtful responses
 // - Lower values = faster responses but may feel rushed for complex thoughts
 // - Recommended range: 4000-7000ms (4-7 seconds)
-const THINKING_TIME_MS = 5000;
+const THINKING_TIME_MS = 7000;
+
+// Fragment accumulation constants
+const FRAGMENT_ACCUMULATION_WINDOW_MS = 4000; // 4 seconds to accumulate fragments
+const MIN_FRAGMENT_LENGTH = 3; // Minimum characters to consider a valid fragment
 
 type DGSocket = {
 	ws: WebSocket;                  // open WS to Deepgram
@@ -47,6 +51,10 @@ type DGSocket = {
 	customThinkingTimer?: any;      // custom thinking time timer
 	lastInterimText?: string;       // latest interim transcript text
 	pendingThinkingProcess?: boolean; // flag for thinking process state
+	// Fragment accumulation properties
+	fragmentBuffer: string[];       // array of accumulated fragments
+	lastFragmentTime: number;       // timestamp of last fragment received
+	fragmentAccumulationTimer?: any; // timer to flush accumulated fragments
 };
 
 // const DG_MODEL    = 'nova-2';
@@ -135,6 +143,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				}
 				await this.transcribeAndDiarizeAll(roomId);
 				this.dgSocket?.ws.close(1000);
+				// Clear fragment accumulation timer before cleanup
+				if (this.dgSocket?.fragmentAccumulationTimer) {
+					clearTimeout(this.dgSocket.fragmentAccumulationTimer);
+					this.dgSocket.fragmentAccumulationTimer = null;
+				}
 				this.dgSocket = null;
 				return c.json({ status: 'transcription completed' });
 			} catch (err) {
@@ -264,6 +277,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		});
 		dgWS.addEventListener('close', e  => {
 			console.log('[DG] close code:', e.code, 'reason:', e.reason || 'no reason');
+			// Clear fragment accumulation timer before cleanup
+			if (this.dgSocket?.fragmentAccumulationTimer) {
+				clearTimeout(this.dgSocket.fragmentAccumulationTimer);
+				this.dgSocket.fragmentAccumulationTimer = null;
+			}
 			this.dgSocket = null; // Clean up socket reference
 			if (e.code !== 1000) {
 				// Abnormal close - set 2 second back-off
@@ -420,14 +438,20 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					// For robo mode, trigger utterance processing for learner speech
 					if (role === 'learner') {
 						const sessionMode = await this.getSessionMode();
-						console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
-						if (sessionMode === 'robo' && !this.dgSocket?.pendingThinkingProcess) {
-							console.log(`[DG] Triggering flushUtterance for speech_final: "${text}"`);
-							this.flushUtterance(roomId, text).catch(err =>
-								console.error('[DG] robo utterance processing error:', err)
-							);
-						} else if (sessionMode === 'robo' && this.dgSocket?.pendingThinkingProcess) {
-							console.log(`[DG] Skipping speech_final processing - already handling via thinking timer: "${text}"`);
+						console.log(`[DG] Learner speech_final detected in ${sessionMode} mode: "${text}"`);
+
+						if (sessionMode === 'robo') {
+							// If we have accumulated fragments, flush them immediately
+							if (this.dgSocket && this.dgSocket.fragmentBuffer.length > 0) {
+								console.log(`[DG-FRAGMENT] speech_final detected, immediately flushing ${this.dgSocket.fragmentBuffer.length} fragments`);
+								await this.flushAccumulatedFragments(roomId);
+							} else {
+								// No fragments accumulated, process normally
+								console.log(`[DG] Triggering flushUtterance for speech_final: "${text}"`);
+								this.flushUtterance(roomId, text).catch(err =>
+									console.error('[DG] robo utterance processing error:', err)
+								);
+							}
 						}
 					}
 				}
@@ -452,87 +476,30 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					}
 				}
 			}
-			// Handle is_final with custom thinking time logic
+			// Handle is_final with fragment accumulation
 			else if (msg.type === 'Results' && msg.is_final === true && msg.speech_final !== true) {
-				const text = msg.channel?.alternatives?.[0]?.transcript;
+				const text = msg.channel?.alternatives?.[0]?.transcript?.trim();
 				const speaker = String(msg.channel?.speaker ?? '0');
 				const role = speaker === '0' ? 'learner' : 'teacher';
-				const start = msg.start ?? 0;
-				const duration = msg.duration ?? 0;
 
-				if (text && role === 'learner' && this.dgSocket) {
-					const now = Date.now();
-					const timeSinceLastSpeech = this.dgSocket.lastSpeechTime > 0 ?
-						(now - this.dgSocket.lastSpeechTime) : 0;
+				if (text && role === 'learner' && this.dgSocket && text.length >= MIN_FRAGMENT_LENGTH) {
+					console.log(`[DG-FRAGMENT] Received fragment: "${text}"`);
 
-					console.log(`[DG-THINKING] is_final received for learner after ${timeSinceLastSpeech}ms: "${text}"`);
+					// Add fragment to buffer
+					this.dgSocket.fragmentBuffer.push(text);
+					this.dgSocket.lastFragmentTime = Date.now();
 
-					// If this is a premature is_final (< 5 seconds since last speech), start thinking timer
-					if (timeSinceLastSpeech < 5000) {
-						const thinkingTimeMs = THINKING_TIME_MS;
-						const remainingThinkingTime = thinkingTimeMs - timeSinceLastSpeech;
-
-						console.log(`[DG-THINKING] 🧠 Starting ${remainingThinkingTime}ms thinking timer for: "${text}"`);
-
-						// Set flag to prevent speech_final from also processing this utterance
-						this.dgSocket.pendingThinkingProcess = true;
-
-						// Clear any existing timer
-						if (this.dgSocket.customThinkingTimer) {
-							clearTimeout(this.dgSocket.customThinkingTimer);
-						}
-
-						// Start new thinking timer
-						this.dgSocket.customThinkingTimer = setTimeout(async () => {
-							console.log(`[DG-THINKING] ⏰ Thinking time expired, processing utterance: "${text}"`);
-
-							// Use the most recent interim text if available, otherwise use the is_final text
-							const finalText = this.dgSocket?.lastInterimText || text;
-
-							const sessionMode = await this.getSessionMode();
-							if (sessionMode === 'robo') {
-								console.log(`[DG-THINKING] Triggering flushUtterance after thinking time: "${finalText}"`);
-								this.flushUtterance(roomId, finalText).catch(err =>
-									console.error('[DG-THINKING] robo utterance processing error:', err)
-								);
-							}
-
-							// Clear the timer reference and flag
-							if (this.dgSocket) {
-								this.dgSocket.customThinkingTimer = null;
-								this.dgSocket.pendingThinkingProcess = false;
-							}
-						}, remainingThinkingTime);
-
-					} else {
-						// Sufficient time has passed, process immediately
-						console.log(`[DG-THINKING] ✅ Sufficient thinking time elapsed (${timeSinceLastSpeech}ms), processing: "${text}"`);
-
-						// Set flag to prevent speech_final from also processing this utterance
-						this.dgSocket.pendingThinkingProcess = true;
-
-						const sessionMode = await this.getSessionMode();
-						if (sessionMode === 'robo') {
-							console.log(`[DG-THINKING] Triggering immediate flushUtterance: "${text}"`);
-							this.flushUtterance(roomId, text).catch(err =>
-								console.error('[DG-THINKING] robo utterance processing error:', err)
-							);
-						}
-
-						// Clear flag after processing
-						this.dgSocket.pendingThinkingProcess = false;
+					// Clear any existing accumulation timer
+					if (this.dgSocket.fragmentAccumulationTimer) {
+						clearTimeout(this.dgSocket.fragmentAccumulationTimer);
 					}
 
-					// Clear standard timing trackers
-					if (this.dgSocket.endpointingTimer) {
-						clearTimeout(this.dgSocket.endpointingTimer);
-						this.dgSocket.endpointingTimer = null;
-					}
-					if (this.dgSocket.utteranceEndTimer) {
-						clearTimeout(this.dgSocket.utteranceEndTimer);
-						this.dgSocket.utteranceEndTimer = null;
-					}
-					this.dgSocket.silenceStartTime = 0;
+					// Start new accumulation timer
+					this.dgSocket.fragmentAccumulationTimer = setTimeout(async () => {
+						await this.flushAccumulatedFragments(roomId);
+					}, FRAGMENT_ACCUMULATION_WINDOW_MS);
+
+					console.log(`[DG-FRAGMENT] Buffer now contains ${this.dgSocket.fragmentBuffer.length} fragments, timer set for ${FRAGMENT_ACCUMULATION_WINDOW_MS}ms`);
 				}
 			}
 
@@ -558,13 +525,22 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			recentAmbientLevel: -Infinity,
 			customThinkingTimer: null,
 			lastInterimText: '',
-			pendingThinkingProcess: false
+			pendingThinkingProcess: false,
+			// Fragment accumulation properties
+			fragmentBuffer: [],
+			lastFragmentTime: 0,
+			fragmentAccumulationTimer: null
 		};
 		try {
 			await ready;
 			return this.dgSocket;
 		} catch (err) {
 			// Zero out dgSocket on connection failure so next chunk triggers fresh connect
+			// Clear fragment accumulation timer before cleanup
+			if (this.dgSocket?.fragmentAccumulationTimer) {
+				clearTimeout(this.dgSocket.fragmentAccumulationTimer);
+				this.dgSocket.fragmentAccumulationTimer = null;
+			}
 			this.dgSocket = null;
 			throw err;
 		}
@@ -585,6 +561,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			if (this.dgSocket?.ws.readyState === WebSocket.OPEN) {
 				console.log(`[LearnerAssessmentDO] Closing old Deepgram connection due to build ID change`);
 				this.dgSocket.ws.close(1000);
+			}
+			// Clear fragment accumulation timer before cleanup
+			if (this.dgSocket?.fragmentAccumulationTimer) {
+				clearTimeout(this.dgSocket.fragmentAccumulationTimer);
+				this.dgSocket.fragmentAccumulationTimer = null;
 			}
 			this.dgSocket = null;
 			this.connectBannerLogged = false; // Allow new connection log
@@ -658,6 +639,13 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			console.log('[ASR] flushUtterance called but already in flight');
 			return;
 		}
+		
+		// Check if session has ended (dgSocket is null)
+		if (!this.dgSocket) {
+			console.log('[ASR] Session has ended, ignoring utterance flush');
+			return;
+		}
+		
 		this.flushInFlight = true;
 
 		try {
@@ -720,6 +708,26 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			console.error('[LearnerAssessmentDO] robo reply error', err);
 		} finally {
 			this.flushInFlight = false;
+		}
+	}
+
+	private async flushAccumulatedFragments(roomId: string) {
+		if (!this.dgSocket || this.dgSocket.fragmentBuffer.length === 0) {
+			console.log('[DG-FRAGMENT] No fragments to flush');
+			return;
+		}
+
+		// Combine all fragments into coherent text
+		const combinedText = this.dgSocket.fragmentBuffer.join(' ').trim();
+		console.log(`[DG-FRAGMENT] Flushing ${this.dgSocket.fragmentBuffer.length} fragments as: "${combinedText}"`);
+
+		// Clear the buffer and timer
+		this.dgSocket.fragmentBuffer = [];
+		this.dgSocket.fragmentAccumulationTimer = null;
+
+		// Send to robo teacher
+		if (combinedText.length > 0) {
+			await this.flushUtterance(roomId, combinedText);
 		}
 	}
 
