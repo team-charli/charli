@@ -75,9 +75,9 @@ The worker implements intelligent thinking delays designed to encourage deeper S
 
 The **safest parameter to adjust** for faster responses is the thinking time target:
 
-**Location**: `src/LearnerAssessmentDO.ts` around line 457:
+**Location**: `src/LearnerAssessmentDO.ts` around line 35:
 ```typescript
-const thinkingTimeMs = 7000; // 7 seconds total thinking time
+const THINKING_TIME_MS = 7000;
 ```
 
 **Safe Values**:
@@ -93,10 +93,10 @@ const thinkingTimeMs = 7000; // 7 seconds total thinking time
 
 **Example Impact**:
 ```typescript
-// Current (7000ms):
+// Current (THINKING_TIME_MS = 7000):
 "hola" (0.5s speech) → 6.5s delay
 
-// With 5000ms:
+// With THINKING_TIME_MS = 5000:
 "hola" (0.5s speech) → 4.5s delay
 ```
 
