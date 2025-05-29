@@ -23,9 +23,19 @@ type ErrorReport = {
   source: string;
   message: string;
   timestamp: Date;
+  category?: string;
+};
+
+type WranglerVersionWarning = {
+  project: string;
+  currentVersion: string;
+  availableVersion: string;
+  urgency: 'warning' | 'critical';
 };
 
 const errorReports: ErrorReport[] = [];
+const wranglerVersionWarnings: WranglerVersionWarning[] = [];
+const supabaseVersionWarnings: Array<{currentVersion: string, availableVersion: string, context: string}> = [];
 
 function collectError(type: 'warning' | 'error', source: string, message: string) {
   errorReports.push({
@@ -36,36 +46,145 @@ function collectError(type: 'warning' | 'error', source: string, message: string
   });
 }
 
-function reportAccumulatedErrors() {
-  if (errorReports.length === 0) {
-    log("\n✅ No warnings or errors accumulated during deployment.");
+function parseWranglerVersionWarning(output: string, project: string) {
+  // Parse "⛅️ wrangler 4.17.0 (update available 4.18.0)"
+  const versionMatch = output.match(/⛅️ wrangler (\d+\.\d+\.\d+) \(update available (\d+\.\d+\.\d+)\)/);
+  if (versionMatch) {
+    const [, current, available] = versionMatch;
+    // Check for duplicates
+    const exists = wranglerVersionWarnings.some(w => 
+      w.project === project && w.currentVersion === current && w.availableVersion === available
+    );
+    if (!exists) {
+      wranglerVersionWarnings.push({
+        project,
+        currentVersion: current,
+        availableVersion: available,
+        urgency: 'warning'
+      });
+    }
+    return;
+  }
+
+  // Parse older style warning with urgency
+  const urgentMatch = output.match(/▲ \[WARNING\] The version of Wrangler you are using is now out-of-date/);
+  const versionLineMatch = output.match(/wrangler (\d+\.\d+\.\d+) \(update available (\d+\.\d+\.\d+)\)/);
+  if (urgentMatch && versionLineMatch) {
+    const [, current, available] = versionLineMatch;
+    // Check for duplicates
+    const exists = wranglerVersionWarnings.some(w => 
+      w.project === project && w.currentVersion === current && w.availableVersion === available
+    );
+    if (!exists) {
+      wranglerVersionWarnings.push({
+        project,
+        currentVersion: current,
+        availableVersion: available,
+        urgency: 'critical'
+      });
+    }
+  }
+}
+
+function parseSupabaseVersionWarning(output: string, context: string = 'unknown') {
+  // Parse "A new version of Supabase CLI is available: v2.23.4 (currently installed v2.22.12)"
+  const match = output.match(/A new version of Supabase CLI is available: v(\d+\.\d+\.\d+) \(currently installed v(\d+\.\d+\.\d+)\)/);
+  if (match) {
+    const [, available, current] = match;
+    // Check if we already have this version warning to avoid duplicates
+    const exists = supabaseVersionWarnings.some(w => 
+      w.currentVersion === current && w.availableVersion === available
+    );
+    if (!exists) {
+      supabaseVersionWarnings.push({
+        currentVersion: current,
+        availableVersion: available,
+        context
+      });
+    }
+  }
+}
+
+function reportVersionWarnings() {
+  const hasWranglerWarnings = wranglerVersionWarnings.length > 0;
+  const hasSupabaseWarnings = supabaseVersionWarnings.length > 0;
+  
+  if (!hasWranglerWarnings && !hasSupabaseWarnings) {
     return;
   }
 
   log("\n" + "=".repeat(60));
-  log("📋 ACCUMULATED WARNINGS AND ERRORS REPORT");
+  log("🔄 VERSION UPDATE ADVISORIES");
   log("=".repeat(60));
-  
-  const warnings = errorReports.filter(r => r.type === 'warning');
-  const errors = errorReports.filter(r => r.type === 'error');
-  
-  if (warnings.length > 0) {
-    log(`\n⚠️  WARNINGS (${warnings.length}):`);
-    warnings.forEach((w, i) => {
-      log(`${i + 1}. [${w.source}] ${w.message}`);
+
+  if (hasSupabaseWarnings) {
+    log(`\n📦 SUPABASE CLI:`);
+    supabaseVersionWarnings.forEach(w => {
+      log(`   • Update available: v${w.currentVersion} → v${w.availableVersion} (${w.context})`);
     });
   }
-  
-  if (errors.length > 0) {
-    log(`\n❌ ERRORS (${errors.length}):`);
-    errors.forEach((e, i) => {
-      log(`${i + 1}. [${e.source}] ${e.message}`);
-    });
+
+  if (hasWranglerWarnings) {
+    const criticalWarnings = wranglerVersionWarnings.filter(w => w.urgency === 'critical');
+    const regularWarnings = wranglerVersionWarnings.filter(w => w.urgency === 'warning');
+
+    if (criticalWarnings.length > 0) {
+      log(`\n🚨 WRANGLER (CRITICAL UPDATES):`);
+      criticalWarnings.forEach(w => {
+        log(`   • ${w.project}: v${w.currentVersion} → v${w.availableVersion} (URGENT)`);
+      });
+    }
+
+    if (regularWarnings.length > 0) {
+      log(`\n⚠️  WRANGLER (RECOMMENDED UPDATES):`);
+      regularWarnings.forEach(w => {
+        log(`   • ${w.project}: v${w.currentVersion} → v${w.availableVersion}`);
+      });
+    }
   }
-  
-  log("\n" + "=".repeat(60));
-  log(`Summary: ${warnings.length} warning(s), ${errors.length} error(s)`);
-  log("=".repeat(60) + "\n");
+
+  log("\n" + "=".repeat(60) + "\n");
+}
+
+function reportAccumulatedErrors() {
+  const hasErrors = errorReports.length > 0;
+  const hasVersionWarnings = wranglerVersionWarnings.length > 0 || supabaseVersionWarnings.length > 0;
+
+  if (!hasErrors && !hasVersionWarnings) {
+    log("\n✅ No warnings or errors accumulated during deployment.");
+    return;
+  }
+
+  // Show version warnings first
+  reportVersionWarnings();
+
+  // Then show errors if any
+  if (hasErrors) {
+    log("\n" + "=".repeat(60));
+    log("📋 DEPLOYMENT ISSUES");
+    log("=".repeat(60));
+    
+    const warnings = errorReports.filter(r => r.type === 'warning');
+    const errors = errorReports.filter(r => r.type === 'error');
+    
+    if (warnings.length > 0) {
+      log(`\n⚠️  WARNINGS (${warnings.length}):`);
+      warnings.forEach((w, i) => {
+        log(`${i + 1}. [${w.source}] ${w.message}`);
+      });
+    }
+    
+    if (errors.length > 0) {
+      log(`\n❌ ERRORS (${errors.length}):`);
+      errors.forEach((e, i) => {
+        log(`${i + 1}. [${e.source}] ${e.message}`);
+      });
+    }
+    
+    log("\n" + "=".repeat(60));
+    log(`Summary: ${warnings.length} warning(s), ${errors.length} error(s)`);
+    log("=".repeat(60) + "\n");
+  }
 }
 
 const log = createLogger({
@@ -715,6 +834,13 @@ async function injectSecrets(
     let cmdResult;
     try {
       cmdResult = await $`bunx ${wranglerArgs}`.quiet().cwd(t.path);
+      // Parse version warnings from wrangler secret list output
+      if (cmdResult && cmdResult.stderr) {
+        parseWranglerVersionWarning(cmdResult.stderr.toString(), name);
+      }
+      if (cmdResult && cmdResult.stdout) {
+        parseWranglerVersionWarning(cmdResult.stdout.toString(), name);
+      }
     } catch (err) {
       const msg = `wrangler secret list failed for ${name}: ${err?.stderr ?? err?.message ?? err}`;
       log(`⚠️  ${msg}`);
@@ -800,6 +926,14 @@ async function injectSecrets(
       // Run with proper working directory, consistent with deploy commands
       const result = await $`bunx ${wranglerArgs}`.cwd(t.path);
 
+      // Parse version warnings from wrangler output
+      if (result.stderr) {
+        parseWranglerVersionWarning(result.stderr.toString(), name);
+      }
+      if (result.stdout) {
+        parseWranglerVersionWarning(result.stdout.toString(), name);
+      }
+
       if (result.exitCode !== 0) {
         throw new Error(`Failed with exit code ${result.exitCode}`);
       }
@@ -817,8 +951,13 @@ async function injectSecrets(
   /* ---------- Supabase ---------- */
   if (t.type === "supabase") {
     const pairs = Object.entries(env).map(([k, v]) => `${k}=${v}`);
-    await $`supabase secrets set ${pairs.join(" ")} \
+    const supabaseSecretsResult = await $`supabase secrets set ${pairs.join(" ")} \
 --project-ref onhlhmondvxwwiwnruvo${DRY ? " --dry-run" : ""}`;
+    
+    // Parse version warnings from supabase secrets output
+    if (supabaseSecretsResult.stderr) {
+      parseSupabaseVersionWarning(supabaseSecretsResult.stderr.toString(), 'secrets');
+    }
   }
 }
 
@@ -839,10 +978,15 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
       return;
     }
     try {
-      await $`supabase functions deploy ${fnName} \
+      const supabaseResult = await $`supabase functions deploy ${fnName} \
         --project-ref ${PROJECT_REF} \
         --no-verify-jwt \
         --workdir ${WORKDIR}`;
+      
+      // Parse version warnings from supabase output
+      if (supabaseResult.stderr) {
+        parseSupabaseVersionWarning(supabaseResult.stderr.toString(), `function: ${fnName}`);
+      }
     } catch (err) {
       const msg = `Deploy failed for ${fnName}: ${err?.stderr?.toString() || err?.message || err}`;
       log(`✖ ${msg}`);
@@ -887,8 +1031,18 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
         const splitCfg = wranglerConfig.split(' ');
         deployArgs.push(splitCfg[0], splitCfg[1]);
       }
-      if (DRY) log(`(dry) bunx ${deployArgs.join(' ')}`);
-      else await $`bunx ${deployArgs}`.cwd(t.path);
+      if (DRY) {
+        log(`(dry) bunx ${deployArgs.join(' ')}`);
+      } else {
+        const deployResult = await $`bunx ${deployArgs}`.cwd(t.path);
+        // Parse version warnings from deploy output
+        if (deployResult.stderr) {
+          parseWranglerVersionWarning(deployResult.stderr.toString(), basename(t.path));
+        }
+        if (deployResult.stdout) {
+          parseWranglerVersionWarning(deployResult.stdout.toString(), basename(t.path));
+        }
+      }
     } catch (err) {
       /* Wrangler build errors: log & move on instead of crashing */
       if (err instanceof Error) {
@@ -909,13 +1063,6 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
       return;
     }
 
-    // Log env for debugging
-    log("[DEBUG] Environment for vite dev server:");
-    for (const [k, v] of Object.entries(env)) {
-      if (k.includes("VITE") || k.includes("PKP") || k.toLowerCase().includes("relayer")) {
-        log(`    ${k}=${v}`);
-      }
-    }
 
     // Verify permissions before starting the vite server
     if (!DRY) {
@@ -970,6 +1117,16 @@ async function runDeploy(t: { type: string; path: string }, env: Record<string, 
 
     // Report all accumulated errors and warnings
     reportAccumulatedErrors();
+
+    // Clear Vite cache to prevent dependency optimization issues
+    log("› Clearing Vite cache to prevent dependency issues");
+    try {
+      await $`rm -rf node_modules/.vite`.cwd(t.path).quiet();
+      log("  • Cleared node_modules/.vite");
+    } catch (err) {
+      // Ignore errors if directory doesn't exist
+      log("  • No .vite cache to clear");
+    }
 
     if (IS_PROD) {
       // production build + wrangler deploy (still fine under Bun)
