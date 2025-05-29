@@ -1,6 +1,6 @@
 // ~/Projects/charli/apps/vite-frontend/src/pages/room[id]/Room.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useLocalPeer } from "@huddle01/react/hooks";
 import { useVerifiyRoleAndAddress } from "./hooks/useVerifiyRoleAndAddress";
@@ -74,8 +74,17 @@ export default function Room() {
   
   // Debug logging removed - was causing infinite re-renders
   
-  // State for robo teacher captions
+  // State for robo teacher captions and conversation insights
   const [roboCaption, setRoboCaption] = useState<string>('');
+  const [conversationState, setConversationState] = useState<'idle' | 'listening' | 'processing' | 'thinking' | 'responding'>('idle');
+  const [audioQuality, setAudioQuality] = useState<'poor' | 'good' | 'excellent'>('good');
+  const [processingProgress, setProcessingProgress] = useState<number>(0);
+  const [isDeepgramReady, setIsDeepgramReady] = useState<boolean>(false);
+
+  // Debouncing refs to prevent rapid oscillation
+  const lastStateChangeRef = useRef<number>(0);
+  const stateDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const listeningThresholdCountRef = useRef<number>(0);
 
 
   const uploadUrl = useMemo(() => {
@@ -98,11 +107,82 @@ export default function Room() {
   }, [uploadUrl]);
 
   /** 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn). */
-  const { isRecording, cleanupAudio } = useAudioPipeline({
+  const { isRecording, cleanupAudio, currentDecibels, ambientNoiseLevel } = useAudioPipeline({
     localAudioStream,
     isAudioOn,
     uploadUrl,
   });
+
+  // Monitor audio quality for conversation insights (debounced)
+  useEffect(() => {
+    const updateAudioQuality = () => {
+      if (currentDecibels === -Infinity) {
+        setAudioQuality('poor');
+      } else if (currentDecibels > ambientNoiseLevel + 10) {
+        setAudioQuality('excellent');
+      } else if (currentDecibels > ambientNoiseLevel + 5) {
+        setAudioQuality('good');
+      } else {
+        setAudioQuality('poor');
+      }
+    };
+
+    // Debounce audio quality updates to prevent rapid changes
+    const timeoutId = setTimeout(updateAudioQuality, 300);
+    return () => clearTimeout(timeoutId);
+  }, [currentDecibels, ambientNoiseLevel]);
+
+  // Track conversation states with smoothing to prevent oscillation
+  useEffect(() => {
+    if (!isRoboMode) return;
+
+    const now = Date.now();
+    const isLoudEnough = currentDecibels > ambientNoiseLevel + 6; // Higher threshold to prevent noise
+    
+    // Prevent rapid state changes (minimum 500ms between changes)
+    if (now - lastStateChangeRef.current < 500) return;
+
+    if (isRecording) {
+      if (isLoudEnough) {
+        // Require sustained speech before switching to listening
+        listeningThresholdCountRef.current += 1;
+        if (listeningThresholdCountRef.current >= 3 && conversationState !== 'listening') {
+          setConversationState('listening');
+          lastStateChangeRef.current = now;
+        }
+      } else {
+        // Reset the counter when audio drops
+        listeningThresholdCountRef.current = 0;
+        
+        // Only transition from listening to processing after a delay
+        if (conversationState === 'listening') {
+          if (stateDebounceTimeoutRef.current) {
+            clearTimeout(stateDebounceTimeoutRef.current);
+          }
+          
+          stateDebounceTimeoutRef.current = setTimeout(() => {
+            setConversationState('processing');
+            lastStateChangeRef.current = Date.now();
+            
+            // Then transition to thinking after 1 second
+            setTimeout(() => {
+              setConversationState('thinking');
+            }, 1000);
+          }, 1500); // Wait 1.5 seconds of silence before processing
+        }
+      }
+    } else if (conversationState !== 'idle' && conversationState !== 'responding') {
+      setConversationState('idle');
+      lastStateChangeRef.current = now;
+      listeningThresholdCountRef.current = 0;
+    }
+
+    return () => {
+      if (stateDebounceTimeoutRef.current) {
+        clearTimeout(stateDebounceTimeoutRef.current);
+      }
+    };
+  }, [isRecording, currentDecibels, ambientNoiseLevel, isRoboMode, conversationState]);
 
   /** 6) Enable mic once uploadUrl is valid (so pipeline captures from first sample) */
   useEffect(() => {
@@ -158,9 +238,10 @@ export default function Room() {
           break;
         case "roboReplyText":
           console.log("[TranscriptListener] Robo reply text:", message.data.text, "utteranceId:", message.data.utteranceId);
-          // Update robo captions - let CSS handle transitions
+          // Update robo captions and conversation state
           if (message.data.text) {
             setRoboCaption(message.data.text);
+            setConversationState('responding');
           }
           // Always render text subtitle and update last played ID
           if (message.data.utteranceId) {
@@ -192,6 +273,7 @@ export default function Room() {
               // Add error handling and completion logging
               source.onended = () => {
                 console.log(`[TranscriptListener] ✅ Robo audio playback completed for utteranceId: ${message.data.utteranceId}`);
+                setConversationState('idle');
               };
               
               source.onerror = (err) => {
@@ -332,21 +414,60 @@ export default function Room() {
           {/* Debug info removed - was causing infinite re-renders */}
           
           {isRoboMode ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center bg-gray-900 bg-opacity-70 rounded-lg p-6 sm:p-8 max-w-4xl w-full">
-                <div className="text-4xl sm:text-5xl mb-6">🤖</div>
-                <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-white mb-4">Robo Teacher</h3>
-                <div 
-                  className="text-white transition-all duration-500 ease-in-out min-h-[100px] flex items-center justify-center"
-                  style={{ 
-                    fontSize: '32px', 
-                    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-                    fontWeight: '500',
-                    lineHeight: '1.4',
-                    opacity: roboCaption ? 1 : 0.5
-                  }}
-                >
-                  {roboCaption || 'Esperando tu primera palabra...'}
+            <div className="h-full flex flex-col">
+              <div className="text-center bg-gray-900 bg-opacity-70 rounded-lg p-6 sm:p-8 max-w-4xl w-full mx-auto flex-grow flex flex-col">
+                {/* Persistent superhero emoji at top */}
+                <div className="text-6xl mb-6">🦸‍♀️</div>
+
+                {/* Main Caption Area - centered and flexible */}
+                <div className="flex-grow flex items-center justify-center">
+                  <div 
+                    className="text-white transition-all duration-500 ease-in-out"
+                    style={{ 
+                      fontSize: '32px', 
+                      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                      fontWeight: '500',
+                      lineHeight: '1.4',
+                      opacity: roboCaption ? 1 : 0.5
+                    }}
+                  >
+                    {roboCaption || ''}
+                  </div>
+                </div>
+
+                {/* Tips at bottom */}
+                <div className="bg-gray-800 bg-opacity-70 rounded-lg p-4 mt-6">
+                  {conversationState === 'listening' && (
+                    <div className="text-center">
+                      <div className="text-xl text-white font-bold tracking-wide">LISTENING...</div>
+                    </div>
+                  )}
+                  
+                  {conversationState === 'processing' && (
+                    <div className="text-center">
+                      <div className="text-xl text-white font-bold tracking-wide">PROCESSING...</div>
+                    </div>
+                  )}
+                  
+                  {conversationState === 'thinking' && (
+                    <div className="text-center">
+                      <div className="text-xl text-white font-bold tracking-wide mb-2">THINKING...</div>
+                      <div className="text-sm text-gray-300">Preparing a personalized response...</div>
+                    </div>
+                  )}
+                  
+                  {conversationState === 'responding' && (
+                    <div className="text-center">
+                      <div className="text-xl text-white font-bold tracking-wide mb-2">RESPONDING...</div>
+                      <div className="text-sm text-gray-300">Listen to my response</div>
+                    </div>
+                  )}
+                  
+                  {conversationState === 'idle' && (
+                    <div className="text-center">
+                      <div className="text-sm text-gray-400">Ready to help you learn</div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
