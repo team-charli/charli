@@ -76,11 +76,11 @@ export default function Room() {
   
   // State for robo teacher captions
   const [roboCaption, setRoboCaption] = useState<string>('');
-  const [conversationState, setConversationState] = useState<'idle' | 'listening' | 'processing' | 'thinking' | 'responding'>('idle');
-  // Debouncing refs to prevent rapid oscillation
-  const lastStateChangeRef = useRef<number>(0);
-  const stateDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const listeningThresholdCountRef = useRef<number>(0);
+  const [conversationState, setConversationState] = useState<'initializing' | 'idle' | 'listening' | 'deepgram_processing' | 'thinking_time_system' | 'llama_processing' | 'elevenlabs_processing'>('initializing');
+  const [thinkingTimeRemaining, setThinkingTimeRemaining] = useState<number | null>(null);
+  const [deepgramReady, setDeepgramReady] = useState(false);
+  // Prevent constant re-initialization of listening state
+  const hasInitialized = useRef(false);
 
 
   const uploadUrl = useMemo(() => {
@@ -116,8 +116,20 @@ export default function Room() {
     if (!isAudioOn) {
       console.log("[Room] => We have a valid uploadUrl, enabling mic now...");
       enableAudio().catch((err) => console.error("enableAudio() failed:", err));
+    } else {
+      console.log("[Room] => Audio is already on with uploadUrl:", uploadUrl);
     }
   }, [uploadUrl, isAudioOn, enableAudio]);
+
+  /** 6b) When BOTH mic is enabled AND Deepgram is ready, show "Please speak" */
+  useEffect(() => {
+    if (isRoboMode && isAudioOn && deepgramReady && !hasInitialized.current) {
+      console.log("[Room] Both mic and Deepgram ready - showing Please speak");
+      hasInitialized.current = true;
+      setConversationState('listening');
+      setTimeout(() => setConversationState('idle'), 1500);
+    }
+  }, [isAudioOn, deepgramReady, isRoboMode]);
 
   /** 7) Optionally auto-enable video once "connected" */
   useEffect(() => {
@@ -229,6 +241,19 @@ export default function Room() {
           console.log("[TranscriptListener] Teacher notice:", message.data.message);
           // You could add a toast notification here if needed
           break;
+        case "deepgramListening":
+          console.log("[TranscriptListener] Deepgram is listening - setting deepgramReady to true");
+          setDeepgramReady(true);
+          break;
+        case "processingState":
+          console.log("[TranscriptListener] Processing state:", message.data.state);
+          setConversationState(message.data.state as any);
+          if (message.data.state === 'thinking_time_system' && message.data.remainingTime) {
+            setThinkingTimeRemaining(message.data.remainingTime);
+          } else {
+            setThinkingTimeRemaining(null);
+          }
+          break;
         default:
           console.warn("[TranscriptListener] Unknown message type:", message.type);
       }
@@ -338,21 +363,79 @@ export default function Room() {
           {/* Debug info removed - was causing infinite re-renders */}
           
           {isRoboMode ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center bg-gray-900 bg-opacity-70 rounded-lg p-6 sm:p-8 max-w-4xl w-full">
-                <div className="text-4xl sm:text-5xl mb-6">🤖</div>
-                <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-white mb-4">Robo Teacher</h3>
-                <div 
-                  className="text-white transition-all duration-500 ease-in-out min-h-[100px] flex items-center justify-center"
-                  style={{ 
-                    fontSize: '32px', 
-                    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-                    fontWeight: '500',
-                    lineHeight: '1.4',
-                    opacity: roboCaption ? 1 : 0.5
-                  }}
-                >
-                  {roboCaption || 'Esperando tu primera palabra...'}
+            <div className="h-full flex flex-col">
+              <div className="text-center bg-gray-900 bg-opacity-70 rounded-lg p-6 sm:p-8 max-w-4xl w-full mx-auto flex-grow flex flex-col">
+                {/* Persistent superhero emoji at top */}
+                <div className="text-6xl mb-6">🦸‍♀️</div>
+
+                {/* Main Caption Area - centered and flexible */}
+                <div className="flex-grow flex items-center justify-center">
+                  <div 
+                    className="text-white transition-all duration-500 ease-in-out"
+                    style={{ 
+                      fontSize: '32px', 
+                      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                      fontWeight: '500',
+                      lineHeight: '1.4',
+                      opacity: roboCaption ? 1 : 0.5
+                    }}
+                  >
+                    {roboCaption || ''}
+                  </div>
+                </div>
+
+                {/* Tips at bottom */}
+                <div className="bg-gray-800 bg-opacity-70 rounded-lg p-4 mt-6">
+                  {conversationState === 'listening' && (
+                    <div className="text-center">
+                      <div className="text-sm text-gray-400">Please speak</div>
+                    </div>
+                  )}
+                  
+                  {conversationState === 'deepgram_processing' && (
+                    <div className="text-center">
+                      <div className="text-xl text-white font-bold tracking-wide">DEEPGRAM PROCESSING...</div>
+                    </div>
+                  )}
+                  
+                  {conversationState === 'thinking_time_system' && (
+                    <div className="text-center">
+                      <div className="text-xl text-white font-bold tracking-wide mb-2">THINKING TIME SYSTEM ACTIVE</div>
+                      <div className="text-sm text-gray-300">
+                        {thinkingTimeRemaining ? 
+                          `${Math.ceil(thinkingTimeRemaining / 1000)}s remaining - encourages thoughtful responses` :
+                          'Pedagogical delay to encourage thoughtful responses'
+                        }
+                      </div>
+                    </div>
+                  )}
+                  
+                  {conversationState === 'llama_processing' && (
+                    <div className="text-center">
+                      <div className="text-xl text-white font-bold tracking-wide">LLAMA PROCESSING...</div>
+                      <div className="text-sm text-gray-300">AI generating Spanish response</div>
+                    </div>
+                  )}
+                  
+                  {conversationState === 'elevenlabs_processing' && (
+                    <div className="text-center">
+                      <div className="text-xl text-white font-bold tracking-wide">ELEVENLABS PROCESSING...</div>
+                      <div className="text-sm text-gray-300">Converting text to speech</div>
+                    </div>
+                  )}
+                  
+                  
+                  {conversationState === 'initializing' && (
+                    <div className="text-center">
+                      <div className="text-sm text-gray-400"></div>
+                    </div>
+                  )}
+                  
+                  {conversationState === 'idle' && (
+                    <div className="text-center">
+                      <div className="text-sm text-gray-400">Please speak</div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
