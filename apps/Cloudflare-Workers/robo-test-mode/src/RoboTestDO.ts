@@ -75,6 +75,7 @@ export class RoboTestDO extends DurableObject<Env> {
 				console.log(`[RoboTestDO] history length = ${history.length}`);
 
 				/* 1 · generate Spanish sentence ----------------------------- */
+				await this.broadcast(roomId, 'processingState', { state: 'llama_processing' });
 				const replyText = await this.generateRoboReplyText(history);
 
 				/* 3 · add assistant reply & save trimmed history ------------ */
@@ -91,6 +92,7 @@ export class RoboTestDO extends DurableObject<Env> {
 				await this.broadcast(roomId, 'roboReplyText', { utteranceId, text: replyText });
 
 				/* 3 · fire‑and‑forget TTS & audio broadcast ---------------- */
+				await this.broadcast(roomId, 'processingState', { state: 'elevenlabs_processing' });
 				this.convertTextToSpeechAndBroadcast(replyText, roomId, utteranceId).catch((err) =>
 					console.error('[RoboTestDO] TTS error:', err)
 				);
@@ -238,9 +240,13 @@ export class RoboTestDO extends DurableObject<Env> {
 			const mp3Bytes = await this.convertTextToSpeech(text);
 			const mp3Base64 = u8ToBase64(mp3Bytes);
 			await this.broadcast(roomId, 'roboAudioMp3', { utteranceId, mp3Base64 });
+			// Clear processing state after audio is ready
+			await this.broadcast(roomId, 'processingState', { state: 'idle' });
 			console.log(`[RoboTestDO] Audio broadcast complete for utterance ${utteranceId}`);
 		} catch (err) {
 			console.error(`[RoboTestDO] TTS/broadcast error for utterance ${utteranceId}:`, err);
+			// Clear processing state on error too
+			await this.broadcast(roomId, 'processingState', { state: 'idle' });
 		}
 	}
 }

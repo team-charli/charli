@@ -272,6 +272,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 			if (msg.type === 'listening' || msg.type === 'connection_established') {
 				console.log('[DG] listening');
+				// Broadcast that Deepgram is ready to listen
+				this.broadcastToRoom(roomId, 'deepgramListening', {}).catch(err =>
+					console.error('[DG] Failed to broadcast deepgramListening:', err)
+				);
 				resolve();
 				return;
 			}
@@ -448,6 +452,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const start = msg.start ?? 0;
 				const duration = msg.duration ?? 0;
 
+				// Broadcast Deepgram processing state for learner speech
+				if (text && role === 'learner') {
+					await this.broadcastToRoom(roomId, 'processingState', { state: 'deepgram_processing' });
+				}
+
 				if (text && role === 'learner' && this.dgSocket) {
 					const now = Date.now();
 					const timeSinceLastSpeech = this.dgSocket.lastSpeechTime > 0 ?
@@ -462,6 +471,12 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 						console.log(`[DG-THINKING] 🧠 Starting ${remainingThinkingTime}ms thinking timer for: "${text}"`);
 
+						// Broadcast thinking time state
+						await this.broadcastToRoom(roomId, 'processingState', { 
+							state: 'thinking_time_system', 
+							remainingTime: remainingThinkingTime 
+						});
+
 						// Set flag to prevent speech_final from also processing this utterance
 						this.dgSocket.pendingThinkingProcess = true;
 
@@ -473,6 +488,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						// Start new thinking timer
 						this.dgSocket.customThinkingTimer = setTimeout(async () => {
 							console.log(`[DG-THINKING] ⏰ Thinking time expired, processing utterance: "${text}"`);
+
+							// Clear thinking time state
+							await this.broadcastToRoom(roomId, 'processingState', { state: 'idle' });
 
 							// Use the most recent interim text if available, otherwise use the is_final text
 							const finalText = this.dgSocket?.lastInterimText || text;

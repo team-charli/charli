@@ -76,7 +76,7 @@ export default function Room() {
   
   // State for robo teacher captions
   const [roboCaption, setRoboCaption] = useState<string>('');
-  const [conversationState, setConversationState] = useState<'initializing' | 'idle' | 'listening' | 'deepgram_processing' | 'thinking_time_system' | 'llama_processing' | 'elevenlabs_processing'>('initializing');
+  const [conversationState, setConversationState] = useState<'initializing' | 'ready' | 'idle' | 'listening' | 'deepgram_processing' | 'thinking_time_system' | 'llama_processing' | 'elevenlabs_processing'>('initializing');
   const [thinkingTimeRemaining, setThinkingTimeRemaining] = useState<number | null>(null);
   const [deepgramReady, setDeepgramReady] = useState(false);
   // Prevent constant re-initialization of listening state
@@ -121,13 +121,13 @@ export default function Room() {
     }
   }, [uploadUrl, isAudioOn, enableAudio]);
 
-  /** 6b) When BOTH mic is enabled AND Deepgram is ready, show "Please speak" */
+  /** 6b) When BOTH mic is enabled AND Deepgram is ready, show "Ready" */
   useEffect(() => {
     if (isRoboMode && isAudioOn && deepgramReady && !hasInitialized.current) {
-      console.log("[Room] Both mic and Deepgram ready - showing Please speak");
+      console.log("[Room] Both mic and Deepgram ready - showing Ready");
       hasInitialized.current = true;
-      setConversationState('listening');
-      setTimeout(() => setConversationState('idle'), 1500);
+      setConversationState('ready');
+      // Stay in ready state, don't auto-transition
     }
   }, [isAudioOn, deepgramReady, isRoboMode]);
 
@@ -431,9 +431,10 @@ export default function Room() {
                     </div>
                   )}
                   
-                  {conversationState === 'idle' && (
+                  {conversationState === 'ready' && (
                     <div className="text-center">
-                      <div className="text-sm text-gray-400">Please speak</div>
+                      <div className="text-lg text-green-400 font-semibold">✅ READY</div>
+                      <div className="text-xs text-gray-300 mt-1">Ready to listen</div>
                     </div>
                   )}
                 </div>
