@@ -1,6 +1,6 @@
 // ~/Projects/charli/apps/vite-frontend/src/pages/room[id]/Room.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useLocalPeer } from "@huddle01/react/hooks";
 import { useVerifiyRoleAndAddress } from "./hooks/useVerifiyRoleAndAddress";
