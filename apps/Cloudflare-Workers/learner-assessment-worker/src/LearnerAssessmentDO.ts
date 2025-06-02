@@ -125,11 +125,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		}
 
 		if (action === 'end-session') {
-			console.log('[LearnerAssessmentDO] end-session');
+			console.log(`[LearnerAssessmentDO] 🏁 Session ending for room ${roomId} - starting scorecard generation process`);
 			try {
 				// Send CloseStream message before closing Deepgram connection
 				if (this.dgSocket?.ws.readyState === WebSocket.OPEN) {
+					console.log(`[LearnerAssessmentDO] Closing Deepgram stream with ${this.dgSocket.segments?.length || 0} collected segments`);
 					this.dgSocket.ws.send(JSON.stringify({ type: "CloseStream" }));
+				} else {
+					console.warn(`[LearnerAssessmentDO] WARNING: Deepgram socket not open during session end - readyState: ${this.dgSocket?.ws.readyState || 'null'}`);
 				}
 				await this.transcribeAndDiarizeAll(roomId);
 				this.dgSocket?.ws.close(1000);
@@ -751,6 +754,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const learnerSegments = allSegments.filter(seg => seg.role === 'learner');
 		const fullTranscript = allSegments.map(seg => `[${seg.start.toFixed(2)}] ${seg.role}: "${seg.text}"`).join('\n');
 
+		console.log(`[LearnerAssessmentDO] Extracted ${learnerSegments.length} learner segments from ${allSegments.length} total segments`);
+
 		// Only send the (start, text) fields to ScorecardOrchestratorDO
 		const simplifiedLearnerSegments = learnerSegments.map(seg => ({
 			start: seg.start,
@@ -759,13 +764,19 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		const session_id = await this.state.storage.get<number>('sessionId');
 		const learner_id = await this.state.storage.get<number>('learnerId');
+		console.log(`[LearnerAssessmentDO] Retrieved storage data - session_id: ${session_id}, learner_id: ${learner_id}`);
+		
 		if (!session_id || !learner_id) {
-			console.warn('[LearnerAssessmentDO] Missing sessionId or learnerId in storage, skipping scorecard');
+			console.error(`[LearnerAssessmentDO] CRITICAL ERROR: Missing required IDs - session_id: ${session_id}, learner_id: ${learner_id}. Cannot generate scorecard!`);
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
 			return;
 		}
 
 		const bellEvents = await this.state.storage.get<{peerId:string,ts:number}[]>(`bells:${roomId}`) ?? [];
+		console.log(`[LearnerAssessmentDO] Retrieved ${bellEvents.length} bell events for teacher scorecard`);
+
+		console.log(`[LearnerAssessmentDO] 🚀 Initiating scorecard generation pipeline for session ${session_id}`);
+		console.log(`[LearnerAssessmentDO] Scorecard request data: ${simplifiedLearnerSegments.length} learner segments, ${bellEvents.length} bell events`);
 
 		try {
 			const orchestratorDO = this.env.SCORECARD_ORCHESTRATOR_DO.get(this.env.SCORECARD_ORCHESTRATOR_DO.idFromName(roomId));
@@ -781,10 +792,18 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				})
 			});
 
+			if (!res.ok) {
+				throw new Error(`ScorecardOrchestratorDO returned ${res.status}: ${res.statusText}`);
+			}
+
 			const { scorecard } = await res.json() as any;
+			console.log(`[LearnerAssessmentDO] ✅ Scorecard generation completed successfully for session ${session_id}`);
+			console.log(`[LearnerAssessmentDO] Scorecard summary: ${scorecard?.mistakes?.length || 0} mistakes, ${scorecard?.languageAccuracy || 0}% accuracy`);
+			
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard });
 		} catch (error) {
-			console.error('[LearnerAssessmentDO] Scorecard generation failed:', error);
+			console.error(`[LearnerAssessmentDO] ❌ CRITICAL ERROR: Scorecard generation failed for session ${session_id}:`, error);
+			console.error(`[LearnerAssessmentDO] This means learner progress data will be lost for this session!`);
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
 		}
 
