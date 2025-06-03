@@ -23,10 +23,34 @@ export class MistakeDetectorDO extends DurableObject<Env> {
 		super(state, env);
 
 		this.app.post('/detect', async (c) => {
+			console.log(`🎯 [MISTAKE-DETECTOR] 🚀 DETECTION REQUEST RECEIVED`);
+			console.log(`🎯 [MISTAKE-DETECTOR] Request URL: ${c.req.url}`);
+			console.log(`🎯 [MISTAKE-DETECTOR] Request method: ${c.req.method}`);
+
+			let parsedBody;
+			try {
+				parsedBody = await c.req.json();
+				console.log(`🎯 [MISTAKE-DETECTOR] ✅ Request body parsed successfully`);
+				console.log(`🎯 [MISTAKE-DETECTOR] Body keys: ${Object.keys(parsedBody).join(', ')}`);
+			} catch (error) {
+				console.error(`🎯 [MISTAKE-DETECTOR] ❌ CRITICAL: Failed to parse request body:`, error);
+				return c.json({ error: 'Invalid JSON in request body' }, 400);
+			}
+
 			const { learnerUtterances, fullTranscript }: {
 				learnerUtterances: string[];
 				fullTranscript: string;
-			} = await c.req.json();
+			} = parsedBody;
+
+			console.log(`🎯 [MISTAKE-DETECTOR] 📊 Request data:`, {
+				learnerUtterancesCount: learnerUtterances?.length || 0,
+				fullTranscriptLength: fullTranscript?.length || 0
+			});
+
+			if (!learnerUtterances?.length) {
+				console.error(`🎯 [MISTAKE-DETECTOR] ❌ CRITICAL: No learner utterances provided`);
+				return c.json({ error: 'No learner utterances provided' }, 400);
+			}
 
 			if (!learnerUtterances?.length) {
 				return c.json({ error: 'No learner utterances provided' }, 400);

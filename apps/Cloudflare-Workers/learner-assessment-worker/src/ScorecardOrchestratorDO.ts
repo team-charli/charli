@@ -30,8 +30,21 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
     /**************** POST /scorecard/:roomId ****************/
     this.app.post('/scorecard/:roomId', async (c) => {
       const roomId = c.req.param('roomId');
+      console.log(`🎯 [SCORECARD-ORCHESTRATOR] 🚀 SCORECARD REQUEST RECEIVED - roomId: ${roomId}`);
+      console.log(`🎯 [SCORECARD-ORCHESTRATOR] Request URL: ${c.req.url}`);
+      console.log(`🎯 [SCORECARD-ORCHESTRATOR] Request method: ${c.req.method}`);
 
       /* -------------------- parse body ------------------- */
+      let parsedBody;
+      try {
+        parsedBody = await c.req.json();
+        console.log(`🎯 [SCORECARD-ORCHESTRATOR] ✅ Request body parsed successfully`);
+        console.log(`🎯 [SCORECARD-ORCHESTRATOR] Body keys: ${Object.keys(parsedBody).join(', ')}`);
+      } catch (error) {
+        console.error(`🎯 [SCORECARD-ORCHESTRATOR] ❌ CRITICAL: Failed to parse request body:`, error);
+        return c.json({ error: 'Invalid JSON in request body' }, 400);
+      }
+
       const {
         learnerSegments,
         fullTranscript,
@@ -48,7 +61,18 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
         teacher_id: number;
         bellEvents?: BellEvent[];
         sessionStartMs?: number;
-      } = await c.req.json();
+      } = parsedBody;
+
+      console.log(`🎯 [SCORECARD-ORCHESTRATOR] 📊 Request data:`, {
+        roomId,
+        session_id,
+        learner_id,
+        teacher_id,
+        learnerSegmentsCount: learnerSegments?.length || 0,
+        fullTranscriptLength: fullTranscript?.length || 0,
+        bellEventsCount: bellEvents?.length || 0,
+        sessionStartMs
+      });
 
       /* ---------------- learner‑side scoring ------------- */
       console.log(`[ScorecardOrchestratorDO] Starting scorecard generation for room ${roomId}, session ${session_id}`);
@@ -70,7 +94,7 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
       
       let detectorRes, mistakes;
       try {
-        detectorRes = await detectorStub.fetch('/detect', {
+        detectorRes = await detectorStub.fetch('http://mistake-detector/detect', {
           method: 'POST',
           body: JSON.stringify({ learnerUtterances, fullTranscript }),
           headers: { 'Content-Type': 'application/json' }
@@ -96,7 +120,7 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
       
       let analyzerRes, analyzedMistakes;
       try {
-        analyzerRes = await analyzerStub.fetch('/analyze', {
+        analyzerRes = await analyzerStub.fetch('http://mistake-analyzer/analyze', {
           method: 'POST',
           body: JSON.stringify({ detectedMistakes: mistakes }),
           headers: { 'Content-Type': 'application/json' }
@@ -128,7 +152,7 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
       
       let enrichmentRes, enrichedMistakes;
       try {
-        enrichmentRes = await enrichmentStub.fetch('/enrich', {
+        enrichmentRes = await enrichmentStub.fetch('http://mistake-enricher-pipeline/enrich', {
           method: 'POST',
           body: JSON.stringify({ learner_id, analyzedMistakes }),
           headers: { 'Content-Type': 'application/json' }
@@ -153,7 +177,7 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
       );
       
       try {
-        const persistRes = await persisterStub.fetch('/persist', {
+        const persistRes = await persisterStub.fetch('http://scorecard-persister/persist', {
           method: 'POST',
           body: JSON.stringify({
             session_id,
@@ -281,7 +305,7 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
         );
         
         try {
-          const teacherPersistRes = await teacherPersisterStub.fetch('/persist', {
+          const teacherPersistRes = await teacherPersisterStub.fetch('http://teacher-scorecard-persister/persist', {
             method: 'POST',
             body: JSON.stringify({
               session_id,

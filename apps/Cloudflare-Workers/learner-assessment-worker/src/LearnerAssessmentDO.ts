@@ -858,33 +858,87 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		console.log(`🎯 [TRANSCRIBE] 🚀 Initiating scorecard generation pipeline for session ${session_id}`);
 		console.log(`🎯 [TRANSCRIBE] Scorecard request data: ${simplifiedLearnerSegments.length} learner segments, ${bellEvents.length} bell events`);
+		console.log(`🎯 [TRANSCRIBE] 📊 Detailed scorecard request:`, {
+			roomId,
+			session_id,
+			learner_id,
+			simplifiedLearnerSegmentsCount: simplifiedLearnerSegments.length,
+			fullTranscriptLength: fullTranscript.length,
+			bellEventsCount: bellEvents.length,
+			firstSegment: simplifiedLearnerSegments[0] || null,
+			lastSegment: simplifiedLearnerSegments[simplifiedLearnerSegments.length - 1] || null
+		});
 
 		try {
 			const orchestratorDO = this.env.SCORECARD_ORCHESTRATOR_DO.get(this.env.SCORECARD_ORCHESTRATOR_DO.idFromName(roomId));
+			console.log(`🎯 [TRANSCRIBE] ✅ ScorecardOrchestratorDO instance created for room ${roomId}`);
+			
+			const requestBody = {
+				learnerSegments: simplifiedLearnerSegments,
+				fullTranscript,
+				bellEvents,
+				session_id,
+				learner_id
+			};
+			
+			console.log(`🎯 [TRANSCRIBE] 🚀 Sending request to ScorecardOrchestratorDO`);
+			console.log(`🎯 [TRANSCRIBE] Request URL: http://scorecard-orchestrator/scorecard/${roomId}`);
+			console.log(`🎯 [TRANSCRIBE] Request body preview:`, {
+				learnerSegmentsCount: requestBody.learnerSegments.length,
+				fullTranscriptLength: requestBody.fullTranscript.length,
+				bellEventsCount: requestBody.bellEvents.length,
+				session_id: requestBody.session_id,
+				learner_id: requestBody.learner_id
+			});
+
 			const res = await orchestratorDO.fetch(`http://scorecard-orchestrator/scorecard/${roomId}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					learnerSegments: simplifiedLearnerSegments,
-					fullTranscript,
-					bellEvents,
-					session_id,
-					learner_id
-				})
+				body: JSON.stringify(requestBody)
 			});
 
+			console.log(`🎯 [TRANSCRIBE] 📡 ScorecardOrchestratorDO response status: ${res.status}`);
+			console.log(`🎯 [TRANSCRIBE] 📡 ScorecardOrchestratorDO response ok: ${res.ok}`);
+
 			if (!res.ok) {
+				console.error(`🎯 [TRANSCRIBE] ❌ CRITICAL: ScorecardOrchestratorDO returned ${res.status}: ${res.statusText}`);
 				throw new Error(`ScorecardOrchestratorDO returned ${res.status}: ${res.statusText}`);
 			}
 
-			const { scorecard } = await res.json() as any;
-			console.log(`🎯 [TRANSCRIBE] ✅ Scorecard generation completed successfully for session ${session_id}`);
-			console.log(`🎯 [TRANSCRIBE] Scorecard summary: ${scorecard?.mistakes?.length || 0} mistakes, ${scorecard?.languageAccuracy || 0}% accuracy`);
-			console.log(`🎯 [TRANSCRIBE] Scorecard is null: ${scorecard === null}`);
+			let responseData;
+			try {
+				responseData = await res.json() as any;
+				console.log(`🎯 [TRANSCRIBE] ✅ Response JSON parsed successfully`);
+				console.log(`🎯 [TRANSCRIBE] Response keys: ${Object.keys(responseData).join(', ')}`);
+			} catch (error) {
+				console.error(`🎯 [TRANSCRIBE] ❌ CRITICAL: Failed to parse response JSON:`, error);
+				throw new Error(`Failed to parse scorecard response: ${error}`);
+			}
+
+			const { scorecard } = responseData;
+			console.log(`🎯 [TRANSCRIBE] 📊 Scorecard analysis:`, {
+				scorecardExists: !!scorecard,
+				scorecardIsNull: scorecard === null,
+				scorecardIsUndefined: scorecard === undefined,
+				scorecardType: typeof scorecard,
+				mistakesCount: scorecard?.mistakes?.length || 0,
+				languageAccuracy: scorecard?.languageAccuracy || 0,
+				conversationDifficulty: scorecard?.conversationDifficulty || 0
+			});
+
+			if (scorecard === null) {
+				console.error(`🎯 [TRANSCRIBE] ❌ CRITICAL: Scorecard is NULL - this indicates pipeline failure!`);
+			} else if (scorecard) {
+				console.log(`🎯 [TRANSCRIBE] ✅ Scorecard generation completed successfully for session ${session_id}`);
+				console.log(`🎯 [TRANSCRIBE] Scorecard summary: ${scorecard.mistakes?.length || 0} mistakes, ${scorecard.languageAccuracy || 0}% accuracy`);
+			} else {
+				console.error(`🎯 [TRANSCRIBE] ❌ CRITICAL: Scorecard is undefined - unexpected response format!`);
+			}
 
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard });
 		} catch (error) {
 			console.error(`🎯 [TRANSCRIBE] ❌ CRITICAL ERROR: Scorecard generation failed for session ${session_id}:`, error);
+			console.error(`🎯 [TRANSCRIBE] Error type: ${typeof error}, Error message: ${error?.message || 'Unknown'}`);
 			console.error(`🎯 [TRANSCRIBE] This means learner progress data will be lost for this session!`);
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
 		}

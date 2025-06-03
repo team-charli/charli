@@ -268,14 +268,25 @@ export default function Room() {
 
   async function handleEndSession() {
     console.log("[Room] => handleEndSession => called");
+    console.log("[Room] => uploadUrl at time of call:", uploadUrl);
+    console.log("[Room] => localPeerId:", localPeerId);
+    console.log("[Room] => roomRole:", roomRole);
     try {
       // CRITICAL: Trigger end-session FIRST while Deepgram connection is still active
+      let scorecardData = null;
       if (uploadUrl) {
         const endUrl = `${uploadUrl}&action=end-session`;
         console.log("[Room] => triggering server end-session BEFORE cleanup:", endUrl);
         const response = await fetch(endUrl, { method: "POST" });
+        console.log("[Room] => fetch response status:", response.status);
         if (!response.ok) throw new Error(`Server end-session failed: ${response.status}`);
-        console.log("[Room] => server end-session completed successfully");
+        
+        // Read the response body to get scorecard data
+        const responseData = await response.json();
+        scorecardData = responseData;
+        console.log("[Room] => server end-session completed successfully, scorecard:", responseData?.scorecard ? 'generated' : 'null');
+      } else {
+        console.error("[Room] => ❌ CRITICAL: uploadUrl is null/undefined - cannot trigger end-session!");
       }
 
       // Now cleanup audio and leave room AFTER scorecard generation is triggered
@@ -288,8 +299,10 @@ export default function Room() {
 
       leaveRoom();
       console.log("[Room] => left Huddle01 room successfully");
+      return scorecardData;
     } catch (err) {
       console.error("[Room] => end session error:", err);
+      return null;
     }
   }
 
