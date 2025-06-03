@@ -72,37 +72,13 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private static readonly MIN_CHUNK_INTERVAL_MS = 50; // 5 msg/s = 50ms between chunks
 	private connectBannerLogged = false;   // ← new
 	private modeBannerLogged = false;
-	private buildGuardComplete = false;    // blocking build guard status
-	private pendingBuildGuard: Promise<void> | null = null; // build guard promise
 	/* ------------------------------------------------------------------ */
 
 	constructor(state: DurableObjectState, env: Env) {
 		console.log(`[DEBUG-SEGMENTS] DO Constructor called - new instance created`);
 		super(state, env);
 		this.state = state;
-		this.buildGuardComplete = false;
-		this.pendingBuildGuard = null;
 
-		// AGGRESSIVE build-id guard - MUST complete before processing requests
-		console.log(`[LearnerAssessmentDO] CONSTRUCTOR: Build ID from env: ${env.__BUILD_ID || 'NOT_SET'}`);
-		if (env.__BUILD_ID) {
-			console.log(`[LearnerAssessmentDO] CONSTRUCTOR: Starting BLOCKING build guard with ID: ${env.__BUILD_ID}`);
-			this.pendingBuildGuard = this.aggressiveBuildGuard(env.__BUILD_ID);
-		} else {
-			console.log(`[LearnerAssessmentDO] CONSTRUCTOR: WARNING - No __BUILD_ID provided, build guard disabled`);
-			this.buildGuardComplete = true;
-		}
-
-		/* ────────── POST /audio/debug-build-id (special debug route) ────────── */
-		this.app.post('/audio/debug-build-id', async c => {
-			await this.ensureBuildGuardComplete();
-			return c.json({
-				buildId: env.__BUILD_ID || 'NOT_SET',
-				hasBuildId: !!env.__BUILD_ID,
-				buildGuardComplete: this.buildGuardComplete,
-				timestamp: new Date().toISOString()
-			});
-		});
 
 		/* ────────── POST /audio/:roomId ────────── */
 		this.app.post('/audio/:roomId', async c => {
@@ -113,6 +89,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		this.app.post('/audio/:roomId{.*}', async c => {
 			return this.handleAudioRequest(c);
 		});
+
 
 		/* ────────── POST /bell/:roomId ────────── */
 		this.app.post('/bell/:roomId', async c => {
@@ -130,9 +107,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	}
 
 	private async handleAudioRequest(c: any) {
-		/* 0. BLOCKING: Wait for build guard to complete -------------------- */
-		await this.ensureBuildGuardComplete();
-
 		/* 1. params & query ------------------------------------------------ */
 		const roomId = c.req.param('roomId');
 		const q      = c.req.query();
@@ -634,47 +608,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		return this.app.fetch(request);
 	}
 
-	/* ─────────────────────── AGGRESSIVE Build guard helper ──────────────────────── */
-	private async aggressiveBuildGuard(buildId: string): Promise<void> {
-		try {
-			console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Starting with ID ${buildId}`);
-			const storedBuildId = await this.state.storage.get<string>('build');
-			console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Stored build ID: ${storedBuildId}`);
-
-			if (buildId !== storedBuildId) {
-				console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Build ID changed from ${storedBuildId} to ${buildId} - NUKING ALL STORAGE`);
-				await this.state.storage.deleteAll();
-				await this.state.storage.put('build', buildId);
-				console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: ✅ Storage completely reset`);
-
-				// Force close existing Deepgram connection to ensure new parameters take effect
-				if (this.dgSocket?.ws.readyState === WebSocket.OPEN) {
-					console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Closing old Deepgram connection`);
-					this.dgSocket.ws.close(1000);
-				}
-				console.log(`[DEBUG-SEGMENTS] Clearing dgSocket, segments lost: ${this.dgSocket?.segments?.length || 0}, reason: build-guard`);
-				this.dgSocket = null;
-				this.connectBannerLogged = false;
-			} else {
-				console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Build ID unchanged - no reset needed`);
-			}
-
-			this.buildGuardComplete = true;
-			console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: ✅ COMPLETE - ready to process requests`);
-		} catch (error) {
-			console.error(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: ❌ FAILED:`, error);
-			// FAIL SAFE: Mark complete anyway to avoid hanging requests
-			this.buildGuardComplete = true;
-		}
-	}
-
-	private async ensureBuildGuardComplete(): Promise<void> {
-		if (this.buildGuardComplete) return;
-		if (this.pendingBuildGuard) {
-			console.log(`[LearnerAssessmentDO] ⏳ Waiting for build guard to complete...`);
-			await this.pendingBuildGuard;
-		}
-	}
 
 	/* ───────────────────── session-mode helpers (storage) ─────────────── */
 	private async getSessionMode(): Promise<SessionMode> {
