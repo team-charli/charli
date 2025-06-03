@@ -286,13 +286,6 @@ export default function Room() {
 
       // optionally finalize with the server
       if (uploadUrl) {
-        // Wait 3 seconds before sending end-session to ensure:
-        // 1. Audio pipeline has fully flushed all segments
-        // 2. Durable Object build guard has completed
-        // 3. All segments are properly stored in DO memory
-        console.log("[Room] => waiting 3 seconds before scorecard generation...");
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
         const endUrl = `${uploadUrl}&action=end-session`;
         const response = await fetch(endUrl, { method: "POST" });
         if (!response.ok) throw new Error("Server finalization failed");
