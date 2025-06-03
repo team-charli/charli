@@ -114,11 +114,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const role   = q['role']   ?? 'unknown';
 		const peerId = q['peerId'] ?? 'unknown';
 
-		// Debug logging for end-session requests
+		// 🎯 AIRTIGHT LOGGING: Debug logging for end-session requests
 		if (action === 'end-session') {
-			console.log(`[LearnerAssessmentDO] 🎯 END-SESSION REQUEST RECEIVED - roomId: ${roomId}, action: ${action}`);
-			console.log(`[LearnerAssessmentDO] Full query params:`, JSON.stringify(q));
-			console.log(`[LearnerAssessmentDO] Request URL: ${c.req.url}`);
+			console.log(`🎯 [HANDLE-AUDIO] END-SESSION REQUEST RECEIVED - roomId: ${roomId}, action: ${action}`);
+			console.log(`🎯 [HANDLE-AUDIO] Full query params:`, JSON.stringify(q));
+			console.log(`🎯 [HANDLE-AUDIO] Request URL: ${c.req.url}`);
+			console.log(`🎯 [HANDLE-AUDIO] Request method: ${c.req.method}`);
+			console.log(`🎯 [HANDLE-AUDIO] Current segments count: ${this.dgSocket?.segments?.length || 0}`);
+			console.log(`🎯 [HANDLE-AUDIO] Deepgram socket state: ${this.dgSocket?.ws?.readyState || 'null'}`);
 		}
 
 		const requestedRobo = q['roboMode'] === 'true';
@@ -137,22 +140,33 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		}
 
 		if (action === 'end-session') {
-			console.log(`[LearnerAssessmentDO] 🏁 Session ending for room ${roomId} - starting scorecard generation process`);
+			console.log(`🎯 [END-SESSION] 🏁 Session ending for room ${roomId} - starting scorecard generation process`);
+			console.log(`🎯 [END-SESSION] Session metadata - sessionId: ${sessionIdStr}, learnerId: ${learnerIdStr}`);
+			console.log(`🎯 [END-SESSION] Deepgram socket exists: ${!!this.dgSocket}`);
+			console.log(`🎯 [END-SESSION] Segments available: ${this.dgSocket?.segments?.length || 0}`);
+			
 			try {
 				// Send CloseStream message before closing Deepgram connection
 				if (this.dgSocket?.ws.readyState === WebSocket.OPEN) {
-					console.log(`[LearnerAssessmentDO] Closing Deepgram stream with ${this.dgSocket.segments?.length || 0} collected segments`);
+					console.log(`🎯 [END-SESSION] ✅ Closing Deepgram stream with ${this.dgSocket.segments?.length || 0} collected segments`);
 					this.dgSocket.ws.send(JSON.stringify({ type: "CloseStream" }));
 				} else {
-					console.warn(`[LearnerAssessmentDO] WARNING: Deepgram socket not open during session end - readyState: ${this.dgSocket?.ws.readyState || 'null'}`);
+					console.warn(`🎯 [END-SESSION] ⚠️ WARNING: Deepgram socket not open during session end - readyState: ${this.dgSocket?.ws.readyState || 'null'}`);
 				}
+				
+				console.log(`🎯 [END-SESSION] 🚀 Calling transcribeAndDiarizeAll for roomId: ${roomId}`);
 				await this.transcribeAndDiarizeAll(roomId);
+				
+				console.log(`🎯 [END-SESSION] ✅ transcribeAndDiarizeAll completed successfully`);
 				this.dgSocket?.ws.close(1000);
-				console.log(`[DEBUG-SEGMENTS] Clearing dgSocket, segments lost: ${this.dgSocket?.segments?.length || 0}, reason: session-end`);
+				console.log(`🎯 [END-SESSION] [DEBUG-SEGMENTS] Clearing dgSocket, segments lost: ${this.dgSocket?.segments?.length || 0}, reason: session-end`);
 				this.dgSocket = null;
+				
+				console.log(`🎯 [END-SESSION] 🎉 End-session processing completed successfully`);
 				return c.json({ status: 'transcription completed' });
 			} catch (err) {
-				console.error('[LearnerAssessmentDO] end-session error:', err);
+				console.error(`🎯 [END-SESSION] ❌ CRITICAL ERROR in end-session processing:`, err);
+				console.error(`🎯 [END-SESSION] Error stack:`, err instanceof Error ? err.stack : 'No stack trace');
 				return c.json({ status: 'completed with errors', error: String(err) }, 200);
 			}
 		}
@@ -611,8 +625,27 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 	/* ───────────────────────── Durable-object fetch ───────────────────── */
 	async fetch(request: Request) {
-		console.log(`[DEBUG-SEGMENTS] DO fetch called - segments in memory: ${this.dgSocket?.segments?.length || 'none'}`);
-		return this.app.fetch(request);
+		const url = new URL(request.url);
+		const action = url.searchParams.get('action');
+		
+		// 🎯 AIRTIGHT LOGGING: Track requests entering the DO
+		if (action === 'end-session') {
+			console.log(`🎯 [DO-FETCH] END-SESSION REQUEST RECEIVED IN DO FETCH`);
+			console.log(`🎯 [DO-FETCH] Request URL: ${request.url}`);
+			console.log(`🎯 [DO-FETCH] Request method: ${request.method}`);
+			console.log(`🎯 [DO-FETCH] Segments in memory: ${this.dgSocket?.segments?.length || 'none'}`);
+		} else {
+			console.log(`[DEBUG-SEGMENTS] DO fetch called - segments in memory: ${this.dgSocket?.segments?.length || 'none'}`);
+		}
+		
+		const response = await this.app.fetch(request);
+		
+		if (action === 'end-session') {
+			console.log(`🎯 [DO-FETCH] Response status: ${response.status}`);
+			console.log(`🎯 [DO-FETCH] Response generated for end-session request`);
+		}
+		
+		return response;
 	}
 
 
@@ -770,18 +803,18 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 	/* ────────────── batch diarisation & scorecard ─────────── */
 	private async transcribeAndDiarizeAll(roomId: string) {
-		console.log(`[LearnerAssessmentDO] Starting transcribeAndDiarizeAll for room ${roomId}`);
+		console.log(`🎯 [TRANSCRIBE] 🚀 Starting transcribeAndDiarizeAll for room ${roomId}`);
 
 		// Use the segments collected from Deepgram smart-listen streaming
-		console.log(`[DEBUG-SEGMENTS] Session end - dgSocket exists: ${!!this.dgSocket}, segments array exists: ${!!this.dgSocket?.segments}`);
+		console.log(`🎯 [TRANSCRIBE] Session end - dgSocket exists: ${!!this.dgSocket}, segments array exists: ${!!this.dgSocket?.segments}`);
 		if (this.dgSocket?.segments) {
-			console.log(`[DEBUG-SEGMENTS] Segment details: ${this.dgSocket.segments.map(s => `"${s.text}" (${s.role})`).join(', ')}`);
+			console.log(`🎯 [TRANSCRIBE] Segment details: ${this.dgSocket.segments.map(s => `"${s.text}" (${s.role})`).join(', ')}`);
 		}
 		const allSegments = this.dgSocket?.segments || [];
-		console.log(`[LearnerAssessmentDO] Found ${allSegments.length} Deepgram segments`);
+		console.log(`🎯 [TRANSCRIBE] Found ${allSegments.length} Deepgram segments`);
 
 		if (allSegments.length === 0) {
-			console.log('[LearnerAssessmentDO] No segments found for transcription');
+			console.log(`🎯 [TRANSCRIBE] ❌ No segments found for transcription`);
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: '', scorecard: null });
 			return;
 		}
@@ -808,11 +841,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const session_id = await this.state.storage.get<number>('sessionId');
 		const learner_id = await this.state.storage.get<number>('learnerId');
 		const metaWritten = await this.state.storage.get('metaWritten');
-		console.log(`[LearnerAssessmentDO] Retrieved storage data - session_id: ${session_id}, learner_id: ${learner_id}, metaWritten: ${metaWritten}`);
+		console.log(`🎯 [TRANSCRIBE] Retrieved storage data - session_id: ${session_id}, learner_id: ${learner_id}, metaWritten: ${metaWritten}`);
 
 		if (!session_id || !learner_id) {
-			console.error(`[LearnerAssessmentDO] CRITICAL ERROR: Missing required IDs - session_id: ${session_id}, learner_id: ${learner_id}. Cannot generate scorecard!`);
-			console.error(`[LearnerAssessmentDO] Storage debug - metaWritten: ${metaWritten}, all storage keys:`, Object.keys(await this.state.storage.list()));
+			console.error(`🎯 [TRANSCRIBE] ❌ CRITICAL ERROR: Missing required IDs - session_id: ${session_id}, learner_id: ${learner_id}. Cannot generate scorecard!`);
+			console.error(`🎯 [TRANSCRIBE] Storage debug - metaWritten: ${metaWritten}, all storage keys:`, Object.keys(await this.state.storage.list()));
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
 			return;
 		}
@@ -820,8 +853,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const bellEvents = await this.state.storage.get<{peerId:string,ts:number}[]>(`bells:${roomId}`) ?? [];
 		console.log(`[LearnerAssessmentDO] Retrieved ${bellEvents.length} bell events for teacher scorecard`);
 
-		console.log(`[LearnerAssessmentDO] 🚀 Initiating scorecard generation pipeline for session ${session_id}`);
-		console.log(`[LearnerAssessmentDO] Scorecard request data: ${simplifiedLearnerSegments.length} learner segments, ${bellEvents.length} bell events`);
+		console.log(`🎯 [TRANSCRIBE] 🚀 Initiating scorecard generation pipeline for session ${session_id}`);
+		console.log(`🎯 [TRANSCRIBE] Scorecard request data: ${simplifiedLearnerSegments.length} learner segments, ${bellEvents.length} bell events`);
 
 		try {
 			const orchestratorDO = this.env.SCORECARD_ORCHESTRATOR_DO.get(this.env.SCORECARD_ORCHESTRATOR_DO.idFromName(roomId));
@@ -842,21 +875,22 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			}
 
 			const { scorecard } = await res.json() as any;
-			console.log(`[LearnerAssessmentDO] ✅ Scorecard generation completed successfully for session ${session_id}`);
-			console.log(`[LearnerAssessmentDO] Scorecard summary: ${scorecard?.mistakes?.length || 0} mistakes, ${scorecard?.languageAccuracy || 0}% accuracy`);
+			console.log(`🎯 [TRANSCRIBE] ✅ Scorecard generation completed successfully for session ${session_id}`);
+			console.log(`🎯 [TRANSCRIBE] Scorecard summary: ${scorecard?.mistakes?.length || 0} mistakes, ${scorecard?.languageAccuracy || 0}% accuracy`);
+			console.log(`🎯 [TRANSCRIBE] Scorecard is null: ${scorecard === null}`);
 
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard });
 		} catch (error) {
-			console.error(`[LearnerAssessmentDO] ❌ CRITICAL ERROR: Scorecard generation failed for session ${session_id}:`, error);
-			console.error(`[LearnerAssessmentDO] This means learner progress data will be lost for this session!`);
+			console.error(`🎯 [TRANSCRIBE] ❌ CRITICAL ERROR: Scorecard generation failed for session ${session_id}:`, error);
+			console.error(`🎯 [TRANSCRIBE] This means learner progress data will be lost for this session!`);
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
 		}
 
 		// Cleanup storage
-		console.log(`[LearnerAssessmentDO] Cleaning up storage for room ${roomId}`);
+		console.log(`🎯 [TRANSCRIBE] Cleaning up storage for room ${roomId}`);
 		await this.cleanupAll(roomId);
 
-		console.log(`[LearnerAssessmentDO] transcribeAndDiarizeAll completed for room ${roomId}`);
+		console.log(`🎯 [TRANSCRIBE] 🎉 transcribeAndDiarizeAll completed for room ${roomId}`);
 	}
 
 	private async broadcastToRoom(roomId: string, messageType: string, data: any) {

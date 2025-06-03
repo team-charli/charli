@@ -67,13 +67,29 @@ app.get('/connect/:roomId', async (c) => {
 // Single endpoint for receiving audio data & end-session signal
 app.post('/audio/:roomId', async (c) => {
 	const roomId = c.req.param('roomId')
+	const originalUrl = new URL(c.req.url);
+	const action = originalUrl.searchParams.get('action');
+	
+	// 🎯 AIRTIGHT LOGGING: Track all requests at worker entry point
+	if (action === 'end-session') {
+		console.log(`🎯 [WORKER-INDEX] END-SESSION REQUEST ENTRY - roomId: ${roomId}`);
+		console.log(`🎯 [WORKER-INDEX] Full URL: ${c.req.url}`);
+		console.log(`🎯 [WORKER-INDEX] Method: ${c.req.method}`);
+		console.log(`🎯 [WORKER-INDEX] Headers:`, JSON.stringify(Object.fromEntries(c.req.header())));
+		console.log(`🎯 [WORKER-INDEX] Query params:`, JSON.stringify(Object.fromEntries(originalUrl.searchParams)));
+	}
+	
 	const assessmentDO = c.env.LEARNER_ASSESSMENT_DO.get(
 		c.env.LEARNER_ASSESSMENT_DO.idFromName(roomId)
 	)
 	
 	// Create a new request with the correct URL for the DO
-	const originalUrl = new URL(c.req.url);
 	const doUrl = `http://learner-assessment${originalUrl.pathname}${originalUrl.search}`;
+	
+	if (action === 'end-session') {
+		console.log(`🎯 [WORKER-INDEX] Forwarding to DO - doUrl: ${doUrl}`);
+		console.log(`🎯 [WORKER-INDEX] DO ID: ${c.env.LEARNER_ASSESSMENT_DO.idFromName(roomId)}`);
+	}
 	
 	const doRequest = new Request(doUrl, {
 		method: c.req.method,
@@ -81,7 +97,14 @@ app.post('/audio/:roomId', async (c) => {
 		body: c.req.raw.body,
 	});
 	
-	return assessmentDO.fetch(doRequest)
+	const doResponse = await assessmentDO.fetch(doRequest);
+	
+	if (action === 'end-session') {
+		console.log(`🎯 [WORKER-INDEX] DO response status: ${doResponse.status}`);
+		console.log(`🎯 [WORKER-INDEX] DO response headers:`, JSON.stringify(Object.fromEntries(doResponse.headers)));
+	}
+	
+	return doResponse;
 })
 
 export {

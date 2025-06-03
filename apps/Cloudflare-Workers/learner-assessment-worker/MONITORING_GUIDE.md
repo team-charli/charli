@@ -168,9 +168,13 @@ CRITICAL ERROR: Scorecard generation failed for session X: [error details]
 
 ### 4. Session End Not Triggered
 ```
-🏁 Session ending for room X - starting scorecard generation process
+🎯 [WORKER-INDEX] END-SESSION REQUEST ENTRY - roomId: X
+🎯 [DO-FETCH] END-SESSION REQUEST RECEIVED IN DO FETCH
+🎯 [HANDLE-AUDIO] END-SESSION REQUEST RECEIVED - roomId: X
+🎯 [END-SESSION] 🏁 Session ending for room X - starting scorecard generation process
 ```
-**Missing this log means:** The end-session action was never called from Room.tsx
+**Airtight Logging:** These logs show exactly where end-session requests are in the pipeline
+**Missing any of these means:** Request is not reaching that specific layer
 **Fix:** Verify handleEndSession() in Room.tsx is calling the uploadUrl with `&action=end-session`
 
 ## Failure Patterns to Watch For

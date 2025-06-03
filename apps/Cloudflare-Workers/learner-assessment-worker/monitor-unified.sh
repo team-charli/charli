@@ -95,7 +95,7 @@ colorize_logs() {
 get_filter_pattern() {
     case $MODE in
         scorecard)
-            echo "scorecard|assessment|mistake|error|✅|🎉|successfully|completed|generated|🚀.*Initiating|ScorecardOrchestratorDO|Starting.*mistake|Starting.*enrichment|Starting.*persistence|Persisting.*scorecard|transcribeAndDiarizeAll|end-session.*error|Missing required IDs|No segments found|scorecard.*null|null.*scorecard|🏁.*Session.*ending"
+            echo "scorecard|assessment|mistake|error|✅|🎉|successfully|completed|generated|🚀.*Initiating|ScorecardOrchestratorDO|Starting.*mistake|Starting.*enrichment|Starting.*persistence|Persisting.*scorecard|transcribeAndDiarizeAll|end-session.*error|Missing required IDs|No segments found|scorecard.*null|null.*scorecard|🏁.*Session.*ending|🎯.*WORKER-INDEX.*END-SESSION|🎯.*DO-FETCH.*END-SESSION|🎯.*HANDLE-AUDIO.*END-SESSION|🎯.*END-SESSION"
             ;;
         errors)
             echo "CRITICAL|ERROR|failed|timeout|persistence.*failed"
