@@ -154,8 +154,12 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					console.warn(`🎯 [END-SESSION] ⚠️ WARNING: Deepgram socket not open during session end - readyState: ${this.dgSocket?.ws.readyState || 'null'}`);
 				}
 				
+				// CRITICAL FIX: Extract segments BEFORE closing to prevent race condition
+				const collectedSegments = this.dgSocket?.segments || [];
+				console.log(`🎯 [END-SESSION] 🚀 Extracted ${collectedSegments.length} segments before closing socket`);
+				
 				console.log(`🎯 [END-SESSION] 🚀 Calling transcribeAndDiarizeAll for roomId: ${roomId}`);
-				await this.transcribeAndDiarizeAll(roomId);
+				await this.transcribeAndDiarizeAll(roomId, collectedSegments);
 				
 				console.log(`🎯 [END-SESSION] ✅ transcribeAndDiarizeAll completed successfully`);
 				this.dgSocket?.ws.close(1000);
@@ -802,16 +806,15 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 
 	/* ────────────── batch diarisation & scorecard ─────────── */
-	private async transcribeAndDiarizeAll(roomId: string) {
+	private async transcribeAndDiarizeAll(roomId: string, extractedSegments?: TranscribedSegment[]) {
 		console.log(`🎯 [TRANSCRIBE] 🚀 Starting transcribeAndDiarizeAll for room ${roomId}`);
 
-		// Use the segments collected from Deepgram smart-listen streaming
-		console.log(`🎯 [TRANSCRIBE] Session end - dgSocket exists: ${!!this.dgSocket}, segments array exists: ${!!this.dgSocket?.segments}`);
-		if (this.dgSocket?.segments) {
-			console.log(`🎯 [TRANSCRIBE] Segment details: ${this.dgSocket.segments.map(s => `"${s.text}" (${s.role})`).join(', ')}`);
+		// Use extracted segments (from race condition fix) or fallback to dgSocket segments
+		const allSegments = extractedSegments || this.dgSocket?.segments || [];
+		console.log(`🎯 [TRANSCRIBE] Using ${extractedSegments ? 'extracted' : 'dgSocket'} segments: ${allSegments.length} total`);
+		if (allSegments.length > 0) {
+			console.log(`🎯 [TRANSCRIBE] Segment details: ${allSegments.map(s => `"${s.text}" (${s.role})`).join(', ')}`);
 		}
-		const allSegments = this.dgSocket?.segments || [];
-		console.log(`🎯 [TRANSCRIBE] Found ${allSegments.length} Deepgram segments`);
 
 		if (allSegments.length === 0) {
 			console.log(`🎯 [TRANSCRIBE] ❌ No segments found for transcription`);

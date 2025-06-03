@@ -33,6 +33,14 @@ app.use('*', async (c, next) => {
 });
 
 
+// Test endpoint for logging verification
+app.get('/test-logging', async (c) => {
+	console.log('[TEST] Basic console.log test');
+	console.error('[TEST] Basic console.error test');
+	console.warn('[TEST] Basic console.warn test');
+	return c.json({ message: 'Test logging endpoint', timestamp: new Date().toISOString() });
+});
+
 // WebSocket endpoint (connections managed by MessageRelay)
 app.get('/connect/:roomId', async (c) => {
 	if (c.req.header('upgrade') !== 'websocket') {
@@ -70,13 +78,39 @@ app.post('/audio/:roomId', async (c) => {
 	const originalUrl = new URL(c.req.url);
 	const action = originalUrl.searchParams.get('action');
 	
+	// BASIC LOGGING - THIS SHOULD ALWAYS APPEAR
+	console.log(`[INDEX] Request to /audio/${roomId} - action: ${action}`);
+	console.log(`[INDEX] Full URL: ${c.req.url}`);
+	console.error(`[ERROR-LOG] This should appear as an error - roomId: ${roomId}`);
+	console.warn(`[WARN-LOG] This should appear as a warning - action: ${action}`);
+	
 	// 🎯 AIRTIGHT LOGGING: Track all requests at worker entry point
 	if (action === 'end-session') {
 		console.log(`🎯 [WORKER-INDEX] END-SESSION REQUEST ENTRY - roomId: ${roomId}`);
 		console.log(`🎯 [WORKER-INDEX] Full URL: ${c.req.url}`);
 		console.log(`🎯 [WORKER-INDEX] Method: ${c.req.method}`);
-		console.log(`🎯 [WORKER-INDEX] Headers:`, JSON.stringify(Object.fromEntries(c.req.header())));
-		console.log(`🎯 [WORKER-INDEX] Query params:`, JSON.stringify(Object.fromEntries(originalUrl.searchParams)));
+		
+		// Safe header logging
+		try {
+			const headers = {};
+			for (const [key, value] of c.req.header()) {
+				headers[key] = value;
+			}
+			console.log(`🎯 [WORKER-INDEX] Headers:`, JSON.stringify(headers));
+		} catch (err) {
+			console.log(`🎯 [WORKER-INDEX] Headers: <failed to serialize>`);
+		}
+		
+		// Safe query params logging
+		try {
+			const params = {};
+			for (const [key, value] of originalUrl.searchParams) {
+				params[key] = value;
+			}
+			console.log(`🎯 [WORKER-INDEX] Query params:`, JSON.stringify(params));
+		} catch (err) {
+			console.log(`🎯 [WORKER-INDEX] Query params: <failed to serialize>`);
+		}
 	}
 	
 	const assessmentDO = c.env.LEARNER_ASSESSMENT_DO.get(
@@ -101,7 +135,17 @@ app.post('/audio/:roomId', async (c) => {
 	
 	if (action === 'end-session') {
 		console.log(`🎯 [WORKER-INDEX] DO response status: ${doResponse.status}`);
-		console.log(`🎯 [WORKER-INDEX] DO response headers:`, JSON.stringify(Object.fromEntries(doResponse.headers)));
+		
+		// Safe response headers logging
+		try {
+			const responseHeaders = {};
+			for (const [key, value] of doResponse.headers) {
+				responseHeaders[key] = value;
+			}
+			console.log(`🎯 [WORKER-INDEX] DO response headers:`, JSON.stringify(responseHeaders));
+		} catch (err) {
+			console.log(`🎯 [WORKER-INDEX] DO response headers: <failed to serialize>`);
+		}
 	}
 	
 	return doResponse;
