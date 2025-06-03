@@ -166,13 +166,13 @@ export default function Room() {
       const message = JSON.parse(evt.data);
       switch (message.type) {
         case "partialTranscript":
-          console.log("[TranscriptListener] Partial transcript:", message.data);
+          console.log("[TranscriptListener] Partial transcript:", JSON.stringify(message.data, null, 2));
           break;
         case "transcription-complete":
-          console.log("[TranscriptListener] Transcription complete:", message.data);
+          console.log("[TranscriptListener] Transcription complete:", JSON.stringify(message.data, null, 2));
           break;
         case "transcription-error":
-          console.error("[TranscriptListener] Transcription error:", message.data.error);
+          console.error("[TranscriptListener] Transcription error:", JSON.stringify(message.data, null, 2));
           break;
         case "roboReplyText":
           console.log("[TranscriptListener] Robo reply text:", message.data.text, "utteranceId:", message.data.utteranceId);

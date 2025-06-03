@@ -77,6 +77,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	/* ------------------------------------------------------------------ */
 
 	constructor(state: DurableObjectState, env: Env) {
+		console.log(`[DEBUG-SEGMENTS] DO Constructor called - new instance created`);
 		super(state, env);
 		this.state = state;
 		this.buildGuardComplete = false;
@@ -166,6 +167,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				}
 				await this.transcribeAndDiarizeAll(roomId);
 				this.dgSocket?.ws.close(1000);
+				console.log(`[DEBUG-SEGMENTS] Clearing dgSocket, segments lost: ${this.dgSocket?.segments?.length || 0}, reason: session-end`);
 				this.dgSocket = null;
 				return c.json({ status: 'transcription completed' });
 			} catch (err) {
@@ -283,6 +285,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		});
 		dgWS.addEventListener('close', e  => {
 			console.log('[DG] close code:', e.code, 'reason:', e.reason || 'no reason');
+			console.log(`[DEBUG-SEGMENTS] Clearing dgSocket, segments lost: ${this.dgSocket?.segments?.length || 0}, reason: ws-close`);
 			this.dgSocket = null; // Clean up socket reference
 			if (e.code !== 1000) {
 				// Abnormal close - set 2 second back-off
@@ -437,7 +440,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						start,
 						text
 					};
-					this.dgSocket!.segments.push(seg);
+					console.log(`[DEBUG-SEGMENTS] Adding segment: "${seg.text}" (${seg.role}) - total segments: ${this.dgSocket!.segments.length + 1}`);
+			this.dgSocket!.segments.push(seg);
 
 					// For robo mode, trigger utterance processing for learner speech
 					if (role === 'learner') {
@@ -481,6 +485,19 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const role = speaker === '0' ? 'learner' : 'teacher';
 				const start = msg.start ?? 0;
 				const duration = msg.duration ?? 0;
+
+				// CRITICAL FIX: Add segment to array for all text (learner and teacher)
+				// This ensures segments are captured for scorecard generation
+				if (text && this.dgSocket) {
+					const seg: TranscribedSegment = {
+						peerId: speaker,
+						role,
+						start,
+						text
+					};
+					console.log(`[DEBUG-SEGMENTS] Adding is_final segment: "${seg.text}" (${seg.role}) - total segments: ${this.dgSocket.segments.length + 1}`);
+					this.dgSocket.segments.push(seg);
+				}
 
 				// Broadcast Deepgram processing state for learner speech
 				if (text && role === 'learner') {
@@ -582,6 +599,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			return;
 		});
 
+		console.log(`[DEBUG-SEGMENTS] Initializing dgSocket with empty segments array`);
 		this.dgSocket = {
 			ws: dgWS,
 			ready,
@@ -599,13 +617,17 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			return this.dgSocket;
 		} catch (err) {
 			// Zero out dgSocket on connection failure so next chunk triggers fresh connect
+			console.log(`[DEBUG-SEGMENTS] Clearing dgSocket, segments lost: ${this.dgSocket?.segments?.length || 0}, reason: connection-failure`);
 			this.dgSocket = null;
 			throw err;
 		}
 	}
 
 	/* ───────────────────────── Durable-object fetch ───────────────────── */
-	async fetch(request: Request) { return this.app.fetch(request); }
+	async fetch(request: Request) { 
+		console.log(`[DEBUG-SEGMENTS] DO fetch called - segments in memory: ${this.dgSocket?.segments?.length || 'none'}`);
+		return this.app.fetch(request); 
+	}
 
 	/* ─────────────────────── AGGRESSIVE Build guard helper ──────────────────────── */
 	private async aggressiveBuildGuard(buildId: string): Promise<void> {
@@ -625,6 +647,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Closing old Deepgram connection`);
 					this.dgSocket.ws.close(1000);
 				}
+				console.log(`[DEBUG-SEGMENTS] Clearing dgSocket, segments lost: ${this.dgSocket?.segments?.length || 0}, reason: build-guard`);
 				this.dgSocket = null;
 				this.connectBannerLogged = false;
 			} else {
@@ -805,6 +828,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		console.log(`[LearnerAssessmentDO] Starting transcribeAndDiarizeAll for room ${roomId}`);
 
 		// Use the segments collected from Deepgram smart-listen streaming
+		console.log(`[DEBUG-SEGMENTS] Session end - dgSocket exists: ${!!this.dgSocket}, segments array exists: ${!!this.dgSocket?.segments}`);
+		if (this.dgSocket?.segments) {
+			console.log(`[DEBUG-SEGMENTS] Segment details: ${this.dgSocket.segments.map(s => `"${s.text}" (${s.role})`).join(', ')}`);
+		}
 		const allSegments = this.dgSocket?.segments || [];
 		console.log(`[LearnerAssessmentDO] Found ${allSegments.length} Deepgram segments`);
 

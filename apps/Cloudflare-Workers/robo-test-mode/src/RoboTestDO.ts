@@ -153,8 +153,8 @@ export class RoboTestDO extends DurableObject<Env> {
 		console.log('[RoboTestDO] Sending to Llama:', JSON.stringify(messages, null, 2));
 		const { response } = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
 			messages,
-			max_tokens: 100,
-			temperature: 0.7,
+			max_tokens: 80,
+			temperature: 0.5,
 		})) as { response: string };
 		console.log('[RoboTestDO] Llama response:', response);
 
