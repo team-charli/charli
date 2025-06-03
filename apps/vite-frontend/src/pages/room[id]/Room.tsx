@@ -24,13 +24,8 @@ export default function Room() {
     from: "/room/$id",
   });
 
-  // Generate fresh roomId for robo mode to prevent DO reuse across deploys
-  const roomId = useMemo(() => {
-    if (roboTest === 'true') {
-      return `${urlRoomId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    }
-    return urlRoomId;
-  }, [urlRoomId, roboTest]);
+  // Use the roomId directly - RoboTest already creates unique session IDs
+  const roomId = urlRoomId;
 
   /**
    * 2) Verify role/address if needed, or bypass verification for RoboTest
@@ -274,6 +269,16 @@ export default function Room() {
   async function handleEndSession() {
     console.log("[Room] => handleEndSession => called");
     try {
+      // CRITICAL: Trigger end-session FIRST while Deepgram connection is still active
+      if (uploadUrl) {
+        const endUrl = `${uploadUrl}&action=end-session`;
+        console.log("[Room] => triggering server end-session BEFORE cleanup:", endUrl);
+        const response = await fetch(endUrl, { method: "POST" });
+        if (!response.ok) throw new Error(`Server end-session failed: ${response.status}`);
+        console.log("[Room] => server end-session completed successfully");
+      }
+
+      // Now cleanup audio and leave room AFTER scorecard generation is triggered
       // flush pipeline if recording
       if (isRecording) await cleanupAudio();
       // turn off audio
@@ -283,14 +288,6 @@ export default function Room() {
 
       leaveRoom();
       console.log("[Room] => left Huddle01 room successfully");
-
-      // optionally finalize with the server
-      if (uploadUrl) {
-        const endUrl = `${uploadUrl}&action=end-session`;
-        const response = await fetch(endUrl, { method: "POST" });
-        if (!response.ok) throw new Error("Server finalization failed");
-        console.log("[Room] => server finalization triggered");
-      }
     } catch (err) {
       console.error("[Room] => end session error:", err);
     }

@@ -21,8 +21,8 @@ The unified monitoring script (`./monitor-unified.sh`) provides several focused 
 ./monitor-unified.sh --scorecard  # or just ./monitor-unified.sh
 ```
 **Use for:** Scorecard-specific operations and success tracking
-**Filters:** `scorecard|assessment|mistake|error|✅|🎉|successfully|completed|generated`
-**Best for:** Production scorecard verification
+**Filters:** `scorecard|assessment|mistake|error|✅|🎉|successfully|completed|generated|🚀.*Initiating|ScorecardOrchestratorDO|Starting.*mistake|Starting.*enrichment|Starting.*persistence|Persisting.*scorecard|transcribeAndDiarizeAll|end-session.*error|Missing required IDs|No segments found|scorecard.*null|null.*scorecard|🏁.*Session.*ending`
+**Best for:** Production scorecard verification and debugging null scorecard issues
 
 ### 2. Critical Errors Only
 ```bash
@@ -45,7 +45,7 @@ The unified monitoring script (`./monitor-unified.sh`) provides several focused 
 ./monitor-unified.sh --pipeline
 ```
 **Use for:** Debugging workflow failures
-**Filters:** `processing|enrichment|detector|analyzer|orchestrator|persister`
+**Filters:** `processing|enrichment|detector|analyzer|orchestrator|persister|Starting.*mistake|Starting.*enrichment|Starting.*persistence|detection.*completed|analysis.*completed|enrichment.*completed|MISTAKE_DETECTOR_DO|MISTAKE_ANALYZER_DO|MISTAKE_ENRICHER_PIPELINE_DO|SCORECARD_PERSISTER_DO`
 **Best for:** Identifying which pipeline stage is failing
 
 ### 5. All Logs (Color-Coded)
@@ -140,6 +140,38 @@ For a successful robo-teacher session scorecard generation, you should see:
 ✅ **Final Confirmation:**
 - Scorecard generation completed successfully
 - Final scorecard summary with accuracy metrics
+
+## Debugging Scorecard === null Issues
+
+When `scorecard === null` is returned, run `./monitor-unified.sh -s` and look for these specific error patterns:
+
+### 1. Missing Session Metadata
+```
+CRITICAL ERROR: Missing required IDs - session_id: null, learner_id: null
+```
+**Cause:** Session metadata (sessionId/learnerId) was not properly stored during session initialization
+**Fix:** Verify Room.tsx is passing sessionId and learnerId in the uploadUrl query parameters
+
+### 2. No Audio Segments Collected
+```
+No segments found for transcription
+```
+**Cause:** Deepgram did not collect any speech segments during the session
+**Fix:** Check audio pipeline, microphone permissions, and Deepgram connection
+
+### 3. Scorecard Generation Pipeline Failure
+```
+CRITICAL ERROR: Scorecard generation failed for session X: [error details]
+```
+**Cause:** The ScorecardOrchestratorDO pipeline encountered an error during processing
+**Fix:** Check AI Gateway connectivity, database access, and pipeline DO health
+
+### 4. Session End Not Triggered
+```
+🏁 Session ending for room X - starting scorecard generation process
+```
+**Missing this log means:** The end-session action was never called from Room.tsx
+**Fix:** Verify handleEndSession() in Room.tsx is calling the uploadUrl with `&action=end-session`
 
 ## Failure Patterns to Watch For
 

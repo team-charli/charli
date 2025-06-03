@@ -95,7 +95,7 @@ colorize_logs() {
 get_filter_pattern() {
     case $MODE in
         scorecard)
-            echo "scorecard|assessment|mistake|error|✅|🎉|successfully|completed|generated"
+            echo "scorecard|assessment|mistake|error|✅|🎉|successfully|completed|generated|🚀.*Initiating|ScorecardOrchestratorDO|Starting.*mistake|Starting.*enrichment|Starting.*persistence|Persisting.*scorecard|transcribeAndDiarizeAll|end-session.*error|Missing required IDs|No segments found|scorecard.*null|null.*scorecard|🏁.*Session.*ending"
             ;;
         errors)
             echo "CRITICAL|ERROR|failed|timeout|persistence.*failed"
@@ -104,7 +104,7 @@ get_filter_pattern() {
             echo "robo|thinking.*time|utterance|fragment"
             ;;
         pipeline)
-            echo "processing|enrichment|detector|analyzer|orchestrator|persister"
+            echo "processing|enrichment|detector|analyzer|orchestrator|persister|Starting.*mistake|Starting.*enrichment|Starting.*persistence|detection.*completed|analysis.*completed|enrichment.*completed|MISTAKE_DETECTOR_DO|MISTAKE_ANALYZER_DO|MISTAKE_ENRICHER_PIPELINE_DO|SCORECARD_PERSISTER_DO"
             ;;
         all)
             echo ".*"  # Match everything

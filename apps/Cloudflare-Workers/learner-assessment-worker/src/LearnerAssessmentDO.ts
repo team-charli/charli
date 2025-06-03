@@ -114,6 +114,13 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const role   = q['role']   ?? 'unknown';
 		const peerId = q['peerId'] ?? 'unknown';
 
+		// Debug logging for end-session requests
+		if (action === 'end-session') {
+			console.log(`[LearnerAssessmentDO] 🎯 END-SESSION REQUEST RECEIVED - roomId: ${roomId}, action: ${action}`);
+			console.log(`[LearnerAssessmentDO] Full query params:`, JSON.stringify(q));
+			console.log(`[LearnerAssessmentDO] Request URL: ${c.req.url}`);
+		}
+
 		const requestedRobo = q['roboMode'] === 'true';
 		const sessionIdStr  = q['sessionId'];
 		const learnerIdStr  = q['learnerId'];
