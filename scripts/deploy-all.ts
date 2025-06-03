@@ -214,7 +214,25 @@ async function main() {
     process.env[key] = value;
   });
 
-  const dynamic = await pinLitActions("apps/LitActions");
+  // Add build ID for Durable Object reset mechanism
+  const dynamic: EnvMap = {
+    __BUILD_ID: `deploy-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
+  };
+
+  // Skip IPFS pinning when using --only flag (for faster targeted deployments)
+  if (!ONLY_RE) {
+    const ipfsHashes = await pinLitActions("apps/LitActions");
+    Object.assign(dynamic, ipfsHashes);
+  } else {
+    log("› Skipping Lit Actions pinning (--only flag detected)");
+    // Use existing values from env for IPFS hashes when skipping pinning
+    const existingIpfsKeys = Object.keys(defaults).filter(k => k.startsWith('LIT_ACTION_CID_') || k.startsWith('VITE_'));
+    existingIpfsKeys.forEach(key => {
+      if (defaults[key]) {
+        dynamic[key] = defaults[key];
+      }
+    });
+  }
 
   // Map LIT_ACTION_CID_* to VITE_*_IPFSID format for frontend compatibility
   if (dynamic.LIT_ACTION_CID_PERMITACTION) {
@@ -250,9 +268,12 @@ async function main() {
   log("==============\n");
   if (DRY) return;
 
-  // Mint a new relayer PKP, set its permissions, and then burn it
-  log("› Minting new relayer PKP and setting permissions");
-  if (!DRY) {
+  // Skip PKP minting when using --only flag (for faster targeted deployments)
+  if (!ONLY_RE) {
+    // Mint a new relayer PKP, set its permissions, and then burn it
+    log("› Minting new relayer PKP and setting permissions");
+  }
+  if (!DRY && !ONLY_RE) {
     const pkpInfo = await mintRelayerPKP();
     log(`  • Minted new relayer PKP with token ID: ${pkpInfo.tokenId}`);
     log(`  • Public key: ${pkpInfo.publicKey}`);

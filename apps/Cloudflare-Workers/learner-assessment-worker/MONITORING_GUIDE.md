@@ -8,41 +8,61 @@ This guide provides comprehensive monitoring for the learner assessment pipeline
 
 ```bash
 cd ~/Projects/charli/apps/Cloudflare-Workers/learner-assessment-worker
-./monitor-scorecard-pipeline.sh  # Setup monitoring scripts
-./monitor-primary.sh             # Start primary monitoring
+./monitor-unified.sh             # Start unified monitoring (default: scorecard focus)
+./monitor-unified.sh --help      # See all available options
 ```
 
-## Available Monitoring Commands
+## Available Monitoring Modes
 
-### 1. Primary Monitor (`./monitor-primary.sh`)
-**Use for:** General monitoring with reduced noise
-**Filters:** Excludes `/audio/` processing logs
-**Best for:** Initial overview of pipeline activity
+The unified monitoring script (`./monitor-unified.sh`) provides several focused monitoring modes:
 
-### 2. Scorecard Focus (`./monitor-scorecard.sh`)
-**Use for:** Scorecard-specific operations
-**Filters:** `scorecard|assessment|mistake|error`
-**Best for:** Tracking scorecard generation progress
+### 1. Scorecard Focus (Default)
+```bash
+./monitor-unified.sh --scorecard  # or just ./monitor-unified.sh
+```
+**Use for:** Scorecard-specific operations and success tracking
+**Filters:** `scorecard|assessment|mistake|error|✅|🎉|successfully|completed|generated`
+**Best for:** Production scorecard verification
 
-### 3. Pipeline Stages (`./monitor-pipeline.sh`)
-**Use for:** Debugging workflow failures
-**Filters:** `processing|enrichment|detector|analyzer|orchestrator|persister`
-**Best for:** Identifying which pipeline stage is failing
-
-### 4. Robo Mode (`./monitor-robo.sh`)
-**Use for:** Robo-teacher specific flows
-**Filters:** `robo|thinking.*time|utterance|fragment`
-**Best for:** Monitoring fragment accumulation and thinking time logic
-
-### 5. Critical Errors (`./monitor-errors.sh`)
+### 2. Critical Errors Only
+```bash
+./monitor-unified.sh --errors
+```
 **Use for:** Immediate failure detection
 **Filters:** `CRITICAL|ERROR|failed|timeout|persistence.*failed`
 **Best for:** Alert-style monitoring for production issues
 
-### 6. Success Indicators (`./monitor-success.sh`)
-**Use for:** Confirming successful operations
-**Filters:** `✅|🎉|successfully|completed|generated`
-**Best for:** Validating end-to-end pipeline success
+### 3. Robo Mode
+```bash
+./monitor-unified.sh --robo
+```
+**Use for:** Robo-teacher specific flows
+**Filters:** `robo|thinking.*time|utterance|fragment`
+**Best for:** Monitoring fragment accumulation and thinking time logic
+
+### 4. Pipeline Stages
+```bash
+./monitor-unified.sh --pipeline
+```
+**Use for:** Debugging workflow failures
+**Filters:** `processing|enrichment|detector|analyzer|orchestrator|persister`
+**Best for:** Identifying which pipeline stage is failing
+
+### 5. All Logs (Color-Coded)
+```bash
+./monitor-unified.sh --all
+```
+**Use for:** Comprehensive monitoring with color coding
+**Filters:** All logs except `/audio/` processing (reduces noise)
+**Best for:** Development and detailed debugging
+
+**Color Coding:**
+- 🔴 **Red**: Critical errors, failures, timeouts
+- 🟢 **Green**: Success indicators (✅, 🎉, completed, generated)
+- 🟡 **Yellow**: Warnings
+- 🟣 **Purple**: Robo-specific logs
+- 🔵 **Blue**: Pipeline stages
+- 🔷 **Cyan**: Scorecard operations
 
 ## Key Pipeline Stages to Monitor
 
@@ -149,29 +169,41 @@ Skipping teacher scorecard - no teacher_id provided (likely robo-mode)
 ## Recommended Monitoring Strategy
 
 ### For Development/Testing:
-1. Run `./monitor-primary.sh` in main terminal
-2. Run `./monitor-scorecard.sh` in second terminal
-3. Run `./monitor-errors.sh` in third terminal for immediate alerts
+```bash
+./monitor-unified.sh --all        # Comprehensive monitoring with color coding
+```
 
 ### For Production Monitoring:
-1. Run `./monitor-errors.sh` for immediate failure detection
-2. Run `./monitor-success.sh` to confirm operations
-3. Use `./monitor-pipeline.sh` for detailed debugging when issues occur
+```bash
+./monitor-unified.sh              # Default scorecard focus (recommended)
+./monitor-unified.sh --errors     # Run in second terminal for immediate alerts
+```
 
 ### For Robo-Teacher Validation:
-1. Run `./monitor-robo.sh` to track robo-specific flows
-2. Run `./monitor-scorecard.sh` to confirm scorecard generation
-3. Look for teacher scorecard skip confirmation in robo mode
+```bash
+./monitor-unified.sh --robo       # Track robo-specific flows and thinking time
+```
+
+### For Debugging Pipeline Issues:
+```bash
+./monitor-unified.sh --pipeline   # Detailed pipeline stage monitoring
+```
 
 ## Testing Validation
 
 To validate the monitoring setup:
 
-1. **Start monitoring** with primary + scorecard focus monitors
+1. **Start monitoring** with unified script:
+   ```bash
+   ./monitor-unified.sh              # Default scorecard monitoring
+   ```
 2. **Conduct a robo-teacher session** from start to finish
 3. **Verify you see the complete pipeline** from session end to scorecard persistence
 4. **Confirm robo-mode behavior** (teacher scorecard skipped, learner scorecard generated)
-5. **Check for any errors** in the critical errors monitor
+5. **Check for any errors** by running error monitoring in a second terminal:
+   ```bash
+   ./monitor-unified.sh --errors     # Critical error monitoring
+   ```
 
 ## Troubleshooting
 
