@@ -132,7 +132,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private async handleAudioRequest(c: any) {
 		/* 0. BLOCKING: Wait for build guard to complete -------------------- */
 		await this.ensureBuildGuardComplete();
-		
+
 		/* 1. params & query ------------------------------------------------ */
 		const roomId = c.req.param('roomId');
 		const q      = c.req.query();
@@ -258,7 +258,12 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		// Enable VAD events as backup for endpointing
 		wsURL.searchParams.set('vad_events', 'true');  // Voice activity detection backup
-		// wsURL.searchParams.set('smart_format', 'true'); // DISABLED - might interfere
+
+		// 🎯 VERBATIM TRANSCRIPTION: Disable all auto-correction for learner mistake detection
+		wsURL.searchParams.set('smart_format', 'false');     // No auto-formatting (preserves raw speech)
+		// wsURL.searchParams.set('punctuate', 'false');        // No auto-punctuation (preserves speech flow)
+		wsURL.searchParams.set('profanity_filter', 'false'); // No profanity replacement (preserves all words)
+
 		// wsURL.searchParams.set('keywords', 'hey charli'); // DISABLED - might interfere
 		// wsURL.searchParams.set('keywords_priority', 'high'); // DISABLED
 
@@ -519,9 +524,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						console.log(`[DG-THINKING] 🧠 Starting ${remainingThinkingTime}ms thinking timer for: "${text}"`);
 
 						// Broadcast thinking time state
-						await this.broadcastToRoom(roomId, 'processingState', { 
-							state: 'thinking_time_system', 
-							remainingTime: remainingThinkingTime 
+						await this.broadcastToRoom(roomId, 'processingState', {
+							state: 'thinking_time_system',
+							remainingTime: remainingThinkingTime
 						});
 
 						// Set flag to prevent speech_final from also processing this utterance
@@ -624,9 +629,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	}
 
 	/* ───────────────────────── Durable-object fetch ───────────────────── */
-	async fetch(request: Request) { 
+	async fetch(request: Request) {
 		console.log(`[DEBUG-SEGMENTS] DO fetch called - segments in memory: ${this.dgSocket?.segments?.length || 'none'}`);
-		return this.app.fetch(request); 
+		return this.app.fetch(request);
 	}
 
 	/* ─────────────────────── AGGRESSIVE Build guard helper ──────────────────────── */
@@ -635,7 +640,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Starting with ID ${buildId}`);
 			const storedBuildId = await this.state.storage.get<string>('build');
 			console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Stored build ID: ${storedBuildId}`);
-			
+
 			if (buildId !== storedBuildId) {
 				console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Build ID changed from ${storedBuildId} to ${buildId} - NUKING ALL STORAGE`);
 				await this.state.storage.deleteAll();
@@ -653,7 +658,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			} else {
 				console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: Build ID unchanged - no reset needed`);
 			}
-			
+
 			this.buildGuardComplete = true;
 			console.log(`[LearnerAssessmentDO] AGGRESSIVE BUILD GUARD: ✅ COMPLETE - ready to process requests`);
 		} catch (error) {
@@ -864,7 +869,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const learner_id = await this.state.storage.get<number>('learnerId');
 		const metaWritten = await this.state.storage.get('metaWritten');
 		console.log(`[LearnerAssessmentDO] Retrieved storage data - session_id: ${session_id}, learner_id: ${learner_id}, metaWritten: ${metaWritten}`);
-		
+
 		if (!session_id || !learner_id) {
 			console.error(`[LearnerAssessmentDO] CRITICAL ERROR: Missing required IDs - session_id: ${session_id}, learner_id: ${learner_id}. Cannot generate scorecard!`);
 			console.error(`[LearnerAssessmentDO] Storage debug - metaWritten: ${metaWritten}, all storage keys:`, Object.keys(await this.state.storage.list()));
@@ -899,7 +904,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			const { scorecard } = await res.json() as any;
 			console.log(`[LearnerAssessmentDO] ✅ Scorecard generation completed successfully for session ${session_id}`);
 			console.log(`[LearnerAssessmentDO] Scorecard summary: ${scorecard?.mistakes?.length || 0} mistakes, ${scorecard?.languageAccuracy || 0}% accuracy`);
-			
+
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard });
 		} catch (error) {
 			console.error(`[LearnerAssessmentDO] ❌ CRITICAL ERROR: Scorecard generation failed for session ${session_id}:`, error);

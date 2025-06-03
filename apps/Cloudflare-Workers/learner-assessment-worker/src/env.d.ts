@@ -1,6 +1,14 @@
 import { ScorecardOrchestratorDO } from "./ScorecardOrchestratorDO";
 
-// apps/learner-assessment-worker/src/env.ts
+// TenseUsageFlag interface for analyzer prompts
+export interface TenseUsageFlag {
+  utterance: string;
+  mistakenFragment: string;
+  suggestedTense: string;
+  reason: string;
+}
+
+// Main environment interface
 export interface Env {
 	LEARNER_ASSESSMENT_DO: DurableObjectNamespace<LearnerAssessmentDO>;
 	MESSAGE_RELAY_DO: DurableObjectNamespace<MessageRelayDO>;
@@ -11,6 +19,14 @@ export interface Env {
 	SUPABASE_URL: string;
 	ROBO_TEST_URL: string;
 	SCORECARD_ORCHESTRATOR_DO: DurableObjectNamespace<ScorecardOrchestratorDO>;
+	SCORECARD_PERSISTER_DO: DurableObjectNamespace;
+	MISTAKE_DETECTOR_DO: DurableObjectNamespace;
+	MISTAKE_ANALYZER_DO: DurableObjectNamespace;
+	MISTAKE_ENRICHER_PIPELINE_DO: DurableObjectNamespace;
+	AVG_FREQUENCY_ENRICHER_DO: DurableObjectNamespace;
+	SESSION_FREQ_COLOR_ENRICHER_DO: DurableObjectNamespace;
+	LEMMA_ENRICHER_DO: DurableObjectNamespace;
+	TEACHER_SCORECARD_PERSISTER_DO: DurableObjectNamespace;
 	// Added for RoboAudio WebSocket connections
 	ROBO_AUDIO_CONNECTIONS?: Map<string, Map<string, WebSocket>>;
   DEEPGRAM_API_KEY: string;
@@ -21,37 +37,26 @@ export interface Env {
 	AI_GATEWAY_URL: string;
 	AI_GATEWAY_AUTH_TOKEN: string;
 	AI_SESSION_TOKEN_LIMIT?: string;
-}
-// env.ts
-
-export interface Bindings {
-  AI: Ai;
-  SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
-
-  MISTAKE_DETECTOR_DO: DurableObjectNamespace;
-  MISTAKE_ANALYZER_DO: DurableObjectNamespace;
-  SCORECARD_PERSISTER_DO: DurableObjectNamespace;
-  
-  // AI Gateway
-  AI_GATEWAY_URL: string;
-  AI_GATEWAY_AUTH_TOKEN: string;
-  AI_SESSION_TOKEN_LIMIT?: string;
+	// Service URLs for enricher pipelines
+	LEMMA_ENRICHER_DO_URL?: string;
+	AVG_FREQUENCY_ENRICHER_DO_URL?: string;
+	TREND_ARROW_ENRICHER_DO_URL?: string;
+	SESSION_COLOR_ENRICHER_DO_URL?: string;
 }
 
-export interface Env {
-  Bindings: Bindings;
-}
-
-// For DOs
+// For DOs that need specific bindings
 export interface DOEnv {
   AI: Ai;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  MISTAKE_DETECTOR_DO: Fetcher;
-  MISTAKE_ANALYZER_DO: Fetcher;
-  MISTAKE_ENRICHER_PIPELINE_DO: Fetcher;
-  SCORECARD_PERSISTER_DO: Fetcher;
+  MISTAKE_DETECTOR_DO: DurableObjectNamespace;
+  MISTAKE_ANALYZER_DO: DurableObjectNamespace;
+  MISTAKE_ENRICHER_PIPELINE_DO: DurableObjectNamespace;
+  SCORECARD_PERSISTER_DO: DurableObjectNamespace;
+  TEACHER_SCORECARD_PERSISTER_DO: DurableObjectNamespace;
+  AVG_FREQUENCY_ENRICHER_DO: DurableObjectNamespace;
+  SESSION_FREQ_COLOR_ENRICHER_DO: DurableObjectNamespace;
+  LEMMA_ENRICHER_DO: DurableObjectNamespace;
   
   // AI Gateway
   AI_GATEWAY_URL: string;

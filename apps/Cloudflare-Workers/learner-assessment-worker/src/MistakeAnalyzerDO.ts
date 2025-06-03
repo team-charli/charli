@@ -14,7 +14,7 @@ utterance: string;
 mistakenFragment: string;
 suggestedCorrection: string;
 reason: string;
-categoryHint: string;
+categoryHint: "vocabulary" | "tense" | "morphology" | "grammar";
 }
 
 export interface AnalyzedMistake {
@@ -23,10 +23,10 @@ correction: string;
 type: string; // Must match SPANISH_ERROR_CLASSES
 }
 
-export class MistakeAnalyzerDO extends DurableObject {
+export class MistakeAnalyzerDO extends DurableObject<Env> {
 private app = new Hono();
 
-constructor(private state: DurableObjectState, private env: Env) {
+constructor(private state: DurableObjectState, protected env: Env) {
 super(state, env);
 
 this.app.post('/analyze', async (c) => {
@@ -52,7 +52,13 @@ this.app.post('/analyze', async (c) => {
         prompt = vocabularyAnalyzerPrompt(mistakes);
         break;
       case 'tense':
-        prompt = tenseUsageAnalyzerPrompt(mistakes);
+        const tenseFlags = mistakes.map(m => ({
+          utterance: m.utterance,
+          mistakenFragment: m.mistakenFragment,
+          suggestedTense: m.suggestedCorrection, // Using suggestedCorrection as tense
+          reason: m.reason
+        }));
+        prompt = tenseUsageAnalyzerPrompt(tenseFlags);
         break;
       case 'morphology':
         prompt = morphologyAnalyzerPrompt(mistakes);
@@ -81,7 +87,7 @@ this.app.post('/analyze', async (c) => {
 
     try {
       const analyzed = JSON.parse(response.response) as AnalyzedMistake[];
-      const invalidTypes = analyzed.filter(m => !SPANISH_ERROR_CLASSES.includes(m.type));
+      const invalidTypes = analyzed.filter(m => !(SPANISH_ERROR_CLASSES as readonly string[]).includes(m.type));
       if (invalidTypes.length > 0) {
         console.warn('[MistakeAnalyzerDO] Found invalid types:', invalidTypes.map(m => m.type));
       }

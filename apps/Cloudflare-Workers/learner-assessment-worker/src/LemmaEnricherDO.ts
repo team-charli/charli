@@ -15,7 +15,7 @@ export interface AnalyzedMistake {
 export class LemmaEnricherDO extends DurableObject<Env> {
   private app = new Hono();
 
-  constructor(private state: DurableObjectState, private env: Env) {
+  constructor(private state: DurableObjectState, protected env: Env) {
     super(state, env);
 
     this.app.post('/enrich', async (c) => {

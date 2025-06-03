@@ -16,7 +16,7 @@ export class AvgFrequencyEnricherDO extends DurableObject<Env> {
   private app = new Hono();
   private supabaseClient: SupabaseClient;
 
-  constructor(private state: DurableObjectState, private env: Env) {
+  constructor(private state: DurableObjectState, protected env: Env) {
     super(state, env);
     this.supabaseClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -41,8 +41,7 @@ export class AvgFrequencyEnricherDO extends DurableObject<Env> {
         .from('learner_mistakes')
         .select('lemma_fingerprint, count(*)')
         .eq('learner_id', learner_id)
-        .in('lemma_fingerprint', fingerprints)
-        .group('lemma_fingerprint');
+        .in('lemma_fingerprint', fingerprints);
 
       if (error) {
         console.error('[AvgFrequencyEnricherDO] Supabase error:', error);
@@ -50,8 +49,10 @@ export class AvgFrequencyEnricherDO extends DurableObject<Env> {
       }
 
       const freqMap: Record<string, number> = {};
-      for (const row of data ?? []) {
-        freqMap[row.lemma_fingerprint] = Number(row.count);
+      for (const row of (data as any[]) ?? []) {
+        if (row && typeof row === 'object' && 'lemma_fingerprint' in row && 'count' in row) {
+          freqMap[row.lemma_fingerprint as string] = Number(row.count);
+        }
       }
 
       const result = enrichedMistakes.map((m) => ({

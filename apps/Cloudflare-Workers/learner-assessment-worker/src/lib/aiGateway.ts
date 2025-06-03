@@ -1,3 +1,5 @@
+import { Env } from '../env';
+
 export async function callGateway(
   model: string,
   body: Record<string, unknown>,

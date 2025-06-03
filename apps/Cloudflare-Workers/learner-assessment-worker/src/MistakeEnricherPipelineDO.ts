@@ -16,7 +16,7 @@ export interface AnalyzedMistake {
 export class MistakeEnricherPipelineDO extends DurableObject<Env> {
   private app = new Hono();
 
-  constructor(private state: DurableObjectState, private env: Env) {
+  constructor(private state: DurableObjectState, protected env: Env) {
     super(state, env);
 
     this.app.post('/enrich', async (c) => {
@@ -38,7 +38,7 @@ export class MistakeEnricherPipelineDO extends DurableObject<Env> {
         body: JSON.stringify({ analyzedMistakes }),
         headers: { 'Content-Type': 'application/json' }
       });
-      const { enrichedMistakes: withLemmas } = await lemmaRes.json();
+      const { enrichedMistakes: withLemmas } = await lemmaRes.json() as { enrichedMistakes: AnalyzedMistake[] };
 
       // 2. Average frequency
       const avgFreqRes = await fetch(this.env.AVG_FREQUENCY_ENRICHER_DO_URL + '/enrich', {
@@ -46,7 +46,7 @@ export class MistakeEnricherPipelineDO extends DurableObject<Env> {
         body: JSON.stringify({ learner_id, enrichedMistakes: withLemmas }),
         headers: { 'Content-Type': 'application/json' }
       });
-      const { enrichedMistakes: withFreq } = await avgFreqRes.json();
+      const { enrichedMistakes: withFreq } = await avgFreqRes.json() as { enrichedMistakes: AnalyzedMistake[] };
 
       // 3. Trend arrow
       const trendRes = await fetch(this.env.TREND_ARROW_ENRICHER_DO_URL + '/enrich', {
@@ -54,7 +54,7 @@ export class MistakeEnricherPipelineDO extends DurableObject<Env> {
         body: JSON.stringify({ enrichedMistakes: withFreq }),
         headers: { 'Content-Type': 'application/json' }
       });
-      const { enrichedMistakes: withTrend } = await trendRes.json();
+      const { enrichedMistakes: withTrend } = await trendRes.json() as { enrichedMistakes: AnalyzedMistake[] };
 
       // 4. Session frequency color
       const colorRes = await fetch(this.env.SESSION_COLOR_ENRICHER_DO_URL + '/enrich', {
@@ -62,7 +62,7 @@ export class MistakeEnricherPipelineDO extends DurableObject<Env> {
         body: JSON.stringify({ enrichedMistakes: withTrend }),
         headers: { 'Content-Type': 'application/json' }
       });
-      const { enrichedMistakes: finalMistakes } = await colorRes.json();
+      const { enrichedMistakes: finalMistakes } = await colorRes.json() as { enrichedMistakes: AnalyzedMistake[] };
 
       return c.json({ enrichedMistakes: finalMistakes }, 200);
     });

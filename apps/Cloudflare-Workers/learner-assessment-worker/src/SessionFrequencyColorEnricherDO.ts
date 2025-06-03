@@ -15,7 +15,7 @@ interface MistakeWithTrend {
 export class SessionFrequencyColorEnricherDO extends DurableObject<Env> {
   private app = new Hono();
 
-  constructor(private state: DurableObjectState, private env: Env) {
+  constructor(private state: DurableObjectState, protected env: Env) {
     super(state, env);
 
     this.app.post('/enrich', async (c) => {
@@ -38,7 +38,7 @@ export class SessionFrequencyColorEnricherDO extends DurableObject<Env> {
         let color: 'red' | 'yellow' | 'green' | null = null;
         if (freq === 1) color = 'green';
         else if (freq === 2) color = 'yellow';
-        else if (freq >= 3) color = 'red';
+        else if (freq !== null && freq >= 3) color = 'red';
 
         return { ...m, session_frequency_color: color };
       });

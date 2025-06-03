@@ -19,7 +19,7 @@ export interface DetectedMistake {
 export class MistakeDetectorDO extends DurableObject<Env> {
 	private app = new Hono();
 
-	constructor(private state: DurableObjectState, private env: Env) {
+	constructor(private state: DurableObjectState, protected env: Env) {
 		super(state, env);
 
 		this.app.post('/detect', async (c) => {
@@ -38,28 +38,28 @@ export class MistakeDetectorDO extends DurableObject<Env> {
 		{
 				const prompt = morphologyDetectorPrompt(learnerUtterances);
 				const result = await this.runDetector(prompt);
-				detected.push(...result.map(m => ({ ...m, categoryHint: 'morphology' })));
+				detected.push(...result.map(m => ({ ...m, categoryHint: 'morphology' as const })));
 			}
 
 			// Tense Usage Pass (needs full transcript)
 		{
 				const prompt = tenseUsageDetectorPrompt(fullTranscript);
 				const result = await this.runDetector(prompt);
-				detected.push(...result.map(m => ({ ...m, categoryHint: 'tense' })));
+				detected.push(...result.map(m => ({ ...m, categoryHint: 'tense' as const })));
 			}
 
 			// Vocabulary Pass
 		{
 				const prompt = vocabularyDetectorPrompt(fullTranscript);
 				const result = await this.runDetector(prompt);
-				detected.push(...result.map(m => ({ ...m, categoryHint: 'vocabulary' })));
+				detected.push(...result.map(m => ({ ...m, categoryHint: 'vocabulary' as const })));
 			}
 
 			// Grammar Structure Pass
 		{
 				const prompt = grammarStructureDetectorPrompt(fullTranscript);
 				const result = await this.runDetector(prompt);
-				detected.push(...result.map(m => ({ ...m, categoryHint: 'grammar' })));
+				detected.push(...result.map(m => ({ ...m, categoryHint: 'grammar' as const })));
 			}
 
 			return c.json({ mistakes: detected }, 200);

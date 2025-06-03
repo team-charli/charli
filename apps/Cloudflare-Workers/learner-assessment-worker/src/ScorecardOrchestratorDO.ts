@@ -4,6 +4,12 @@ import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { DOEnv } from './env';
 
+interface AnalyzedMistake {
+  text: string;
+  correction: string;
+  type: string;
+}
+
 /***** local helper types *****/
 interface BellEvent {
   peerId: string;
@@ -58,8 +64,8 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 
       // 1️⃣ detect learner mistakes
       console.log(`[ScorecardOrchestratorDO] Starting mistake detection pipeline`);
-      const detectorStub = c.env.MISTAKE_DETECTOR_DO.get(
-        c.env.MISTAKE_DETECTOR_DO.idFromName(roomId)
+      const detectorStub = this.env.MISTAKE_DETECTOR_DO.get(
+        this.env.MISTAKE_DETECTOR_DO.idFromName(roomId)
       );
       
       let detectorRes, mistakes;
@@ -84,8 +90,8 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 
       // 2️⃣ analyze mistakes
       console.log(`[ScorecardOrchestratorDO] Starting mistake analysis for ${mistakes?.length || 0} detected mistakes`);
-      const analyzerStub = c.env.MISTAKE_ANALYZER_DO.get(
-        c.env.MISTAKE_ANALYZER_DO.idFromName(roomId)
+      const analyzerStub = this.env.MISTAKE_ANALYZER_DO.get(
+        this.env.MISTAKE_ANALYZER_DO.idFromName(roomId)
       );
       
       let analyzerRes, analyzedMistakes;
@@ -100,7 +106,7 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
           throw new Error(`Analyzer returned ${analyzerRes.status}: ${analyzerRes.statusText}`);
         }
         
-        const analyzerResult = await analyzerRes.json() as any;
+        const analyzerResult = await analyzerRes.json() as { analyzedMistakes: AnalyzedMistake[] };
         analyzedMistakes = analyzerResult.analyzedMistakes;
         console.log(`[ScorecardOrchestratorDO] Mistake analysis completed: ${analyzedMistakes?.length || 0} mistakes analyzed`);
       } catch (error) {
@@ -110,14 +116,14 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 
       // 3️⃣ learner aggregate scores
       const utteranceCount = learnerUtterances.length;
-      const uniqueUtterancesWithError = new Set(analyzedMistakes.map((m: any) => m.text)).size;
+      const uniqueUtterancesWithError = new Set(analyzedMistakes.map((m) => m.text)).size;
       const languageAccuracy = Math.round(((utteranceCount - uniqueUtterancesWithError) / utteranceCount) * 100);
       const conversationDifficulty = Math.max(2, Math.min(10, Math.ceil(utteranceCount / 4)));
 
       // 4️⃣ enrichment pipeline
       console.log(`[ScorecardOrchestratorDO] Starting enrichment pipeline for learner_id ${learner_id}`);
-      const enrichmentStub = c.env.MISTAKE_ENRICHER_PIPELINE_DO.get(
-        c.env.MISTAKE_ENRICHER_PIPELINE_DO.idFromName(roomId)
+      const enrichmentStub = this.env.MISTAKE_ENRICHER_PIPELINE_DO.get(
+        this.env.MISTAKE_ENRICHER_PIPELINE_DO.idFromName(roomId)
       );
       
       let enrichmentRes, enrichedMistakes;
@@ -142,8 +148,8 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 
       // 5️⃣ persist learner scorecard
       console.log(`[ScorecardOrchestratorDO] Persisting learner scorecard - accuracy: ${languageAccuracy}%, difficulty: ${conversationDifficulty}, mistakes: ${enrichedMistakes?.length || 0}`);
-      const persisterStub = c.env.SCORECARD_PERSISTER_DO.get(
-        c.env.SCORECARD_PERSISTER_DO.idFromName(roomId)
+      const persisterStub = this.env.SCORECARD_PERSISTER_DO.get(
+        this.env.SCORECARD_PERSISTER_DO.idFromName(roomId)
       );
       
       try {
@@ -179,7 +185,7 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 
         type MistakeWithTime = { text: string; start: number };
         const mistakeTimes: MistakeWithTime[] = analyzedMistakes
-          .map((m: any) => ({ text: m.text, start: startByText.get(m.text) ?? -1 }))
+          .map((m) => ({ text: m.text, start: startByText.get(m.text) ?? -1 }))
           .filter((m) => m.start >= 0);
 
         // convert bell timestamps to session‑relative seconds using true session start time
@@ -270,8 +276,8 @@ export class ScorecardOrchestratorDO extends DurableObject<DOEnv> {
 
         // 6️⃣ persist teacher scorecard
         console.log(`[ScorecardOrchestratorDO] Persisting teacher scorecard - opportunities: ${opportunities}, correct: ${correctBells}, extra: ${extraBells}, accuracy: ${Math.round(accuracyRatio * 100)}%`);
-        const teacherPersisterStub = c.env.TEACHER_SCORECARD_PERSISTER_DO.get(
-          c.env.TEACHER_SCORECARD_PERSISTER_DO.idFromName(roomId)
+        const teacherPersisterStub = this.env.TEACHER_SCORECARD_PERSISTER_DO.get(
+          this.env.TEACHER_SCORECARD_PERSISTER_DO.idFromName(roomId)
         );
         
         try {

@@ -1,3 +1,5 @@
+import { TenseUsageFlag } from '../../env';
+
 export const tenseUsageAnalyzerPrompt = (flags: TenseUsageFlag[]) => {
   const inputList = flags.map((f, i) => `Mistake ${i + 1}:
 - Learner sentence: "${f.utterance}"
