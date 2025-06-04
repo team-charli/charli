@@ -7,14 +7,21 @@ export async function callGateway(
   headers: HeadersInit = {},
   opts: RequestInit = {}
 ) {
-  const url = `${env.AI_GATEWAY_URL}/${model}`;
+  const url = `${env.AI_GATEWAY_URL}${model}`;
+  const requestHeaders: HeadersInit = {
+    "Content-Type": "application/json",
+    "cf-aig-authorization": `Bearer ${env.AI_GATEWAY_AUTH_TOKEN}`,
+    ...headers,
+  };
+  
+  // Add Cloudflare API token if available for Workers AI access
+  if (env.CLOUDFLARE_API_TOKEN) {
+    requestHeaders["Authorization"] = `Bearer ${env.CLOUDFLARE_API_TOKEN}`;
+  }
+  
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${env.AI_GATEWAY_AUTH_TOKEN}`,
-      ...headers,
-    },
+    headers: requestHeaders,
     body: JSON.stringify(body),
     ...opts,
   });

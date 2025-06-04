@@ -37,6 +37,7 @@ export interface Env {
 	AI_GATEWAY_URL: string;
 	AI_GATEWAY_AUTH_TOKEN: string;
 	AI_SESSION_TOKEN_LIMIT?: string;
+	CLOUDFLARE_API_TOKEN?: string;
 	// Service URLs for enricher pipelines
 	LEMMA_ENRICHER_DO_URL?: string;
 	AVG_FREQUENCY_ENRICHER_DO_URL?: string;
@@ -62,5 +63,6 @@ export interface DOEnv {
   AI_GATEWAY_URL: string;
   AI_GATEWAY_AUTH_TOKEN: string;
   AI_SESSION_TOKEN_LIMIT?: string;
+  CLOUDFLARE_API_TOKEN?: string;
 }
 
