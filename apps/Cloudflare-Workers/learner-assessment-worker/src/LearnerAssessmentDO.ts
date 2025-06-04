@@ -122,6 +122,32 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 			return c.json({ ok: true });
 		});
+
+		/* ────────── POST /cue-cards/set-active ────────── */
+		this.app.post('/cue-cards/set-active', async c => {
+			const { cueCardId } = await c.req.json();
+			console.log(`[LEARNER-ASSESSMENT-DO] Setting active cue-card: ${cueCardId}`);
+			
+			const cueCard = getCueCardById(cueCardId);
+			if (!cueCard) {
+				console.error(`[LEARNER-ASSESSMENT-DO] Invalid cue-card ID: ${cueCardId}`);
+				return c.json({ error: 'Invalid cue-card ID' }, 400);
+			}
+			
+			this.activeCueCard = cueCard;
+			console.log(`[LEARNER-ASSESSMENT-DO] Active cue-card set to: ${cueCard.id} - "${cueCard.expectedText}"`);
+			
+			return c.json({ 
+				success: true, 
+				activeCueCard: {
+					id: cueCard.id,
+					expectedText: cueCard.expectedText,
+					description: cueCard.description,
+					category: cueCard.category,
+					errorTypes: cueCard.errorTypes
+				}
+			});
+		});
 	}
 
 	private async handleAudioRequest(c: any) {

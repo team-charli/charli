@@ -77,6 +77,12 @@ export default function Room() {
   // Prevent constant re-initialization of listening state
   const hasInitialized = useRef(false);
 
+  // 🔍 VERBATIM QA: Cue-card system state
+  const [cueCards, setCueCards] = useState<any[]>([]);
+  const [activeCueCard, setActiveCueCard] = useState<any>(null);
+  const [isVerbatimMode, setIsVerbatimMode] = useState(false);
+  const [cueCardsLoaded, setCueCardsLoaded] = useState(false);
+
 
   const uploadUrl = useMemo(() => {
     if (!localPeerId) return null;
@@ -96,6 +102,54 @@ export default function Room() {
   useEffect(() => {
     console.log('[Room] uploadUrl:', uploadUrl);
   }, [uploadUrl]);
+
+  // 🔍 VERBATIM QA: Fetch cue-cards on component mount
+  useEffect(() => {
+    const fetchCueCards = async () => {
+      try {
+        console.log('[CUE-CARDS] Fetching cue-cards from backend');
+        const response = await fetch('https://learner-assessment-worker.charli.chat/cue-cards');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        console.log(`[CUE-CARDS] Loaded ${data.total} cue-cards in ${data.categories.length} categories`);
+        setCueCards(data.cueCards);
+        setCueCardsLoaded(true);
+      } catch (error) {
+        console.error('[CUE-CARDS] Failed to fetch cue-cards:', error);
+        setCueCardsLoaded(true); // Still mark as loaded to prevent infinite retries
+      }
+    };
+
+    fetchCueCards();
+  }, []);
+
+  // 🔍 VERBATIM QA: Set active cue-card for backend analysis
+  const setActiveCueCardForSession = async (cueCard: any) => {
+    if (!roomId) {
+      console.error('[CUE-CARDS] No roomId available for setting active cue-card');
+      return;
+    }
+
+    try {
+      console.log(`[CUE-CARDS] Setting active cue-card for session: ${cueCard.id}`);
+      const response = await fetch(`https://learner-assessment-worker.charli.chat/cue-cards/${roomId}/set-active`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cueCardId: cueCard.id })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('[CUE-CARDS] Backend confirmed active cue-card:', result.activeCueCard?.id);
+      setActiveCueCard(cueCard);
+    } catch (error) {
+      console.error('[CUE-CARDS] Failed to set active cue-card:', error);
+    }
+  };
 
   /** 5) Pipeline: Waits for (uploadUrl && localAudioStream && isAudioOn). */
   const { isRecording, cleanupAudio } = useAudioPipeline({
@@ -375,24 +429,115 @@ export default function Room() {
           {isRoboMode ? (
             <div className="h-full flex flex-col">
               <div className="text-center bg-gray-900 bg-opacity-70 rounded-lg p-6 sm:p-8 max-w-4xl w-full mx-auto flex-grow flex flex-col">
-                {/* Persistent superhero emoji at top */}
-                <div className="text-6xl mb-6">🦸‍♀️</div>
-
-                {/* Main Caption Area - centered and flexible */}
-                <div className="flex-grow flex items-center justify-center">
-                  <div 
-                    className="text-white transition-all duration-500 ease-in-out"
-                    style={{ 
-                      fontSize: '32px', 
-                      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-                      fontWeight: '500',
-                      lineHeight: '1.4',
-                      opacity: roboCaption ? 1 : 0.5
-                    }}
-                  >
-                    {roboCaption || ''}
+                {/* Header with mode toggle */}
+                <div className="flex justify-between items-center mb-4">
+                  <div className="text-6xl">🦸‍♀️</div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setIsVerbatimMode(false)}
+                      className={`px-4 py-2 rounded ${!isVerbatimMode ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    >
+                      Robo Mode
+                    </button>
+                    <button
+                      onClick={() => setIsVerbatimMode(true)}
+                      className={`px-4 py-2 rounded ${isVerbatimMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    >
+                      🔍 Verbatim QA
+                    </button>
                   </div>
                 </div>
+
+                {isVerbatimMode ? (
+                  /* 🔍 VERBATIM QA MODE: Split captions display */
+                  <div className="flex-grow flex flex-col gap-4">
+                    {/* Top half: Cue-card display */}
+                    <div className="flex-1 bg-purple-900 bg-opacity-50 rounded-lg p-4 border-2 border-purple-500">
+                      <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-lg font-semibold text-purple-300">📋 Cue Card - Read This Text</h3>
+                        <div className="flex gap-2">
+                          {cueCardsLoaded && (
+                            <select
+                              className="bg-gray-800 text-white px-3 py-1 rounded border border-gray-600"
+                              value={activeCueCard?.id || ''}
+                              onChange={(e) => {
+                                const selectedCard = cueCards.find(card => card.id === e.target.value);
+                                if (selectedCard) {
+                                  setActiveCueCardForSession(selectedCard);
+                                }
+                              }}
+                            >
+                              <option value="">Select a cue-card...</option>
+                              {cueCards.map(card => (
+                                <option key={card.id} value={card.id}>
+                                  {card.id} - {card.description}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {activeCueCard ? (
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-white mb-2 p-4 bg-gray-800 rounded">
+                            "{activeCueCard.expectedText}"
+                          </div>
+                          <div className="text-sm text-purple-200">
+                            <strong>Category:</strong> {activeCueCard.category} | 
+                            <strong> Errors:</strong> {activeCueCard.errorTypes.join(', ')}
+                          </div>
+                          <div className="text-xs text-purple-300 mt-1">
+                            {activeCueCard.description}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-purple-300 py-8">
+                          {cueCardsLoaded ? (
+                            "Select a cue-card above to begin verbatim testing"
+                          ) : (
+                            "Loading cue-cards..."
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom half: Live transcription */}
+                    <div className="flex-1 bg-gray-800 bg-opacity-50 rounded-lg p-4 border-2 border-gray-500">
+                      <h3 className="text-lg font-semibold text-gray-300 mb-3">🎙️ Live Deepgram Transcription</h3>
+                      <div className="text-center">
+                        <div 
+                          className="text-white transition-all duration-500 ease-in-out min-h-[60px] flex items-center justify-center"
+                          style={{ 
+                            fontSize: '24px', 
+                            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                            fontWeight: '500',
+                            lineHeight: '1.4',
+                            opacity: roboCaption ? 1 : 0.5
+                          }}
+                        >
+                          {roboCaption || 'Waiting for speech...'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* NORMAL ROBO MODE: Original single caption display */
+                  <div className="flex-grow flex items-center justify-center">
+                    <div 
+                      className="text-white transition-all duration-500 ease-in-out"
+                      style={{ 
+                        fontSize: '32px', 
+                        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                        fontWeight: '500',
+                        lineHeight: '1.4',
+                        opacity: roboCaption ? 1 : 0.5
+                      }}
+                    >
+                      {roboCaption || ''}
+                    </div>
+                  </div>
+                )}
 
                 {/* Tips at bottom */}
                 <div className="bg-gray-800 bg-opacity-70 rounded-lg p-4 mt-6">
