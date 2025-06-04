@@ -71,29 +71,61 @@ this.app.post('/analyze', async (c) => {
         continue;
     }
 
-    const response = await callWithRetry(
-      '@cf/meta/llama-3.1-8b-instruct',
-      {
-        messages: [
-          { role: 'system', content: 'You are a Spanish grammar assistant.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 1500,
-        response_format: { type: 'json_object' },
-        temperature: 0.2,
-      },
-      this.env
-    ) as { response: string };
+    console.log(`🎯 [MISTAKE-ANALYZER] 🚀 Starting AI Gateway call for category: ${category}`);
+    console.log(`🎯 [MISTAKE-ANALYZER] Prompt length: ${prompt.length} characters`);
+    
+    let response;
+    try {
+      response = await callWithRetry(
+        '@cf/meta/llama-3.1-8b-instruct',
+        {
+          messages: [
+            { role: 'system', content: 'You are a Spanish grammar assistant.' },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 1500,
+          response_format: { type: 'json_object' },
+          temperature: 0.2,
+        },
+        this.env
+      ) as { response: string };
+      console.log(`🎯 [MISTAKE-ANALYZER] ✅ AI Gateway call successful for category: ${category}`);
+      console.log(`🎯 [MISTAKE-ANALYZER] Response type: ${typeof response}, keys: ${Object.keys(response || {}).join(', ')}`);
+    } catch (error) {
+      console.error(`🎯 [MISTAKE-ANALYZER] ❌ CRITICAL: AI Gateway call failed for category ${category}:`, error);
+      console.error(`🎯 [MISTAKE-ANALYZER] Error type: ${typeof error}`);
+      console.error(`🎯 [MISTAKE-ANALYZER] Error message: ${error?.message || 'Unknown error'}`);
+      console.error(`🎯 [MISTAKE-ANALYZER] Error stack: ${error?.stack || 'No stack trace'}`);
+      
+      // Check for authentication errors specifically
+      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized') || error?.message?.includes('Authentication')) {
+        console.error(`🎯 [MISTAKE-ANALYZER] 🚨 AUTHENTICATION ERROR DETECTED - This is likely the root cause of scorecard: null!`);
+        console.error(`🎯 [MISTAKE-ANALYZER] Check CLOUDFLARE_API_TOKEN environment variable and AI Gateway configuration`);
+      }
+      
+      // Continue with other categories instead of failing completely
+      console.warn(`🎯 [MISTAKE-ANALYZER] Skipping category ${category} due to AI Gateway error`);
+      continue;
+    }
 
     try {
+      if (!response?.response) {
+        console.error(`🎯 [MISTAKE-ANALYZER] ❌ CRITICAL: Empty or malformed response from AI Gateway for category ${category}:`, response);
+        continue;
+      }
+      
+      console.log(`🎯 [MISTAKE-ANALYZER] Response content length for ${category}: ${response.response.length} characters`);
       const analyzed = JSON.parse(response.response) as AnalyzedMistake[];
+      console.log(`🎯 [MISTAKE-ANALYZER] ✅ Response parsed successfully for ${category}, result type: ${typeof analyzed}, is array: ${Array.isArray(analyzed)}, length: ${analyzed.length}`);
+      
       const invalidTypes = analyzed.filter(m => !(SPANISH_ERROR_CLASSES as readonly string[]).includes(m.type));
       if (invalidTypes.length > 0) {
-        console.warn('[MistakeAnalyzerDO] Found invalid types:', invalidTypes.map(m => m.type));
+        console.warn(`[MistakeAnalyzerDO] Found invalid types in ${category}:`, invalidTypes.map(m => m.type));
       }
       allAnalyzed.push(...analyzed);
     } catch (err) {
-      console.error(`[MistakeAnalyzerDO] Failed to parse analyzer response for ${category}:`, err);
+      console.error(`🎯 [MISTAKE-ANALYZER] ❌ CRITICAL: Failed to parse analyzer response for ${category}:`, err);
+      console.error(`🎯 [MISTAKE-ANALYZER] Raw response that failed to parse for ${category}:`, response?.response);
     }
   }
 

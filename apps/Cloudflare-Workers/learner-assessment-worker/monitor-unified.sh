@@ -23,6 +23,7 @@ show_usage() {
     echo "Options:"
     echo "  -s, --scorecard     Focus on scorecard operations (default)"
     echo "  -e, --errors        Show only critical errors"
+    echo "  -c, --clean         Authentication debugging (minimal noise)"
     echo "  -r, --robo          Show robo-teacher specific logs"
     echo "  -p, --pipeline      Show pipeline stage details"
     echo "  -a, --all           Show all logs (no filtering)"
@@ -31,9 +32,10 @@ show_usage() {
     echo ""
     echo "Examples:"
     echo "  $script_name                  # Default scorecard monitoring"
+    echo "  $script_name --clean          # Clean auth debugging (recommended for AI Gateway issues)"
     echo "  $script_name --errors         # Error monitoring only"
     echo "  $script_name --all            # All logs with color coding"
-    echo "  $script_name -s -l auto       # Scorecard logs to ~/tmp/learner-scorecard-logs/"
+    echo "  $script_name -c -l auto       # Clean debug logs to ~/tmp/learner-scorecard-logs/"
     echo "  $script_name -s -l /tmp/debug.log  # Scorecard logs to specific file"
 }
 
@@ -50,6 +52,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -e|--errors)
             MODE="errors"
+            shift
+            ;;
+        -c|--clean)
+            MODE="clean"
             shift
             ;;
         -r|--robo)
@@ -86,6 +92,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Function to strip ANSI color codes for clean file logging
+strip_ansi() {
+    sed -E 's/\x1b\[[0-9;]*m//g'
+}
+
 # Function to add color coding to log lines
 colorize_logs() {
     # Color critical errors in red
@@ -110,10 +121,16 @@ colorize_logs() {
 get_filter_pattern() {
     case $MODE in
         scorecard)
-            echo "scorecard|assessment|mistake|error|✅|🎉|successfully|completed|generated|🚀.*Initiating|ScorecardOrchestratorDO|Starting.*mistake|Starting.*enrichment|Starting.*persistence|Persisting.*scorecard|transcribeAndDiarizeAll|end-session.*error|Missing required IDs|No segments found|scorecard.*null|null.*scorecard|🏁.*Session.*ending|🎯.*WORKER-INDEX.*END-SESSION|🎯.*DO-FETCH.*END-SESSION|🎯.*HANDLE-AUDIO.*END-SESSION|🎯.*END-SESSION"
+            # Focus on scorecard generation events, exclude repetitive audio processing
+            echo "🎯.*END-SESSION|🏁.*Session.*ending|transcribeAndDiarizeAll|ScorecardOrchestratorDO|SCORECARD|scorecard.*null|null.*scorecard|MISTAKE.*DETECTOR|MISTAKE.*ANALYZER|LEMMA.*ENRICHER|AI.*Gateway|401|Unauthorized|Authentication.*error|CRITICAL.*scorecard|ERROR.*scorecard|Missing required IDs|No segments found|persistence.*success|enrichment.*completed|detection.*completed|analysis.*completed|Starting.*mistake|Starting.*enrichment|Successfully.*persisted|🎉.*Complete.*persistence|✅.*scorecard.*success"
             ;;
         errors)
-            echo "CRITICAL|ERROR|failed|timeout|persistence.*failed"
+            # Focus on critical errors and authentication failures
+            echo "CRITICAL|ERROR|failed|timeout|persistence.*failed|401|Unauthorized|Authentication.*error|AI.*Gateway.*401|CLOUDFLARE_API_TOKEN|🚨.*AUTHENTICATION.*ERROR"
+            ;;
+        clean)
+            # Minimal noise - only essential scorecard and auth events
+            echo "🎯.*END-SESSION|🏁.*Session.*ending|AI.*Gateway|401|Unauthorized|Authentication|CLOUDFLARE_API_TOKEN|🚨.*AUTHENTICATION|scorecard.*null|null.*scorecard|CRITICAL.*scorecard|ERROR.*scorecard|Starting.*scorecard|✅.*scorecard|🎉.*scorecard|transcribeAndDiarizeAll.*completed|ScorecardOrchestratorDO.*scorecard"
             ;;
         robo)
             echo "robo|thinking.*time|utterance|fragment"
@@ -135,6 +152,9 @@ get_mode_description() {
             ;;
         errors)
             echo "${RED}🚨 CRITICAL ERRORS${RESET}: Database failures, AI timeouts, persistence issues"
+            ;;
+        clean)
+            echo "${GREEN}🔍 CLEAN DEBUG${RESET}: Authentication & scorecard events only (minimal noise)"
             ;;
         robo)
             echo "${PURPLE}🤖 ROBO MODE${RESET}: Thinking time, utterances, and fragments"
@@ -183,8 +203,8 @@ main() {
     
     # Execute with or without logging
     if [[ -n "$LOG_FILE" ]]; then
-        # Log to file and display on screen (tee)
-        eval "$pipeline_cmd" | tee "$LOG_FILE"
+        # Log to file (strip ANSI codes) and display on screen with colors
+        eval "$pipeline_cmd" | tee >(strip_ansi > "$LOG_FILE")
     else
         # Display only
         eval "$pipeline_cmd"

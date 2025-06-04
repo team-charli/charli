@@ -91,25 +91,54 @@ export class MistakeDetectorDO extends DurableObject<Env> {
 	}
 
 	private async runDetector(prompt: string): Promise<Omit<DetectedMistake, 'categoryHint'>[]> {
-		const response = await callWithRetry(
-			'@cf/meta/llama-3.1-8b-instruct',
-			{
-				messages: [
-					{ role: 'system', content: 'You are a Spanish mistake detector.' },
-					{ role: 'user', content: prompt }
-				],
-				max_tokens: 1000,
-				response_format: { type: 'json_object' },
-				temperature: 0.2,
-			},
-			this.env
-		) as { response: string };
+		console.log(`🎯 [MISTAKE-DETECTOR] 🚀 Starting AI Gateway call to @cf/meta/llama-3.1-8b-instruct`);
+		console.log(`🎯 [MISTAKE-DETECTOR] Prompt length: ${prompt.length} characters`);
+		
+		let response;
+		try {
+			response = await callWithRetry(
+				'@cf/meta/llama-3.1-8b-instruct',
+				{
+					messages: [
+						{ role: 'system', content: 'You are a Spanish mistake detector.' },
+						{ role: 'user', content: prompt }
+					],
+					max_tokens: 1000,
+					response_format: { type: 'json_object' },
+					temperature: 0.2,
+				},
+				this.env
+			) as { response: string };
+			console.log(`🎯 [MISTAKE-DETECTOR] ✅ AI Gateway call successful`);
+			console.log(`🎯 [MISTAKE-DETECTOR] Response type: ${typeof response}, keys: ${Object.keys(response || {}).join(', ')}`);
+		} catch (error) {
+			console.error(`🎯 [MISTAKE-DETECTOR] ❌ CRITICAL: AI Gateway call failed:`, error);
+			console.error(`🎯 [MISTAKE-DETECTOR] Error type: ${typeof error}`);
+			console.error(`🎯 [MISTAKE-DETECTOR] Error message: ${error?.message || 'Unknown error'}`);
+			console.error(`🎯 [MISTAKE-DETECTOR] Error stack: ${error?.stack || 'No stack trace'}`);
+			
+			// Check for authentication errors specifically
+			if (error?.message?.includes('401') || error?.message?.includes('Unauthorized') || error?.message?.includes('Authentication')) {
+				console.error(`🎯 [MISTAKE-DETECTOR] 🚨 AUTHENTICATION ERROR DETECTED - This is likely the root cause of scorecard: null!`);
+				console.error(`🎯 [MISTAKE-DETECTOR] Check CLOUDFLARE_API_TOKEN environment variable and AI Gateway configuration`);
+			}
+			
+			throw error; // Re-throw to propagate the error up the chain
+		}
 
 		try {
+			if (!response?.response) {
+				console.error(`🎯 [MISTAKE-DETECTOR] ❌ CRITICAL: Empty or malformed response from AI Gateway:`, response);
+				return [];
+			}
+			
+			console.log(`🎯 [MISTAKE-DETECTOR] Response content length: ${response.response.length} characters`);
 			const parsed = JSON.parse(response.response);
+			console.log(`🎯 [MISTAKE-DETECTOR] ✅ Response parsed successfully, result type: ${typeof parsed}, is array: ${Array.isArray(parsed)}`);
 			return Array.isArray(parsed) ? parsed : [];
 		} catch (err) {
-			console.error('[MistakeDetectorDO] Failed to parse detector response:', err);
+			console.error(`🎯 [MISTAKE-DETECTOR] ❌ CRITICAL: Failed to parse detector response:`, err);
+			console.error(`🎯 [MISTAKE-DETECTOR] Raw response that failed to parse:`, response?.response);
 			return [];
 		}
 	}
