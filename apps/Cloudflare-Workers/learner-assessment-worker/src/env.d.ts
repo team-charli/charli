@@ -40,6 +40,8 @@ export interface Env {
 	AVG_FREQUENCY_ENRICHER_DO_URL?: string;
 	TREND_ARROW_ENRICHER_DO_URL?: string;
 	SESSION_COLOR_ENRICHER_DO_URL?: string;
+	// R2 bucket for verbatim analysis reports
+	VERBATIM_REPORTS_BUCKET: R2Bucket;
 }
 
 // For DOs that need specific bindings

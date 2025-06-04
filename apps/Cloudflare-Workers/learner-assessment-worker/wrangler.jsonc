@@ -80,6 +80,13 @@
 
 	"ai": { "binding": "AI" },
 
+	"r2_buckets": [
+		{
+			"binding": "VERBATIM_REPORTS_BUCKET",
+			"bucket_name": "deepgram-verbatim-qa-reports"
+		}
+	],
+
   "observability": {
     "enabled": true
   },

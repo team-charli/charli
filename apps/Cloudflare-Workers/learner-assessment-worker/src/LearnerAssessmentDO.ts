@@ -2,6 +2,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
+import { CueCard, getCueCardById } from './CueCards';
+import { VerbatimAnalyzer, VerbatimAnalysisResult } from './VerbatimAnalyzer';
 
 /** A diarized ASR segment returned by `runAsrOnWav` */
 interface TranscribedSegment {
@@ -72,6 +74,22 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private static readonly MIN_CHUNK_INTERVAL_MS = 50; // 5 msg/s = 50ms between chunks
 	private connectBannerLogged = false;   // ← new
 	private modeBannerLogged = false;
+	
+	// 🔍 VERBATIM TRANSCRIPT CAPTURE: Store raw Deepgram responses for analysis
+	private verbatimCaptureData: Array<{
+		timestamp: number;
+		messageType: 'interim' | 'speech_final' | 'is_final';
+		text: string;
+		confidence: number;
+		speaker: string;
+		role: string;
+		start: number;
+		duration: number;
+		rawMessage: any;
+	}> = [];
+	
+	// 🎯 CUE-CARD SESSION: Track if this session is using cue-cards for testing
+	private activeCueCard: CueCard | null = null;
 	/* ------------------------------------------------------------------ */
 
 	constructor(state: DurableObjectState, env: Env) {
@@ -349,6 +367,38 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				const hasText = Boolean(text && text.trim());
 				const now = Date.now();
+
+				// 🔍 VERBATIM CAPTURE: Store ALL Deepgram responses for later analysis
+				if (hasText) {
+					const speaker = String(msg.channel?.speaker ?? '0');
+					const role = speaker === '0' ? 'learner' : 'teacher';
+					const confidence = msg.channel?.alternatives?.[0]?.confidence || 0;
+					const start = msg.start ?? 0;
+					const duration = msg.duration ?? 0;
+					
+					let messageType: 'interim' | 'speech_final' | 'is_final';
+					if (msg.speech_final === true) {
+						messageType = 'speech_final';
+					} else if (msg.is_final === true) {
+						messageType = 'is_final';
+					} else {
+						messageType = 'interim';
+					}
+
+					this.verbatimCaptureData.push({
+						timestamp: now,
+						messageType,
+						text: text || '',
+						confidence,
+						speaker,
+						role,
+						start,
+						duration,
+						rawMessage: JSON.parse(JSON.stringify(msg)) // Deep clone
+					});
+
+					console.log(`[VERBATIM-CAPTURE] Stored ${messageType} transcript: "${text}" (${role}, conf: ${confidence})`);
+				}
 
 				// Track speech timing for endpointing analysis
 				if (hasText && !msg.speech_final && !msg.is_final) {
@@ -976,7 +1026,168 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		}
 	}
 
+	// 🔍 VERBATIM ANALYSIS: Generate markdown report comparing expected vs actual transcripts
+	private async generateVerbatimAnalysisReport(roomId: string, sessionId: number | string): Promise<string> {
+		console.log(`[VERBATIM-ANALYSIS] Generating report for ${this.verbatimCaptureData.length} captured transcripts`);
+		
+		const timestamp = new Date().toISOString();
+		const learnerTranscripts = this.verbatimCaptureData.filter(item => item.role === 'learner');
+		
+		let markdown = `# Deepgram Verbatim Analysis Report\n\n`;
+		markdown += `**Session:** ${sessionId}  \n`;
+		markdown += `**Room:** ${roomId}  \n`;
+		markdown += `**Generated:** ${timestamp}  \n`;
+		markdown += `**Total Transcripts Captured:** ${this.verbatimCaptureData.length}  \n`;
+		markdown += `**Learner Transcripts:** ${learnerTranscripts.length}  \n`;
+		markdown += `**Cue-Card Mode:** ${this.activeCueCard ? `Yes (${this.activeCueCard.id})` : 'No'}  \n\n`;
+
+		// Summary table
+		markdown += `## Summary Statistics\n\n`;
+		markdown += `| Metric | Count |\n`;
+		markdown += `|--------|-------|\n`;
+		markdown += `| Total Messages | ${this.verbatimCaptureData.length} |\n`;
+		markdown += `| Interim Results | ${this.verbatimCaptureData.filter(t => t.messageType === 'interim').length} |\n`;
+		markdown += `| Speech Final | ${this.verbatimCaptureData.filter(t => t.messageType === 'speech_final').length} |\n`;
+		markdown += `| Is Final | ${this.verbatimCaptureData.filter(t => t.messageType === 'is_final').length} |\n`;
+		markdown += `| Learner Messages | ${learnerTranscripts.length} |\n`;
+		markdown += `| Teacher Messages | ${this.verbatimCaptureData.filter(t => t.role === 'teacher').length} |\n\n`;
+
+		// Detailed transcript log
+		markdown += `## Detailed Transcript Timeline\n\n`;
+		markdown += `| Time | Type | Role | Confidence | Text |\n`;
+		markdown += `|------|------|------|------------|------|\n`;
+		
+		for (const item of this.verbatimCaptureData) {
+			const timeStr = new Date(item.timestamp).toISOString().substr(11, 12);
+			const confidenceStr = (item.confidence * 100).toFixed(1) + '%';
+			const textPreview = item.text.length > 50 ? item.text.substring(0, 47) + '...' : item.text;
+			markdown += `| ${timeStr} | ${item.messageType} | ${item.role} | ${confidenceStr} | "${textPreview}" |\n`;
+		}
+
+		// Raw data section for analysis
+		markdown += `\n## Raw Deepgram Responses\n\n`;
+		markdown += `<details><summary>Click to expand raw JSON data</summary>\n\n`;
+		markdown += `\`\`\`json\n`;
+		markdown += JSON.stringify(this.verbatimCaptureData, null, 2);
+		markdown += `\n\`\`\`\n\n`;
+		markdown += `</details>\n\n`;
+
+		// Cue-card comparison analysis
+		markdown += `## Cue-Card Comparison Analysis\n\n`;
+		
+		if (this.activeCueCard && learnerTranscripts.length > 0) {
+			try {
+				// Perform verbatim analysis
+				const transcriptsForAnalysis = learnerTranscripts.map(t => ({
+					messageType: t.messageType,
+					text: t.text,
+					confidence: t.confidence,
+					timestamp: t.timestamp
+				}));
+				
+				const analysis = VerbatimAnalyzer.analyzeCueCardVerbatimness(
+					this.activeCueCard,
+					transcriptsForAnalysis
+				);
+				
+				markdown += `### Cue-Card: ${this.activeCueCard.id} - ${this.activeCueCard.description}\n\n`;
+				markdown += `**Expected Text:** "${this.activeCueCard.expectedText}"  \n`;
+				markdown += `**Error Types:** ${this.activeCueCard.errorTypes.join(', ')}  \n`;
+				markdown += `**Verbatim Score:** ${analysis.verbatimScore}/100  \n\n`;
+				
+				markdown += `#### Analysis Summary\n\n`;
+				markdown += `${analysis.summary}\n\n`;
+				
+				if (analysis.autoCorrectionInstances.length > 0) {
+					markdown += `#### Auto-Corrections Detected\n\n`;
+					markdown += `| Type | Expected | Actual | Description |\n`;
+					markdown += `|------|----------|--------|-------------|\n`;
+					for (const correction of analysis.autoCorrectionInstances) {
+						markdown += `| ${correction.correctionType} | ${correction.expectedPhrase} | ${correction.actualPhrase} | ${correction.description} |\n`;
+					}
+					markdown += `\n`;
+				}
+				
+				if (analysis.preservedErrors.length > 0) {
+					markdown += `#### Preserved Errors (Good for Assessment)\n\n`;
+					for (const error of analysis.preservedErrors) {
+						markdown += `- ✅ ${error}\n`;
+					}
+					markdown += `\n`;
+				}
+				
+				if (analysis.lostErrors.length > 0) {
+					markdown += `#### Lost Errors (Auto-Corrected)\n\n`;
+					for (const error of analysis.lostErrors) {
+						markdown += `- ❌ ${error}\n`;
+					}
+					markdown += `\n`;
+				}
+				
+				markdown += `#### Transcript Comparison\n\n`;
+				markdown += `| Type | Confidence | Similarity | Edit Distance | Text |\n`;
+				markdown += `|------|------------|------------|---------------|------|\n`;
+				for (const transcript of analysis.actualTranscripts) {
+					const confStr = (transcript.confidence * 100).toFixed(1) + '%';
+					const simStr = (transcript.similarity * 100).toFixed(1) + '%';
+					const textPreview = transcript.actualText.length > 60 ? 
+						transcript.actualText.substring(0, 57) + '...' : transcript.actualText;
+					markdown += `| ${transcript.messageType} | ${confStr} | ${simStr} | ${transcript.editDistance} | "${textPreview}" |\n`;
+				}
+				markdown += `\n`;
+				
+			} catch (error) {
+				markdown += `*Error performing cue-card analysis: ${error}*\n\n`;
+				console.error(`[VERBATIM-ANALYSIS] Cue-card analysis error:`, error);
+			}
+		} else {
+			markdown += `*No cue-card data available for this session. To enable cue-card analysis:*\n\n`;
+			markdown += `1. Use the cue-card evaluation mode during dictation\n`;
+			markdown += `2. System will compare expected "bad Spanish" text with Deepgram output\n`;
+			markdown += `3. Measure auto-correction instances where errors were "fixed"\n`;
+			markdown += `4. Calculate verbatim preservation rate\n`;
+			markdown += `5. Analyze differences between interim, speech_final, and is_final results\n\n`;
+		}
+
+		console.log(`[VERBATIM-ANALYSIS] Generated ${markdown.length} character report`);
+		return markdown;
+	}
+
 	private async cleanupAll(roomId: string) {
+		// Generate and store verbatim analysis report before cleanup
+		if (this.verbatimCaptureData.length > 0) {
+			try {
+				const sessionId = await this.state.storage.get<number>('sessionId') || 'unknown';
+				const report = await this.generateVerbatimAnalysisReport(roomId, sessionId);
+				
+				// Upload report to R2 bucket
+				const reportFileName = `verbatim-analysis-${sessionId}-${Date.now()}.md`;
+				try {
+					await this.env.VERBATIM_REPORTS_BUCKET.put(reportFileName, report, {
+						httpMetadata: {
+							contentType: 'text/markdown',
+						},
+						customMetadata: {
+							sessionId: String(sessionId),
+							roomId: roomId,
+							generatedAt: new Date().toISOString(),
+							cueCardId: this.activeCueCard?.id || 'none',
+							transcriptCount: String(this.verbatimCaptureData.length)
+						}
+					});
+					console.log(`[VERBATIM-ANALYSIS] Report uploaded to R2: ${reportFileName}`);
+				} catch (r2Error) {
+					console.error(`[VERBATIM-ANALYSIS] Failed to upload to R2:`, r2Error);
+					// Fallback: store to DO storage
+					const reportKey = `verbatim-analysis:${sessionId}:${Date.now()}`;
+					await this.state.storage.put(reportKey, report);
+					console.log(`[VERBATIM-ANALYSIS] Report stored to DO storage as fallback: ${reportKey}`);
+				}
+			} catch (error) {
+				console.error(`[VERBATIM-ANALYSIS] Failed to generate report:`, error);
+			}
+		}
+
 		// Clean up Durable Object storage for the room
 		const keys = await this.state.storage.list({ prefix: `${roomId}/` });
 		const deleteKeys = Array.from(keys.keys());
