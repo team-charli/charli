@@ -33,11 +33,8 @@ export interface Env {
   DEEPGRAM_URL: string;
 	DG_LANGUAGE?: string;
 	__BUILD_ID?: string;
-	// AI Gateway
-	AI_GATEWAY_URL: string;
-	AI_GATEWAY_AUTH_TOKEN: string;
+	// AI Gateway now uses bindings - no manual configuration needed
 	AI_SESSION_TOKEN_LIMIT?: string;
-	CLOUDFLARE_API_TOKEN?: string;
 	// Service URLs for enricher pipelines
 	LEMMA_ENRICHER_DO_URL?: string;
 	AVG_FREQUENCY_ENRICHER_DO_URL?: string;
@@ -59,10 +56,7 @@ export interface DOEnv {
   SESSION_FREQ_COLOR_ENRICHER_DO: DurableObjectNamespace;
   LEMMA_ENRICHER_DO: DurableObjectNamespace;
   
-  // AI Gateway
-  AI_GATEWAY_URL: string;
-  AI_GATEWAY_AUTH_TOKEN: string;
+  // AI Gateway now uses bindings - no manual configuration needed
   AI_SESSION_TOKEN_LIMIT?: string;
-  CLOUDFLARE_API_TOKEN?: string;
 }
 
