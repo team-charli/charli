@@ -430,21 +430,17 @@ export default function Room() {
                             <p className="text-sm text-purple-200">{dictationScript.description}</p>
                           </div>
                           
-                          {dictationScript.turns.map((turn: any) => (
-                            <div key={turn.turnNumber} className={`p-3 rounded-lg ${
-                              turn.speaker === 'learner' 
-                                ? 'bg-blue-800 bg-opacity-50 border-l-4 border-blue-400' 
-                                : 'bg-green-800 bg-opacity-50 border-l-4 border-green-400'
-                            }`}>
+                          {dictationScript.turns
+                            .filter((turn: any) => turn.speaker === 'learner')
+                            .map((turn: any, index: number) => (
+                            <div key={turn.turnNumber} className="p-3 rounded-lg bg-blue-800 bg-opacity-50 border-l-4 border-blue-400">
                               <div className="flex items-start gap-3">
                                 <div className="flex-shrink-0">
                                   <span className="text-xs font-bold text-gray-300">
-                                    Turn #{turn.turnNumber}
+                                    Turn #{index + 1}
                                   </span>
-                                  <div className={`text-xs ${
-                                    turn.speaker === 'learner' ? 'text-blue-300' : 'text-green-300'
-                                  }`}>
-                                    ({turn.speaker})
+                                  <div className="text-xs text-blue-300">
+                                    (learner)
                                   </div>
                                 </div>
                                 <div className="flex-grow">
