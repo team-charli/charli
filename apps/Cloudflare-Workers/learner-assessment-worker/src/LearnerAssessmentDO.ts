@@ -90,6 +90,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	
 	// 🎯 CUE-CARD SESSION: Track if this session is using cue-cards for testing
 	private activeCueCard: CueCard | null = null;
+	
+	// 🔬 DEEPGRAM QA MODE: Skip scorecard generation for verbatim testing
+	private skipScorecard: boolean = false;
 	/* ------------------------------------------------------------------ */
 
 	constructor(state: DurableObjectState, env: Env) {
@@ -171,6 +174,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const requestedRobo = q['roboMode'] === 'true';
 		const sessionIdStr  = q['sessionId'];
 		const learnerIdStr  = q['learnerId'];
+		this.skipScorecard = q['skipScorecard'] === 'true';
 
 		/* 2. store metadata or handle end-session ------------------------- */
 		const metaKey = `metaWritten:${sessionIdStr}`;
@@ -186,6 +190,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		if (action === 'end-session') {
 			console.log(`🎯 [END-SESSION] 🏁 Session ending for room ${roomId} - starting scorecard generation process`);
 			console.log(`🎯 [END-SESSION] Session metadata - sessionId: ${sessionIdStr}, learnerId: ${learnerIdStr}`);
+			console.log(`🎯 [END-SESSION] Skip scorecard: ${this.skipScorecard} (Deepgram QA mode: ${this.skipScorecard ? 'YES' : 'NO'})`);
 			console.log(`🎯 [END-SESSION] Deepgram socket exists: ${!!this.dgSocket}`);
 			console.log(`🎯 [END-SESSION] Segments available: ${this.dgSocket?.segments?.length || 0}`);
 			
@@ -932,6 +937,12 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const bellEvents = await this.state.storage.get<{peerId:string,ts:number}[]>(`bells:${roomId}`) ?? [];
 		console.log(`[LearnerAssessmentDO] Retrieved ${bellEvents.length} bell events for teacher scorecard`);
 
+		if (this.skipScorecard) {
+			console.log(`🎯 [TRANSCRIBE] 🚫 SKIPPING SCORECARD: Deepgram QA mode active - scorecard generation disabled`);
+			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
+			return;
+		}
+
 		console.log(`🎯 [TRANSCRIBE] 🚀 Initiating scorecard generation pipeline for session ${session_id}`);
 		console.log(`🎯 [TRANSCRIBE] Scorecard request data: ${simplifiedLearnerSegments.length} learner segments, ${bellEvents.length} bell events`);
 		console.log(`🎯 [TRANSCRIBE] 📊 Detailed scorecard request:`, {
@@ -946,8 +957,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		});
 
 		try {
-			const orchestratorDO = this.env.SCORECARD_ORCHESTRATOR_DO.get(this.env.SCORECARD_ORCHESTRATOR_DO.idFromName(roomId));
-			console.log(`🎯 [TRANSCRIBE] ✅ ScorecardOrchestratorDO instance created for room ${roomId}`);
+			try {
+				const orchestratorDO = this.env.SCORECARD_ORCHESTRATOR_DO.get(this.env.SCORECARD_ORCHESTRATOR_DO.idFromName(roomId));
+				console.log(`🎯 [TRANSCRIBE] ✅ ScorecardOrchestratorDO instance created for room ${roomId}`);
 			
 			const requestBody = {
 				learnerSegments: simplifiedLearnerSegments,
@@ -1016,6 +1028,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			console.error(`🎯 [TRANSCRIBE] ❌ CRITICAL ERROR: Scorecard generation failed for session ${session_id}:`, error);
 			console.error(`🎯 [TRANSCRIBE] Error type: ${typeof error}, Error message: ${error?.message || 'Unknown'}`);
 			console.error(`🎯 [TRANSCRIBE] This means learner progress data will be lost for this session!`);
+			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
+		}
+		} catch (error) {
+			console.error(`🎯 [TRANSCRIBE] ❌ CRITICAL ERROR: Outer scorecard processing failed for session ${session_id}:`, error);
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
 		}
 

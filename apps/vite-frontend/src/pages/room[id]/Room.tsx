@@ -82,21 +82,27 @@ export default function Room() {
   const [activeCueCard, setActiveCueCard] = useState<any>(null);
   const [isVerbatimMode, setIsVerbatimMode] = useState(false);
   const [cueCardsLoaded, setCueCardsLoaded] = useState(false);
+  const [isDeepgramQAMode, setIsDeepgramQAMode] = useState(false);
 
 
   const uploadUrl = useMemo(() => {
     if (!localPeerId) return null;
     let url =  `https://learner-assessment-worker.charli.chat/audio/${roomId}?peerId=${localPeerId}&role=${roomRole}`;
 
-    if (isRoboMode) {
+    if (isRoboMode || isDeepgramQAMode) {
       url += `&roboMode=true`;
       // Add the learnerId and sessionId if available from RoboTest mode
       if (learnerId) url += `&learnerId=${learnerId}`;
       if (sessionId) url += `&sessionId=${sessionId}`;
+      
+      // Add flag to skip scorecard generation in Deepgram QA mode
+      if (isDeepgramQAMode) {
+        url += `&skipScorecard=true`;
+      }
     }
 
     return url;
-  }, [roomId, localPeerId, roomRole, isRoboMode, learnerId, sessionId]);
+  }, [roomId, localPeerId, roomRole, isRoboMode, learnerId, sessionId, isDeepgramQAMode]);
 
   // Log the uploadUrl for debugging
   useEffect(() => {
@@ -172,13 +178,13 @@ export default function Room() {
 
   /** 6b) When BOTH mic is enabled AND Deepgram is ready, show "Ready" */
   useEffect(() => {
-    if (isRoboMode && isAudioOn && deepgramReady && !hasInitialized.current) {
+    if ((isRoboMode || isDeepgramQAMode) && isAudioOn && deepgramReady && !hasInitialized.current) {
       console.log("[Room] Both mic and Deepgram ready - showing Ready");
       hasInitialized.current = true;
       setConversationState('ready');
       // Stay in ready state, don't auto-transition
     }
-  }, [isAudioOn, deepgramReady, isRoboMode]);
+  }, [isAudioOn, deepgramReady, isRoboMode, isDeepgramQAMode]);
 
   /** 7) Optionally auto-enable video once "connected" */
   useEffect(() => {
@@ -204,9 +210,9 @@ export default function Room() {
     let lastPlayedUtteranceId = 0;
 
     // Initialize AudioContext for audio playback
-    if (isRoboMode) {
+    if (isRoboMode || isDeepgramQAMode) {
       audioContext = new AudioContext();
-      console.log("[TranscriptListener] AudioContext created for robo mode");
+      console.log("[TranscriptListener] AudioContext created for robo/QA mode");
     }
 
     const ws = new WebSocket(`wss://learner-assessment-worker.charli.chat/connect/${roomId}`);
@@ -315,7 +321,7 @@ export default function Room() {
         audioContext.close();
       }
     };
-  }, [roomId, isRoboMode, showOverlay, showAnswer]);
+  }, [roomId, isRoboMode, isDeepgramQAMode, showOverlay, showAnswer]);
 
   /** 11) Leave the room */
   const { leaveRoom } = useRoomLeave(roomId);
@@ -426,7 +432,7 @@ export default function Room() {
         <div className="w-full sm:w-2/3 lg:w-3/4 sm:min-h-0 order-1 sm:order-2 flex-grow overflow-auto p-2 sm:p-4">
           {/* Debug info removed - was causing infinite re-renders */}
           
-          {isRoboMode ? (
+          {isRoboMode || isDeepgramQAMode ? (
             <div className="h-full flex flex-col">
               <div className="text-center bg-gray-900 bg-opacity-70 rounded-lg p-6 sm:p-8 max-w-4xl w-full mx-auto flex-grow flex flex-col">
                 {/* Header with mode toggle */}
@@ -434,16 +440,31 @@ export default function Room() {
                   <div className="text-6xl">🦸‍♀️</div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setIsVerbatimMode(false)}
-                      className={`px-4 py-2 rounded ${!isVerbatimMode ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                      onClick={() => {
+                        setIsVerbatimMode(false);
+                        setIsDeepgramQAMode(false);
+                      }}
+                      className={`px-4 py-2 rounded ${!isVerbatimMode && !isDeepgramQAMode ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
                     >
                       Robo Mode
                     </button>
                     <button
-                      onClick={() => setIsVerbatimMode(true)}
-                      className={`px-4 py-2 rounded ${isVerbatimMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                      onClick={() => {
+                        setIsVerbatimMode(true);
+                        setIsDeepgramQAMode(false);
+                      }}
+                      className={`px-4 py-2 rounded ${isVerbatimMode && !isDeepgramQAMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}`}
                     >
                       🔍 Verbatim QA
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsVerbatimMode(true);
+                        setIsDeepgramQAMode(true);
+                      }}
+                      className={`px-3 py-2 rounded text-sm ${isDeepgramQAMode ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                    >
+                      🔬 Robo + QA - Scorecard
                     </button>
                   </div>
                 </div>
