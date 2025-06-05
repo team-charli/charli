@@ -40,7 +40,7 @@ export class RoboTestDO extends DurableObject<Env> {
 		/* main JSON API -------------------------------------------------- */
 		this.app.post('/robo-teacher-reply', async (c) => {
 			try {
-				const { userText, roomId, utteranceId } = await c.req.json();
+				const { userText, roomId, utteranceId, deepgramQA } = await c.req.json();
 				const url = new URL(c.req.url);
 				const action = url.searchParams.get('action');
 
@@ -76,7 +76,7 @@ export class RoboTestDO extends DurableObject<Env> {
 
 				/* 1 · generate Spanish sentence ----------------------------- */
 				await this.broadcast(roomId, 'processingState', { state: 'llama_processing' });
-				const replyText = await this.generateRoboReplyText(history);
+				const replyText = await this.generateRoboReplyText(history, deepgramQA);
 
 				/* 3 · add assistant reply & save trimmed history ------------ */
 				history.push({ role: 'assistant', content: replyText });
@@ -140,7 +140,7 @@ export class RoboTestDO extends DurableObject<Env> {
 		return this.decodeMp3ToPcm(mp3); // legacy only
 	}
 
-	private async generateRoboReplyText(history: Msg[]): Promise<string> {
+	private async generateRoboReplyText(history: Msg[], deepgramQA?: boolean): Promise<string> {
 		// Guard required environment variables
 		if (!this.env.AI) {
 			throw new Error('CF_AI_TOKEN not configured');
@@ -149,6 +149,31 @@ export class RoboTestDO extends DurableObject<Env> {
 			throw new Error('ELEVEN_API_KEY not configured');
 		}
 
+		// 🔍 DEEPGRAM QA MODE: Use minimal prompt to avoid interfering with transcription testing
+		if (deepgramQA) {
+			console.log('[RoboTestDO] 🔬 DeepgramQA mode: Using minimal neutral prompt');
+			
+			// Simple neutral system prompt that won't interfere with Deepgram testing
+			const qaMessages = [
+				{ 
+					role: 'system', 
+					content: 'Eres un hablante nativo de español. Responde de manera natural y conversacional en español. Mantén tus respuestas cortas y simples.' 
+				},
+				...history.map((msg) => ({ role: msg.role, content: msg.content }))
+			];
+			
+			console.log('[RoboTestDO] 🔬 DeepgramQA: Sending minimal prompt to Llama');
+			const { response } = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+				messages: qaMessages,
+				max_tokens: 50,  // Shorter responses for QA mode
+				temperature: 0.7,
+			})) as { response: string };
+			console.log('[RoboTestDO] 🔬 DeepgramQA Llama response:', response);
+			
+			return response.trim();
+		}
+
+		// 🤖 NORMAL ROBO MODE: Use full conversational prompt system
 		const messages = buildChatMessages(history);
 		console.log('[RoboTestDO] Sending to Llama:', JSON.stringify(messages, null, 2));
 		const { response } = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {

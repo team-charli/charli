@@ -13,7 +13,7 @@ import { AvgFrequencyEnricherDO } from './AvgFrequencyEnricherDO';
 import { SessionFrequencyColorEnricherDO } from './SessionFrequencyColorEnricherDO';
 import { LemmaEnricherDO } from './LemmaEnricherDO';
 import { TeacherScorecardPersisterDO } from './TeacherScorecardPersisterDO';
-import { CUE_CARDS } from './CueCards';
+import { CUE_CARDS, DICTATION_SCRIPTS, getDefaultQADictationScript } from './CueCards';
 const app = new Hono<{ Bindings: Env }>()
 
 // Basic CORS setup
@@ -49,6 +49,17 @@ app.get('/cue-cards', async (c) => {
 		cueCards: CUE_CARDS,
 		total: CUE_CARDS.length,
 		categories: [...new Set(CUE_CARDS.map(card => card.category))]
+	});
+});
+
+// 🔍 DICTATION SCRIPTS: Endpoint for Deepgram QA mode
+app.get('/dictation-scripts', async (c) => {
+	console.log('[DICTATION-SCRIPTS] Serving default dictation script for QA mode');
+	const defaultScript = getDefaultQADictationScript();
+	return c.json({
+		script: defaultScript,
+		allScripts: DICTATION_SCRIPTS,
+		total: DICTATION_SCRIPTS.length
 	});
 });
 

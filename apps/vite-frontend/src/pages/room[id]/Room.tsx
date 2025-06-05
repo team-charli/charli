@@ -20,7 +20,7 @@ export default function Room() {
    * 1) Get room & role info from URL
    */
   const { id: urlRoomId } = useParams({ from: "/room/$id" });
-  const { roomRole, hashedLearnerAddress, hashedTeacherAddress, roboTest, learnerId, sessionId } = useSearch({
+  const { roomRole, hashedLearnerAddress, hashedTeacherAddress, roboTest, learnerId, sessionId, deepgramQA } = useSearch({
     from: "/room/$id",
   });
 
@@ -80,9 +80,13 @@ export default function Room() {
   // 🔍 VERBATIM QA: Cue-card system state
   const [cueCards, setCueCards] = useState<any[]>([]);
   const [activeCueCard, setActiveCueCard] = useState<any>(null);
-  const [isVerbatimMode, setIsVerbatimMode] = useState(false);
+  const [isVerbatimMode, setIsVerbatimMode] = useState(deepgramQA === 'true');
   const [cueCardsLoaded, setCueCardsLoaded] = useState(false);
-  const [isDeepgramQAMode, setIsDeepgramQAMode] = useState(false);
+  const [isDeepgramQAMode, setIsDeepgramQAMode] = useState(deepgramQA === 'true');
+  
+  // 🔍 DICTATION SCRIPT: State for extended conversation scripts
+  const [dictationScript, setDictationScript] = useState<any>(null);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
 
 
   const uploadUrl = useMemo(() => {
@@ -109,26 +113,40 @@ export default function Room() {
     console.log('[Room] uploadUrl:', uploadUrl);
   }, [uploadUrl]);
 
-  // 🔍 VERBATIM QA: Fetch cue-cards on component mount
+  // 🔍 VERBATIM QA: Fetch cue-cards OR dictation script on component mount
   useEffect(() => {
-    const fetchCueCards = async () => {
+    const fetchData = async () => {
       try {
-        console.log('[CUE-CARDS] Fetching cue-cards from backend');
-        const response = await fetch('https://learner-assessment-worker.charli.chat/cue-cards');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const data = await response.json();
-        console.log(`[CUE-CARDS] Loaded ${data.total} cue-cards in ${data.categories.length} categories`);
-        setCueCards(data.cueCards);
-        setCueCardsLoaded(true);
+        if (isDeepgramQAMode) {
+          // Fetch dictation script for QA mode
+          console.log('[DICTATION-SCRIPT] Fetching dictation script from backend');
+          const response = await fetch('https://learner-assessment-worker.charli.chat/dictation-scripts');
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const data = await response.json();
+          console.log(`[DICTATION-SCRIPT] Loaded dictation script: ${data.script?.title}`);
+          setDictationScript(data.script);
+          setScriptLoaded(true);
+        } else {
+          // Fetch cue-cards for verbatim mode
+          console.log('[CUE-CARDS] Fetching cue-cards from backend');
+          const response = await fetch('https://learner-assessment-worker.charli.chat/cue-cards');
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const data = await response.json();
+          console.log(`[CUE-CARDS] Loaded ${data.total} cue-cards in ${data.categories.length} categories`);
+          setCueCards(data.cueCards);
+          setCueCardsLoaded(true);
+        }
       } catch (error) {
-        console.error('[CUE-CARDS] Failed to fetch cue-cards:', error);
-        setCueCardsLoaded(true); // Still mark as loaded to prevent infinite retries
+        console.error('[VERBATIM-QA] Failed to fetch data:', error);
+        setCueCardsLoaded(true);
+        setScriptLoaded(true); // Still mark as loaded to prevent infinite retries
       }
     };
 
-    fetchCueCards();
-  }, []);
+    fetchData();
+  }, [isDeepgramQAMode]);
 
   // 🔍 VERBATIM QA: Set active cue-card for backend analysis
   const setActiveCueCardForSession = async (cueCard: any) => {
@@ -444,18 +462,9 @@ export default function Room() {
                         setIsVerbatimMode(false);
                         setIsDeepgramQAMode(false);
                       }}
-                      className={`px-4 py-2 rounded ${!isVerbatimMode && !isDeepgramQAMode ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                      className={`px-4 py-2 rounded ${!isDeepgramQAMode ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
                     >
-                      Robo Mode
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsVerbatimMode(true);
-                        setIsDeepgramQAMode(false);
-                      }}
-                      className={`px-4 py-2 rounded ${isVerbatimMode && !isDeepgramQAMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}`}
-                    >
-                      🔍 Verbatim QA
+                      🤖 Robo Mode
                     </button>
                     <button
                       onClick={() => {
@@ -464,7 +473,7 @@ export default function Room() {
                       }}
                       className={`px-3 py-2 rounded text-sm ${isDeepgramQAMode ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300'}`}
                     >
-                      🔬 Robo + QA - Scorecard
+                      🔬 Deepgram QA
                     </button>
                   </div>
                 </div>
@@ -472,52 +481,110 @@ export default function Room() {
                 {isVerbatimMode ? (
                   /* 🔍 VERBATIM QA MODE: Split captions display */
                   <div className="flex-grow flex flex-col gap-4">
-                    {/* Top half: Cue-card display */}
+                    {/* Top half: Display script or cue-card based on mode */}
                     <div className="flex-1 bg-purple-900 bg-opacity-50 rounded-lg p-4 border-2 border-purple-500">
-                      <div className="flex justify-between items-center mb-3">
-                        <h3 className="text-lg font-semibold text-purple-300">📋 Cue Card - Read This Text</h3>
-                        <div className="flex gap-2">
-                          {cueCardsLoaded && (
-                            <select
-                              className="bg-gray-800 text-white px-3 py-1 rounded border border-gray-600"
-                              value={activeCueCard?.id || ''}
-                              onChange={(e) => {
-                                const selectedCard = cueCards.find(card => card.id === e.target.value);
-                                if (selectedCard) {
-                                  setActiveCueCardForSession(selectedCard);
-                                }
-                              }}
-                            >
-                              <option value="">Select a cue-card...</option>
-                              {cueCards.map(card => (
-                                <option key={card.id} value={card.id}>
-                                  {card.id} - {card.description}
-                                </option>
+                      {isDeepgramQAMode ? (
+                        /* DICTATION SCRIPT MODE: No selection, show full script */
+                        <div>
+                          <h3 className="text-lg font-semibold text-purple-300 mb-4">📖 Dictation Script - Follow This Conversation</h3>
+                          {scriptLoaded && dictationScript ? (
+                            <div className="space-y-3 max-h-96 overflow-y-auto">
+                              <div className="text-center mb-4">
+                                <h4 className="text-xl font-bold text-white">{dictationScript.title}</h4>
+                                <p className="text-sm text-purple-200">{dictationScript.description}</p>
+                              </div>
+                              
+                              {dictationScript.turns.map((turn: any) => (
+                                <div key={turn.turnNumber} className={`p-3 rounded-lg ${
+                                  turn.speaker === 'learner' 
+                                    ? 'bg-blue-800 bg-opacity-50 border-l-4 border-blue-400' 
+                                    : 'bg-green-800 bg-opacity-50 border-l-4 border-green-400'
+                                }`}>
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex-shrink-0">
+                                      <span className="text-xs font-bold text-gray-300">
+                                        Turn #{turn.turnNumber}
+                                      </span>
+                                      <div className={`text-xs ${
+                                        turn.speaker === 'learner' ? 'text-blue-300' : 'text-green-300'
+                                      }`}>
+                                        ({turn.speaker})
+                                      </div>
+                                    </div>
+                                    <div className="flex-grow">
+                                      <div className="text-white font-medium mb-1">
+                                        "{turn.expectedText}"
+                                      </div>
+                                      <div className="text-xs text-gray-300">
+                                        {turn.description}
+                                      </div>
+                                      {turn.errorTypes.length > 0 && (
+                                        <div className="text-xs text-orange-300 mt-1">
+                                          Errors: {turn.errorTypes.join(', ')}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
                               ))}
-                            </select>
+                            </div>
+                          ) : (
+                            <div className="text-center text-purple-300 py-8">
+                              {scriptLoaded ? (
+                                "No dictation script available"
+                              ) : (
+                                "Loading dictation script..."
+                              )}
+                            </div>
                           )}
                         </div>
-                      </div>
-                      
-                      {activeCueCard ? (
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-white mb-2 p-4 bg-gray-800 rounded">
-                            "{activeCueCard.expectedText}"
-                          </div>
-                          <div className="text-sm text-purple-200">
-                            <strong>Category:</strong> {activeCueCard.category} | 
-                            <strong> Errors:</strong> {activeCueCard.errorTypes.join(', ')}
-                          </div>
-                          <div className="text-xs text-purple-300 mt-1">
-                            {activeCueCard.description}
-                          </div>
-                        </div>
                       ) : (
-                        <div className="text-center text-purple-300 py-8">
-                          {cueCardsLoaded ? (
-                            "Select a cue-card above to begin verbatim testing"
+                        /* CUE CARD MODE: Original selection interface */
+                        <div>
+                          <div className="mb-3">
+                            <h3 className="text-lg font-semibold text-purple-300 mb-2">📋 Cue Card - Read This Text</h3>
+                            {cueCardsLoaded && (
+                              <select
+                                className="w-full bg-gray-800 text-white px-3 py-2 rounded border border-gray-600"
+                                value={activeCueCard?.id || ''}
+                                onChange={(e) => {
+                                  const selectedCard = cueCards.find(card => card.id === e.target.value);
+                                  if (selectedCard) {
+                                    setActiveCueCardForSession(selectedCard);
+                                  }
+                                }}
+                              >
+                                <option value="">Select a cue-card...</option>
+                                {cueCards.map(card => (
+                                  <option key={card.id} value={card.id}>
+                                    {card.id} - {card.description}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                          
+                          {activeCueCard ? (
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-white mb-2 p-4 bg-gray-800 rounded">
+                                "{activeCueCard.expectedText}"
+                              </div>
+                              <div className="text-sm text-purple-200">
+                                <strong>Category:</strong> {activeCueCard.category} | 
+                                <strong> Errors:</strong> {activeCueCard.errorTypes.join(', ')}
+                              </div>
+                              <div className="text-xs text-purple-300 mt-1">
+                                {activeCueCard.description}
+                              </div>
+                            </div>
                           ) : (
-                            "Loading cue-cards..."
+                            <div className="text-center text-purple-300 py-8">
+                              {cueCardsLoaded ? (
+                                "Select a cue-card above to begin verbatim testing"
+                              ) : (
+                                "Loading cue-cards..."
+                              )}
+                            </div>
                           )}
                         </div>
                       )}

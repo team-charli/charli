@@ -175,6 +175,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const sessionIdStr  = q['sessionId'];
 		const learnerIdStr  = q['learnerId'];
 		this.skipScorecard = q['skipScorecard'] === 'true';
+		const deepgramQA = q['deepgramQA'] === 'true';
 
 		/* 2. store metadata or handle end-session ------------------------- */
 		const metaKey = `metaWritten:${sessionIdStr}`;
@@ -226,6 +227,12 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		/* 3. decide session mode once ------------------------------------ */
 		await this.initializeSessionMode(requestedRobo);
+		
+		/* 3b. store deepgramQA flag for robo mode calls ------------------ */
+		if ((await this.state.storage.get('deepgramQA')) === undefined) {
+			await this.state.storage.put('deepgramQA', deepgramQA);
+			console.log(`[LearnerAssessmentDO] deepgramQA mode: ${deepgramQA ? 'enabled' : 'disabled'}`);
+		}
 
 		/* 4. read + validate chunk --------------------------------------- */
 		const chunk = new Uint8Array(await c.req.arrayBuffer());
@@ -847,10 +854,13 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			this.utteranceCounter = (this.utteranceCounter ?? 0) + 1;
 			const utteranceId = this.utteranceCounter;
 
+			// Get the deepgramQA flag from storage (set during handleAudioRequest)
+			const deepgramQA = await this.state.storage.get<boolean>('deepgramQA') || false;
+			
 			const res = await fetch(this.env.ROBO_TEST_URL, {
 				method : 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body   : JSON.stringify({ userText: learnerText, roomId, utteranceId })
+				body   : JSON.stringify({ userText: learnerText, roomId, utteranceId, deepgramQA })
 			});
 			if (!res.ok) {
 				console.error(`[LearnerAssessmentDO] Robo service HTTP error: ${res.status}`);
