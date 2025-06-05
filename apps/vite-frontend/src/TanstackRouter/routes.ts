@@ -229,7 +229,8 @@ export const roomRoute = createRoute({
       hashedLearnerAddress: search.hashedLearnerAddress as string,
       hashedTeacherAddress: search.hashedTeacherAddress as string,
       controllerAddress: search.controllerAddress as string,
-      roboTest: search.roboTest as string
+      roboTest: search.roboTest as string,
+      deepgramQA: search.deepgramQA as string
     }
   },
 });
@@ -370,7 +371,12 @@ export const sessionHistoryRoute = createRoute({
 export const roboTestRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/robo-test',
-  component: RoboTest
+  component: RoboTest,
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      deepgramQA: search.deepgramQA as string
+    }
+  }
 })
 
 

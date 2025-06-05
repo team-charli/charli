@@ -35,6 +35,10 @@ export const Lounge = () => {
     navigate({ to: '/robo-test' });
   };
 
+  const handleDeepgramQA = () => {
+    navigate({ to: '/robo-test', search: { deepgramQA: 'true' } });
+  };
+
   return (
     <>
       <IconHeader />
@@ -48,12 +52,18 @@ export const Lounge = () => {
       
       {/* RoboTest Button - Only shown in development environment */}
       {import.meta.env.DEV && (
-        <div className="fixed bottom-5 right-5 z-50">
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-3">
           <button 
             onClick={handleRoboTest}
             className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2 shadow-lg"
           >
             <span role="img" aria-label="robot">🤖</span> RoboTest Mode
+          </button>
+          <button 
+            onClick={handleDeepgramQA}
+            className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2 shadow-lg"
+          >
+            <span role="img" aria-label="microscope">🔬</span> Deepgram QA
           </button>
         </div>
       )}

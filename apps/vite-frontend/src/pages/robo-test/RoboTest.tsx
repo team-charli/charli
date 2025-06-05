@@ -1,11 +1,12 @@
   // src/pages/robo-test/RoboTest.tsx
   import { useEffect, useState } from "react";
-  import { useNavigate } from "@tanstack/react-router";
+  import { useNavigate, useSearch } from "@tanstack/react-router";
   import { useSupabaseClient } from "@/contexts/AuthContext";
   import useLocalStorage from "@rehooks/local-storage";
 
   export default function RoboTest() {
     const navigate = useNavigate();
+    const { deepgramQA } = useSearch({ from: "/robo-test" });
     const { data: supabaseClient } = useSupabaseClient();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -78,19 +79,26 @@
           // 3. Store the token in localStorage
           setHuddleAccessToken(tokenData.accessToken);
 
-          // 4. Navigate to the room with roboTest=true
+          // 4. Navigate to the room with roboTest=true and optional deepgramQA
+          const searchParams: any = {
+            roomRole: "learner",
+            hashedLearnerAddress: "0x123robotest",
+            hashedTeacherAddress: "0x456robotest",
+            controllerAddress: "0x789robotest",
+            sessionId: sessionId,
+            roboTest: "true",
+            learnerId: String(learnerId) // Pass the learner ID in the URL params
+          };
+          
+          // Add deepgramQA parameter if it was passed
+          if (deepgramQA === 'true') {
+            searchParams.deepgramQA = "true";
+          }
+          
           navigate({
             to: "/room/$id",
             params: { id: roomId },
-            search: {
-              roomRole: "learner",
-              hashedLearnerAddress: "0x123robotest",
-              hashedTeacherAddress: "0x456robotest",
-              controllerAddress: "0x789robotest",
-              sessionId: sessionId,
-              roboTest: "true",
-              learnerId: String(learnerId) // Pass the learner ID in the URL params
-            }
+            search: searchParams
           });
         } catch (error) {
           console.error("Error setting up RoboTest:", error);
@@ -114,7 +122,7 @@
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-        <p>Setting up RoboTest session...</p>
+        <p>Setting up {deepgramQA === 'true' ? 'Deepgram QA' : 'RoboTest'} session...</p>
       </div>
     );
   }
