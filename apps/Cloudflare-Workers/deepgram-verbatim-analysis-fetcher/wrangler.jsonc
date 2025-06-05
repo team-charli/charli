@@ -1,0 +1,25 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "deepgram-verbatim-analysis-fetcher",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-03-17",
+	"compatibility_flags": ["nodejs_compat"],
+	"vars": {
+		// the following vars are inserted in deploy script
+	},
+	"routes": [
+		{
+			"pattern": "deepgram-analysis-fetcher.charli.chat",
+			"custom_domain": true
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "VERBATIM_REPORTS_BUCKET",
+			"bucket_name": "deepgram-verbatim-qa-reports"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}

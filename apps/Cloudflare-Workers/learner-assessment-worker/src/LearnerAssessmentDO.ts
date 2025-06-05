@@ -406,8 +406,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const hasText = Boolean(text && text.trim());
 				const now = Date.now();
 
+				console.log(`[DG-DEBUG] Results message - hasText: ${hasText}, text: "${text || 'empty'}"`);
+
 				// 🔍 VERBATIM CAPTURE: Store ALL Deepgram responses for later analysis
 				if (hasText) {
+					console.log(`[VERBATIM-DEBUG] About to capture: "${text}"`);
 					const speaker = String(msg.channel?.speaker ?? '0');
 					const role = speaker === '0' ? 'learner' : 'teacher';
 					const confidence = msg.channel?.alternatives?.[0]?.confidence || 0;
@@ -950,6 +953,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		if (this.skipScorecard) {
 			console.log(`🎯 [TRANSCRIBE] 🚫 SKIPPING SCORECARD: Deepgram QA mode active - scorecard generation disabled`);
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
+			
+			// 🔍 CRITICAL FIX: Cleanup storage and generate verbatim analysis even when skipping scorecard
+			console.log(`🎯 [TRANSCRIBE] Cleaning up storage for room ${roomId} (QA mode)`);
+			await this.cleanupAll(roomId);
+			console.log(`🎯 [TRANSCRIBE] 🎉 transcribeAndDiarizeAll completed for room ${roomId} (QA mode)`);
 			return;
 		}
 
@@ -1206,14 +1214,22 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	}
 
 	private async cleanupAll(roomId: string) {
+		console.log(`🧹 [CLEANUP] Starting cleanup for room ${roomId}`);
+		console.log(`🧹 [CLEANUP] Verbatim capture data count: ${this.verbatimCaptureData.length}`);
+		
 		// Generate and store verbatim analysis report before cleanup
 		if (this.verbatimCaptureData.length > 0) {
+			console.log(`🧹 [CLEANUP] 📊 Generating verbatim analysis report with ${this.verbatimCaptureData.length} captured transcripts`);
 			try {
 				const sessionId = await this.state.storage.get<number>('sessionId') || 'unknown';
+				console.log(`🧹 [CLEANUP] Session ID for report: ${sessionId}`);
+				
 				const report = await this.generateVerbatimAnalysisReport(roomId, sessionId);
+				console.log(`🧹 [CLEANUP] ✅ Generated report with ${report.length} characters`);
 				
 				// Upload report to R2 bucket
 				const reportFileName = `verbatim-analysis-${sessionId}-${Date.now()}.md`;
+				console.log(`🧹 [CLEANUP] 🚀 Attempting R2 upload: ${reportFileName}`);
 				try {
 					await this.env.VERBATIM_REPORTS_BUCKET.put(reportFileName, report, {
 						httpMetadata: {
@@ -1227,17 +1243,21 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 							transcriptCount: String(this.verbatimCaptureData.length)
 						}
 					});
-					console.log(`[VERBATIM-ANALYSIS] Report uploaded to R2: ${reportFileName}`);
+					console.log(`🧹 [CLEANUP] ✅ SUCCESS: Report uploaded to R2: ${reportFileName}`);
 				} catch (r2Error) {
-					console.error(`[VERBATIM-ANALYSIS] Failed to upload to R2:`, r2Error);
+					console.error(`🧹 [CLEANUP] ❌ FAILED: R2 upload error:`, r2Error);
+					console.error(`🧹 [CLEANUP] R2 error type: ${typeof r2Error}, message: ${r2Error?.message || 'Unknown'}`);
 					// Fallback: store to DO storage
 					const reportKey = `verbatim-analysis:${sessionId}:${Date.now()}`;
 					await this.state.storage.put(reportKey, report);
-					console.log(`[VERBATIM-ANALYSIS] Report stored to DO storage as fallback: ${reportKey}`);
+					console.log(`🧹 [CLEANUP] 💾 FALLBACK: Report stored to DO storage: ${reportKey}`);
 				}
 			} catch (error) {
-				console.error(`[VERBATIM-ANALYSIS] Failed to generate report:`, error);
+				console.error(`🧹 [CLEANUP] ❌ CRITICAL: Failed to generate report:`, error);
+				console.error(`🧹 [CLEANUP] Error type: ${typeof error}, message: ${error?.message || 'Unknown'}`);
 			}
+		} else {
+			console.log(`🧹 [CLEANUP] ⚠️ No verbatim capture data to process - skipping report generation`);
 		}
 
 		// Clean up Durable Object storage for the room
