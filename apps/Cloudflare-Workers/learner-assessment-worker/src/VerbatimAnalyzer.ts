@@ -1,10 +1,11 @@
 // apps/learner-assessment-worker/src/VerbatimAnalyzer.ts
 // 🔍 VERBATIM ANALYZER: Analyze transcript quality and auto-correction patterns
 
-import { CueCard } from './DictationScripts';
+import { DictationScript, DictationTurn } from './DictationScripts';
 
 export interface VerbatimAnalysisResult {
-	cueCardId: string;
+	dictationScriptId: string;
+	learnerTurnNumber: number;
 	expectedText: string;
 	actualTranscripts: TranscriptComparison[];
 	verbatimScore: number; // 0-100, how verbatim the output was
@@ -101,10 +102,11 @@ export class VerbatimAnalyzer {
 	}
 
 	/**
-	 * Analyze how verbatim Deepgram's output is compared to expected cue-card text
+	 * Analyze how verbatim Deepgram's output is compared to expected dictation script text
 	 */
-	static analyzeCueCardVerbatimness(
-		cueCard: CueCard,
+	static analyzeDictationScriptVerbatimness(
+		dictationScript: DictationScript,
+		learnerTurnNumber: number,
 		deepgramTranscripts: Array<{
 			messageType: 'interim' | 'speech_final' | 'is_final';
 			text: string;
@@ -112,7 +114,16 @@ export class VerbatimAnalyzer {
 			timestamp: number;
 		}>
 	): VerbatimAnalysisResult {
-		const expectedText = cueCard.expectedText.toLowerCase().trim();
+		// Find the specific learner turn
+		const learnerTurn = dictationScript.turns.find(turn => 
+			turn.turnNumber === learnerTurnNumber && turn.speaker === 'learner'
+		);
+		
+		if (!learnerTurn) {
+			throw new Error(`No learner turn found for turn number ${learnerTurnNumber} in script ${dictationScript.id}`);
+		}
+		
+		const expectedText = learnerTurn.expectedText.toLowerCase().trim();
 		const transcriptComparisons: TranscriptComparison[] = [];
 
 		// Compare each Deepgram transcript with expected text
@@ -132,22 +143,23 @@ export class VerbatimAnalyzer {
 		}
 
 		// Find auto-correction instances
-		const staticPatternCorrections = this.detectAutoCorrections(cueCard, transcriptComparisons);
+		const staticPatternCorrections = this.detectAutoCorrections(learnerTurn, transcriptComparisons);
 		const interimFinalCorrections = this.detectInterimFinalDifferences(transcriptComparisons);
 		const autoCorrectionInstances = [...staticPatternCorrections, ...interimFinalCorrections];
 		
 		// Calculate verbatim score
-		const verbatimScore = this.calculateVerbatimScore(cueCard, transcriptComparisons, autoCorrectionInstances);
+		const verbatimScore = this.calculateVerbatimScore(learnerTurn, transcriptComparisons, autoCorrectionInstances);
 		
 		// Analyze preserved vs lost errors
-		const { preservedErrors, lostErrors } = this.analyzeErrorPreservation(cueCard, transcriptComparisons);
+		const { preservedErrors, lostErrors } = this.analyzeErrorPreservation(learnerTurn, transcriptComparisons);
 
 		// Generate summary
-		const summary = this.generateAnalysisSummary(cueCard, verbatimScore, autoCorrectionInstances.length);
+		const summary = this.generateAnalysisSummary(learnerTurn, verbatimScore, autoCorrectionInstances.length);
 
 		return {
-			cueCardId: cueCard.id,
-			expectedText: cueCard.expectedText,
+			dictationScriptId: dictationScript.id,
+			learnerTurnNumber,
+			expectedText: learnerTurn.expectedText,
 			actualTranscripts: transcriptComparisons,
 			verbatimScore,
 			autoCorrectionInstances,
@@ -203,11 +215,11 @@ export class VerbatimAnalyzer {
 	 * Detect instances where Deepgram auto-corrected learner errors
 	 */
 	private static detectAutoCorrections(
-		cueCard: CueCard,
+		learnerTurn: DictationTurn,
 		transcripts: TranscriptComparison[]
 	): AutoCorrectionInstance[] {
 		const corrections: AutoCorrectionInstance[] = [];
-		const expectedText = cueCard.expectedText.toLowerCase();
+		const expectedText = learnerTurn.expectedText.toLowerCase();
 
 		// Define common Spanish auto-corrections based on error types
 		const correctionPatterns = [
@@ -317,7 +329,7 @@ export class VerbatimAnalyzer {
 	 * Calculate overall verbatim score (0-100)
 	 */
 	private static calculateVerbatimScore(
-		cueCard: CueCard,
+		learnerTurn: DictationTurn,
 		transcripts: TranscriptComparison[],
 		autoCorrections: AutoCorrectionInstance[]
 	): number {
@@ -331,18 +343,20 @@ export class VerbatimAnalyzer {
 		// Start with similarity score
 		let score = bestMatch.similarity * 100;
 
-		// Penalize auto-corrections (each correction reduces verbatimness)
-		const correctionPenalty = autoCorrections.length * 25; // Increased from 15 to 25 points per correction
+		// Apply percentage-based penalties instead of flat deductions
+		const correctionPenaltyPercent = autoCorrections.length * 0.15; // 15% penalty per correction
 		
-		// Add penalty for interim-final discrepancies
-		const interimFinalPenalty = autoCorrections
+		// Add percentage penalty for interim-final discrepancies
+		const interimFinalPenaltyPercent = autoCorrections
 			.filter(correction => correction.correctionType === 'structure')
-			.length * 30; // Heavy penalty for structural changes
+			.length * 0.20; // 20% penalty for structural changes
 		
-		score = Math.max(0, score - correctionPenalty - interimFinalPenalty);
+		// Apply percentage penalties
+		score = score * (1 - correctionPenaltyPercent - interimFinalPenaltyPercent);
+		score = Math.max(0, score);
 
 		// Bonus for preserving hesitation markers and fillers (important for learner assessment)
-		const expectedLower = cueCard.expectedText.toLowerCase();
+		const expectedLower = learnerTurn.expectedText.toLowerCase();
 		const actualLower = bestMatch.actualText.toLowerCase();
 		
 		let preservationBonus = 0;
@@ -359,21 +373,21 @@ export class VerbatimAnalyzer {
 	 * Analyze which errors were preserved vs lost
 	 */
 	private static analyzeErrorPreservation(
-		cueCard: CueCard,
+		learnerTurn: DictationTurn,
 		transcripts: TranscriptComparison[]
 	): { preservedErrors: string[], lostErrors: string[] } {
 		const preservedErrors: string[] = [];
 		const lostErrors: string[] = [];
 
 		if (transcripts.length === 0) {
-			return { preservedErrors, lostErrors: cueCard.errorTypes };
+			return { preservedErrors, lostErrors: learnerTurn.errorTypes };
 		}
 
 		const bestTranscript = transcripts.reduce((best, current) => 
 			current.similarity > best.similarity ? current : best
 		);
 
-		const expectedLower = cueCard.expectedText.toLowerCase();
+		const expectedLower = learnerTurn.expectedText.toLowerCase();
 		const actualLower = bestTranscript.actualText.toLowerCase();
 
 		// Check preservation of specific error patterns
@@ -392,7 +406,7 @@ export class VerbatimAnalyzer {
 		];
 
 		for (const check of errorChecks) {
-			if (cueCard.errorTypes.includes(check.type)) {
+			if (learnerTurn.errorTypes.includes(check.type)) {
 				const expectedHasError = expectedLower.match(check.pattern);
 				const actualHasError = actualLower.match(check.pattern);
 
@@ -411,11 +425,11 @@ export class VerbatimAnalyzer {
 	 * Generate human-readable analysis summary
 	 */
 	private static generateAnalysisSummary(
-		cueCard: CueCard,
+		learnerTurn: DictationTurn,
 		verbatimScore: number,
 		autoCorrectionCount: number
 	): string {
-		let summary = `Verbatim analysis for "${cueCard.expectedText}": `;
+		let summary = `Verbatim analysis for "${learnerTurn.expectedText}": `;
 		
 		if (verbatimScore >= 90) {
 			summary += `Excellent verbatim preservation (${verbatimScore}%)`;

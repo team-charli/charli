@@ -2,7 +2,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
-import { VerbatimAnalyzer, TranscriptQualityResult } from './VerbatimAnalyzer';
+import { VerbatimAnalyzer, TranscriptQualityResult, VerbatimAnalysisResult } from './VerbatimAnalyzer';
+import { getDefaultQADictationScript, DictationScript } from './DictationScripts';
 
 /** A diarized ASR segment returned by `runAsrOnWav` */
 interface TranscribedSegment {
@@ -1167,6 +1168,103 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			}
 		} else {
 			markdown += `*No transcript data available for quality analysis.*\n\n`;
+		}
+
+		// 🎯 REAL VERBATIM ANALYSIS: Compare against dictation script expected text
+		markdown += `## Verbatim Preservation Analysis\n\n`;
+		
+		if (learnerTranscripts.length > 0) {
+			try {
+				// Get the default dictation script for QA mode
+				const dictationScript = getDefaultQADictationScript();
+				
+				// Analyze each learner turn in the script
+				const verbatimResults: VerbatimAnalysisResult[] = [];
+				const learnerTurns = dictationScript.turns.filter(turn => turn.speaker === 'learner');
+				
+				for (const learnerTurn of learnerTurns) {
+					const transcriptsForAnalysis = learnerTranscripts.map(t => ({
+						messageType: t.messageType,
+						text: t.text,
+						confidence: t.confidence,
+						timestamp: t.timestamp
+					}));
+					
+					const verbatimAnalysis = VerbatimAnalyzer.analyzeDictationScriptVerbatimness(
+						dictationScript,
+						learnerTurn.turnNumber,
+						transcriptsForAnalysis
+					);
+					
+					verbatimResults.push(verbatimAnalysis);
+				}
+				
+				// Display results for each turn
+				for (const result of verbatimResults) {
+					markdown += `### Turn ${result.learnerTurnNumber} Verbatim Analysis\n\n`;
+					markdown += `**Expected Text:** "${result.expectedText}"  \n`;
+					markdown += `**Verbatim Score:** ${result.verbatimScore}/100  \n`;
+					markdown += `**Auto-Corrections Detected:** ${result.autoCorrectionInstances.length}  \n\n`;
+					
+					markdown += `#### Analysis Summary\n\n`;
+					markdown += `${result.summary}\n\n`;
+					
+					if (result.preservedErrors.length > 0) {
+						markdown += `#### ✅ Preserved Errors (Good for Assessment)\n\n`;
+						for (const error of result.preservedErrors) {
+							markdown += `- 🎯 ${error}\n`;
+						}
+						markdown += `\n`;
+					}
+					
+					if (result.lostErrors.length > 0) {
+						markdown += `#### ❌ Lost Errors (Auto-Corrected)\n\n`;
+						for (const error of result.lostErrors) {
+							markdown += `- 🚫 ${error}\n`;
+						}
+						markdown += `\n`;
+					}
+					
+					if (result.autoCorrectionInstances.length > 0) {
+						markdown += `#### Auto-Correction Details\n\n`;
+						markdown += `| Type | Description | Expected | Actual |\n`;
+						markdown += `|------|-------------|----------|--------|\n`;
+						for (const correction of result.autoCorrectionInstances) {
+							const expectedPreview = correction.expectedPhrase.length > 30 ? 
+								correction.expectedPhrase.substring(0, 27) + '...' : correction.expectedPhrase;
+							const actualPreview = correction.actualPhrase.length > 30 ? 
+								correction.actualPhrase.substring(0, 27) + '...' : correction.actualPhrase;
+							markdown += `| ${correction.correctionType} | ${correction.description} | "${expectedPreview}" | "${actualPreview}" |\n`;
+						}
+						markdown += `\n`;
+					}
+				}
+				
+				// Overall verbatim preservation summary
+				const avgVerbatimScore = verbatimResults.reduce((sum, r) => sum + r.verbatimScore, 0) / verbatimResults.length;
+				const totalAutoCorrections = verbatimResults.reduce((sum, r) => sum + r.autoCorrectionInstances.length, 0);
+				
+				markdown += `### Overall Verbatim Preservation\n\n`;
+				markdown += `**Average Verbatim Score:** ${avgVerbatimScore.toFixed(1)}/100  \n`;
+				markdown += `**Total Auto-Corrections:** ${totalAutoCorrections}  \n`;
+				
+				if (avgVerbatimScore >= 90) {
+					markdown += `**Status:** 🟢 Excellent - High fidelity preservation  \n`;
+				} else if (avgVerbatimScore >= 70) {
+					markdown += `**Status:** 🟡 Good - Acceptable for assessment  \n`;
+				} else if (avgVerbatimScore >= 50) {
+					markdown += `**Status:** 🟠 Moderate - Some assessment impact  \n`;
+				} else {
+					markdown += `**Status:** 🔴 Poor - Significant assessment impact  \n`;
+				}
+				markdown += `\n`;
+				
+			} catch (error) {
+				markdown += `*Error performing verbatim preservation analysis: ${error}*\n\n`;
+				console.error(`[VERBATIM-ANALYSIS] Real verbatim analysis error:`, error);
+			}
+		} else {
+			markdown += `*No transcript data available for verbatim analysis.*\n\n`;
 		}
 
 
