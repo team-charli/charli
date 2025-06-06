@@ -79,7 +79,7 @@ export default function Room() {
 
   // 🔍 QA MODE: Unified transcript system state
   const [isDeepgramQAMode, setIsDeepgramQAMode] = useState(deepgramQA === 'true');
-  const [dictationScript, setDictationScript] = useState<any>(null);
+  const [dictationScripts, setDictationScripts] = useState<any[]>([]);
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
 
@@ -118,8 +118,8 @@ export default function Room() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
-        console.log(`[QA-MODE] Loaded dictation script: ${data.script?.title}`);
-        setDictationScript(data.script);
+        console.log(`[QA-MODE] Loaded ${data.allScripts?.length || 0} dictation scripts`);
+        setDictationScripts(data.allScripts || []);
         setScriptLoaded(true);
       } catch (error) {
         console.error('[QA-MODE] Failed to fetch dictation script:', error);
@@ -423,42 +423,53 @@ export default function Room() {
                     {/* Top half: Dictation script */}
                     <div className="flex-1 bg-purple-900 bg-opacity-50 rounded-lg p-4 border-2 border-purple-500">
                       <h3 className="text-lg font-semibold text-purple-300 mb-4">📖 Conversation Script - Follow This Pattern</h3>
-                      {scriptLoaded && dictationScript ? (
-                        <div className="space-y-3 max-h-96 overflow-y-auto">
-                          <div className="text-center mb-4">
-                            <h4 className="text-xl font-bold text-white">{dictationScript.title}</h4>
-                            <p className="text-sm text-purple-200">{dictationScript.description}</p>
-                          </div>
-                          
-                          {dictationScript.turns
-                            .filter((turn: any) => turn.speaker === 'learner')
-                            .map((turn: any, index: number) => (
-                            <div key={turn.turnNumber} className="p-3 rounded-lg bg-blue-800 bg-opacity-50 border-l-4 border-blue-400">
-                              <div className="flex items-start gap-3">
-                                <div className="flex-shrink-0">
-                                  <span className="text-xs font-bold text-gray-300">
-                                    Turn #{index + 1}
-                                  </span>
-                                  <div className="text-xs text-blue-300">
-                                    (learner)
-                                  </div>
+                      {scriptLoaded && dictationScripts.length > 0 ? (
+                        <div className="space-y-4 max-h-96 overflow-y-auto">
+                          {dictationScripts.map((script: any, scriptIndex: number) => {
+                            const learnerTurns = script.turns.filter((turn: any) => turn.speaker === 'learner');
+                            const globalTurnOffset = dictationScripts.slice(0, scriptIndex)
+                              .reduce((acc: number, prevScript: any) => 
+                                acc + prevScript.turns.filter((t: any) => t.speaker === 'learner').length, 0);
+                            
+                            return (
+                              <div key={scriptIndex} className="border-b border-purple-400 pb-4 last:border-b-0">
+                                <div className="text-center mb-3">
+                                  <h4 className="text-lg font-bold text-white">{script.title}</h4>
+                                  <p className="text-xs text-purple-200">{script.description}</p>
                                 </div>
-                                <div className="flex-grow">
-                                  <div className="text-white font-medium mb-1">
-                                    "{turn.expectedText}"
-                                  </div>
-                                  <div className="text-xs text-gray-300">
-                                    {turn.description}
-                                  </div>
-                                  {turn.errorTypes.length > 0 && (
-                                    <div className="text-xs text-orange-300 mt-1">
-                                      Errors: {turn.errorTypes.join(', ')}
+                                
+                                <div className="space-y-2">
+                                  {learnerTurns.map((turn: any, index: number) => (
+                                    <div key={turn.turnNumber} className="p-3 rounded-lg bg-blue-800 bg-opacity-50 border-l-4 border-blue-400">
+                                      <div className="flex items-start gap-3">
+                                        <div className="flex-shrink-0">
+                                          <span className="text-xs font-bold text-gray-300">
+                                            Turn #{globalTurnOffset + index + 1}
+                                          </span>
+                                          <div className="text-xs text-blue-300">
+                                            (learner)
+                                          </div>
+                                        </div>
+                                        <div className="flex-grow">
+                                          <div className="text-white font-medium mb-1">
+                                            "{turn.expectedText}"
+                                          </div>
+                                          <div className="text-xs text-gray-300">
+                                            {turn.description}
+                                          </div>
+                                          {turn.errorTypes.length > 0 && (
+                                            <div className="text-xs text-orange-300 mt-1">
+                                              Errors: {turn.errorTypes.join(', ')}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
                                     </div>
-                                  )}
+                                  ))}
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="text-center text-purple-300 py-8">
