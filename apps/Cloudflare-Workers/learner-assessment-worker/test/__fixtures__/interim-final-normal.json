@@ -1,0 +1,5 @@
+[
+  { "messageType": "interim", "text": "los", "confidence": 0.85, "timestamp": 0 },
+  { "messageType": "interim", "text": "los estudiantes está muy confundidos", "confidence": 0.90, "timestamp": 300 },
+  { "messageType": "is_final", "text": "los estudiantes está muy confundidos porque no entienden la lección", "confidence": 0.95, "timestamp": 800 }
+]

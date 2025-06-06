@@ -6,12 +6,16 @@
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"test": "vitest run",
+		"test:watch": "vitest"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20250317.0",
 		"typescript": "^5.5.2",
-		"wrangler": "^4.19.1"
+		"wrangler": "^4.19.1",
+		"vitest": "^3.0.0",
+		"@cloudflare/vitest-pool-workers": "latest"
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "^2.49.4",

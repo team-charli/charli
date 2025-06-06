@@ -1,0 +1,5 @@
+[
+  { "messageType": "interim", "text": "hola yo jug", "confidence": 0.70, "timestamp": 0 },
+  { "messageType": "interim", "text": "hola yo jugimos fútbol ayer", "confidence": 0.77, "timestamp": 600 },
+  { "messageType": "is_final", "text": "hola yo jugamos fútbol ayer con mis amigos", "confidence": 0.94, "timestamp": 1200 }
+]

@@ -1,0 +1,4 @@
+[
+  { "messageType": "interim", "text": "estoy muy", "confidence": 0.88, "timestamp": 0 },
+  { "messageType": "is_final", "text": "estoy muy embarazada por la situación", "confidence": 0.91, "timestamp": 800 }
+]

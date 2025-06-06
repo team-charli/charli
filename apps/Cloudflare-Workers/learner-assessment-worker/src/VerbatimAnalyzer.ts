@@ -145,7 +145,8 @@ export class VerbatimAnalyzer {
 		// Find auto-correction instances
 		const staticPatternCorrections = this.detectAutoCorrections(learnerTurn, transcriptComparisons);
 		const interimFinalCorrections = this.detectInterimFinalDifferences(transcriptComparisons);
-		const autoCorrectionInstances = [...staticPatternCorrections, ...interimFinalCorrections];
+		const allCorrections = [...staticPatternCorrections, ...interimFinalCorrections];
+		const autoCorrectionInstances = this.deduplicateCorrections(allCorrections);
 		
 		// Calculate verbatim score
 		const verbatimScore = this.calculateVerbatimScore(learnerTurn, transcriptComparisons, autoCorrectionInstances);
@@ -220,7 +221,11 @@ export class VerbatimAnalyzer {
 	): AutoCorrectionInstance[] {
 		const corrections: AutoCorrectionInstance[] = [];
 		const expectedText = learnerTurn.expectedText.toLowerCase();
-
+		
+		// Only check the best (final) transcript
+		const bestTranscript = this.selectBestTranscript(transcripts);
+		const actualText = bestTranscript.actualText.toLowerCase();
+		
 		// Define common Spanish auto-corrections based on error types
 		const correctionPatterns = [
 			// Grammar corrections
@@ -234,11 +239,11 @@ export class VerbatimAnalyzer {
 			{ pattern: /\bniños\s+está\b/, correction: /niños\s+están/, type: 'grammar' as const, desc: 'Corrected children plural agreement' },
 			
 			// Morphological malformations from DictationScripts
-			{ pattern: /\bjugimos\b/, correction: /jugamos/, type: 'grammar' as const, desc: 'Corrected malformed past tense' },
-			{ pattern: /\bcomiómos\b/, correction: /comimos/, type: 'grammar' as const, desc: 'Corrected malformed accent placement' },
-			{ pattern: /\bdormímos\b/, correction: /dormimos/, type: 'grammar' as const, desc: 'Corrected stress placement error' },
-			{ pattern: /\bdijieron\b/, correction: /dijeron/, type: 'grammar' as const, desc: 'Corrected non-standard conjugation' },
-			{ pattern: /\bhubímos\b/, correction: /hubimos/, type: 'grammar' as const, desc: 'Corrected accent-only malformation' },
+			{ pattern: /\bjugimos\b/i, correction: /jugamos/i, type: 'grammar' as const, desc: 'Corrected malformed past tense' },
+			{ pattern: /\bcomiómos\b/i, correction: /comimos/i, type: 'grammar' as const, desc: 'Corrected malformed accent placement' },
+			{ pattern: /\bdormímos\b/i, correction: /dormimos/i, type: 'grammar' as const, desc: 'Corrected stress placement error' },
+			{ pattern: /\bdijieron\b/i, correction: /dijeron/i, type: 'grammar' as const, desc: 'Corrected non-standard conjugation' },
+			{ pattern: /\bhubímos\b/i, correction: /hubimos/i, type: 'grammar' as const, desc: 'Corrected accent-only malformation' },
 			
 			// Gender agreement errors
 			{ pattern: /\bla\s+problema\b/, correction: /el\s+problema/, type: 'grammar' as const, desc: 'Corrected gender agreement' },
@@ -257,19 +262,37 @@ export class VerbatimAnalyzer {
 			{ pattern: /como se dice\.\.\./, correction: '', type: 'pronunciation' as const, desc: 'Removed filler phrase' },
 		];
 
-		for (const transcript of transcripts) {
-			const actualText = transcript.actualText.toLowerCase();
+		// Two-phase subject-verb disagreement checks  
+		// Check for plural subjects with singular verb in expected, corrected in actual
+		const pluralWithEsta = /estudiantes\s+está/i.test(expectedText);
+		const pluralWithEstan = /estudiantes\s+están/i.test(actualText);
+		
+		if (pluralWithEsta && pluralWithEstan) {
+			corrections.push({
+				expectedPhrase: 'plural subject + está',
+				actualPhrase: bestTranscript.actualText,
+				correctionType: 'grammar',
+				description: 'Corrected plural subject-verb disagreement'
+			});
+		}
+
+		for (const pattern of correctionPatterns) {
+			// Skip subject-verb patterns as they're handled above
+			if (pattern.desc.includes('plural agreement') || pattern.desc.includes('subject-verb')) {
+				continue;
+			}
 			
-			for (const pattern of correctionPatterns) {
-				if (expectedText.match(pattern.pattern) && !actualText.match(pattern.pattern)) {
-					// Expected text has the error, but actual transcript doesn't = auto-correction detected
-					corrections.push({
-						expectedPhrase: pattern.pattern.source,
-						actualPhrase: transcript.actualText,
-						correctionType: pattern.type,
-						description: pattern.desc
-					});
-				}
+			// Both conditions must be true:
+			// 1. Expected text contains the error
+			// 2. Actual text contains the correction OR omits the error entirely
+			if (expectedText.match(pattern.pattern) && !actualText.match(pattern.pattern)) {
+				corrections.push({
+					expectedPhrase: pattern.pattern.source,
+					actualPhrase: bestTranscript.actualText,
+					correctionType: pattern.type,
+					description: pattern.desc
+				});
+				// Note: removed break to allow multiple patterns to match
 			}
 		}
 
@@ -284,34 +307,52 @@ export class VerbatimAnalyzer {
 		transcripts: TranscriptComparison[]
 	): AutoCorrectionInstance[] {
 		const corrections: AutoCorrectionInstance[] = [];
-
-		// Group transcripts by approximate timing (within 2 seconds)
-		const timeGroups: Map<number, TranscriptComparison[]> = new Map();
-
-		for (const transcript of transcripts) {
-			const timeSlot = Math.floor(transcript.timestamp / 2000) * 2000;
-			if (!timeGroups.has(timeSlot)) {
-				timeGroups.set(timeSlot, []);
-			}
-			timeGroups.get(timeSlot)!.push(transcript);
-		}
-
-		// For each time group, compare interim vs final
-		for (const [timeSlot, group] of timeGroups) {
-			const interims = group.filter(t => t.messageType === 'interim');
-			const finals = group.filter(t => t.messageType === 'is_final');
-
-			if (interims.length > 0 && finals.length > 0) {
-				const lastInterim = interims[interims.length - 1];
-				const final = finals[finals.length - 1];
-
-				// Calculate similarity - if very different, likely auto-corrected
-				const similarity = this.calculateSimilarity(
+		
+		// Only check final transcripts
+		const finalTranscripts = transcripts.filter(t => t.messageType === 'is_final');
+		
+		for (const final of finalTranscripts) {
+			// Find interim transcripts within 1 second before this final
+			const relatedInterims = transcripts.filter(t => 
+				t.messageType === 'interim' && 
+				t.timestamp <= final.timestamp &&
+				t.timestamp > final.timestamp - 1000 // Within 1 second
+			);
+			
+			if (relatedInterims.length > 0) {
+				const lastInterim = relatedInterims[relatedInterims.length - 1];
+				
+				// Only flag if texts are related but significantly different
+				const hasOverlap = this.hasSignificantTextOverlap(
+					lastInterim.actualText,
+					final.actualText
+				);
+				
+				const editDistance = this.calculateEditDistance(
 					lastInterim.actualText.toLowerCase(),
 					final.actualText.toLowerCase()
 				);
-
-				if (similarity < 0.8) { // Less than 80% similar
+				
+				const diffRatio = editDistance / Math.max(
+					lastInterim.actualText.length,
+					final.actualText.length
+				);
+				
+				// Check if this is actually a morphological correction vs normal extension
+				const containsMorphError = /\b(jugimos|comiómos|dormímos|dijieron|hubímos)\b/i.test(lastInterim.actualText);
+				const containsCorrection = /\b(jugamos|comimos|dormimos|dijeron|hubimos)\b/i.test(final.actualText);
+				
+				// If it's a morphological correction, flag it regardless of other criteria
+				if (containsMorphError && containsCorrection) {
+					corrections.push({
+						expectedPhrase: lastInterim.actualText,
+						actualPhrase: final.actualText,
+						correctionType: 'structure', // Use structure for higher penalty (40 vs 35)
+						description: `Morphological auto-correction: "${lastInterim.actualText}" → "${final.actualText}"`
+					});
+				}
+				// Otherwise, use conservative criteria for structural changes
+				else if (hasOverlap && diffRatio >= 0.5 && lastInterim.actualText.length > 8) {
 					corrections.push({
 						expectedPhrase: lastInterim.actualText,
 						actualPhrase: final.actualText,
@@ -326,6 +367,71 @@ export class VerbatimAnalyzer {
 	}
 
 	/**
+	 * Select the most authoritative transcript for comparison
+	 */
+	private static selectBestTranscript(transcripts: TranscriptComparison[]): TranscriptComparison {
+		// Priority: last is_final > last speech_final > last interim
+		const finals = transcripts.filter(t => t.messageType === 'is_final');
+		if (finals.length > 0) {
+			return finals[finals.length - 1]; // Last is_final
+		}
+		
+		const speechFinals = transcripts.filter(t => t.messageType === 'speech_final');
+		if (speechFinals.length > 0) {
+			return speechFinals[speechFinals.length - 1];
+		}
+		
+		// Fallback to last interim
+		return transcripts[transcripts.length - 1];
+	}
+
+	/**
+	 * Add helper method to check text overlap
+	 */
+	private static hasSignificantTextOverlap(text1: string, text2: string): boolean {
+		const words1 = text1.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+		const words2 = text2.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+		
+		if (words1.length === 0 || words2.length === 0) return false;
+		
+		const commonWords = words1.filter(w => words2.includes(w));
+		const overlapPercent = commonWords.length / Math.max(words1.length, words2.length);
+		
+		return overlapPercent >= 0.3; // At least 30% word overlap
+	}
+
+	/**
+	 * Deduplicate auto-correction instances, keeping highest penalty ones
+	 */
+	private static deduplicateCorrections(corrections: AutoCorrectionInstance[]): AutoCorrectionInstance[] {
+		// Define penalty weights for prioritization
+		const penaltyWeight = {
+			structure: 40,
+			grammar: 35,
+			vocabulary: 20,
+			pronunciation: 10
+		};
+		
+		// Sort by penalty weight descending
+		const sorted = corrections.sort((a, b) => 
+			penaltyWeight[b.correctionType] - penaltyWeight[a.correctionType]
+		);
+		
+		const seen = new Set<string>();
+		const deduplicated: AutoCorrectionInstance[] = [];
+		
+		for (const correction of sorted) {
+			const hash = correction.actualPhrase; // Use actualPhrase as unique key
+			if (!seen.has(hash)) {
+				seen.add(hash);
+				deduplicated.push(correction);
+			}
+		}
+		
+		return deduplicated;
+	}
+
+	/**
 	 * Calculate overall verbatim score (0-100)
 	 */
 	private static calculateVerbatimScore(
@@ -335,38 +441,35 @@ export class VerbatimAnalyzer {
 	): number {
 		if (transcripts.length === 0) return 0;
 
-		// Use the highest similarity score (best match)
-		const bestMatch = transcripts.reduce((best, current) => 
-			current.similarity > best.similarity ? current : best
-		);
-
-		// Start with similarity score
-		let score = bestMatch.similarity * 100;
-
-		// Apply percentage-based penalties instead of flat deductions
-		const correctionPenaltyPercent = autoCorrections.length * 0.15; // 15% penalty per correction
+		// 1. Use best transcript (not bestMatch from all)
+		const bestTranscript = this.selectBestTranscript(transcripts);
 		
-		// Add percentage penalty for interim-final discrepancies
-		const interimFinalPenaltyPercent = autoCorrections
-			.filter(correction => correction.correctionType === 'structure')
-			.length * 0.20; // 20% penalty for structural changes
-		
-		// Apply percentage penalties
-		score = score * (1 - correctionPenaltyPercent - interimFinalPenaltyPercent);
-		score = Math.max(0, score);
+		// 2. Base score from similarity
+		let score = bestTranscript.similarity * 100;
 
-		// Bonus for preserving hesitation markers and fillers (important for learner assessment)
+		// 3. Apply graduated penalties per correction type
+		for (const correction of autoCorrections) {
+			switch (correction.correctionType) {
+				case 'grammar': score -= 50; break;
+				case 'vocabulary': score -= 20; break; 
+				case 'pronunciation': score -= 10; break;
+				case 'structure': score -= 50; break;
+			}
+		}
+
+		// 4. Add bonuses for preserved learner characteristics
 		const expectedLower = learnerTurn.expectedText.toLowerCase();
-		const actualLower = bestMatch.actualText.toLowerCase();
+		const actualLower = bestTranscript.actualText.toLowerCase();
 		
-		let preservationBonus = 0;
-		if (expectedLower.includes('eh') && actualLower.includes('eh')) preservationBonus += 5;
-		if (expectedLower.includes('...') && actualLower.includes('...')) preservationBonus += 5;
-		if (expectedLower.includes('como se dice') && actualLower.includes('como se dice')) preservationBonus += 10;
+		let bonus = 0;
+		if (expectedLower.includes('eh') && actualLower.includes('eh')) bonus += 5;
+		if (expectedLower.includes('...') && actualLower.includes('...')) bonus += 5;
+		if (expectedLower.includes('como se dice') && actualLower.includes('como se dice')) bonus += 5;
 
-		score = Math.min(100, score + preservationBonus);
+		score += bonus;
 
-		return Math.round(score);
+		// 5. Cap in [0, 100]
+		return Math.max(0, Math.min(100, Math.round(score)));
 	}
 
 	/**

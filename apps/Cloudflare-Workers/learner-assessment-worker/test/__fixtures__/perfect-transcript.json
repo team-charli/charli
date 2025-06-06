@@ -1,0 +1,4 @@
+[
+  { "messageType": "interim", "text": "he ido al", "confidence": 0.95, "timestamp": 0 },
+  { "messageType": "is_final", "text": "he ido al supermercado ayer para comprar comida", "confidence": 0.97, "timestamp": 1000 }
+]
