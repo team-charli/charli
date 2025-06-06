@@ -1,7 +1,7 @@
 // apps/learner-assessment-worker/src/VerbatimAnalyzer.ts
-// 🔍 VERBATIM ANALYZER: Compare expected cue-card text with actual Deepgram output
+// 🔍 VERBATIM ANALYZER: Analyze transcript quality and auto-correction patterns
 
-import { CueCard } from './CueCards';
+import { CueCard } from './DictationScripts';
 
 export interface VerbatimAnalysisResult {
 	cueCardId: string;
@@ -11,6 +11,20 @@ export interface VerbatimAnalysisResult {
 	autoCorrectionInstances: AutoCorrectionInstance[];
 	preservedErrors: string[];
 	lostErrors: string[];
+	summary: string;
+}
+
+export interface TranscriptQualityResult {
+	sessionId: string;
+	transcriptData: TranscriptComparison[];
+	qualityScore: number; // 0-100, overall transcript quality
+	autoCorrectionInstances: AutoCorrectionInstance[];
+	detectedErrorPatterns: string[];
+	confidenceAnalysis: {
+		averageConfidence: number;
+		lowConfidenceSegments: number;
+		confidenceVariability: number;
+	};
 	summary: string;
 }
 
@@ -31,6 +45,61 @@ export interface AutoCorrectionInstance {
 }
 
 export class VerbatimAnalyzer {
+	/**
+	 * Analyze transcript quality without requiring cue card comparison
+	 * This method runs sophisticated analysis on any transcript data
+	 */
+	static analyzeTranscriptQuality(
+		sessionId: string,
+		deepgramTranscripts: Array<{
+			messageType: 'interim' | 'speech_final' | 'is_final';
+			text: string;
+			confidence: number;
+			timestamp: number;
+		}>
+	): TranscriptQualityResult {
+		const transcriptComparisons: TranscriptComparison[] = [];
+
+		// Process each transcript for analysis
+		for (const transcript of deepgramTranscripts) {
+			const actualText = transcript.text.toLowerCase().trim();
+			
+			transcriptComparisons.push({
+				messageType: transcript.messageType,
+				actualText: transcript.text, // Keep original case for display
+				confidence: transcript.confidence,
+				timestamp: transcript.timestamp,
+				editDistance: 0, // Not applicable without expected text
+				similarity: 1 // Not applicable without expected text
+			});
+		}
+
+		// Detect auto-correction patterns without expected text
+		const autoCorrectionInstances = this.detectTranscriptAutoCorrections(transcriptComparisons);
+		
+		// Calculate quality score based on confidence and patterns
+		const qualityScore = this.calculateTranscriptQualityScore(transcriptComparisons, autoCorrectionInstances);
+		
+		// Detect error patterns in transcripts
+		const detectedErrorPatterns = this.detectErrorPatterns(transcriptComparisons);
+
+		// Analyze confidence patterns
+		const confidenceAnalysis = this.analyzeConfidencePatterns(transcriptComparisons);
+
+		// Generate summary
+		const summary = this.generateTranscriptQualitySummary(qualityScore, autoCorrectionInstances.length, confidenceAnalysis);
+
+		return {
+			sessionId,
+			transcriptData: transcriptComparisons,
+			qualityScore,
+			autoCorrectionInstances,
+			detectedErrorPatterns,
+			confidenceAnalysis,
+			summary
+		};
+	}
+
 	/**
 	 * Analyze how verbatim Deepgram's output is compared to expected cue-card text
 	 */
@@ -283,6 +352,212 @@ export class VerbatimAnalyzer {
 			summary += `. Detected ${autoCorrectionCount} auto-correction${autoCorrectionCount > 1 ? 's' : ''}.`;
 		} else {
 			summary += `. No auto-corrections detected.`;
+		}
+
+		return summary;
+	}
+
+	/**
+	 * Detect auto-correction patterns in transcripts without expected text
+	 */
+	private static detectTranscriptAutoCorrections(
+		transcripts: TranscriptComparison[]
+	): AutoCorrectionInstance[] {
+		const corrections: AutoCorrectionInstance[] = [];
+
+		// Define patterns that suggest auto-correction occurred
+		const suspiciousPatterns = [
+			// Overly clean Spanish without typical learner hesitations
+			{ pattern: /^[^\.]{20,}$/, type: 'pronunciation' as const, desc: 'Suspiciously fluent without hesitations' },
+			
+			// Perfect grammar where errors would be expected
+			{ pattern: /\bestoy\b/, type: 'grammar' as const, desc: 'Perfect "estoy" conjugation (learners often use "estar")' },
+			{ pattern: /\bestán\b/, type: 'grammar' as const, desc: 'Perfect plural agreement (often incorrect in learner speech)' },
+			{ pattern: /\bvengas\b/, type: 'grammar' as const, desc: 'Correct subjunctive usage (commonly incorrect)' },
+			
+			// Clean vocabulary without false friends
+			{ pattern: /\bavergonzada\b/, type: 'vocabulary' as const, desc: 'Correct use avoiding "embarazada" false friend' },
+			{ pattern: /\bdarme cuenta\b/, type: 'vocabulary' as const, desc: 'Native phrase avoiding "realizar" anglicism' },
+			{ pattern: /\bsolicitar\b/, type: 'vocabulary' as const, desc: 'Formal vocabulary avoiding "aplicar" direct translation' },
+		];
+
+		// Look for patterns across transcript progression
+		for (let i = 0; i < transcripts.length; i++) {
+			const current = transcripts[i];
+			const actualText = current.actualText.toLowerCase();
+			
+			// Check for suspiciously perfect patterns
+			for (const pattern of suspiciousPatterns) {
+				if (actualText.match(pattern.pattern)) {
+					// If this appears in final but not interim, possible auto-correction
+					if (current.messageType === 'is_final') {
+						const interimVersions = transcripts
+							.filter(t => t.messageType === 'interim' && t.timestamp <= current.timestamp)
+							.slice(-3); // Check last 3 interim versions
+						
+						const hadErrors = interimVersions.some(t => 
+							!t.actualText.toLowerCase().match(pattern.pattern)
+						);
+						
+						if (hadErrors) {
+							corrections.push({
+								expectedPhrase: 'learner error pattern',
+								actualPhrase: current.actualText,
+								correctionType: pattern.type,
+								description: pattern.desc
+							});
+						}
+					}
+				}
+			}
+		}
+
+		return corrections;
+	}
+
+	/**
+	 * Calculate quality score based on confidence and consistency
+	 */
+	private static calculateTranscriptQualityScore(
+		transcripts: TranscriptComparison[],
+		autoCorrections: AutoCorrectionInstance[]
+	): number {
+		if (transcripts.length === 0) return 0;
+
+		// Base score from average confidence
+		const avgConfidence = transcripts.reduce((sum, t) => sum + t.confidence, 0) / transcripts.length;
+		let score = avgConfidence * 100;
+
+		// Analyze consistency between interim and final versions
+		const finalTranscripts = transcripts.filter(t => t.messageType === 'is_final');
+		const interimTranscripts = transcripts.filter(t => t.messageType === 'interim');
+		
+		if (finalTranscripts.length > 0 && interimTranscripts.length > 0) {
+			// Calculate consistency bonus/penalty
+			let consistencyScore = 0;
+			for (const final of finalTranscripts) {
+				const relatedInterims = interimTranscripts.filter(i => 
+					Math.abs(i.timestamp - final.timestamp) < 5000 // Within 5 seconds
+				);
+				
+				if (relatedInterims.length > 0) {
+					const similarity = this.calculateSimilarity(
+						final.actualText.toLowerCase(),
+						relatedInterims[relatedInterims.length - 1].actualText.toLowerCase()
+					);
+					consistencyScore += similarity;
+				}
+			}
+			
+			if (finalTranscripts.length > 0) {
+				consistencyScore /= finalTranscripts.length;
+				score = (score * 0.7) + (consistencyScore * 100 * 0.3); // Weight consistency at 30%
+			}
+		}
+
+		// Penalize suspected auto-corrections
+		const correctionPenalty = autoCorrections.length * 10;
+		score = Math.max(0, score - correctionPenalty);
+
+		// Bonus for preserving learner characteristics (hesitations, false starts)
+		let learnerCharacteristicsBonus = 0;
+		const allText = transcripts.map(t => t.actualText.toLowerCase()).join(' ');
+		
+		if (allText.includes('eh')) learnerCharacteristicsBonus += 5;
+		if (allText.includes('...')) learnerCharacteristicsBonus += 5;
+		if (allText.includes('como se dice')) learnerCharacteristicsBonus += 10;
+		if (allText.match(/\b\w+\.\.\.\s*\w+/)) learnerCharacteristicsBonus += 5; // Hesitation patterns
+
+		score = Math.min(100, score + learnerCharacteristicsBonus);
+
+		return Math.round(score);
+	}
+
+	/**
+	 * Detect Spanish error patterns that may indicate learner speech
+	 */
+	private static detectErrorPatterns(transcripts: TranscriptComparison[]): string[] {
+		const patterns: string[] = [];
+		const allText = transcripts.map(t => t.actualText.toLowerCase()).join(' ');
+
+		// Common Spanish learner error patterns
+		const errorChecks = [
+			{ pattern: /yo estar/, desc: 'Incorrect verb conjugation (estar)' },
+			{ pattern: /\w+ está\b.*\w+s\b/, desc: 'Subject-verb disagreement' },
+			{ pattern: /embarazada por/, desc: 'False friend usage (embarrassed)' },
+			{ pattern: /realizar que/, desc: 'Anglicism (realize)' },
+			{ pattern: /aplicar para/, desc: 'Direct translation (apply for)' },
+			{ pattern: /eh\.\.\./, desc: 'Hesitation markers' },
+			{ pattern: /como se dice/, desc: 'Filler phrases' },
+			{ pattern: /\b\w+\.\.\.\s*\w+/, desc: 'Stuttering/repetition patterns' },
+			{ pattern: /no.*nada/, desc: 'Double negative' },
+			{ pattern: /la problema/, desc: 'Gender agreement error' },
+		];
+
+		for (const check of errorChecks) {
+			if (allText.match(check.pattern)) {
+				patterns.push(check.desc);
+			}
+		}
+
+		return patterns;
+	}
+
+	/**
+	 * Analyze confidence score patterns across transcripts
+	 */
+	private static analyzeConfidencePatterns(transcripts: TranscriptComparison[]): {
+		averageConfidence: number;
+		lowConfidenceSegments: number;
+		confidenceVariability: number;
+	} {
+		if (transcripts.length === 0) {
+			return { averageConfidence: 0, lowConfidenceSegments: 0, confidenceVariability: 0 };
+		}
+
+		const confidences = transcripts.map(t => t.confidence);
+		const avgConfidence = confidences.reduce((sum, c) => sum + c, 0) / confidences.length;
+		const lowConfidenceSegments = confidences.filter(c => c < 0.7).length;
+		
+		// Calculate standard deviation for variability
+		const variance = confidences.reduce((sum, c) => sum + Math.pow(c - avgConfidence, 2), 0) / confidences.length;
+		const confidenceVariability = Math.sqrt(variance);
+
+		return {
+			averageConfidence: Math.round(avgConfidence * 100) / 100,
+			lowConfidenceSegments,
+			confidenceVariability: Math.round(confidenceVariability * 100) / 100
+		};
+	}
+
+	/**
+	 * Generate summary for transcript quality analysis
+	 */
+	private static generateTranscriptQualitySummary(
+		qualityScore: number,
+		autoCorrectionCount: number,
+		confidenceAnalysis: { averageConfidence: number; lowConfidenceSegments: number; confidenceVariability: number }
+	): string {
+		let summary = `Transcript quality analysis: `;
+		
+		if (qualityScore >= 90) {
+			summary += `Excellent quality (${qualityScore}%)`;
+		} else if (qualityScore >= 70) {
+			summary += `Good quality (${qualityScore}%)`;
+		} else if (qualityScore >= 50) {
+			summary += `Moderate quality (${qualityScore}%)`;
+		} else {
+			summary += `Low quality (${qualityScore}%)`;
+		}
+
+		summary += `. Average confidence: ${(confidenceAnalysis.averageConfidence * 100).toFixed(1)}%`;
+
+		if (confidenceAnalysis.lowConfidenceSegments > 0) {
+			summary += `. ${confidenceAnalysis.lowConfidenceSegments} low-confidence segments detected`;
+		}
+
+		if (autoCorrectionCount > 0) {
+			summary += `. ${autoCorrectionCount} potential auto-correction${autoCorrectionCount > 1 ? 's' : ''} detected`;
 		}
 
 		return summary;

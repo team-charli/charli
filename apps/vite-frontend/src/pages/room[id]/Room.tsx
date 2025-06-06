@@ -95,7 +95,7 @@ export default function Room() {
       
       // Add flag to skip scorecard generation in Deepgram QA mode
       if (isDeepgramQAMode) {
-        url += `&skipScorecard=true`;
+        url += `&skipScorecard=true&deepgramQA=true`;
       }
     }
 

@@ -13,7 +13,7 @@ import { AvgFrequencyEnricherDO } from './AvgFrequencyEnricherDO';
 import { SessionFrequencyColorEnricherDO } from './SessionFrequencyColorEnricherDO';
 import { LemmaEnricherDO } from './LemmaEnricherDO';
 import { TeacherScorecardPersisterDO } from './TeacherScorecardPersisterDO';
-import { CUE_CARDS, DICTATION_SCRIPTS, getDefaultQADictationScript } from './CueCards';
+import { DICTATION_SCRIPTS, getDefaultQADictationScript } from './DictationScripts';
 const app = new Hono<{ Bindings: Env }>()
 
 // Basic CORS setup
@@ -42,16 +42,6 @@ app.get('/test-logging', async (c) => {
 	return c.json({ message: 'Test logging endpoint', timestamp: new Date().toISOString() });
 });
 
-// 🔍 VERBATIM QA: Cue-cards endpoint for frontend
-app.get('/cue-cards', async (c) => {
-	console.log('[CUE-CARDS] Serving cue-cards to frontend');
-	return c.json({
-		cueCards: CUE_CARDS,
-		total: CUE_CARDS.length,
-		categories: [...new Set(CUE_CARDS.map(card => card.category))]
-	});
-});
-
 // 🔍 DICTATION SCRIPTS: Endpoint for Deepgram QA mode
 app.get('/dictation-scripts', async (c) => {
 	console.log('[DICTATION-SCRIPTS] Serving default dictation script for QA mode');
@@ -61,27 +51,6 @@ app.get('/dictation-scripts', async (c) => {
 		allScripts: DICTATION_SCRIPTS,
 		total: DICTATION_SCRIPTS.length
 	});
-});
-
-// 🔍 VERBATIM QA: Set active cue-card for session
-app.post('/cue-cards/:roomId/set-active', async (c) => {
-	const roomId = c.req.param('roomId');
-	const { cueCardId } = await c.req.json();
-	
-	console.log(`[CUE-CARDS] Setting active cue-card for room ${roomId}: ${cueCardId}`);
-	
-	const assessmentDO = c.env.LEARNER_ASSESSMENT_DO.get(
-		c.env.LEARNER_ASSESSMENT_DO.idFromName(roomId)
-	);
-	
-	// Forward to the DO to set the active cue-card
-	const doResponse = await assessmentDO.fetch(`http://learner-assessment/cue-cards/set-active`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ cueCardId })
-	});
-	
-	return doResponse;
 });
 
 // WebSocket endpoint (connections managed by MessageRelay)

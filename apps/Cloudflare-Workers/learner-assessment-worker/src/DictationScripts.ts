@@ -1,4 +1,4 @@
-// apps/learner-assessment-worker/src/CueCards.ts
+// apps/learner-assessment-worker/src/DictationScripts.ts
 // 🔍 DICTATION SCRIPT SYSTEM: Test conversations for evaluating Deepgram verbatim accuracy
 
 export interface CueCard {
@@ -25,132 +25,6 @@ export interface DictationScript {
 	turns: DictationTurn[];
 }
 
-export const CUE_CARDS: CueCard[] = [
-	// Grammar errors
-	{
-		id: 'gram-001',
-		category: 'grammar',
-		expectedText: 'Yo estar muy feliz hoy',
-		description: 'Incorrect verb conjugation (estar instead of estoy)',
-		errorTypes: ['verb_conjugation']
-	},
-	{
-		id: 'gram-002', 
-		category: 'grammar',
-		expectedText: 'Ella no sabe nada de nada',
-		description: 'Double negative (grammatically incorrect but commonly used)',
-		errorTypes: ['double_negative']
-	},
-	{
-		id: 'gram-003',
-		category: 'grammar',
-		expectedText: 'Quiero que tu vienes conmigo',
-		description: 'Incorrect subjunctive (vienes instead of vengas)',
-		errorTypes: ['subjunctive_error']
-	},
-	{
-		id: 'gram-004',
-		category: 'grammar',
-		expectedText: 'Los niños está jugando',
-		description: 'Subject-verb disagreement (está instead of están)',
-		errorTypes: ['subject_verb_disagreement']
-	},
-
-	// Pronunciation artifacts that might be auto-corrected
-	{
-		id: 'pron-001',
-		category: 'pronunciation',
-		expectedText: 'Eh... como se dice... eh... la palabra',
-		description: 'Hesitation markers and fillers',
-		errorTypes: ['hesitation_markers', 'fillers']
-	},
-	{
-		id: 'pron-002',
-		category: 'pronunciation',
-		expectedText: 'Necesito ir al... al... al banco',
-		description: 'Stuttering and repetition',
-		errorTypes: ['stuttering', 'repetition']
-	},
-	{
-		id: 'pron-003',
-		category: 'pronunciation',
-		expectedText: 'La computadora... computador... computadora',
-		description: 'Self-correction attempts',
-		errorTypes: ['self_correction']
-	},
-
-	// Vocabulary mistakes
-	{
-		id: 'vocab-001',
-		category: 'vocabulary',
-		expectedText: 'Estoy muy embarazada por la situación',
-		description: 'False friend usage (embarazada = pregnant, not embarrassed)',
-		errorTypes: ['false_friend']
-	},
-	{
-		id: 'vocab-002',
-		category: 'vocabulary',
-		expectedText: 'Necesito realizar que tengo hambre',
-		description: 'Anglicism (realizar instead of darme cuenta)',
-		errorTypes: ['anglicism']
-	},
-	{
-		id: 'vocab-003',
-		category: 'vocabulary',
-		expectedText: 'Voy a aplicar para el trabajo',
-		description: 'Direct translation (aplicar instead of solicitar)',
-		errorTypes: ['direct_translation']
-	},
-
-	// Mixed errors (complex cases)
-	{
-		id: 'mixed-001',
-		category: 'mixed',
-		expectedText: 'Eh... yo no... no puedo... como se dice... hacer esto',
-		description: 'Multiple error types combined',
-		errorTypes: ['hesitation_markers', 'double_negative', 'fillers']
-	},
-	{
-		id: 'mixed-002',
-		category: 'mixed',
-		expectedText: 'Los estudiante... estudiantes está muy confundido',
-		description: 'Grammar + self-correction + verb disagreement',
-		errorTypes: ['self_correction', 'subject_verb_disagreement']
-	},
-
-	// Test Deepgram's handling of common Spanish phonetic challenges
-	{
-		id: 'phon-001',
-		category: 'pronunciation',
-		expectedText: 'La erre española es muy difícil para mi',
-		description: 'Rolling R pronunciation issues',
-		errorTypes: ['phonetic_difficulty']
-	},
-	{
-		id: 'phon-002',
-		category: 'pronunciation',
-		expectedText: 'Dis... dislexia... di-sle-xi-a',
-		description: 'Syllable breakdown for difficult words',
-		errorTypes: ['syllable_breakdown']
-	}
-];
-
-// Helper functions for cue-card management
-export function getCueCardById(id: string): CueCard | undefined {
-	return CUE_CARDS.find(card => card.id === id);
-}
-
-export function getCueCardsByCategory(category: CueCard['category']): CueCard[] {
-	return CUE_CARDS.filter(card => card.category === category);
-}
-
-export function getRandomCueCard(): CueCard {
-	return CUE_CARDS[Math.floor(Math.random() * CUE_CARDS.length)];
-}
-
-export function getCueCardsByErrorType(errorType: string): CueCard[] {
-	return CUE_CARDS.filter(card => card.errorTypes.includes(errorType));
-}
 
 // 🔍 DICTATION SCRIPTS: Systematic testing based on Deepgram assessment document
 // Tests 4 key areas: Tense Usage (SAFE), Vocabulary (SAFE), Grammar Structure (MOSTLY SAFE), Morphological (VULNERABLE)
@@ -365,6 +239,70 @@ export const DICTATION_SCRIPTS: DictationScript[] = [
 				speaker: 'teacher',
 				expectedText: 'Qué maravilloso tener un servicio tan atento. Es importante sentirse cómodo.',
 				description: 'Positive reinforcement',
+				errorTypes: []
+			}
+		]
+	},
+	{
+		id: 'morphological-stress-test-005',
+		title: 'STRESS-TEST: Edge-Case Morphology & Accent Errors',
+		description: 'Pushes Deepgram on accent-only malformations, rare conjugations, intra-word pauses, and rapid self-corrections.',
+		category: 'conversation',
+		turns: [
+			{
+				turnNumber: 1,
+				speaker: 'learner',
+				expectedText: 'Buenas tardes, ayer hubímos—digo, hubimos—terminado el proyecto',
+				description: 'Accent-only malformed “hubímos” plus immediate self-correction; tests if interim catches both forms.',
+				errorTypes: ['morphological_verb_error', 'accent_placement_error', 'self_correction']
+			},
+			{
+				turnNumber: 2,
+				speaker: 'teacher',
+				expectedText: 'Entiendo, ¿cuánto tiempo les tomó?',
+				description: 'Natural reply with correct preterite “tomó”',
+				errorTypes: []
+			},
+			{
+				turnNumber: 3,
+				speaker: 'learner',
+				expectedText: 'Uh… eh… andábam… andábamos muy cansados al final',
+				description: 'In-word pause “andábam…” simulates hesitation splitting the malformed root.',
+				errorTypes: ['morphological_verb_error', 'hesitation_split']
+			},
+			{
+				turnNumber: 4,
+				speaker: 'teacher',
+				expectedText: 'Me imagino. ¿Descansaron después?',
+				description: 'Keeps flow',
+				errorTypes: []
+			},
+			{
+				turnNumber: 5,
+				speaker: 'learner',
+				expectedText: 'Sí, pero mis amigos dijieron—perdón, dijeron—que aún faltaba algo',
+				description: 'Non-standard “dijieron” plus self-correction; auto-correct prone because sound is close.',
+				errorTypes: ['morphological_verb_error', 'self_correction']
+			},
+			{
+				turnNumber: 6,
+				speaker: 'teacher',
+				expectedText: '¿Qué faltaba exactamente?',
+				description: 'Probe',
+				errorTypes: []
+			},
+			{
+				turnNumber: 7,
+				speaker: 'learner',
+				expectedText: 'Vos podés creer que olvidé el archivo final en casa',
+				description: 'Uses “vos podés” to test low-frequency pronoun + accent; Nova-2 sometimes normalises to “tú puedes”.',
+				errorTypes: ['pronoun_variant', 'accent_placement_error']
+			},
+			{
+				turnNumber: 8,
+				speaker: 'teacher',
+				expectedText: '¡Vaya! Eso pasa. ¿Lo enviaste luego?',
+				description: 'Wrap-up',
 				errorTypes: []
 			}
 		]

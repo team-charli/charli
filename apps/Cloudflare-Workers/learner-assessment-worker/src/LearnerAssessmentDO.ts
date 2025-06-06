@@ -2,8 +2,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { Env } from './env';
-import { CueCard, getCueCardById } from './CueCards';
-import { VerbatimAnalyzer, VerbatimAnalysisResult } from './VerbatimAnalyzer';
+import { VerbatimAnalyzer, TranscriptQualityResult } from './VerbatimAnalyzer';
 
 /** A diarized ASR segment returned by `runAsrOnWav` */
 interface TranscribedSegment {
@@ -88,9 +87,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		rawMessage: any;
 	}> = [];
 	
-	// 🎯 CUE-CARD SESSION: Track if this session is using cue-cards for testing
-	private activeCueCard: CueCard | null = null;
-	
 	// 🔬 DEEPGRAM QA MODE: Skip scorecard generation for verbatim testing
 	private skipScorecard: boolean = false;
 	/* ------------------------------------------------------------------ */
@@ -126,31 +122,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			return c.json({ ok: true });
 		});
 
-		/* ────────── POST /cue-cards/set-active ────────── */
-		this.app.post('/cue-cards/set-active', async c => {
-			const { cueCardId } = await c.req.json();
-			console.log(`[LEARNER-ASSESSMENT-DO] Setting active cue-card: ${cueCardId}`);
-			
-			const cueCard = getCueCardById(cueCardId);
-			if (!cueCard) {
-				console.error(`[LEARNER-ASSESSMENT-DO] Invalid cue-card ID: ${cueCardId}`);
-				return c.json({ error: 'Invalid cue-card ID' }, 400);
-			}
-			
-			this.activeCueCard = cueCard;
-			console.log(`[LEARNER-ASSESSMENT-DO] Active cue-card set to: ${cueCard.id} - "${cueCard.expectedText}"`);
-			
-			return c.json({ 
-				success: true, 
-				activeCueCard: {
-					id: cueCard.id,
-					expectedText: cueCard.expectedText,
-					description: cueCard.description,
-					category: cueCard.category,
-					errorTypes: cueCard.errorTypes
-				}
-			});
-		});
 	}
 
 	private async handleAudioRequest(c: any) {
@@ -230,8 +201,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		
 		/* 3b. store deepgramQA flag for robo mode calls ------------------ */
 		if ((await this.state.storage.get('deepgramQA')) === undefined) {
-			await this.state.storage.put('deepgramQA', deepgramQA);
-			console.log(`[LearnerAssessmentDO] deepgramQA mode: ${deepgramQA ? 'enabled' : 'disabled'}`);
+			const deepgramQABool = deepgramQA === true || deepgramQA === 'true';
+			await this.state.storage.put('deepgramQA', deepgramQABool);
+			console.log(`[LearnerAssessmentDO] deepgramQA mode: ${deepgramQABool ? 'enabled' : 'disabled'}`);
 		}
 
 		/* 4. read + validate chunk --------------------------------------- */
@@ -1099,7 +1071,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		markdown += `**Generated:** ${timestamp}  \n`;
 		markdown += `**Total Transcripts Captured:** ${this.verbatimCaptureData.length}  \n`;
 		markdown += `**Learner Transcripts:** ${learnerTranscripts.length}  \n`;
-		markdown += `**Cue-Card Mode:** ${this.activeCueCard ? `Yes (${this.activeCueCard.id})` : 'No'}  \n\n`;
 
 		// Summary table
 		markdown += `## Summary Statistics\n\n`;
@@ -1132,12 +1103,12 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		markdown += `\n\`\`\`\n\n`;
 		markdown += `</details>\n\n`;
 
-		// Cue-card comparison analysis
-		markdown += `## Cue-Card Comparison Analysis\n\n`;
+		// Transcript Quality Analysis (always runs when transcripts available)
+		markdown += `## Transcript Quality Analysis\n\n`;
 		
-		if (this.activeCueCard && learnerTranscripts.length > 0) {
+		if (learnerTranscripts.length > 0) {
 			try {
-				// Perform verbatim analysis
+				// Perform transcript quality analysis
 				const transcriptsForAnalysis = learnerTranscripts.map(t => ({
 					messageType: t.messageType,
 					text: t.text,
@@ -1145,69 +1116,59 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					timestamp: t.timestamp
 				}));
 				
-				const analysis = VerbatimAnalyzer.analyzeCueCardVerbatimness(
-					this.activeCueCard,
+				const qualityAnalysis = VerbatimAnalyzer.analyzeTranscriptQuality(
+					this.sessionId || 'unknown',
 					transcriptsForAnalysis
 				);
 				
-				markdown += `### Cue-Card: ${this.activeCueCard.id} - ${this.activeCueCard.description}\n\n`;
-				markdown += `**Expected Text:** "${this.activeCueCard.expectedText}"  \n`;
-				markdown += `**Error Types:** ${this.activeCueCard.errorTypes.join(', ')}  \n`;
-				markdown += `**Verbatim Score:** ${analysis.verbatimScore}/100  \n\n`;
+				markdown += `### Transcript Quality Assessment\n\n`;
+				markdown += `**Quality Score:** ${qualityAnalysis.qualityScore}/100  \n`;
+				markdown += `**Average Confidence:** ${(qualityAnalysis.confidenceAnalysis.averageConfidence * 100).toFixed(1)}%  \n`;
+				markdown += `**Low Confidence Segments:** ${qualityAnalysis.confidenceAnalysis.lowConfidenceSegments}  \n`;
+				markdown += `**Confidence Variability:** ${qualityAnalysis.confidenceAnalysis.confidenceVariability.toFixed(2)}  \n\n`;
 				
 				markdown += `#### Analysis Summary\n\n`;
-				markdown += `${analysis.summary}\n\n`;
+				markdown += `${qualityAnalysis.summary}\n\n`;
 				
-				if (analysis.autoCorrectionInstances.length > 0) {
-					markdown += `#### Auto-Corrections Detected\n\n`;
-					markdown += `| Type | Expected | Actual | Description |\n`;
-					markdown += `|------|----------|--------|-------------|\n`;
-					for (const correction of analysis.autoCorrectionInstances) {
-						markdown += `| ${correction.correctionType} | ${correction.expectedPhrase} | ${correction.actualPhrase} | ${correction.description} |\n`;
+				if (qualityAnalysis.detectedErrorPatterns.length > 0) {
+					markdown += `#### Detected Error Patterns\n\n`;
+					for (const pattern of qualityAnalysis.detectedErrorPatterns) {
+						markdown += `- 🔍 ${pattern}\n`;
 					}
 					markdown += `\n`;
 				}
 				
-				if (analysis.preservedErrors.length > 0) {
-					markdown += `#### Preserved Errors (Good for Assessment)\n\n`;
-					for (const error of analysis.preservedErrors) {
-						markdown += `- ✅ ${error}\n`;
+				if (qualityAnalysis.autoCorrectionInstances.length > 0) {
+					markdown += `#### Potential Auto-Corrections Detected\n\n`;
+					markdown += `| Type | Description | Affected Text |\n`;
+					markdown += `|------|-------------|---------------|\n`;
+					for (const correction of qualityAnalysis.autoCorrectionInstances) {
+						const textPreview = correction.actualPhrase.length > 40 ? 
+							correction.actualPhrase.substring(0, 37) + '...' : correction.actualPhrase;
+						markdown += `| ${correction.correctionType} | ${correction.description} | "${textPreview}" |\n`;
 					}
 					markdown += `\n`;
 				}
 				
-				if (analysis.lostErrors.length > 0) {
-					markdown += `#### Lost Errors (Auto-Corrected)\n\n`;
-					for (const error of analysis.lostErrors) {
-						markdown += `- ❌ ${error}\n`;
-					}
-					markdown += `\n`;
-				}
-				
-				markdown += `#### Transcript Comparison\n\n`;
-				markdown += `| Type | Confidence | Similarity | Edit Distance | Text |\n`;
-				markdown += `|------|------------|------------|---------------|------|\n`;
-				for (const transcript of analysis.actualTranscripts) {
+				markdown += `#### Transcript Details\n\n`;
+				markdown += `| Type | Confidence | Text |\n`;
+				markdown += `|------|------------|------|\n`;
+				for (const transcript of qualityAnalysis.transcriptData) {
 					const confStr = (transcript.confidence * 100).toFixed(1) + '%';
-					const simStr = (transcript.similarity * 100).toFixed(1) + '%';
 					const textPreview = transcript.actualText.length > 60 ? 
 						transcript.actualText.substring(0, 57) + '...' : transcript.actualText;
-					markdown += `| ${transcript.messageType} | ${confStr} | ${simStr} | ${transcript.editDistance} | "${textPreview}" |\n`;
+					markdown += `| ${transcript.messageType} | ${confStr} | "${textPreview}" |\n`;
 				}
 				markdown += `\n`;
 				
 			} catch (error) {
-				markdown += `*Error performing cue-card analysis: ${error}*\n\n`;
-				console.error(`[VERBATIM-ANALYSIS] Cue-card analysis error:`, error);
+				markdown += `*Error performing transcript quality analysis: ${error}*\n\n`;
+				console.error(`[VERBATIM-ANALYSIS] Transcript quality analysis error:`, error);
 			}
 		} else {
-			markdown += `*No cue-card data available for this session. To enable cue-card analysis:*\n\n`;
-			markdown += `1. Use the cue-card evaluation mode during dictation\n`;
-			markdown += `2. System will compare expected "bad Spanish" text with Deepgram output\n`;
-			markdown += `3. Measure auto-correction instances where errors were "fixed"\n`;
-			markdown += `4. Calculate verbatim preservation rate\n`;
-			markdown += `5. Analyze differences between interim, speech_final, and is_final results\n\n`;
+			markdown += `*No transcript data available for quality analysis.*\n\n`;
 		}
+
 
 		console.log(`[VERBATIM-ANALYSIS] Generated ${markdown.length} character report`);
 		return markdown;
@@ -1217,8 +1178,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		console.log(`🧹 [CLEANUP] Starting cleanup for room ${roomId}`);
 		console.log(`🧹 [CLEANUP] Verbatim capture data count: ${this.verbatimCaptureData.length}`);
 		
-		// Generate and store verbatim analysis report before cleanup
-		if (this.verbatimCaptureData.length > 0) {
+		// Generate and store verbatim analysis report before cleanup (only in verbatim QA mode)
+		const deepgramQAStored = await this.state.storage.get('deepgramQA');
+		const deepgramQA = deepgramQAStored === true || deepgramQAStored === 'true';
+		console.log(`🧹 [CLEANUP] 🔍 Debug - deepgramQAStored: ${deepgramQAStored} (type: ${typeof deepgramQAStored}), deepgramQA: ${deepgramQA}, verbatimCaptureData.length: ${this.verbatimCaptureData.length}`);
+		if (deepgramQA && this.verbatimCaptureData.length > 0) {
 			console.log(`🧹 [CLEANUP] 📊 Generating verbatim analysis report with ${this.verbatimCaptureData.length} captured transcripts`);
 			try {
 				const sessionId = await this.state.storage.get<number>('sessionId') || 'unknown';
@@ -1239,7 +1203,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 							sessionId: String(sessionId),
 							roomId: roomId,
 							generatedAt: new Date().toISOString(),
-							cueCardId: this.activeCueCard?.id || 'none',
+							analysisMode: 'transcript-quality',
 							transcriptCount: String(this.verbatimCaptureData.length)
 						}
 					});
