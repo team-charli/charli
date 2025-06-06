@@ -1,7 +1,7 @@
 // apps/learner-assessment-worker/src/VerbatimAnalyzer.ts
 // 🔍 VERBATIM ANALYZER: Analyze transcript quality and auto-correction patterns
 
-import { DictationScript, DictationTurn } from './DictationScripts';
+import { DictationScript, DictationTurn, DICTATION_SCRIPTS } from './DictationScripts';
 
 export interface VerbatimAnalysisResult {
 	dictationScriptId: string;
@@ -38,6 +38,20 @@ export interface TranscriptComparison {
 	similarity: number; // 0-1
 }
 
+export interface ComprehensiveVerbatimAnalysisResult {
+	sessionId: string;
+	matchedAnalyses: VerbatimAnalysisResult[];
+	unmatchedTranscripts: Array<{
+		messageType: 'interim' | 'speech_final' | 'is_final';
+		text: string;
+		confidence: number;
+		timestamp: number;
+	}>;
+	overallVerbatimScore: number;
+	totalAutoCorrections: number;
+	summary: string;
+}
+
 export interface AutoCorrectionInstance {
 	expectedPhrase: string;
 	actualPhrase: string;
@@ -46,6 +60,210 @@ export interface AutoCorrectionInstance {
 }
 
 export class VerbatimAnalyzer {
+	/**
+	 * Comprehensive verbatim analysis that automatically matches transcripts 
+	 * to the most appropriate dictation script turns from all available scripts
+	 */
+	static analyzeComprehensiveVerbatimness(
+		sessionId: string,
+		deepgramTranscripts: Array<{
+			messageType: 'interim' | 'speech_final' | 'is_final';
+			text: string;
+			confidence: number;
+			timestamp: number;
+			duration?: number; // E-3: Support duration for dynamic window calculation
+		}>
+	): ComprehensiveVerbatimAnalysisResult {
+		const matchedAnalyses: VerbatimAnalysisResult[] = [];
+		const usedTranscripts = new Set<number>();
+		const usedLearnerTurns = new Set<string>(); // E-2: Track claimed learner turns
+		
+		// Group transcripts by final statements for matching (E-1: include speech_final)
+		const finalTranscripts = deepgramTranscripts
+			.filter(t => t.messageType === 'is_final' || t.messageType === 'speech_final')
+			.map((transcript, index) => ({
+				...transcript,
+				originalIndex: deepgramTranscripts.indexOf(transcript),
+				relatedTranscripts: this.getRelatedTranscripts(transcript, deepgramTranscripts)
+			}));
+
+		// E-6: Pre-index learner turns by length buckets for performance (when > 200 turns)
+		const allLearnerTurns: Array<{ script: DictationScript; turn: DictationTurn }> = [];
+		for (const script of DICTATION_SCRIPTS) {
+			for (const turn of script.turns) {
+				if (turn.speaker === 'learner') {
+					allLearnerTurns.push({ script, turn });
+				}
+			}
+		}
+
+		const shouldUseBucketing = allLearnerTurns.length > 200;
+		let lengthBuckets: Map<string, Array<{ script: DictationScript; turn: DictationTurn }>> | null = null;
+
+		if (shouldUseBucketing) {
+			lengthBuckets = new Map();
+			for (const item of allLearnerTurns) {
+				const bucketKey = this.getLengthBucket(item.turn.expectedText.length);
+				if (!lengthBuckets.has(bucketKey)) {
+					lengthBuckets.set(bucketKey, []);
+				}
+				lengthBuckets.get(bucketKey)!.push(item);
+			}
+		}
+
+		// Try to match each final transcript against all learner turns in all scripts
+		for (const finalTranscript of finalTranscripts) {
+			let bestMatch: {
+				script: DictationScript;
+				turn: DictationTurn;
+				similarity: number;
+			} | null = null;
+
+			// E-6: Use bucketed search if available, otherwise search all
+			const candidateTurns = shouldUseBucketing && lengthBuckets 
+				? this.getCandidateTurnsFromBuckets(finalTranscript.text.length, lengthBuckets)
+				: allLearnerTurns;
+
+			// Search through candidate learner turns
+			for (const { script, turn } of candidateTurns) {
+				// E-2: Skip if this learner turn is already claimed
+				const turnKey = `${script.id}:${turn.turnNumber}`;
+				if (usedLearnerTurns.has(turnKey)) continue;
+
+				const similarity = this.calculateSimilarity(
+					turn.expectedText.toLowerCase().trim(),
+					finalTranscript.text.toLowerCase().trim()
+				);
+
+				// E-4: Dynamic threshold based on utterance length
+				const tokenCount = finalTranscript.text.split(/\s+/).length;
+				const threshold = tokenCount < 5 ? 0.6 : 0.3; // Higher threshold for short utterances
+
+				// Use dynamic threshold to ensure reasonable matches
+				if (similarity >= threshold && (!bestMatch || similarity > bestMatch.similarity)) {
+					bestMatch = { script, turn, similarity };
+				}
+			}
+
+			// If we found a good match, analyze it
+			if (bestMatch) {
+				// E-2: Mark this learner turn as claimed
+				const turnKey = `${bestMatch.script.id}:${bestMatch.turn.turnNumber}`;
+				usedLearnerTurns.add(turnKey);
+				const analysisResult = this.analyzeDictationScriptVerbatimness(
+					bestMatch.script,
+					bestMatch.turn.turnNumber,
+					finalTranscript.relatedTranscripts
+				);
+				
+				matchedAnalyses.push(analysisResult);
+				
+				// E-5: Only mark the final transcript as used, allow interims to be shared
+				const finalIndex = deepgramTranscripts.indexOf(finalTranscript as any);
+				if (finalIndex >= 0) usedTranscripts.add(finalIndex);
+			}
+		}
+
+		// Collect unmatched transcripts
+		const unmatchedTranscripts = deepgramTranscripts.filter((_, index) => !usedTranscripts.has(index));
+
+		// Calculate overall metrics
+		const overallVerbatimScore = matchedAnalyses.length > 0 
+			? Math.round(matchedAnalyses.reduce((sum, analysis) => sum + analysis.verbatimScore, 0) / matchedAnalyses.length)
+			: 0;
+
+		const totalAutoCorrections = matchedAnalyses.reduce((sum, analysis) => sum + analysis.autoCorrectionInstances.length, 0);
+
+		// Generate summary
+		const summary = this.generateComprehensiveSummary(matchedAnalyses.length, unmatchedTranscripts.length, overallVerbatimScore, totalAutoCorrections);
+
+		return {
+			sessionId,
+			matchedAnalyses,
+			unmatchedTranscripts,
+			overallVerbatimScore,
+			totalAutoCorrections,
+			summary
+		};
+	}
+
+	/**
+	 * Get all transcripts related to a final transcript (interims leading up to it)
+	 * E-3: Dynamic interim window based on final duration
+	 */
+	private static getRelatedTranscripts(
+		finalTranscript: { timestamp: number; messageType: string; text: string; confidence: number; duration?: number },
+		allTranscripts: Array<{ messageType: 'interim' | 'speech_final' | 'is_final'; text: string; confidence: number; timestamp: number; duration?: number }>
+	): Array<{ messageType: 'interim' | 'speech_final' | 'is_final'; text: string; confidence: number; timestamp: number; duration?: number }> {
+		// E-3: Dynamic window = max(10_000ms, final.duration * 2000ms)
+		const dynamicWindow = Math.max(10_000, (finalTranscript.duration || 0) * 2000);
+		
+		// Find all interim transcripts in the dynamic window leading up to this final
+		const relatedTranscripts = allTranscripts.filter(t => 
+			t.timestamp <= finalTranscript.timestamp && 
+			t.timestamp > finalTranscript.timestamp - dynamicWindow && // Dynamic window
+			(t.messageType === 'interim' || t === finalTranscript)
+		);
+
+		// Always include the final transcript itself
+		if (!relatedTranscripts.includes(finalTranscript as any)) {
+			relatedTranscripts.push(finalTranscript as any);
+		}
+
+		return relatedTranscripts.sort((a, b) => a.timestamp - b.timestamp);
+	}
+
+	/**
+	 * Generate comprehensive analysis summary
+	 */
+	private static generateComprehensiveSummary(
+		matchedCount: number,
+		unmatchedCount: number,
+		overallScore: number,
+		totalCorrections: number
+	): string {
+		let summary = `Comprehensive verbatim analysis: ${matchedCount} phrases matched to dictation scripts`;
+		
+		if (unmatchedCount > 0) {
+			summary += `, ${unmatchedCount} unmatched transcripts`;
+		}
+
+		summary += `. Overall verbatim score: ${overallScore}/100`;
+
+		if (totalCorrections > 0) {
+			summary += `. Detected ${totalCorrections} auto-correction${totalCorrections > 1 ? 's' : ''} across all matches`;
+		}
+
+		if (overallScore >= 80) {
+			summary += `. ✅ Excellent verbatim preservation - minimal assessment impact`;
+		} else if (overallScore >= 60) {
+			summary += `. ⚠️ Good verbatim preservation - some assessment impact`;
+		} else if (overallScore >= 40) {
+			summary += `. 🟡 Moderate verbatim preservation - notable assessment impact`;
+		} else {
+			summary += `. 🔴 Poor verbatim preservation - significant assessment impact`;
+		}
+
+		return summary;
+	}
+
+	/**
+	 * RECOMMENDED: Use this method instead of manually calling analyzeDictationScriptVerbatimness
+	 * This automatically finds the best matching dictation script turns for your transcripts
+	 */
+	static analyzeSessionVerbatimness(
+		sessionId: string,
+		deepgramTranscripts: Array<{
+			messageType: 'interim' | 'speech_final' | 'is_final';
+			text: string;
+			confidence: number;
+			timestamp: number;
+			duration?: number; // E-3: Support duration for dynamic window calculation
+		}>
+	): ComprehensiveVerbatimAnalysisResult {
+		return this.analyzeComprehensiveVerbatimness(sessionId, deepgramTranscripts);
+	}
+
 	/**
 	 * Analyze transcript quality without requiring cue card comparison
 	 * This method runs sophisticated analysis on any transcript data
@@ -761,5 +979,53 @@ export class VerbatimAnalyzer {
 		}
 
 		return summary;
+	}
+
+	/**
+	 * E-6: Get length bucket key for pre-indexing optimization
+	 */
+	private static getLengthBucket(length: number): string {
+		// Create buckets with ±20% overlap to handle edge cases
+		if (length <= 20) return 'xs'; // Very short
+		if (length <= 50) return 's';  // Short
+		if (length <= 100) return 'm'; // Medium
+		if (length <= 200) return 'l'; // Long
+		return 'xl'; // Very long
+	}
+
+	/**
+	 * E-6: Get candidate turns from relevant length buckets (±20% range)
+	 */
+	private static getCandidateTurnsFromBuckets(
+		transcriptLength: number, 
+		buckets: Map<string, Array<{ script: DictationScript; turn: DictationTurn }>>
+	): Array<{ script: DictationScript; turn: DictationTurn }> {
+		const candidates: Array<{ script: DictationScript; turn: DictationTurn }> = [];
+		
+		// Get primary bucket
+		const primaryBucket = this.getLengthBucket(transcriptLength);
+		if (buckets.has(primaryBucket)) {
+			candidates.push(...buckets.get(primaryBucket)!);
+		}
+
+		// Add adjacent buckets for overlap (±20% tolerance)
+		const minLength = transcriptLength * 0.8;
+		const maxLength = transcriptLength * 1.2;
+		
+		for (const [bucketKey, bucketTurns] of buckets.entries()) {
+			if (bucketKey === primaryBucket) continue;
+			
+			// Check if any turns in this bucket could be in range
+			const hasRelevantTurns = bucketTurns.some(item => {
+				const turnLength = item.turn.expectedText.length;
+				return turnLength >= minLength && turnLength <= maxLength;
+			});
+			
+			if (hasRelevantTurns) {
+				candidates.push(...bucketTurns);
+			}
+		}
+
+		return candidates;
 	}
 }
