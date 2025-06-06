@@ -132,7 +132,9 @@ export class VerbatimAnalyzer {
 		}
 
 		// Find auto-correction instances
-		const autoCorrectionInstances = this.detectAutoCorrections(cueCard, transcriptComparisons);
+		const staticPatternCorrections = this.detectAutoCorrections(cueCard, transcriptComparisons);
+		const interimFinalCorrections = this.detectInterimFinalDifferences(transcriptComparisons);
+		const autoCorrectionInstances = [...staticPatternCorrections, ...interimFinalCorrections];
 		
 		// Calculate verbatim score
 		const verbatimScore = this.calculateVerbatimScore(cueCard, transcriptComparisons, autoCorrectionInstances);
@@ -214,6 +216,24 @@ export class VerbatimAnalyzer {
 			{ pattern: /ella está/, correction: /ellas están/, type: 'grammar' as const, desc: 'Corrected plural agreement' },
 			{ pattern: /tu vienes/, correction: /tú vengas/, type: 'grammar' as const, desc: 'Corrected subjunctive' },
 			
+			// CRITICAL ADDITIONS - Bidirectional subject-verb disagreement patterns
+			{ pattern: /\b\w+s\s+está\b/, correction: /\w+s\s+están/, type: 'grammar' as const, desc: 'Corrected plural subject-verb disagreement' },
+			{ pattern: /\bestudiantes\s+está\b/, correction: /estudiantes\s+están/, type: 'grammar' as const, desc: 'Corrected student plural agreement' },
+			{ pattern: /\bniños\s+está\b/, correction: /niños\s+están/, type: 'grammar' as const, desc: 'Corrected children plural agreement' },
+			
+			// Morphological malformations from DictationScripts
+			{ pattern: /\bjugimos\b/, correction: /jugamos/, type: 'grammar' as const, desc: 'Corrected malformed past tense' },
+			{ pattern: /\bcomiómos\b/, correction: /comimos/, type: 'grammar' as const, desc: 'Corrected malformed accent placement' },
+			{ pattern: /\bdormímos\b/, correction: /dormimos/, type: 'grammar' as const, desc: 'Corrected stress placement error' },
+			{ pattern: /\bdijieron\b/, correction: /dijeron/, type: 'grammar' as const, desc: 'Corrected non-standard conjugation' },
+			{ pattern: /\bhubímos\b/, correction: /hubimos/, type: 'grammar' as const, desc: 'Corrected accent-only malformation' },
+			
+			// Gender agreement errors
+			{ pattern: /\bla\s+problema\b/, correction: /el\s+problema/, type: 'grammar' as const, desc: 'Corrected gender agreement' },
+			
+			// Pronoun variants and accent errors
+			{ pattern: /\bvos\s+podés\b/, correction: /tú\s+puedes/, type: 'grammar' as const, desc: 'Normalized pronoun variant' },
+			
 			// Vocabulary corrections
 			{ pattern: /embarazada por/, correction: /avergonzada por/, type: 'vocabulary' as const, desc: 'Corrected false friend' },
 			{ pattern: /realizar que/, correction: /darme cuenta/, type: 'vocabulary' as const, desc: 'Corrected anglicism' },
@@ -245,6 +265,55 @@ export class VerbatimAnalyzer {
 	}
 
 	/**
+	 * Detect auto-corrections by comparing interim vs final transcripts
+	 * This catches corrections that aren't in the static pattern list
+	 */
+	private static detectInterimFinalDifferences(
+		transcripts: TranscriptComparison[]
+	): AutoCorrectionInstance[] {
+		const corrections: AutoCorrectionInstance[] = [];
+
+		// Group transcripts by approximate timing (within 2 seconds)
+		const timeGroups: Map<number, TranscriptComparison[]> = new Map();
+
+		for (const transcript of transcripts) {
+			const timeSlot = Math.floor(transcript.timestamp / 2000) * 2000;
+			if (!timeGroups.has(timeSlot)) {
+				timeGroups.set(timeSlot, []);
+			}
+			timeGroups.get(timeSlot)!.push(transcript);
+		}
+
+		// For each time group, compare interim vs final
+		for (const [timeSlot, group] of timeGroups) {
+			const interims = group.filter(t => t.messageType === 'interim');
+			const finals = group.filter(t => t.messageType === 'is_final');
+
+			if (interims.length > 0 && finals.length > 0) {
+				const lastInterim = interims[interims.length - 1];
+				const final = finals[finals.length - 1];
+
+				// Calculate similarity - if very different, likely auto-corrected
+				const similarity = this.calculateSimilarity(
+					lastInterim.actualText.toLowerCase(),
+					final.actualText.toLowerCase()
+				);
+
+				if (similarity < 0.8) { // Less than 80% similar
+					corrections.push({
+						expectedPhrase: lastInterim.actualText,
+						actualPhrase: final.actualText,
+						correctionType: 'structure',
+						description: `Interim-final mismatch: "${lastInterim.actualText}" → "${final.actualText}"`
+					});
+				}
+			}
+		}
+
+		return corrections;
+	}
+
+	/**
 	 * Calculate overall verbatim score (0-100)
 	 */
 	private static calculateVerbatimScore(
@@ -263,8 +332,14 @@ export class VerbatimAnalyzer {
 		let score = bestMatch.similarity * 100;
 
 		// Penalize auto-corrections (each correction reduces verbatimness)
-		const correctionPenalty = autoCorrections.length * 15; // 15 points per correction
-		score = Math.max(0, score - correctionPenalty);
+		const correctionPenalty = autoCorrections.length * 25; // Increased from 15 to 25 points per correction
+		
+		// Add penalty for interim-final discrepancies
+		const interimFinalPenalty = autoCorrections
+			.filter(correction => correction.correctionType === 'structure')
+			.length * 30; // Heavy penalty for structural changes
+		
+		score = Math.max(0, score - correctionPenalty - interimFinalPenalty);
 
 		// Bonus for preserving hesitation markers and fillers (important for learner assessment)
 		const expectedLower = cueCard.expectedText.toLowerCase();
@@ -305,6 +380,10 @@ export class VerbatimAnalyzer {
 		const errorChecks = [
 			{ type: 'verb_conjugation', pattern: /yo estar/, desc: 'Incorrect verb estar' },
 			{ type: 'subject_verb_disagreement', pattern: /niños está/, desc: 'Singular verb with plural subject' },
+			{ type: 'plural_subject_verb_disagreement', pattern: /\w+s\s+está/, desc: 'Plural subject with singular verb' },
+			{ type: 'morphological_malformation', pattern: /jugimos|comiómos|dormímos|dijieron|hubímos/, desc: 'Malformed verb conjugations' },
+			{ type: 'gender_agreement_error', pattern: /la\s+problema/, desc: 'Gender agreement errors' },
+			{ type: 'pronoun_variant', pattern: /vos\s+podés/, desc: 'Regional pronoun variants' },
 			{ type: 'double_negative', pattern: /no.*nada/, desc: 'Double negative construction' },
 			{ type: 'hesitation_markers', pattern: /eh/, desc: 'Hesitation markers (eh)' },
 			{ type: 'fillers', pattern: /como se dice/, desc: 'Filler phrases' },
@@ -484,6 +563,11 @@ export class VerbatimAnalyzer {
 		const errorChecks = [
 			{ pattern: /yo estar/, desc: 'Incorrect verb conjugation (estar)' },
 			{ pattern: /\w+ está\b.*\w+s\b/, desc: 'Subject-verb disagreement' },
+			{ pattern: /\w+s\s+está\b/, desc: 'Plural subject-verb disagreement' },
+			{ pattern: /jugimos|comiómos|dormímos/, desc: 'Malformed verb conjugations' },
+			{ pattern: /dijieron\b/, desc: 'Non-standard preterite forms' },
+			{ pattern: /vos\s+podés/, desc: 'Regional pronoun variants' },
+			{ pattern: /la\s+problema/, desc: 'Gender agreement error' },
 			{ pattern: /embarazada por/, desc: 'False friend usage (embarrassed)' },
 			{ pattern: /realizar que/, desc: 'Anglicism (realize)' },
 			{ pattern: /aplicar para/, desc: 'Direct translation (apply for)' },
@@ -491,7 +575,6 @@ export class VerbatimAnalyzer {
 			{ pattern: /como se dice/, desc: 'Filler phrases' },
 			{ pattern: /\b\w+\.\.\.\s*\w+/, desc: 'Stuttering/repetition patterns' },
 			{ pattern: /no.*nada/, desc: 'Double negative' },
-			{ pattern: /la problema/, desc: 'Gender agreement error' },
 		];
 
 		for (const check of errorChecks) {
