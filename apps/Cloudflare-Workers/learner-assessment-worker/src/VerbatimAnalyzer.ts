@@ -135,11 +135,16 @@ export class VerbatimAnalyzer {
 				? this.getCandidateTurnsFromBuckets(finalTranscript.text.length, lengthBuckets)
 				: allLearnerTurns;
 
+			console.log(`[MATCH-DIAGNOSTIC] Checking ${candidateTurns.length} candidate turns for final transcript`);
+
 			// Search through candidate learner turns
 			for (const { script, turn } of candidateTurns) {
 				// E-2: Skip if this learner turn is already claimed
 				const turnKey = `${script.id}:${turn.turnNumber}`;
-				if (usedLearnerTurns.has(turnKey)) continue;
+				if (usedLearnerTurns.has(turnKey)) {
+					console.log(`[MATCH-DIAGNOSTIC] Skipping already used turn: ${turnKey}`);
+					continue;
+				}
 
 				const similarity = this.calculateSimilarity(
 					turn.expectedText.toLowerCase().trim(),
@@ -158,16 +163,23 @@ export class VerbatimAnalyzer {
 				const actualText = finalTranscript.text.toLowerCase().trim();
 				const tokenOverlap = this.tokenOverlap(expectedText, actualText);
 				
+				// Add comprehensive diagnostic logging
+				console.log(`[MATCH] Trying to match expected: "${turn.expectedText}"`);
+				console.log(`[MATCH] Against final: "${finalTranscript.text}"`);
+				console.log(`[MATCH] Similarity=${similarity.toFixed(3)} TokenOverlap=${tokenOverlap.toFixed(3)} shouldMatch=${shouldMatch} (threshold=${threshold.toFixed(3)})`);
+				
 				// Allow matching based on token overlap even if similarity is low
 				if (!shouldMatch) {
 					// Token presence check: if expected text has 5+ tokens and ≥3 are present, match
 					if (this.hasSignificantTokenPresence(expectedText, actualText)) {
 						shouldMatch = true;
+						console.log(`[MATCH] shouldMatch set to true due to significant token presence`);
 					}
 					
 					// Token overlap threshold: if overlap > 0.3, consider matching
 					if (tokenOverlap > 0.3) {
 						shouldMatch = true;
+						console.log(`[MATCH] shouldMatch set to true due to token overlap > 0.3`);
 					}
 
 					// Force matching for specific error types that indicate semantic relevance
@@ -178,6 +190,7 @@ export class VerbatimAnalyzer {
 						turn.errorTypes.includes('morphological_malformation')
 					)) {
 						shouldMatch = true;
+						console.log(`[MATCH] shouldMatch set to true due to specific error types: ${turn.errorTypes.join(', ')}`);
 					}
 				}
 
@@ -190,6 +203,11 @@ export class VerbatimAnalyzer {
 				// Use enhanced matching criteria
 				if (shouldMatch && (!bestMatch || similarity > bestMatch.similarity)) {
 					bestMatch = { script, turn, similarity };
+					console.log(`[MATCH] NEW BEST MATCH: script=${script.id}, turn=${turn.turnNumber}, similarity=${similarity.toFixed(3)}`);
+				} else if (shouldMatch) {
+					console.log(`[MATCH] shouldMatch=true but not better than current best (${bestMatch?.similarity.toFixed(3) || 'none'})`);
+				} else {
+					console.log(`[MATCH] shouldMatch=false, skipping`);
 				}
 			}
 
@@ -203,6 +221,13 @@ export class VerbatimAnalyzer {
 					bestMatch.turn.turnNumber,
 					finalTranscript.relatedTranscripts
 				);
+				
+				console.log(`[ANALYSIS] Turn ${bestMatch.turn.turnNumber}: VerbatimScore=${analysisResult.verbatimScore}, AutoCorrections=${analysisResult.autoCorrectionInstances.length}`);
+				if (analysisResult.autoCorrectionInstances.length > 0) {
+					analysisResult.autoCorrectionInstances.forEach((ac, i) => {
+						console.log(`[ANALYSIS-CORRECTION-${i}] ${ac.correctionType}: "${ac.expectedPhrase}" -> "${ac.actualPhrase}" (${ac.description})`);
+					});
+				}
 				
 				matchedAnalyses.push(analysisResult);
 				
@@ -224,6 +249,19 @@ export class VerbatimAnalyzer {
 
 		// Generate summary
 		const summary = this.generateComprehensiveSummary(matchedAnalyses.length, unmatchedTranscripts.length, overallVerbatimScore, totalAutoCorrections);
+
+		// Add summary diagnostic logging
+		console.log(`[SUMMARY] MatchedAnalyses=${matchedAnalyses.length} Score=${overallVerbatimScore}`);
+		console.log(`[SUMMARY] TotalAutoCorrections=${totalAutoCorrections} UnmatchedTranscripts=${unmatchedTranscripts.length}`);
+		console.log(`[SUMMARY] FinalTranscripts processed: ${finalTranscripts.length}`);
+		
+		// Log first 3 failed matches for inspection if no matches found
+		if (matchedAnalyses.length === 0 && finalTranscripts.length > 0) {
+			console.log(`[DEBUG] NO MATCHES FOUND - dumping final transcripts for inspection:`);
+			finalTranscripts.slice(0, 3).forEach((ft, i) => {
+				console.log(`[DEBUG-TRANSCRIPT-${i}] "${ft.text}" (confidence: ${ft.confidence})`);
+			});
+		}
 
 		return {
 			sessionId,
