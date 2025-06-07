@@ -461,8 +461,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text || ''}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
 				console.log(`[DG-TIMING] Silence: ${silenceDuration}ms, Since last speech: ${timeSinceLastSpeech}ms`);
 
-				// Full raw message for detailed analysis
-				console.log(`[DG-DEBUG] Raw message:`, JSON.stringify(msg, null, 2));
+				// Key fields for all utterances: track progression to identify where pipeline breaks
+				console.log(`[DG-DEBUG] key_fields: transcript="${text||''}" conf=${msg.channel?.alternatives?.[0]?.confidence||0} is_final=${msg.is_final} speech_final=${msg.speech_final} from_finalize=${msg.from_finalize} model=${msg.metadata?.model_info?.name} words_count=${msg.channel?.alternatives?.[0]?.words?.length||0}`);
 			}
 
 			// Handle speech_final messages (high confidence, for scorecard)
