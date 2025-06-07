@@ -1084,25 +1084,33 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		markdown += `| Learner Messages | ${learnerTranscripts.length} |\n`;
 		markdown += `| Teacher Messages | ${this.verbatimCaptureData.filter(t => t.role === 'teacher').length} |\n\n`;
 
-		// Detailed transcript log
-		markdown += `## Detailed Transcript Timeline\n\n`;
-		markdown += `| Time | Type | Role | Confidence | Text |\n`;
-		markdown += `|------|------|------|------------|------|\n`;
-		
-		for (const item of this.verbatimCaptureData) {
-			const timeStr = new Date(item.timestamp).toISOString().substr(11, 12);
-			const confidenceStr = (item.confidence * 100).toFixed(1) + '%';
-			const textPreview = item.text.length > 50 ? item.text.substring(0, 47) + '...' : item.text;
-			markdown += `| ${timeStr} | ${item.messageType} | ${item.role} | ${confidenceStr} | "${textPreview}" |\n`;
-		}
+		// Confidence analysis summary (instead of detailed transcript log)
+		const confidenceStats = this.verbatimCaptureData.reduce((acc, item) => {
+			acc.total += item.confidence;
+			acc.count++;
+			if (item.confidence < 0.7) acc.lowConfidence++;
+			if (item.confidence >= 0.9) acc.highConfidence++;
+			return acc;
+		}, { total: 0, count: 0, lowConfidence: 0, highConfidence: 0 });
 
-		// Raw data section for analysis
-		markdown += `\n## Raw Deepgram Responses\n\n`;
-		markdown += `<details><summary>Click to expand raw JSON data</summary>\n\n`;
-		markdown += `\`\`\`json\n`;
-		markdown += JSON.stringify(this.verbatimCaptureData, null, 2);
-		markdown += `\n\`\`\`\n\n`;
-		markdown += `</details>\n\n`;
+		markdown += `## Confidence Analysis\n\n`;
+		markdown += `| Metric | Value |\n`;
+		markdown += `|--------|-------|\n`;
+		markdown += `| Average Confidence | ${((confidenceStats.total / confidenceStats.count) * 100).toFixed(1)}% |\n`;
+		markdown += `| High Confidence (≥90%) | ${confidenceStats.highConfidence} messages |\n`;
+		markdown += `| Low Confidence (<70%) | ${confidenceStats.lowConfidence} messages |\n`;
+		markdown += `| Quality Rating | ${confidenceStats.lowConfidence > confidenceStats.count * 0.2 ? '🔴 Poor' : confidenceStats.highConfidence > confidenceStats.count * 0.7 ? '🟢 Excellent' : '🟡 Good'} |\n\n`;
+
+		// Sample transcripts for context (instead of raw data dump)
+		const finalTranscripts = this.verbatimCaptureData.filter(t => t.messageType === 'is_final').slice(0, 5);
+		if (finalTranscripts.length > 0) {
+			markdown += `## Sample Final Transcripts\n\n`;
+			markdown += `*Showing first ${finalTranscripts.length} final transcripts for context:*\n\n`;
+			finalTranscripts.forEach((item, i) => {
+				const confidenceStr = (item.confidence * 100).toFixed(1) + '%';
+				markdown += `**${i + 1}.** (${confidenceStr}) "${item.text}"\n\n`;
+			});
+		}
 
 		// Transcript Quality Analysis (always runs when transcripts available)
 		markdown += `## Transcript Quality Analysis\n\n`;
@@ -1151,15 +1159,16 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					markdown += `\n`;
 				}
 				
-				markdown += `#### Transcript Details\n\n`;
-				markdown += `| Type | Confidence | Text |\n`;
-				markdown += `|------|------------|------|\n`;
-				for (const transcript of qualityAnalysis.transcriptData) {
-					const confStr = (transcript.confidence * 100).toFixed(1) + '%';
-					const textPreview = transcript.actualText.length > 60 ? 
-						transcript.actualText.substring(0, 57) + '...' : transcript.actualText;
-					markdown += `| ${transcript.messageType} | ${confStr} | "${textPreview}" |\n`;
-				}
+				// Transcript type breakdown (instead of detailed table)
+				const typeBreakdown = qualityAnalysis.transcriptData.reduce((acc, transcript) => {
+					acc[transcript.messageType] = (acc[transcript.messageType] || 0) + 1;
+					return acc;
+				}, {} as Record<string, number>);
+				
+				markdown += `#### Transcript Type Breakdown\n\n`;
+				Object.entries(typeBreakdown).forEach(([type, count]) => {
+					markdown += `- **${type}:** ${count} messages\n`;
+				});
 				markdown += `\n`;
 				
 			} catch (error) {
@@ -1268,7 +1277,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		}
 
 
-		console.log(`[VERBATIM-ANALYSIS] Generated ${markdown.length} character report`);
+		// Add report generation summary
+		markdown += `---\n\n`;
+		markdown += `**Report Generation Summary:**  \n`;
+		markdown += `- Total characters: ${markdown.length.toLocaleString()}  \n`;
+		markdown += `- Processed transcripts: ${this.verbatimCaptureData.length}  \n`;
+		markdown += `- Report format: Concise metrics (raw data excluded for readability)  \n`;
+		
+		console.log(`[VERBATIM-ANALYSIS] Generated concise ${markdown.length} character report (${this.verbatimCaptureData.length} transcripts processed)`);
 		return markdown;
 	}
 
