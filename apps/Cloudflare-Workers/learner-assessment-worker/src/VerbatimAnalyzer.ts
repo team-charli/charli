@@ -175,6 +175,29 @@ export class VerbatimAnalyzer {
 		// Collect unmatched transcripts
 		const unmatchedTranscripts = deepgramTranscripts.filter((_, index) => !usedTranscripts.has(index));
 
+		// FALLBACK: If no learner turns matched, use transcript quality score instead of 0/100
+		if (matchedAnalyses.length === 0) {
+			const quality = this.analyzeTranscriptQuality(
+				sessionId,
+				deepgramTranscripts.map(t => ({
+					messageType : t.messageType,
+					text        : t.text,
+					confidence  : t.confidence,
+					timestamp   : t.timestamp
+				}))
+			);
+
+			return {
+				sessionId,
+				matchedAnalyses      : [],
+				unmatchedTranscripts : deepgramTranscripts,
+				overallVerbatimScore : quality.qualityScore,          // 0‒100
+				totalAutoCorrections : quality.autoCorrectionInstances.length,
+				summary              : `No learner turns matched – fallback quality ` +
+									   `score ${quality.qualityScore}/100 applied`
+			};
+		}
+
 		// Calculate overall metrics
 		const overallVerbatimScore = matchedAnalyses.length > 0 
 			? Math.round(matchedAnalyses.reduce((sum, analysis) => sum + analysis.verbatimScore, 0) / matchedAnalyses.length)
