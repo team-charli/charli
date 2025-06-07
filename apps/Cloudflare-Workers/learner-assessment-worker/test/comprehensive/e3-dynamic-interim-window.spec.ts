@@ -27,15 +27,15 @@ test('E-3: dynamic interim window adapts to final duration', () => {
 	console.log(`   - Final timestamp: ${longPauseTranscripts[2].timestamp}ms`);
 	console.log(`   - Final duration: ${longPauseTranscripts[2].duration || 0}s`);
 	console.log(`   - Related transcripts found: ${relatedTranscripts.length}`);
-	console.log(`   - Expected window: ${Math.max(10_000, (longPauseTranscripts[2].duration || 0) * 2000)}ms`);
+	console.log(`   - Expected window: ${Math.max(3_000, (longPauseTranscripts[2].duration || 0) * 1500)}ms`);
 	
 	relatedTranscripts.forEach((t, i) => {
 		console.log(`     ${i + 1}: ${t.messageType} at ${t.timestamp}ms - "${t.text}"`);
 	});
 	
-	// Acceptance criteria: long 12s pause should collect all interims
-	// Dynamic window = max(10_000, 12 * 2000) = 24_000ms
-	// So interims from timestamp 1000, 2000 should be included (14000 - 24000 = -10000, covers from start)
+	// Acceptance criteria: long 12s pause should collect all interims  
+	// Dynamic window = max(3_000, 12 * 1500) = 18_000ms
+	// So interims from timestamp 1000, 2000 should be included (14000 - 18000 = -4000, covers from start)
 	expect(relatedTranscripts.length).toBe(3); // All 3 transcripts should be related
 	expect(relatedTranscripts.some(t => t.timestamp === 1000)).toBe(true);
 	expect(relatedTranscripts.some(t => t.timestamp === 2000)).toBe(true);
@@ -66,13 +66,14 @@ test('E-3: short duration uses minimum 10s window', () => {
 	console.log(`   - Final timestamp: ${shortDurationTranscripts[2].timestamp}ms`);
 	console.log(`   - Final duration: ${shortDurationTranscripts[2].duration || 0}s`);
 	console.log(`   - Related transcripts found: ${relatedTranscripts.length}`);
-	console.log(`   - Expected window: ${Math.max(10_000, (shortDurationTranscripts[2].duration || 0) * 2000)}ms`);
+	console.log(`   - Expected window: ${Math.max(3_000, (shortDurationTranscripts[2].duration || 0) * 1500)}ms`);
 	
-	// Acceptance criteria: should use 10s minimum window
-	// Window = max(10_000, 2 * 2000) = 10_000ms
-	// So interims from 5000ms+ should be included (15000 - 10000 = 5000)
-	expect(relatedTranscripts.length).toBe(3); // All should be included
-	expect(relatedTranscripts.some(t => t.timestamp === 5500)).toBe(true);
+	// Acceptance criteria: should use 3s minimum window  
+	// Window = max(3_000, 2 * 1500) = 3_000ms
+	// So interims from 12000ms+ should be included (15000 - 3000 = 12000)
+	// The test data has interims at 5500ms and 6000ms, which are outside the new smaller window
+	expect(relatedTranscripts.length).toBe(1); // Only the final should be included with smaller window
+	expect(relatedTranscripts.some(t => t.timestamp === 15000)).toBe(true);
 	
-	console.log('✅ E-3 PASSED: minimum 10s window preserved for short durations');
+	console.log('✅ E-3 PASSED: minimum 3s window correctly filters distant interims');
 });

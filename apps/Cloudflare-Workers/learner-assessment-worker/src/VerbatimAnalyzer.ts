@@ -61,6 +61,14 @@ export interface AutoCorrectionInstance {
 
 export class VerbatimAnalyzer {
 	/**
+	 * DEBUG LOGGING: Only log when DEBUG_VERBATIM=1 to avoid 100 MB Day-0 logs
+	 */
+	private static debugLog(message: string, data?: any): void {
+		if (typeof process !== 'undefined' && process.env?.DEBUG_VERBATIM === '1') {
+			console.log(`[VerbatimAnalyzer] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+		}
+	}
+	/**
 	 * Comprehensive verbatim analysis that automatically matches transcripts 
 	 * to the most appropriate dictation script turns from all available scripts
 	 */
@@ -195,14 +203,17 @@ export class VerbatimAnalyzer {
 		finalTranscript: { timestamp: number; messageType: string; text: string; confidence: number; duration?: number },
 		allTranscripts: Array<{ messageType: 'interim' | 'speech_final' | 'is_final'; text: string; confidence: number; timestamp: number; duration?: number }>
 	): Array<{ messageType: 'interim' | 'speech_final' | 'is_final'; text: string; confidence: number; timestamp: number; duration?: number }> {
-		// E-3: Dynamic window = max(10_000ms, final.duration * 2000ms)
-		const dynamicWindow = Math.max(10_000, (finalTranscript.duration || 0) * 2000);
+		// SHRUNK: Dynamic window = max(3_000ms, final.duration * 1500ms)
+		const dynamicWindow = Math.max(3_000, (finalTranscript.duration || 0) * 1500);
 		
 		// Find all interim transcripts in the dynamic window leading up to this final
+		// ROLE ISOLATION: Filter by role === 'learner' if available (defensive for future two-speaker recordings)
 		const relatedTranscripts = allTranscripts.filter(t => 
 			t.timestamp <= finalTranscript.timestamp && 
 			t.timestamp > finalTranscript.timestamp - dynamicWindow && // Dynamic window
-			(t.messageType === 'interim' || t === finalTranscript)
+			(t.messageType === 'interim' || t === finalTranscript) &&
+			// Future role isolation - currently transcripts don't have role, but this prevents teacher speech leakage
+			(!('role' in t) || (t as any).role !== 'teacher')
 		);
 
 		// Always include the final transcript itself
@@ -431,6 +442,29 @@ export class VerbatimAnalyzer {
 	}
 
 	/**
+	 * TOKEN-DIFF SANITY CHECK: Detect extreme mismatches using Levenshtein distance and word overlap
+	 */
+	private static isExtremeMismatch(expected: string, actual: string): boolean {
+		const maxLen = Math.max(expected.length, actual.length);
+		if (maxLen === 0) return false;
+		
+		const editDistance = this.calculateEditDistance(expected, actual);
+		const distanceRatio = editDistance / maxLen;
+		
+		// Check common word overlap
+		const expectedWords = expected.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+		const actualWords = actual.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+		
+		if (expectedWords.length === 0 || actualWords.length === 0) return true;
+		
+		const commonWords = expectedWords.filter(w => actualWords.includes(w));
+		const overlapRatio = commonWords.length / Math.max(expectedWords.length, actualWords.length);
+		
+		// If Levenshtein distance / maxLen > 0.8 AND common-word overlap < 0.15, it's an extreme mismatch
+		return distanceRatio > 0.8 && overlapRatio < 0.15;
+	}
+
+	/**
 	 * Detect instances where Deepgram auto-corrected learner errors
 	 */
 	private static detectAutoCorrections(
@@ -443,6 +477,22 @@ export class VerbatimAnalyzer {
 		// Only check the best (final) transcript
 		const bestTranscript = this.selectBestTranscript(transcripts);
 		const actualText = bestTranscript.actualText.toLowerCase();
+		
+		// SIMILARITY GATE: Require minimum similarity before auto-correction analysis
+		const similarity = this.calculateSimilarity(expectedText, actualText);
+		this.debugLog(`Similarity check: ${similarity.toFixed(3)} for expected="${expectedText}" vs actual="${actualText}"`);
+		if (similarity < 0.25) {
+			// If similarity is too low, likely unrelated transcripts - skip auto-correction analysis
+			this.debugLog('SKIPPED: Similarity too low, aborting auto-correction analysis');
+			return corrections;
+		}
+		
+		// TOKEN-DIFF SANITY CHECK: Abort for extreme mismatches
+		if (this.isExtremeMismatch(expectedText, actualText)) {
+			// Extreme mismatch detected - abort auto-correction flags for this pair
+			this.debugLog('SKIPPED: Extreme mismatch detected, aborting auto-correction analysis');
+			return corrections;
+		}
 		
 		// Define common Spanish auto-corrections based on error types
 		const correctionPatterns = [
@@ -500,10 +550,19 @@ export class VerbatimAnalyzer {
 				continue;
 			}
 			
-			// Both conditions must be true:
+			// NULL-SAFE PATTERN RULES: Validate each pattern.correction is non-empty string
+			if (!pattern.correction || typeof pattern.correction !== 'object' || 
+				!(pattern.correction instanceof RegExp) && typeof pattern.correction !== 'string') {
+				this.debugLog(`SKIPPED: Invalid correction pattern - missing or invalid correction field`, pattern);
+				continue;
+			}
+			
+			// TIGHTENED: Both conditions must be true:
 			// 1. Expected text contains the error
-			// 2. Actual text contains the correction OR omits the error entirely
-			if (expectedText.match(pattern.pattern) && !actualText.match(pattern.pattern)) {
+			// 2. Actual text contains the correction (not just omits the error)
+			if (expectedText.match(pattern.pattern) && 
+				pattern.correction && 
+				new RegExp(pattern.correction, 'i').test(actualText)) {
 				corrections.push({
 					expectedPhrase: pattern.pattern.source,
 					actualPhrase: bestTranscript.actualText,
@@ -665,15 +724,24 @@ export class VerbatimAnalyzer {
 		// 2. Base score from similarity
 		let score = bestTranscript.similarity * 100;
 
-		// 3. Apply graduated penalties per correction type
+		// 3. Apply graduated penalties per correction type with flood guard
+		let totalPenalty = 0;
 		for (const correction of autoCorrections) {
+			let penalty = 0;
 			switch (correction.correctionType) {
-				case 'grammar': score -= 50; break;
-				case 'vocabulary': score -= 20; break; 
-				case 'pronunciation': score -= 10; break;
-				case 'structure': score -= 50; break;
+				case 'grammar': penalty = 50; break;
+				case 'vocabulary': penalty = 20; break; 
+				case 'pronunciation': penalty = 10; break;
+				case 'structure': penalty = 50; break;
 			}
+			totalPenalty += penalty;
 		}
+		
+		// PENALTY FLOOD GUARD: Cap total deduction at -70 pts per learner turn
+		const maxPenalty = 70;
+		const appliedPenalty = Math.min(totalPenalty, maxPenalty);
+		this.debugLog(`Penalty calculation: total=${totalPenalty}, capped=${appliedPenalty}, corrections=${autoCorrections.length}`);
+		score -= appliedPenalty;
 
 		// 4. Add bonuses for preserved learner characteristics
 		const expectedLower = learnerTurn.expectedText.toLowerCase();
