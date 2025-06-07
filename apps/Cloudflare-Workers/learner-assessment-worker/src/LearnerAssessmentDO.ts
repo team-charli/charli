@@ -74,7 +74,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private static readonly MIN_CHUNK_INTERVAL_MS = 50; // 5 msg/s = 50ms between chunks
 	private connectBannerLogged = false;   // ← new
 	private modeBannerLogged = false;
-	
+	private lastProcessedDGId: string | null = null;
+
 	// 🔍 VERBATIM TRANSCRIPT CAPTURE: Store raw Deepgram responses for analysis
 	private verbatimCaptureData: Array<{
 		timestamp: number;
@@ -87,7 +88,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		duration: number;
 		rawMessage: any;
 	}> = [];
-	
+
 	// 🔬 DEEPGRAM QA MODE: Skip scorecard generation for verbatim testing
 	private skipScorecard: boolean = false;
 	/* ------------------------------------------------------------------ */
@@ -164,7 +165,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			console.log(`🎯 [END-SESSION] Skip scorecard: ${this.skipScorecard} (Deepgram QA mode: ${this.skipScorecard ? 'YES' : 'NO'})`);
 			console.log(`🎯 [END-SESSION] Deepgram socket exists: ${!!this.dgSocket}`);
 			console.log(`🎯 [END-SESSION] Segments available: ${this.dgSocket?.segments?.length || 0}`);
-			
+
 			try {
 				// Send CloseStream message before closing Deepgram connection
 				if (this.dgSocket?.ws.readyState === WebSocket.OPEN) {
@@ -173,19 +174,19 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				} else {
 					console.warn(`🎯 [END-SESSION] ⚠️ WARNING: Deepgram socket not open during session end - readyState: ${this.dgSocket?.ws.readyState || 'null'}`);
 				}
-				
+
 				// CRITICAL FIX: Extract segments BEFORE closing to prevent race condition
 				const collectedSegments = this.dgSocket?.segments || [];
 				console.log(`🎯 [END-SESSION] 🚀 Extracted ${collectedSegments.length} segments before closing socket`);
-				
+
 				console.log(`🎯 [END-SESSION] 🚀 Calling transcribeAndDiarizeAll for roomId: ${roomId}`);
 				await this.transcribeAndDiarizeAll(roomId, collectedSegments);
-				
+
 				console.log(`🎯 [END-SESSION] ✅ transcribeAndDiarizeAll completed successfully`);
 				this.dgSocket?.ws.close(1000);
 				console.log(`🎯 [END-SESSION] [DEBUG-SEGMENTS] Clearing dgSocket, segments lost: ${this.dgSocket?.segments?.length || 0}, reason: session-end`);
 				this.dgSocket = null;
-				
+
 				console.log(`🎯 [END-SESSION] 🎉 End-session processing completed successfully`);
 				return c.json({ status: 'transcription completed' });
 			} catch (err) {
@@ -197,7 +198,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		/* 3. decide session mode once ------------------------------------ */
 		await this.initializeSessionMode(requestedRobo);
-		
+
 		/* 3b. store deepgramQA flag for robo mode calls ------------------ */
 		if ((await this.state.storage.get('deepgramQA')) === undefined) {
 			const deepgramQABool = deepgramQA === true || deepgramQA === 'true';
@@ -390,7 +391,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					const confidence = msg.channel?.alternatives?.[0]?.confidence || 0;
 					const start = msg.start ?? 0;
 					const duration = msg.duration ?? 0;
-					
+
 					let messageType: 'interim' | 'speech_final' | 'is_final';
 					if (msg.speech_final === true) {
 						messageType = 'speech_final';
@@ -465,7 +466,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				if (text && text.trim()) {
 					console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
 					console.log(`[DG-TIMING] Silence: ${silenceDuration}ms, Since last speech: ${timeSinceLastSpeech}ms`);
-					
+
 					// Key fields for all utterances: track progression to identify where pipeline breaks
 					console.log(`[DG-DEBUG] key_fields: transcript="${text}" conf=${msg.channel?.alternatives?.[0]?.confidence||0} is_final=${msg.is_final} speech_final=${msg.speech_final} from_finalize=${msg.from_finalize} model=${msg.metadata?.model_info?.name} words_count=${msg.channel?.alternatives?.[0]?.words?.length||0}`);
 				}
@@ -517,11 +518,12 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 					// For robo mode, trigger utterance processing for learner speech
 					if (role === 'learner') {
+						const dgId = String(msg.id ?? msg.utterance_id ?? '');
 						const sessionMode = await this.getSessionMode();
 						console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
 						if (sessionMode === 'robo' && !this.dgSocket?.pendingThinkingProcess) {
 							console.log(`[DG] Triggering flushUtterance for speech_final: "${text}"`);
-							this.flushUtterance(roomId, text).catch(err =>
+							this.flushUtterance(roomId, text, dgId).catch(err =>
 								console.error('[DG] robo utterance processing error:', err)
 							);
 						} else if (sessionMode === 'robo' && this.dgSocket?.pendingThinkingProcess) {
@@ -541,15 +543,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					this.dgSocket.lastInterimText = text;
 					this.dgSocket.lastSpeechTime = Date.now();
 
-					// Clear any existing thinking timer since speech is ongoing
-					if (this.dgSocket.customThinkingTimer) {
-						clearTimeout(this.dgSocket.customThinkingTimer);
-						this.dgSocket.customThinkingTimer = null;
-						// CRITICAL FIX: Do NOT clear pendingThinkingProcess here
-						// This flag should only be cleared when thinking process actually completes
-						// Clearing it here breaks the state machine and causes utterances to be lost
-						console.log('[DG-THINKING] Cleared thinking timer - learner speech ongoing');
-					}
+					// CRITICAL FIX: Do NOT clear thinking timers during interim speech
+					// Thinking timers are for processing specific is_final utterances and should
+					// complete their full duration regardless of ongoing interim speech.
+					// Clearing them here breaks the state machine and causes utterances to be lost.
 				}
 			}
 			// Handle is_final with custom thinking time logic
@@ -579,6 +576,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				}
 
 				if (text && role === 'learner' && this.dgSocket) {
+					const dgId = String(msg.id ?? msg.utterance_id ?? '');
 					const now = Date.now();
 					const timeSinceLastSpeech = this.dgSocket.lastSpeechTime > 0 ?
 						(now - this.dgSocket.lastSpeechTime) : 0;
@@ -619,7 +617,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 							const sessionMode = await this.getSessionMode();
 							if (sessionMode === 'robo') {
 								console.log(`[DG-THINKING] Triggering flushUtterance after thinking time: "${finalText}"`);
-								this.flushUtterance(roomId, finalText).catch(err =>
+								this.flushUtterance(roomId, finalText, dgId).catch(err =>
 									console.error('[DG-THINKING] robo utterance processing error:', err)
 								);
 							}
@@ -641,7 +639,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						const sessionMode = await this.getSessionMode();
 						if (sessionMode === 'robo') {
 							console.log(`[DG-THINKING] Triggering immediate flushUtterance: "${text}"`);
-							this.flushUtterance(roomId, text).catch(err =>
+							this.flushUtterance(roomId, text, dgId).catch(err =>
 								console.error('[DG-THINKING] robo utterance processing error:', err)
 							);
 						}
@@ -701,7 +699,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	async fetch(request: Request) {
 		const url = new URL(request.url);
 		const action = url.searchParams.get('action');
-		
+
 		// 🎯 AIRTIGHT LOGGING: Track requests entering the DO
 		if (action === 'end-session') {
 			console.log(`🎯 [DO-FETCH] END-SESSION REQUEST RECEIVED IN DO FETCH`);
@@ -711,14 +709,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		} else if (this.dgSocket?.segments?.length === 0 || !this.dgSocket) {
 			console.log(`[DEBUG-SEGMENTS] DO fetch called - segments in memory: ${this.dgSocket?.segments?.length || 'none'}`);
 		}
-		
+
 		const response = await this.app.fetch(request);
-		
+
 		if (action === 'end-session') {
 			console.log(`🎯 [DO-FETCH] Response status: ${response.status}`);
 			console.log(`🎯 [DO-FETCH] Response generated for end-session request`);
 		}
-		
+
 		return response;
 	}
 
@@ -785,7 +783,13 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	}
 
 	/* ───────────────── learner → robo round-trip (smart-listen) ───────────── */
-	private async flushUtterance(roomId: string, learnerText: string) {
+	private async flushUtterance(roomId: string, learnerText: string, dgId: string) {
+		if (dgId && dgId === this.lastProcessedDGId) {
+			console.log('[ASR] duplicate DG id – ignoring');
+			return;
+		}
+		this.lastProcessedDGId = dgId;
+
 		if (this.flushInFlight) {
 			console.log('[ASR] flushUtterance called but already in flight');
 			return;
@@ -816,14 +820,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				return;
 			}
 
-			// Restore prefix filtering - Deepgram is still sending incremental results despite smart_format=true
-			// This prevents processing every incremental result as a separate utterance
-			if (this.lastLearnerText
-				&& learnerText.startsWith(this.lastLearnerText)
-				&& learnerText.length > this.lastLearnerText.length) {
-				console.log(`[ASR] ignoring prefix-duplicate (incremental result): "${learnerText}" extends "${this.lastLearnerText}"`);
-				return;
-			}
 			console.log(`[ASR] Processing new utterance: "${learnerText}"`);
 			this.lastLearnerText = learnerText;
 
@@ -838,7 +834,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 			// Get the deepgramQA flag from storage (set during handleAudioRequest)
 			const deepgramQA = await this.state.storage.get<boolean>('deepgramQA') || false;
-			
+
 			const res = await fetch(this.env.ROBO_TEST_URL, {
 				method : 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -932,7 +928,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		if (this.skipScorecard) {
 			console.log(`🎯 [TRANSCRIBE] 🚫 SKIPPING SCORECARD: Deepgram QA mode active - scorecard generation disabled`);
 			await this.broadcastToRoom(roomId, 'transcription-complete', { text: mergedText, scorecard: null });
-			
+
 			// 🔍 CRITICAL FIX: Cleanup storage and generate verbatim analysis even when skipping scorecard
 			console.log(`🎯 [TRANSCRIBE] Cleaning up storage for room ${roomId} (QA mode)`);
 			await this.cleanupAll(roomId);
@@ -957,7 +953,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			try {
 				const orchestratorDO = this.env.SCORECARD_ORCHESTRATOR_DO.get(this.env.SCORECARD_ORCHESTRATOR_DO.idFromName(roomId));
 				console.log(`🎯 [TRANSCRIBE] ✅ ScorecardOrchestratorDO instance created for room ${roomId}`);
-			
+
 			const requestBody = {
 				learnerSegments: simplifiedLearnerSegments,
 				fullTranscript,
@@ -965,7 +961,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				session_id,
 				learner_id
 			};
-			
+
 			console.log(`🎯 [TRANSCRIBE] 🚀 Sending request to ScorecardOrchestratorDO`);
 			console.log(`🎯 [TRANSCRIBE] Request URL: http://scorecard-orchestrator/scorecard/${roomId}`);
 			console.log(`🎯 [TRANSCRIBE] Request body preview:`, {
@@ -1068,10 +1064,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	// 🔍 VERBATIM ANALYSIS: Generate markdown report comparing expected vs actual transcripts
 	private async generateVerbatimAnalysisReport(roomId: string, sessionId: number | string): Promise<string> {
 		console.log(`[VERBATIM-ANALYSIS] Generating report for ${this.verbatimCaptureData.length} captured transcripts`);
-		
+
 		const timestamp = new Date().toISOString();
 		const learnerTranscripts = this.verbatimCaptureData.filter(item => item.role === 'learner');
-		
+
 		let markdown = `# Deepgram Verbatim Analysis Report\n\n`;
 		markdown += `**Session:** ${sessionId}  \n`;
 		markdown += `**Room:** ${roomId}  \n`;
@@ -1120,7 +1116,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		// Transcript Quality Analysis (always runs when transcripts available)
 		markdown += `## Transcript Quality Analysis\n\n`;
-		
+
 		if (learnerTranscripts.length > 0) {
 			try {
 				// Perform transcript quality analysis
@@ -1130,21 +1126,21 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					confidence: t.confidence,
 					timestamp: t.timestamp
 				}));
-				
+
 				const qualityAnalysis = VerbatimAnalyzer.analyzeTranscriptQuality(
 					this.sessionId || 'unknown',
 					transcriptsForAnalysis
 				);
-				
+
 				markdown += `### Transcript Quality Assessment\n\n`;
 				markdown += `**Quality Score:** ${qualityAnalysis.qualityScore}/100  \n`;
 				markdown += `**Average Confidence:** ${(qualityAnalysis.confidenceAnalysis.averageConfidence * 100).toFixed(1)}%  \n`;
 				markdown += `**Low Confidence Segments:** ${qualityAnalysis.confidenceAnalysis.lowConfidenceSegments}  \n`;
 				markdown += `**Confidence Variability:** ${qualityAnalysis.confidenceAnalysis.confidenceVariability.toFixed(2)}  \n\n`;
-				
+
 				markdown += `#### Analysis Summary\n\n`;
 				markdown += `${qualityAnalysis.summary}\n\n`;
-				
+
 				if (qualityAnalysis.detectedErrorPatterns.length > 0) {
 					markdown += `#### Detected Error Patterns\n\n`;
 					for (const pattern of qualityAnalysis.detectedErrorPatterns) {
@@ -1152,31 +1148,31 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					}
 					markdown += `\n`;
 				}
-				
+
 				if (qualityAnalysis.autoCorrectionInstances.length > 0) {
 					markdown += `#### Potential Auto-Corrections Detected\n\n`;
 					markdown += `| Type | Description | Affected Text |\n`;
 					markdown += `|------|-------------|---------------|\n`;
 					for (const correction of qualityAnalysis.autoCorrectionInstances) {
-						const textPreview = correction.actualPhrase.length > 40 ? 
+						const textPreview = correction.actualPhrase.length > 40 ?
 							correction.actualPhrase.substring(0, 37) + '...' : correction.actualPhrase;
 						markdown += `| ${correction.correctionType} | ${correction.description} | "${textPreview}" |\n`;
 					}
 					markdown += `\n`;
 				}
-				
+
 				// Transcript type breakdown (instead of detailed table)
 				const typeBreakdown = qualityAnalysis.transcriptData.reduce((acc, transcript) => {
 					acc[transcript.messageType] = (acc[transcript.messageType] || 0) + 1;
 					return acc;
 				}, {} as Record<string, number>);
-				
+
 				markdown += `#### Transcript Type Breakdown\n\n`;
 				Object.entries(typeBreakdown).forEach(([type, count]) => {
 					markdown += `- **${type}:** ${count} messages\n`;
 				});
 				markdown += `\n`;
-				
+
 			} catch (error) {
 				markdown += `*Error performing transcript quality analysis: ${error}*\n\n`;
 				console.error(`[VERBATIM-ANALYSIS] Transcript quality analysis error:`, error);
@@ -1187,16 +1183,16 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		// 🎯 REAL VERBATIM ANALYSIS: Compare against dictation script expected text
 		markdown += `## Verbatim Preservation Analysis\n\n`;
-		
+
 		if (learnerTranscripts.length > 0) {
 			try {
 				// Get the default dictation script for QA mode
 				const dictationScript = getDefaultQADictationScript();
-				
+
 				// Analyze each learner turn in the script
 				const verbatimResults: VerbatimAnalysisResult[] = [];
 				const learnerTurns = dictationScript.turns.filter(turn => turn.speaker === 'learner');
-				
+
 				for (const learnerTurn of learnerTurns) {
 					const transcriptsForAnalysis = learnerTranscripts.map(t => ({
 						messageType: t.messageType,
@@ -1204,26 +1200,26 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						confidence: t.confidence,
 						timestamp: t.timestamp
 					}));
-					
+
 					const verbatimAnalysis = VerbatimAnalyzer.analyzeDictationScriptVerbatimness(
 						dictationScript,
 						learnerTurn.turnNumber,
 						transcriptsForAnalysis
 					);
-					
+
 					verbatimResults.push(verbatimAnalysis);
 				}
-				
+
 				// Display results for each turn
 				for (const result of verbatimResults) {
 					markdown += `### Turn ${result.learnerTurnNumber} Verbatim Analysis\n\n`;
 					markdown += `**Expected Text:** "${result.expectedText}"  \n`;
 					markdown += `**Verbatim Score:** ${result.verbatimScore}/100  \n`;
 					markdown += `**Auto-Corrections Detected:** ${result.autoCorrectionInstances.length}  \n\n`;
-					
+
 					markdown += `#### Analysis Summary\n\n`;
 					markdown += `${result.summary}\n\n`;
-					
+
 					if (result.preservedErrors.length > 0) {
 						markdown += `#### ✅ Preserved Errors (Good for Assessment)\n\n`;
 						for (const error of result.preservedErrors) {
@@ -1231,7 +1227,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						}
 						markdown += `\n`;
 					}
-					
+
 					if (result.lostErrors.length > 0) {
 						markdown += `#### ❌ Lost Errors (Auto-Corrected)\n\n`;
 						for (const error of result.lostErrors) {
@@ -1239,30 +1235,30 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						}
 						markdown += `\n`;
 					}
-					
+
 					if (result.autoCorrectionInstances.length > 0) {
 						markdown += `#### Auto-Correction Details\n\n`;
 						markdown += `| Type | Description | Expected | Actual |\n`;
 						markdown += `|------|-------------|----------|--------|\n`;
 						for (const correction of result.autoCorrectionInstances) {
-							const expectedPreview = correction.expectedPhrase.length > 30 ? 
+							const expectedPreview = correction.expectedPhrase.length > 30 ?
 								correction.expectedPhrase.substring(0, 27) + '...' : correction.expectedPhrase;
-							const actualPreview = correction.actualPhrase.length > 30 ? 
+							const actualPreview = correction.actualPhrase.length > 30 ?
 								correction.actualPhrase.substring(0, 27) + '...' : correction.actualPhrase;
 							markdown += `| ${correction.correctionType} | ${correction.description} | "${expectedPreview}" | "${actualPreview}" |\n`;
 						}
 						markdown += `\n`;
 					}
 				}
-				
+
 				// Overall verbatim preservation summary
 				const avgVerbatimScore = verbatimResults.reduce((sum, r) => sum + r.verbatimScore, 0) / verbatimResults.length;
 				const totalAutoCorrections = verbatimResults.reduce((sum, r) => sum + r.autoCorrectionInstances.length, 0);
-				
+
 				markdown += `### Overall Verbatim Preservation\n\n`;
 				markdown += `**Average Verbatim Score:** ${avgVerbatimScore.toFixed(1)}/100  \n`;
 				markdown += `**Total Auto-Corrections:** ${totalAutoCorrections}  \n`;
-				
+
 				if (avgVerbatimScore >= 90) {
 					markdown += `**Status:** 🟢 Excellent - High fidelity preservation  \n`;
 				} else if (avgVerbatimScore >= 70) {
@@ -1273,7 +1269,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					markdown += `**Status:** 🔴 Poor - Significant assessment impact  \n`;
 				}
 				markdown += `\n`;
-				
+
 			} catch (error) {
 				markdown += `*Error performing verbatim preservation analysis: ${error}*\n\n`;
 				console.error(`[VERBATIM-ANALYSIS] Real verbatim analysis error:`, error);
@@ -1289,7 +1285,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		markdown += `- Total characters: ${markdown.length.toLocaleString()}  \n`;
 		markdown += `- Processed transcripts: ${this.verbatimCaptureData.length}  \n`;
 		markdown += `- Report format: Concise metrics (raw data excluded for readability)  \n`;
-		
+
 		console.log(`[VERBATIM-ANALYSIS] Generated concise ${markdown.length} character report (${this.verbatimCaptureData.length} transcripts processed)`);
 		return markdown;
 	}
@@ -1297,7 +1293,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private async cleanupAll(roomId: string) {
 		console.log(`🧹 [CLEANUP] Starting cleanup for room ${roomId}`);
 		console.log(`🧹 [CLEANUP] Verbatim capture data count: ${this.verbatimCaptureData.length}`);
-		
+
 		// Generate and store verbatim analysis report before cleanup (only in verbatim QA mode)
 		const deepgramQAStored = await this.state.storage.get('deepgramQA');
 		const deepgramQA = deepgramQAStored === true || deepgramQAStored === 'true';
@@ -1307,10 +1303,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			try {
 				const sessionId = await this.state.storage.get<number>('sessionId') || 'unknown';
 				console.log(`🧹 [CLEANUP] Session ID for report: ${sessionId}`);
-				
+
 				const report = await this.generateVerbatimAnalysisReport(roomId, sessionId);
 				console.log(`🧹 [CLEANUP] ✅ Generated report with ${report.length} characters`);
-				
+
 				// Upload report to R2 bucket
 				const reportFileName = `verbatim-analysis-${sessionId}-${Date.now()}.md`;
 				console.log(`🧹 [CLEANUP] 🚀 Attempting R2 upload: ${reportFileName}`);
