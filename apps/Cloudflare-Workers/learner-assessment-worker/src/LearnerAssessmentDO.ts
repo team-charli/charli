@@ -539,7 +539,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					if (this.dgSocket.customThinkingTimer) {
 						clearTimeout(this.dgSocket.customThinkingTimer);
 						this.dgSocket.customThinkingTimer = null;
-						this.dgSocket.pendingThinkingProcess = false;
+						// CRITICAL FIX: Do NOT clear pendingThinkingProcess here
+						// This flag should only be cleared when thinking process actually completes
+						// Clearing it here breaks the state machine and causes utterances to be lost
 						console.log('[DG-THINKING] Cleared thinking timer - learner speech ongoing');
 					}
 				}
