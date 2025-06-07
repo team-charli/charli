@@ -90,11 +90,10 @@ app.post('/audio/:roomId', async (c) => {
 	const originalUrl = new URL(c.req.url);
 	const action = originalUrl.searchParams.get('action');
 	
-	// BASIC LOGGING - THIS SHOULD ALWAYS APPEAR
-	console.log(`[INDEX] Request to /audio/${roomId} - action: ${action}`);
-	console.log(`[INDEX] Full URL: ${c.req.url}`);
-	console.error(`[ERROR-LOG] This should appear as an error - roomId: ${roomId}`);
-	console.warn(`[WARN-LOG] This should appear as a warning - action: ${action}`);
+	// Log only important requests to reduce noise
+	if (action === 'end-session') {
+		console.log(`[INDEX] Request to /audio/${roomId} - action: ${action}`);
+	}
 	
 	// 🎯 AIRTIGHT LOGGING: Track all requests at worker entry point
 	if (action === 'end-session') {

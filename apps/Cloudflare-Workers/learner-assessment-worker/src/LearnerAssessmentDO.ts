@@ -156,8 +156,6 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			await this.storeSessionMetadata(sessionIdStr, learnerIdStr);
 			await this.state.storage.put(metaKey, true);
 			console.log(`[LearnerAssessmentDO] ✅ Session metadata stored successfully`);
-		} else {
-			console.log(`[LearnerAssessmentDO] Skipping metadata storage - sessionId: ${sessionIdStr}, learnerId: ${learnerIdStr}, metaWritten: ${await this.state.storage.get(metaKey)}`);
 		}
 
 		if (action === 'end-session') {
@@ -245,8 +243,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			// Send binary PCM frames directly
 			dg.ws.send(chunk.buffer);
 
-			// Optional insight: one line per packet that *did* go through
-			if (now - this.lastForwardLog > 1_000) {            // 1-s guard
+			// Log forwarding less frequently
+			if (now - this.lastForwardLog > 5_000) {            // 5-s guard
 				console.log('[DG] → forwarded', chunk.length, 'bytes');
 				this.lastForwardLog = now;
 			}
@@ -702,7 +700,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			console.log(`🎯 [DO-FETCH] Request URL: ${request.url}`);
 			console.log(`🎯 [DO-FETCH] Request method: ${request.method}`);
 			console.log(`🎯 [DO-FETCH] Segments in memory: ${this.dgSocket?.segments?.length || 'none'}`);
-		} else {
+		} else if (this.dgSocket?.segments?.length === 0 || !this.dgSocket) {
 			console.log(`[DEBUG-SEGMENTS] DO fetch called - segments in memory: ${this.dgSocket?.segments?.length || 'none'}`);
 		}
 		
