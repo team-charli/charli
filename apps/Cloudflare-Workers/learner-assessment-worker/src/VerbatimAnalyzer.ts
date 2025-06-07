@@ -121,6 +121,9 @@ export class VerbatimAnalyzer {
 
 		// Try to match each final transcript against all learner turns in all scripts
 		for (const finalTranscript of finalTranscripts) {
+			// Add diagnostic logging for final transcripts
+			console.log(`[MATCH-DIAGNOSTIC] Final: "${finalTranscript.text}"`);
+			
 			let bestMatch: {
 				script: DictationScript;
 				turn: DictationTurn;
@@ -147,8 +150,45 @@ export class VerbatimAnalyzer {
 				const tokenCount = finalTranscript.text.split(/\s+/).length;
 				const threshold = tokenCount < 5 ? 0.6 : 0.3; // Higher threshold for short utterances
 
-				// Use dynamic threshold to ensure reasonable matches
-				if (similarity >= threshold && (!bestMatch || similarity > bestMatch.similarity)) {
+				// Enhanced matching logic using token overlap and semantic detection
+				let shouldMatch = similarity >= threshold;
+
+				// Token-based matching for QA mode compatibility
+				const expectedText = turn.expectedText.toLowerCase().trim();
+				const actualText = finalTranscript.text.toLowerCase().trim();
+				const tokenOverlap = this.tokenOverlap(expectedText, actualText);
+				
+				// Allow matching based on token overlap even if similarity is low
+				if (!shouldMatch) {
+					// Token presence check: if expected text has 5+ tokens and ≥3 are present, match
+					if (this.hasSignificantTokenPresence(expectedText, actualText)) {
+						shouldMatch = true;
+					}
+					
+					// Token overlap threshold: if overlap > 0.3, consider matching
+					if (tokenOverlap > 0.3) {
+						shouldMatch = true;
+					}
+
+					// Force matching for specific error types that indicate semantic relevance
+					if (turn.errorTypes && (
+						turn.errorTypes.includes('false_friend') ||
+						turn.errorTypes.includes('anglicism') ||
+						turn.errorTypes.includes('subject_verb_disagreement') ||
+						turn.errorTypes.includes('morphological_malformation')
+					)) {
+						shouldMatch = true;
+					}
+				}
+
+				// Flag mismatch if token overlap is too low even with high similarity
+				if (shouldMatch && tokenOverlap < 0.3 && expectedText.split(/\s+/).length >= 5) {
+					// High similarity but low token overlap suggests auto-correction
+					this.debugLog(`High similarity (${similarity.toFixed(3)}) but low token overlap (${tokenOverlap.toFixed(3)}) - possible auto-correction`);
+				}
+
+				// Use enhanced matching criteria
+				if (shouldMatch && (!bestMatch || similarity > bestMatch.similarity)) {
 					bestMatch = { script, turn, similarity };
 				}
 			}
@@ -175,29 +215,6 @@ export class VerbatimAnalyzer {
 		// Collect unmatched transcripts
 		const unmatchedTranscripts = deepgramTranscripts.filter((_, index) => !usedTranscripts.has(index));
 
-		// FALLBACK: If no learner turns matched, use transcript quality score instead of 0/100
-		if (matchedAnalyses.length === 0) {
-			const quality = this.analyzeTranscriptQuality(
-				sessionId,
-				deepgramTranscripts.map(t => ({
-					messageType : t.messageType,
-					text        : t.text,
-					confidence  : t.confidence,
-					timestamp   : t.timestamp
-				}))
-			);
-
-			return {
-				sessionId,
-				matchedAnalyses      : [],
-				unmatchedTranscripts : deepgramTranscripts,
-				overallVerbatimScore : quality.qualityScore,          // 0‒100
-				totalAutoCorrections : quality.autoCorrectionInstances.length,
-				summary              : `No learner turns matched – fallback quality ` +
-									   `score ${quality.qualityScore}/100 applied`
-			};
-		}
-
 		// Calculate overall metrics
 		const overallVerbatimScore = matchedAnalyses.length > 0 
 			? Math.round(matchedAnalyses.reduce((sum, analysis) => sum + analysis.verbatimScore, 0) / matchedAnalyses.length)
@@ -220,22 +237,23 @@ export class VerbatimAnalyzer {
 
 	/**
 	 * Get all transcripts related to a final transcript (interims leading up to it)
-	 * E-3: Dynamic interim window based on final duration
+	 * Enhanced for QA mode with utterance anchoring
 	 */
 	private static getRelatedTranscripts(
 		finalTranscript: { timestamp: number; messageType: string; text: string; confidence: number; duration?: number },
 		allTranscripts: Array<{ messageType: 'interim' | 'speech_final' | 'is_final'; text: string; confidence: number; timestamp: number; duration?: number }>
 	): Array<{ messageType: 'interim' | 'speech_final' | 'is_final'; text: string; confidence: number; timestamp: number; duration?: number }> {
-		// SHRUNK: Dynamic window = max(3_000ms, final.duration * 1500ms)
-		const dynamicWindow = Math.max(3_000, (finalTranscript.duration || 0) * 1500);
+		// Enhanced window calculation for QA mode improvised delivery
+		// Larger window to account for pauses, rephrasings, and conversational flow
+		const baseWindow = 5_000; // 5 seconds base window
+		const dynamicWindow = Math.max(baseWindow, (finalTranscript.duration || 0) * 2000);
 		
-		// Find all interim transcripts in the dynamic window leading up to this final
-		// ROLE ISOLATION: Filter by role === 'learner' if available (defensive for future two-speaker recordings)
+		// Find all transcripts in the enhanced window
 		const relatedTranscripts = allTranscripts.filter(t => 
 			t.timestamp <= finalTranscript.timestamp && 
-			t.timestamp > finalTranscript.timestamp - dynamicWindow && // Dynamic window
+			t.timestamp > finalTranscript.timestamp - dynamicWindow &&
 			(t.messageType === 'interim' || t === finalTranscript) &&
-			// Future role isolation - currently transcripts don't have role, but this prevents teacher speech leakage
+			// Future role isolation for two-speaker recordings
 			(!('role' in t) || (t as any).role !== 'teacher')
 		);
 
@@ -245,6 +263,20 @@ export class VerbatimAnalyzer {
 		}
 
 		return relatedTranscripts.sort((a, b) => a.timestamp - b.timestamp);
+	}
+
+	/**
+	 * Get transcripts within a specific time window for QA mode anchoring
+	 */
+	private static getTranscriptsInWindow(
+		utteranceTimestamp: number,
+		allTranscripts: Array<{ messageType: 'interim' | 'speech_final' | 'is_final'; text: string; confidence: number; timestamp: number; duration?: number }>,
+		windowMs: number = 5000
+	): Array<{ messageType: 'interim' | 'speech_final' | 'is_final'; text: string; confidence: number; timestamp: number; duration?: number }> {
+		return allTranscripts.filter(t => 
+			Math.abs(t.timestamp - utteranceTimestamp) <= windowMs &&
+			(t.messageType === 'speech_final' || t.messageType === 'is_final')
+		).sort((a, b) => a.timestamp - b.timestamp);
 	}
 
 	/**
@@ -374,6 +406,29 @@ export class VerbatimAnalyzer {
 		if (!learnerTurn) {
 			throw new Error(`No learner turn found for turn number ${learnerTurnNumber} in script ${dictationScript.id}`);
 		}
+
+		// Ground-truth fallback override logic - check if expected text appears anywhere in transcripts
+		const rawTranscriptText = deepgramTranscripts.map(t => t.text.toLowerCase()).join(' ');
+		const expectedLower = learnerTurn.expectedText.toLowerCase().trim();
+
+		if (!rawTranscriptText.includes(expectedLower)) {
+			return {
+				dictationScriptId: dictationScript.id,
+				learnerTurnNumber,
+				expectedText: learnerTurn.expectedText,
+				actualTranscripts: [],
+				verbatimScore: 0,
+				autoCorrectionInstances: [{
+					expectedPhrase: learnerTurn.expectedText,
+					actualPhrase: '<not found in any final transcript>',
+					correctionType: 'structure',
+					description: 'Expected learner utterance not preserved verbatim in Deepgram output'
+				}],
+				preservedErrors: [],
+				lostErrors: learnerTurn.errorTypes,
+				summary: 'Learner utterance was corrected or lost entirely before reaching final transcript layer'
+			};
+		}
 		
 		const expectedText = learnerTurn.expectedText.toLowerCase().trim();
 		const transcriptComparisons: TranscriptComparison[] = [];
@@ -465,6 +520,32 @@ export class VerbatimAnalyzer {
 	}
 
 	/**
+	 * Calculate token overlap between two strings for semantic matching
+	 */
+	private static tokenOverlap(a: string, b: string): number {
+		const aTokens = new Set(a.toLowerCase().split(/\s+/).filter(t => t.length > 1));
+		const bTokens = new Set(b.toLowerCase().split(/\s+/).filter(t => t.length > 1));
+		
+		if (aTokens.size === 0 || bTokens.size === 0) return 0;
+		
+		const shared = [...aTokens].filter(t => bTokens.has(t));
+		return shared.length / Math.max(aTokens.size, bTokens.size);
+	}
+
+	/**
+	 * Check if expected text tokens are significantly present in actual text
+	 */
+	private static hasSignificantTokenPresence(expected: string, actual: string): boolean {
+		const expectedTokens = expected.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+		const actualTokens = actual.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+		
+		if (expectedTokens.length < 3) return false; // Need at least 3 substantial tokens
+		
+		const presentTokens = expectedTokens.filter(token => actualTokens.includes(token));
+		return presentTokens.length >= 3; // At least 3 tokens must be present
+	}
+
+	/**
 	 * TOKEN-DIFF SANITY CHECK: Detect extreme mismatches using Levenshtein distance and word overlap
 	 */
 	private static isExtremeMismatch(expected: string, actual: string): boolean {
@@ -488,7 +569,7 @@ export class VerbatimAnalyzer {
 	}
 
 	/**
-	 * Detect instances where Deepgram auto-corrected learner errors
+	 * Detect instances where Deepgram auto-corrected learner errors using semantic token analysis
 	 */
 	private static detectAutoCorrections(
 		learnerTurn: DictationTurn,
@@ -501,99 +582,92 @@ export class VerbatimAnalyzer {
 		const bestTranscript = this.selectBestTranscript(transcripts);
 		const actualText = bestTranscript.actualText.toLowerCase();
 		
-		// SIMILARITY GATE: Require minimum similarity before auto-correction analysis
+		// Use token overlap for relevance check instead of just similarity
+		const tokenOverlap = this.tokenOverlap(expectedText, actualText);
 		const similarity = this.calculateSimilarity(expectedText, actualText);
-		this.debugLog(`Similarity check: ${similarity.toFixed(3)} for expected="${expectedText}" vs actual="${actualText}"`);
-		if (similarity < 0.25) {
-			// If similarity is too low, likely unrelated transcripts - skip auto-correction analysis
-			this.debugLog('SKIPPED: Similarity too low, aborting auto-correction analysis');
+		
+		this.debugLog(`Token overlap: ${tokenOverlap.toFixed(3)}, similarity: ${similarity.toFixed(3)} for expected="${expectedText}" vs actual="${actualText}"`);
+		
+		// Skip if completely unrelated (low token overlap AND low similarity)
+		if (tokenOverlap < 0.1 && similarity < 0.25) {
+			this.debugLog('SKIPPED: Low token overlap and similarity, likely unrelated');
 			return corrections;
 		}
 		
-		// TOKEN-DIFF SANITY CHECK: Abort for extreme mismatches
-		if (this.isExtremeMismatch(expectedText, actualText)) {
-			// Extreme mismatch detected - abort auto-correction flags for this pair
-			this.debugLog('SKIPPED: Extreme mismatch detected, aborting auto-correction analysis');
-			return corrections;
-		}
+		// Semantic token-based auto-correction detection
+		const expectedTokens = expectedText.split(/\s+/).filter(t => t.length > 1);
+		const actualTokens = actualText.split(/\s+/).filter(t => t.length > 1);
 		
-		// Define common Spanish auto-corrections based on error types
-		const correctionPatterns = [
-			// Grammar corrections
-			{ pattern: /yo estar/, correction: /yo estoy/, type: 'grammar' as const, desc: 'Corrected verb conjugation' },
-			{ pattern: /ella está/, correction: /ellas están/, type: 'grammar' as const, desc: 'Corrected plural agreement' },
-			{ pattern: /tu vienes/, correction: /tú vengas/, type: 'grammar' as const, desc: 'Corrected subjunctive' },
+		// Check for specific error patterns being lost from expected to actual
+		const errorTokenDetection = [
+			// Morphological errors
+			{ errorTokens: ['jugimos'], correctedForms: ['jugamos'], type: 'grammar', desc: 'Malformed past tense corrected' },
+			{ errorTokens: ['comiómos'], correctedForms: ['comimos'], type: 'grammar', desc: 'Accent placement corrected' },
+			{ errorTokens: ['dormímos'], correctedForms: ['dormimos'], type: 'grammar', desc: 'Stress placement corrected' },
+			{ errorTokens: ['dijieron'], correctedForms: ['dijeron'], type: 'grammar', desc: 'Non-standard conjugation corrected' },
+			{ errorTokens: ['hubímos'], correctedForms: ['hubimos'], type: 'grammar', desc: 'Accent error corrected' },
 			
-			// CRITICAL ADDITIONS - Bidirectional subject-verb disagreement patterns
-			{ pattern: /\b\w+s\s+está\b/, correction: /\w+s\s+están/, type: 'grammar' as const, desc: 'Corrected plural subject-verb disagreement' },
-			{ pattern: /\bestudiantes\s+está\b/, correction: /estudiantes\s+están/, type: 'grammar' as const, desc: 'Corrected student plural agreement' },
-			{ pattern: /\bniños\s+está\b/, correction: /niños\s+están/, type: 'grammar' as const, desc: 'Corrected children plural agreement' },
+			// Subject-verb disagreement
+			{ errorTokens: ['estudiantes', 'está'], correctedForms: ['estudiantes', 'están'], type: 'grammar', desc: 'Plural subject-verb disagreement corrected' },
+			{ errorTokens: ['niños', 'está'], correctedForms: ['niños', 'están'], type: 'grammar', desc: 'Children plural agreement corrected' },
 			
-			// Morphological malformations from DictationScripts
-			{ pattern: /\bjugimos\b/i, correction: /jugamos/i, type: 'grammar' as const, desc: 'Corrected malformed past tense' },
-			{ pattern: /\bcomiómos\b/i, correction: /comimos/i, type: 'grammar' as const, desc: 'Corrected malformed accent placement' },
-			{ pattern: /\bdormímos\b/i, correction: /dormimos/i, type: 'grammar' as const, desc: 'Corrected stress placement error' },
-			{ pattern: /\bdijieron\b/i, correction: /dijeron/i, type: 'grammar' as const, desc: 'Corrected non-standard conjugation' },
-			{ pattern: /\bhubímos\b/i, correction: /hubimos/i, type: 'grammar' as const, desc: 'Corrected accent-only malformation' },
+			// False friends and anglicisms
+			{ errorTokens: ['embarazada'], correctedForms: ['avergonzada'], type: 'vocabulary', desc: 'False friend corrected' },
+			{ errorTokens: ['realizar'], correctedForms: ['darme', 'cuenta'], type: 'vocabulary', desc: 'Anglicism corrected' },
+			{ errorTokens: ['aplicar'], correctedForms: ['solicitar'], type: 'vocabulary', desc: 'Direct translation corrected' },
 			
-			// Gender agreement errors
-			{ pattern: /\bla\s+problema\b/, correction: /el\s+problema/, type: 'grammar' as const, desc: 'Corrected gender agreement' },
-			
-			// Pronoun variants and accent errors
-			{ pattern: /\bvos\s+podés\b/, correction: /tú\s+puedes/, type: 'grammar' as const, desc: 'Normalized pronoun variant' },
-			
-			// Vocabulary corrections
-			{ pattern: /embarazada por/, correction: /avergonzada por/, type: 'vocabulary' as const, desc: 'Corrected false friend' },
-			{ pattern: /realizar que/, correction: /darme cuenta/, type: 'vocabulary' as const, desc: 'Corrected anglicism' },
-			{ pattern: /aplicar para/, correction: /solicitar/, type: 'vocabulary' as const, desc: 'Corrected direct translation' },
-			
-			// Pronunciation artifact removal
-			{ pattern: /eh\.\.\./, correction: '', type: 'pronunciation' as const, desc: 'Removed hesitation marker' },
-			{ pattern: /al\.\.\. al\.\.\. al/, correction: /al/, type: 'pronunciation' as const, desc: 'Cleaned up stuttering' },
-			{ pattern: /como se dice\.\.\./, correction: '', type: 'pronunciation' as const, desc: 'Removed filler phrase' },
+			// Hesitation and filler removal
+			{ errorTokens: ['eh'], correctedForms: [], type: 'pronunciation', desc: 'Hesitation marker removed' },
+			{ errorTokens: ['como', 'se', 'dice'], correctedForms: [], type: 'pronunciation', desc: 'Filler phrase removed' },
 		];
 
-		// Two-phase subject-verb disagreement checks  
-		// Check for plural subjects with singular verb in expected, corrected in actual
-		const pluralWithEsta = /estudiantes\s+está/i.test(expectedText);
-		const pluralWithEstan = /estudiantes\s+están/i.test(actualText);
-		
-		if (pluralWithEsta && pluralWithEstan) {
-			corrections.push({
-				expectedPhrase: 'plural subject + está',
-				actualPhrase: bestTranscript.actualText,
-				correctionType: 'grammar',
-				description: 'Corrected plural subject-verb disagreement'
-			});
+		// Detect token-level corrections
+		for (const detection of errorTokenDetection) {
+			const hasErrorTokens = detection.errorTokens.every(token => expectedTokens.includes(token));
+			const hasCorrection = detection.correctedForms.length === 0 || 
+								detection.correctedForms.some(token => actualTokens.includes(token));
+			const missingErrorTokens = detection.errorTokens.some(token => !actualTokens.includes(token));
+			
+			if (hasErrorTokens && (hasCorrection || missingErrorTokens)) {
+				corrections.push({
+					expectedPhrase: detection.errorTokens.join(' '),
+					actualPhrase: bestTranscript.actualText,
+					correctionType: detection.type as 'grammar' | 'vocabulary' | 'pronunciation' | 'structure',
+					description: detection.desc
+				});
+			}
 		}
 
-		for (const pattern of correctionPatterns) {
-			// Skip subject-verb patterns as they're handled above
-			if (pattern.desc.includes('plural agreement') || pattern.desc.includes('subject-verb')) {
-				continue;
-			}
+		// General token loss detection for significant missing tokens
+		const lostTokens = expectedTokens.filter(token => 
+			token.length > 3 && !actualTokens.includes(token)
+		);
+		
+		// Flag significant token losses that suggest auto-correction
+		if (lostTokens.length > 0 && tokenOverlap < 0.7) {
+			const significantLosses = lostTokens.filter(token => 
+				// Skip common function words
+				!['que', 'por', 'para', 'con', 'sin', 'una', 'las', 'los', 'del', 'como'].includes(token)
+			);
 			
-			// NULL-SAFE PATTERN RULES: Validate each pattern.correction is non-empty string
-			if (!pattern.correction || typeof pattern.correction !== 'object' || 
-				!(pattern.correction instanceof RegExp) && typeof pattern.correction !== 'string') {
-				this.debugLog(`SKIPPED: Invalid correction pattern - missing or invalid correction field`, pattern);
-				continue;
-			}
-			
-			// TIGHTENED: Both conditions must be true:
-			// 1. Expected text contains the error
-			// 2. Actual text contains the correction (not just omits the error)
-			if (expectedText.match(pattern.pattern) && 
-				pattern.correction && 
-				new RegExp(pattern.correction, 'i').test(actualText)) {
+			if (significantLosses.length > 0) {
 				corrections.push({
-					expectedPhrase: pattern.pattern.source,
+					expectedPhrase: significantLosses.join(', '),
 					actualPhrase: bestTranscript.actualText,
-					correctionType: pattern.type,
-					description: pattern.desc
+					correctionType: 'structure',
+					description: `Significant tokens lost in auto-correction: ${significantLosses.join(', ')}`
 				});
-				// Note: removed break to allow multiple patterns to match
 			}
+		}
+
+		// Detect phrase-level restructuring
+		if (similarity > 0.5 && tokenOverlap < 0.4 && expectedTokens.length > 5) {
+			corrections.push({
+				expectedPhrase: expectedText,
+				actualPhrase: actualText,
+				correctionType: 'structure',
+				description: 'Phrase restructuring detected - high similarity but low token overlap'
+			});
 		}
 
 		return corrections;
