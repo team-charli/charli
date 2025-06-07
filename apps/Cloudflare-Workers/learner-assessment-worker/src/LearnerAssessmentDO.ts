@@ -47,7 +47,6 @@ type DGSocket = {
 	utteranceEndTimer: any;         // timer for utterance end detection
 	customThinkingTimer?: any;      // custom thinking time timer
 	lastInterimText?: string;       // latest interim transcript text
-	pendingThinkingProcess?: boolean; // flag for thinking process state
 };
 
 // const DG_MODEL    = 'nova-2';
@@ -58,6 +57,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private app   = new Hono();
 	protected state: DurableObjectState;
 	private words: WordInfo[] = [];
+	private pendingQueue: { text: string; dgId: string }[] = [];
 
 	/* runtime */
 	private dgSocket: DGSocket | null = null;
@@ -521,13 +521,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 						const dgId = String(msg.id ?? msg.utterance_id ?? '');
 						const sessionMode = await this.getSessionMode();
 						console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
-						if (sessionMode === 'robo' && !this.dgSocket?.pendingThinkingProcess) {
+						if (sessionMode === 'robo') {
 							console.log(`[DG] Triggering flushUtterance for speech_final: "${text}"`);
 							this.flushUtterance(roomId, text, dgId).catch(err =>
 								console.error('[DG] robo utterance processing error:', err)
 							);
-						} else if (sessionMode === 'robo' && this.dgSocket?.pendingThinkingProcess) {
-							console.log(`[DG] Skipping speech_final processing - already handling via thinking timer: "${text}"`);
 						}
 					}
 				}
@@ -549,7 +547,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					// Clearing them here breaks the state machine and causes utterances to be lost.
 				}
 			}
-			// Handle is_final with custom thinking time logic
+			// Handle is_final with queue-based processing
 			else if (msg.type === 'Results' && msg.is_final === true && msg.speech_final !== true) {
 				const text = msg.channel?.alternatives?.[0]?.transcript;
 				const speaker = String(msg.channel?.speaker ?? '0');
@@ -577,76 +575,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 				if (text && role === 'learner' && this.dgSocket) {
 					const dgId = String(msg.id ?? msg.utterance_id ?? '');
-					const now = Date.now();
-					const timeSinceLastSpeech = this.dgSocket.lastSpeechTime > 0 ?
-						(now - this.dgSocket.lastSpeechTime) : 0;
+					console.log(`[DG-THINKING] is_final received for learner: "${text}"`);
 
-					console.log(`[DG-THINKING] is_final received for learner after ${timeSinceLastSpeech}ms: "${text}"`);
-
-					// If this is a premature is_final (< 5 seconds since last speech), start thinking timer
-					if (timeSinceLastSpeech < 5000) {
-						const thinkingTimeMs = THINKING_TIME_MS;
-						const remainingThinkingTime = thinkingTimeMs - timeSinceLastSpeech;
-
-						console.log(`[DG-THINKING] 🧠 Starting ${remainingThinkingTime}ms thinking timer for: "${text}"`);
-
-						// Broadcast thinking time state
-						await this.broadcastToRoom(roomId, 'processingState', {
-							state: 'thinking_time_system',
-							remainingTime: remainingThinkingTime
-						});
-
-						// Set flag to prevent speech_final from also processing this utterance
-						this.dgSocket.pendingThinkingProcess = true;
-
-						// Clear any existing timer
-						if (this.dgSocket.customThinkingTimer) {
-							clearTimeout(this.dgSocket.customThinkingTimer);
-						}
-
-						// Start new thinking timer
-						this.dgSocket.customThinkingTimer = setTimeout(async () => {
-							console.log(`[DG-THINKING] ⏰ Thinking time expired, processing utterance: "${text}"`);
-
-							// Clear thinking time state
-							await this.broadcastToRoom(roomId, 'processingState', { state: 'idle' });
-
-							// Use the most recent interim text if available, otherwise use the is_final text
-							const finalText = this.dgSocket?.lastInterimText || text;
-
-							const sessionMode = await this.getSessionMode();
-							if (sessionMode === 'robo') {
-								console.log(`[DG-THINKING] Triggering flushUtterance after thinking time: "${finalText}"`);
-								this.flushUtterance(roomId, finalText, dgId).catch(err =>
-									console.error('[DG-THINKING] robo utterance processing error:', err)
-								);
-							}
-
-							// Clear the timer reference and flag
-							if (this.dgSocket) {
-								this.dgSocket.customThinkingTimer = null;
-								this.dgSocket.pendingThinkingProcess = false;
-							}
-						}, remainingThinkingTime);
-
-					} else {
-						// Sufficient time has passed, process immediately
-						console.log(`[DG-THINKING] ✅ Sufficient thinking time elapsed (${timeSinceLastSpeech}ms), processing: "${text}"`);
-
-						// Set flag to prevent speech_final from also processing this utterance
-						this.dgSocket.pendingThinkingProcess = true;
-
-						const sessionMode = await this.getSessionMode();
-						if (sessionMode === 'robo') {
-							console.log(`[DG-THINKING] Triggering immediate flushUtterance: "${text}"`);
-							this.flushUtterance(roomId, text, dgId).catch(err =>
-								console.error('[DG-THINKING] robo utterance processing error:', err)
-							);
-						}
-
-						// Clear flag after processing
-						this.dgSocket.pendingThinkingProcess = false;
-					}
+					// Enqueue for processing instead of complex timing logic
+					this.enqueueForProcessing(text, dgId, roomId);
 
 					// Clear standard timing trackers
 					if (this.dgSocket.endpointingTimer) {
@@ -681,8 +613,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			endpointingTimer: null,
 			utteranceEndTimer: null,
 			customThinkingTimer: null,
-			lastInterimText: '',
-			pendingThinkingProcess: false
+			lastInterimText: ''
 		};
 		try {
 			await ready;
@@ -779,6 +710,36 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					text: 'Error en la traducción'
 				});
 			}
+		}
+	}
+
+	/* ───────────────── FIFO queue processing ───────────── */
+	private startThinkingTimer(roomId: string) {
+		this.dgSocket!.customThinkingTimer = setTimeout(async () => {
+			const next = this.pendingQueue.shift();
+			this.dgSocket!.customThinkingTimer = null;
+			if (!next) return;
+			const { text, dgId } = next;
+			const sessionMode = await this.getSessionMode();
+			if (sessionMode === 'robo') {
+				console.log('[DG-THINKING] ⏰ Timer fired – flushing:', text);
+				this.flushUtterance(roomId, text, dgId)
+					.catch(err => console.error('flush error', err));
+			}
+			if (this.pendingQueue.length) this.startThinkingTimer(roomId);
+		}, THINKING_TIME_MS);
+	}
+
+	private enqueueForProcessing(text: string, dgId: string, roomId: string) {
+		// Safety check: prevent queue from growing beyond 10 items
+		if (this.pendingQueue.length >= 10) {
+			console.warn('[DG-QUEUE] Queue size exceeded 10, dropping oldest item to prevent memory issues');
+			this.pendingQueue.shift();
+		}
+		
+		this.pendingQueue.push({ text, dgId });
+		if (!this.dgSocket?.customThinkingTimer) {
+			this.startThinkingTimer(roomId);
 		}
 	}
 
