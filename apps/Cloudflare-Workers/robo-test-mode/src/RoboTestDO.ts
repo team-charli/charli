@@ -149,28 +149,16 @@ export class RoboTestDO extends DurableObject<Env> {
 			throw new Error('ELEVEN_API_KEY not configured');
 		}
 
-		// 🔍 DEEPGRAM QA MODE: Use minimal prompt to avoid interfering with transcription testing
+		// 🔍 DEEPGRAM QA MODE: Use minimal single-word responses to speed up testing
 		if (deepgramQA) {
-			console.log('[RoboTestDO] 🔬 DeepgramQA mode: Using minimal neutral prompt');
+			console.log('[RoboTestDO] 🔬 DeepgramQA mode: Using minimal single-word responses');
 			
-			// Simple neutral system prompt that won't interfere with Deepgram testing
-			const qaMessages = [
-				{ 
-					role: 'system', 
-					content: 'Eres un hablante nativo de español. Responde de manera natural y conversacional en español. Mantén tus respuestas cortas y simples.' 
-				},
-				...history.map((msg) => ({ role: msg.role, content: msg.content }))
-			];
+			// Ultra-minimal responses to speed up QA testing process
+			const minimalResponses = ['Claro', 'Sí', 'Entendido', 'Perfecto', 'Vale'];
+			const randomResponse = minimalResponses[Math.floor(Math.random() * minimalResponses.length)];
 			
-			console.log('[RoboTestDO] 🔬 DeepgramQA: Sending minimal prompt to Llama');
-			const { response } = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-				messages: qaMessages,
-				max_tokens: 50,  // Shorter responses for QA mode
-				temperature: 0.7,
-			})) as { response: string };
-			console.log('[RoboTestDO] 🔬 DeepgramQA Llama response:', response);
-			
-			return response.trim();
+			console.log('[RoboTestDO] 🔬 DeepgramQA minimal response:', randomResponse);
+			return randomResponse;
 		}
 
 		// 🤖 NORMAL ROBO MODE: Use full conversational prompt system
