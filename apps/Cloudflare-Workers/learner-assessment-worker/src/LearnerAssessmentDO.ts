@@ -377,7 +377,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const hasText = Boolean(text && text.trim());
 				const now = Date.now();
 
-				console.log(`[DG-DEBUG] Results message - hasText: ${hasText}, text: "${text || 'empty'}"`);
+				// Only log when there's actual text to avoid log spam
+				if (hasText) {
+					console.log(`[DG-DEBUG] Results message - hasText: ${hasText}, text: "${text}"`);
+				}
 
 				// 🔍 VERBATIM CAPTURE: Store ALL Deepgram responses for later analysis
 				if (hasText) {
@@ -458,11 +461,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				const timeSinceLastSpeech = this.dgSocket?.lastSpeechTime && this.dgSocket.lastSpeechTime > 0 ?
 					(now - this.dgSocket.lastSpeechTime) : 0;
 
-				console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text || ''}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
-				console.log(`[DG-TIMING] Silence: ${silenceDuration}ms, Since last speech: ${timeSinceLastSpeech}ms`);
-
-				// Key fields for all utterances: track progression to identify where pipeline breaks
-				console.log(`[DG-DEBUG] key_fields: transcript="${text||''}" conf=${msg.channel?.alternatives?.[0]?.confidence||0} is_final=${msg.is_final} speech_final=${msg.speech_final} from_finalize=${msg.from_finalize} model=${msg.metadata?.model_info?.name} words_count=${msg.channel?.alternatives?.[0]?.words?.length||0}`);
+				// Only log analysis and timing for messages with actual text to reduce log spam
+				if (text && text.trim()) {
+					console.log(`[DG-ANALYSIS] ${msg.speech_final ? 'SPEECH_FINAL' : msg.is_final ? 'IS_FINAL_ONLY' : 'INTERIM'}: "${text}" | confidence: ${msg.channel?.alternatives?.[0]?.confidence || 0} | duration: ${msg.duration} | start: ${msg.start}`);
+					console.log(`[DG-TIMING] Silence: ${silenceDuration}ms, Since last speech: ${timeSinceLastSpeech}ms`);
+					
+					// Key fields for all utterances: track progression to identify where pipeline breaks
+					console.log(`[DG-DEBUG] key_fields: transcript="${text}" conf=${msg.channel?.alternatives?.[0]?.confidence||0} is_final=${msg.is_final} speech_final=${msg.speech_final} from_finalize=${msg.from_finalize} model=${msg.metadata?.model_info?.name} words_count=${msg.channel?.alternatives?.[0]?.words?.length||0}`);
+				}
 			}
 
 			// Handle speech_final messages (high confidence, for scorecard)
