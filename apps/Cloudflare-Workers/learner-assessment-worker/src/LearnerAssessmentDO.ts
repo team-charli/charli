@@ -30,12 +30,9 @@ enum CharliState {
 	AwaitingQuestion = 'awaiting_question'
 }
 
-// Safe to adjust: Total thinking time for robo-teacher responses (milliseconds)
-// - Higher values = longer delays but encourage more thoughtful responses
-// - Lower values = faster responses but may feel rushed for complex thoughts
-// - Recommended range: 4000-7000ms (4-7 seconds)
-// BUILD_FORCE_RESET: Session-specific metadata storage fix
-const THINKING_TIME_MS = 5000;
+// Pedagogical thinking-time constants for dynamic delay calculation
+const THINK_TIME_TARGET_MS = 7_000;  // Target total thinking time (7 seconds)
+const THINK_TIME_MAX_MS = 10_000;    // Maximum thinking time cap (10 seconds)
 
 type DGSocket = {
 	ws: WebSocket;                  // open WS to Deepgram
@@ -57,7 +54,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private app   = new Hono();
 	protected state: DurableObjectState;
 	private words: WordInfo[] = [];
-	private pendingQueue: { text: string; dgId: string }[] = [];
+	private pendingQueue: { text: string; dgId: string; delayMs: number }[] = [];
 
 	/* runtime */
 	private dgSocket: DGSocket | null = null;
@@ -541,10 +538,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					this.dgSocket.lastInterimText = text;
 					this.dgSocket.lastSpeechTime = Date.now();
 
-					// CRITICAL FIX: Do NOT clear thinking timers during interim speech
-					// Thinking timers are for processing specific is_final utterances and should
-					// complete their full duration regardless of ongoing interim speech.
-					// Clearing them here breaks the state machine and causes utterances to be lost.
+					// Debounce while learner is speaking - clear thinking timer to prevent premature responses
+					if (this.dgSocket.customThinkingTimer) {
+						clearTimeout(this.dgSocket.customThinkingTimer);
+						this.dgSocket.customThinkingTimer = null;
+					}
 				}
 			}
 			// Handle is_final with queue-based processing
@@ -577,8 +575,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					const dgId = String(msg.id ?? msg.utterance_id ?? '');
 					console.log(`[DG-THINKING] is_final received for learner: "${text}"`);
 
-					// Enqueue for processing instead of complex timing logic
-					this.enqueueForProcessing(text, dgId, roomId);
+					// Enqueue for processing with duration for dynamic delay calculation
+					this.enqueueForProcessing(text, dgId, roomId, duration);
 
 					// Clear standard timing trackers
 					if (this.dgSocket.endpointingTimer) {
@@ -715,11 +713,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 	/* ───────────────── FIFO queue processing ───────────── */
 	private startThinkingTimer(roomId: string) {
+		const next = this.pendingQueue[0];
+		if (!next) return;
+		
 		this.dgSocket!.customThinkingTimer = setTimeout(async () => {
-			const next = this.pendingQueue.shift();
+			const item = this.pendingQueue.shift();
 			this.dgSocket!.customThinkingTimer = null;
-			if (!next) return;
-			const { text, dgId } = next;
+			if (!item) return;
+			const { text, dgId } = item;
 			const sessionMode = await this.getSessionMode();
 			if (sessionMode === 'robo') {
 				console.log('[DG-THINKING] ⏰ Timer fired – flushing:', text);
@@ -727,17 +728,21 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					.catch(err => console.error('flush error', err));
 			}
 			if (this.pendingQueue.length) this.startThinkingTimer(roomId);
-		}, THINKING_TIME_MS);
+		}, next.delayMs);
 	}
 
-	private enqueueForProcessing(text: string, dgId: string, roomId: string) {
+	private enqueueForProcessing(text: string, dgId: string, roomId: string, durationSec: number = 0) {
+		// Calculate dynamic delay: TARGET - speechDuration (clamped ≥ 0 ms, ≤ 10,000 ms)
+		const speechMs = durationSec * 1000;
+		const delayMs = Math.max(0, Math.min(THINK_TIME_TARGET_MS - speechMs, THINK_TIME_MAX_MS));
+		
 		// Safety check: prevent queue from growing beyond 10 items
 		if (this.pendingQueue.length >= 10) {
 			console.warn('[DG-QUEUE] Queue size exceeded 10, dropping oldest item to prevent memory issues');
 			this.pendingQueue.shift();
 		}
 		
-		this.pendingQueue.push({ text, dgId });
+		this.pendingQueue.push({ text, dgId, delayMs });
 		if (!this.dgSocket?.customThinkingTimer) {
 			this.startThinkingTimer(roomId);
 		}

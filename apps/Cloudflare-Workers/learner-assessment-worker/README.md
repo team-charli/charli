@@ -38,16 +38,17 @@ wsURL.searchParams.set('vad_events', 'true');
 wsURL.searchParams.set('smart_format', 'true');
 ```
 
-## Thinking Time System Logic
+## Pedagogical Thinking Time System
 
 The worker implements intelligent thinking delays designed to encourage deeper Spanish language processing:
 
 ### How It Works
 
 1. **Speech Detection**: Deepgram processes your audio and detects speech completion
-2. **Dynamic Timer Calculation**: `remainingTime = 7000ms - speechDuration`
-3. **Pedagogical Logic**: Short utterances get longer delays to encourage elaboration
-4. **Robo-Teacher Trigger**: Response generation begins after thinking time expires
+2. **Dynamic Timer Calculation**: `delayMs = max(0, min(TARGET - speechDuration, MAX_DELAY))`
+3. **Debounce Logic**: Timer resets if learner continues speaking (prevents interruption)
+4. **FIFO Queue**: Multiple utterances are processed in order with individual delays
+5. **Robo-Teacher Trigger**: Response generation begins after thinking time expires
 
 ### Timing Examples
 
@@ -56,7 +57,18 @@ The worker implements intelligent thinking delays designed to encourage deeper S
 | 0.5s ("sí") | ~6.5s | ~7s total | Encourages elaboration |
 | 2.0s ("Creo que...") | ~5s | ~7s total | Rewards thoughtful start |
 | 3.0s (complex sentence) | ~4s | ~7s total | Maintains natural pace |
-| 5.0s+ (extended response) | 0s | Immediate | No additional delay needed |
+| 7.0s+ (extended response) | 0s | Immediate | No additional delay needed |
+| 15s+ (very long monologue) | 0s | Immediate | Capped at maximum |
+
+### Enhanced Features
+
+**Debounce Protection**: If you continue speaking after an `is_final` message, the thinking timer resets to prevent interrupting your ongoing thought.
+
+**Queue-Based Processing**: Multiple rapid utterances are queued and processed in order, each with their own calculated delay.
+
+**Safety Caps**: 
+- Minimum delay: 0ms (no negative delays)
+- Maximum delay: 10 seconds (prevents extremely long waits)
 
 ### Why This Design?
 
@@ -66,6 +78,7 @@ The worker implements intelligent thinking delays designed to encourage deeper S
 - Reconsider and elaborate on simple responses
 - Develop more complex Spanish expressions
 - Build comfort with extended thinking in the target language
+- Continue speaking without being interrupted by premature robo responses
 
 **Result**: You naturally develop habits of giving longer, more thoughtful Spanish responses.
 
@@ -73,31 +86,40 @@ The worker implements intelligent thinking delays designed to encourage deeper S
 
 ### Response Time Tuning
 
-The **safest parameter to adjust** for faster responses is the thinking time target:
+The **safest parameters to adjust** for faster responses are the thinking time constants:
 
-**Location**: `src/LearnerAssessmentDO.ts` around line 35:
+**Location**: `src/LearnerAssessmentDO.ts` around line 34-35:
 ```typescript
-const THINKING_TIME_MS = 7000;
+const THINK_TIME_TARGET_MS = 7_000;  // Target total thinking time (7 seconds)
+const THINK_TIME_MAX_MS = 10_000;    // Maximum thinking time cap (10 seconds)
 ```
 
-**Safe Values**:
-- `6000` (6 seconds) - Moderate speedup, preserves learning logic
-- `5000` (5 seconds) - Faster responses, still pedagogically sound  
-- `4000` (4 seconds) - Much faster, may feel rushed for complex thoughts
+**Safe Values for THINK_TIME_TARGET_MS**:
+- `6_000` (6 seconds) - Moderate speedup, preserves learning logic
+- `5_000` (5 seconds) - Faster responses, still pedagogically sound  
+- `4_000` (4 seconds) - Much faster, may feel rushed for complex thoughts
+
+**Safe Values for THINK_TIME_MAX_MS**:
+- `8_000` (8 seconds) - Shorter maximum delay cap
+- `6_000` (6 seconds) - Faster for very long utterances
+- Should generally be ≥ THINK_TIME_TARGET_MS
 
 **Why This is Safe**:
 - ✅ Preserves the pedagogical design (short utterances still get longer delays)
 - ✅ No impact on audio processing, Deepgram, or WebSocket handling
 - ✅ No breaking changes to worker communication
 - ✅ Maintains the AGC/SNR problem solutions
+- ✅ Debounce logic prevents interrupting ongoing speech
 
 **Example Impact**:
 ```typescript
-// Current (THINKING_TIME_MS = 7000):
+// Current (THINK_TIME_TARGET_MS = 7_000):
 "hola" (0.5s speech) → 6.5s delay
+"long sentence" (8s speech) → 0s delay (capped at 0)
 
-// With THINKING_TIME_MS = 5000:
-"hola" (0.5s speech) → 4.5s delay
+// With THINK_TIME_TARGET_MS = 5_000:
+"hola" (0.5s speech) → 4.5s delay  
+"long sentence" (8s speech) → 0s delay (capped at 0)
 ```
 
 ### What NOT to Adjust

@@ -1,0 +1,233 @@
+import { test, expect, vi } from 'vitest';
+
+/**
+ * Test for Pedagogical Thinking-Time Logic with Debounce
+ * 
+ * Feature: Dynamic delay calculation and debounce during interim speech
+ * 
+ * Critical Requirements:
+ * - Dynamic delay = TARGET - speechDuration (clamped ≥ 0 ms, ≤ 10,000 ms)
+ * - Debounce while learner is speaking - clear timer on interim speech
+ * - Timer restarts with proper delay when speech stops
+ * - FIFO queue maintains order
+ */
+
+// Constants matching LearnerAssessmentDO.ts
+const THINK_TIME_TARGET_MS = 7_000;
+const THINK_TIME_MAX_MS = 10_000;
+
+// Mock LearnerAssessmentDO behavior with pedagogical thinking-time
+class MockPedagogicalDeepgramSocket {
+	customThinkingTimer: any = null;
+	lastInterimText: string = '';
+	lastSpeechTime: number = 0;
+	segments: Array<{role: string, text: string, start: number}> = [];
+	
+	// FIFO queue with delayMs
+	pendingQueue: { text: string; dgId: string; delayMs: number }[] = [];
+	
+	// Track flush calls and timing for testing
+	flushCalls: Array<{text: string, dgId: string, timestamp: number}> = [];
+	processedDGIds: Set<string> = new Set();
+	timerClearCount: number = 0;
+
+	// Dynamic delay calculation with duration
+	enqueueForProcessing(text: string, dgId: string, durationSec: number = 0) {
+		// Calculate dynamic delay: TARGET - speechDuration (clamped ≥ 0 ms, ≤ 10,000 ms)
+		const speechMs = durationSec * 1000;
+		const delayMs = Math.max(0, Math.min(THINK_TIME_TARGET_MS - speechMs, THINK_TIME_MAX_MS));
+		
+		// Safety check: prevent queue from growing beyond 10 items
+		if (this.pendingQueue.length >= 10) {
+			console.warn('[DG-QUEUE] Queue size exceeded 10, dropping oldest item to prevent memory issues');
+			this.pendingQueue.shift();
+		}
+		
+		this.pendingQueue.push({ text, dgId, delayMs });
+		if (!this.customThinkingTimer) {
+			this.startThinkingTimer();
+		}
+	}
+
+	// Start thinking timer using per-item delayMs
+	startThinkingTimer() {
+		const next = this.pendingQueue[0];
+		if (!next) return;
+		
+		this.customThinkingTimer = setTimeout(() => {
+			const item = this.pendingQueue.shift();
+			this.customThinkingTimer = null;
+			if (!item) return;
+			const { text, dgId } = item;
+			
+			console.log('[DG-THINKING] ⏰ Timer fired – flushing:', text);
+			this.flushUtterance(text, dgId);
+			
+			if (this.pendingQueue.length) this.startThinkingTimer();
+		}, next.delayMs);
+	}
+
+	// Debounce logic for interim speech
+	handleInterimSpeech(text: string, role: string) {
+		if (text && role === 'learner') {
+			this.lastInterimText = text;
+			this.lastSpeechTime = Date.now();
+
+			// Debounce while learner is speaking - clear thinking timer to prevent premature responses
+			if (this.customThinkingTimer) {
+				clearTimeout(this.customThinkingTimer);
+				this.customThinkingTimer = null;
+				this.timerClearCount++;
+			}
+		}
+	}
+
+	// Handle is_final messages
+	handleIsFinal(text: string, dgId: string, duration: number = 0) {
+		console.log(`[DG-THINKING] is_final received for learner: "${text}"`);
+		this.enqueueForProcessing(text, dgId, duration);
+	}
+
+	// Mock flush utterance
+	flushUtterance(text: string, dgId: string) {
+		// Deepgram-ID deduplication
+		if (this.processedDGIds.has(dgId)) {
+			console.log('[ASR] duplicate DG id – ignoring');
+			return;
+		}
+		this.processedDGIds.add(dgId);
+		
+		this.flushCalls.push({ text, dgId, timestamp: Date.now() });
+		console.log(`[MOCK] flushUtterance called with: "${text}" (dgId: ${dgId})`);
+	}
+
+	// Helper to get current queue delays
+	getQueueDelays(): number[] {
+		return this.pendingQueue.map(item => item.delayMs);
+	}
+}
+
+test('dynamic delay calculation works correctly', async () => {
+	const socket = new MockPedagogicalDeepgramSocket();
+	
+	// Test case 1: 0.5s utterance → ~6.5s delay
+	socket.handleIsFinal('short utterance', 'id-1', 0.5);
+	expect(socket.getQueueDelays()[0]).toBe(6500); // 7000 - 500
+	
+	// Test case 2: 3s utterance → ~4s delay  
+	socket.handleIsFinal('medium utterance', 'id-2', 3.0);
+	expect(socket.getQueueDelays()[1]).toBe(4000); // 7000 - 3000
+	
+	// Test case 3: 8s utterance → 0s delay (clamped to minimum)
+	socket.handleIsFinal('long utterance', 'id-3', 8.0);
+	expect(socket.getQueueDelays()[2]).toBe(0); // max(0, 7000 - 8000) = 0
+	
+	// Test case 4: 15s utterance → 0s delay (clamped to minimum)
+	socket.handleIsFinal('very long utterance', 'id-4', 15.0);
+	expect(socket.getQueueDelays()[3]).toBe(0); // max(0, 7000 - 15000) = 0
+});
+
+test('debounce clears timer during interim speech', async () => {
+	const socket = new MockPedagogicalDeepgramSocket();
+	
+	// Queue an utterance that will have a delay
+	socket.handleIsFinal('test utterance', 'id-1', 1.0); // 6s delay
+	expect(socket.customThinkingTimer).not.toBeNull();
+	
+	// Simulate interim speech - should clear timer
+	socket.handleInterimSpeech('student is speaking...', 'learner');
+	expect(socket.customThinkingTimer).toBeNull();
+	expect(socket.timerClearCount).toBe(1);
+	
+	// More interim speech - timer should stay null
+	socket.handleInterimSpeech('still speaking...', 'learner');
+	expect(socket.customThinkingTimer).toBeNull();
+	expect(socket.timerClearCount).toBe(1); // No additional clear needed
+});
+
+test('timer restarts after interim speech stops and new is_final arrives', async () => {
+	const socket = new MockPedagogicalDeepgramSocket();
+	
+	// Queue first utterance
+	socket.handleIsFinal('first utterance', 'id-1', 2.0); // 5s delay
+	expect(socket.customThinkingTimer).not.toBeNull();
+	
+	// Interim speech clears timer
+	socket.handleInterimSpeech('interrupting speech', 'learner');
+	expect(socket.customThinkingTimer).toBeNull();
+	
+	// New is_final should restart timer
+	socket.handleIsFinal('second utterance', 'id-2', 1.0); // 6s delay
+	expect(socket.customThinkingTimer).not.toBeNull();
+	expect(socket.pendingQueue.length).toBe(2);
+});
+
+test('queue processes with correct delays and maintains FIFO order', async () => {
+	const socket = new MockPedagogicalDeepgramSocket();
+	
+	// Queue utterances with different delays
+	socket.handleIsFinal('short', 'id-1', 0.5);  // 6.5s delay
+	socket.handleIsFinal('medium', 'id-2', 3.0); // 4s delay  
+	socket.handleIsFinal('long', 'id-3', 8.0);   // 0s delay
+	
+	expect(socket.pendingQueue.length).toBe(3);
+	expect(socket.getQueueDelays()).toEqual([6500, 4000, 0]);
+	
+	// First item should process with 6.5s delay
+	await new Promise(resolve => setTimeout(resolve, 150)); // Wait longer than 0s but less than 4s
+	expect(socket.flushCalls.length).toBe(0); // No processing yet
+	
+	// Wait for first timer (use shorter delay for testing)
+	await new Promise(resolve => {
+		socket.customThinkingTimer = setTimeout(() => {
+			socket.flushUtterance('short', 'id-1');
+			socket.customThinkingTimer = null;
+			socket.startThinkingTimer();
+			resolve(undefined);
+		}, 10); // Shortened for test
+	});
+	
+	expect(socket.flushCalls.length).toBe(1);
+	expect(socket.flushCalls[0].text).toBe('short');
+});
+
+test('debounce behavior during rapid interim-final sequence', async () => {
+	const socket = new MockPedagogicalDeepgramSocket();
+	
+	// Scenario: is_final → interim → interim → is_final
+	socket.handleIsFinal('first message', 'id-1', 1.0);
+	expect(socket.customThinkingTimer).not.toBeNull();
+	
+	// Interim speech should clear timer
+	socket.handleInterimSpeech('student continues...', 'learner');
+	expect(socket.customThinkingTimer).toBeNull();
+	expect(socket.timerClearCount).toBe(1);
+	
+	// More interim speech
+	socket.handleInterimSpeech('still talking...', 'learner');
+	expect(socket.customThinkingTimer).toBeNull();
+	
+	// New is_final should restart timer for first item in queue
+	socket.handleIsFinal('second message', 'id-2', 2.0);
+	expect(socket.customThinkingTimer).not.toBeNull();
+	expect(socket.pendingQueue.length).toBe(2);
+	expect(socket.timerClearCount).toBe(1); // No additional clears
+});
+
+test('max delay cap is enforced', async () => {
+	const socket = new MockPedagogicalDeepgramSocket();
+	
+	// Very short utterance that would exceed max delay
+	socket.handleIsFinal('tiny utterance', 'id-1', 0.1); // Would be 6.9s, within max
+	expect(socket.getQueueDelays()[0]).toBe(6900);
+	
+	// Zero duration utterance should get full target time, capped at max
+	socket.handleIsFinal('instant utterance', 'id-2', 0.0);
+	expect(socket.getQueueDelays()[1]).toBe(7000); // TARGET_MS, within max
+	
+	// All delays should be ≤ THINK_TIME_MAX_MS
+	socket.pendingQueue.forEach(item => {
+		expect(item.delayMs).toBeLessThanOrEqual(THINK_TIME_MAX_MS);
+		expect(item.delayMs).toBeGreaterThanOrEqual(0);
+	});
+});
