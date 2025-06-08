@@ -64,7 +64,7 @@ The worker implements intelligent thinking delays designed to encourage deeper S
 
 **Debounce Protection**: If you continue speaking after an `is_final` message, the thinking timer resets to prevent interrupting your ongoing thought.
 
-**Queue-Based Processing**: Multiple rapid utterances are queued and processed in order, each with their own calculated delay.
+**Queue-Based Processing**: Multiple rapid utterances are queued and processed in order, each with their own calculated delay. The worker now uses a single queue path for both is_final and speech_final; there is never more than one robo reply per learner turn.
 
 **Safety Caps**: 
 - Minimum delay: 0ms (no negative delays)

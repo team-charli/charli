@@ -54,7 +54,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private app   = new Hono();
 	protected state: DurableObjectState;
 	private words: WordInfo[] = [];
-	private pendingQueue: { text: string; dgId: string; delayMs: number }[] = [];
+	private pendingQueue: { text: string; dgId: string; delayMs: number; turnKey: string }[] = [];
 
 	/* runtime */
 	private dgSocket: DGSocket | null = null;
@@ -72,6 +72,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private connectBannerLogged = false;   // ← new
 	private modeBannerLogged = false;
 	private lastProcessedDGId: string | null = null;
+	private processedTurns = new Set<string>(); // turnKey tracking
 
 	// 🔍 VERBATIM TRANSCRIPT CAPTURE: Store raw Deepgram responses for analysis
 	private verbatimCaptureData: Array<{
@@ -513,16 +514,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					console.log(`[DEBUG-SEGMENTS] Adding segment: "${seg.text}" (${seg.role}) - total segments: ${this.dgSocket!.segments.length + 1}`);
 			this.dgSocket!.segments.push(seg);
 
-					// For robo mode, trigger utterance processing for learner speech
+					// For robo mode, enqueue learner speech for processing
 					if (role === 'learner') {
 						const dgId = String(msg.id ?? msg.utterance_id ?? '');
 						const sessionMode = await this.getSessionMode();
 						console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
 						if (sessionMode === 'robo') {
-							console.log(`[DG] Triggering flushUtterance for speech_final: "${text}"`);
-							this.flushUtterance(roomId, text, dgId).catch(err =>
-								console.error('[DG] robo utterance processing error:', err)
-							);
+							console.log(`[DG] Enqueuing speech_final for processing: "${text}"`);
+							this.enqueueForProcessing(text, dgId, roomId, duration, speaker, start);
 						}
 					}
 				}
@@ -575,8 +574,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					const dgId = String(msg.id ?? msg.utterance_id ?? '');
 					console.log(`[DG-THINKING] is_final received for learner: "${text}"`);
 
-					// Enqueue for processing with duration for dynamic delay calculation
-					this.enqueueForProcessing(text, dgId, roomId, duration);
+					// Enqueue for processing with duration and start time for dynamic delay calculation
+					this.enqueueForProcessing(text, dgId, roomId, duration, speaker, start);
 
 					// Clear standard timing trackers
 					if (this.dgSocket.endpointingTimer) {
@@ -720,10 +719,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			const item = this.pendingQueue.shift();
 			this.dgSocket!.customThinkingTimer = null;
 			if (!item) return;
-			const { text, dgId } = item;
+			const { text, dgId, turnKey } = item;
 			const sessionMode = await this.getSessionMode();
 			if (sessionMode === 'robo') {
-				console.log('[DG-THINKING] ⏰ Timer fired – flushing:', text);
+				console.log(`[DG-THINKING] ⏰ Timer fired for turnKey ${turnKey} – flushing: "${text}"`);
 				this.flushUtterance(roomId, text, dgId)
 					.catch(err => console.error('flush error', err));
 			}
@@ -731,18 +730,30 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		}, next.delayMs);
 	}
 
-	private enqueueForProcessing(text: string, dgId: string, roomId: string, durationSec: number = 0) {
+	private enqueueForProcessing(text: string, dgId: string, roomId: string, durationSec: number = 0, speaker: string = '0', start: number = 0) {
 		// Calculate dynamic delay: TARGET - speechDuration (clamped ≥ 0 ms, ≤ 10,000 ms)
 		const speechMs = durationSec * 1000;
 		const delayMs = Math.max(0, Math.min(THINK_TIME_TARGET_MS - speechMs, THINK_TIME_MAX_MS));
 		
-		// Safety check: prevent queue from growing beyond 10 items
-		if (this.pendingQueue.length >= 10) {
-			console.warn('[DG-QUEUE] Queue size exceeded 10, dropping oldest item to prevent memory issues');
-			this.pendingQueue.shift();
+		// Generate turnKey based on speaker and start time
+		const turnKey = `${speaker}:${start.toFixed(2)}`;
+		
+		// Check if an item with the same turnKey already exists, replace it
+		const existingIdx = this.pendingQueue.findIndex(p => p.turnKey === turnKey);
+		if (existingIdx >= 0) {
+			console.log(`[DG-QUEUE] Replacing existing turnKey ${turnKey}: "${this.pendingQueue[existingIdx].text}" -> "${text}"`);
+			this.pendingQueue[existingIdx] = { text, dgId, delayMs, turnKey };
+		} else {
+			// Safety check: prevent queue from growing beyond 10 items
+			if (this.pendingQueue.length >= 10) {
+				console.warn('[DG-QUEUE] Queue size exceeded 10, dropping oldest item to prevent memory issues');
+				this.pendingQueue.shift();
+			}
+			
+			console.log(`[DG-QUEUE] Adding new turnKey ${turnKey}: "${text}"`);
+			this.pendingQueue.push({ text, dgId, delayMs, turnKey });
 		}
 		
-		this.pendingQueue.push({ text, dgId, delayMs });
 		if (!this.dgSocket?.customThinkingTimer) {
 			this.startThinkingTimer(roomId);
 		}
@@ -750,11 +761,17 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 	/* ───────────────── learner → robo round-trip (smart-listen) ───────────── */
 	private async flushUtterance(roomId: string, learnerText: string, dgId: string) {
-		if (dgId && dgId === this.lastProcessedDGId) {
-			console.log('[ASR] duplicate DG id – ignoring');
+		// Generate turnKey for deduplication (we need the actual turnKey from the queue item)
+		const queueItem = this.pendingQueue.find(item => item.dgId === dgId);
+		const turnKey = queueItem?.turnKey;
+		
+		if (turnKey && this.processedTurns.has(turnKey)) {
+			console.log(`[ASR] duplicate turnKey ${turnKey} – ignoring`);
 			return;
 		}
-		this.lastProcessedDGId = dgId;
+		if (turnKey) {
+			this.processedTurns.add(turnKey);
+		}
 
 		if (this.flushInFlight) {
 			console.log('[ASR] flushUtterance called but already in flight');
