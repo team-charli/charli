@@ -28,7 +28,7 @@ class MockPedagogicalDeepgramSocket {
 	
 	// Track flush calls and timing for testing
 	flushCalls: Array<{text: string, dgId: string, timestamp: number}> = [];
-	processedDGIds: Set<string> = new Set();
+	processedTurns: Set<string> = new Set();
 	timerClearCount: number = 0;
 
 	// Dynamic delay calculation with duration and turnKey logic
@@ -94,6 +94,12 @@ class MockPedagogicalDeepgramSocket {
 		}
 	}
 
+	// Handle speech_final messages (should use same enqueue path)
+	handleSpeechFinal(text: string, dgId: string, duration: number = 0, start: number = 0, speaker: string = '0') {
+		console.log(`[DG-THINKING] speech_final received for learner: "${text}"`);
+		this.enqueueForProcessing(text, dgId, duration, speaker, start);
+	}
+
 	// Handle is_final messages
 	handleIsFinal(text: string, dgId: string, duration: number = 0, speaker: string = '0', start: number = 0) {
 		console.log(`[DG-THINKING] is_final received for learner: "${text}"`);
@@ -102,12 +108,17 @@ class MockPedagogicalDeepgramSocket {
 
 	// Mock flush utterance
 	flushUtterance(text: string, dgId: string) {
-		// Deepgram-ID deduplication
-		if (this.processedDGIds.has(dgId)) {
-			console.log('[ASR] duplicate DG id – ignoring');
+		// Generate turnKey for deduplication (we need the actual turnKey from the queue item)
+		const queueItem = this.pendingQueue.find(item => item.dgId === dgId);
+		const turnKey = queueItem?.turnKey;
+		
+		if (turnKey && this.processedTurns.has(turnKey)) {
+			console.log(`[ASR] duplicate turnKey ${turnKey} – ignoring`);
 			return;
 		}
-		this.processedDGIds.add(dgId);
+		if (turnKey) {
+			this.processedTurns.add(turnKey);
+		}
 		
 		this.flushCalls.push({ text, dgId, timestamp: Date.now() });
 		console.log(`[MOCK] flushUtterance called with: "${text}" (dgId: ${dgId})`);
@@ -265,4 +276,27 @@ test('max delay cap is enforced', async () => {
 		expect(item.delayMs).toBeLessThanOrEqual(THINK_TIME_MAX_MS);
 		expect(item.delayMs).toBeGreaterThanOrEqual(0);
 	});
+});
+
+test('speech_final followed by is_final flushes once', async () => {
+	vi.useFakeTimers();
+	const socket = new MockPedagogicalDeepgramSocket();
+
+	// simulate speech_final then is_final for same turn
+	socket.handleSpeechFinal('hola', 'dg-1', 1.5, /*start*/0.0);
+	socket.handleIsFinal     ('hola', 'dg-1', 1.5, /*start*/0.0);
+
+	// Verify queue has only one item due to turnKey replacement
+	expect(socket.pendingQueue.length).toBe(1);
+	expect(socket.pendingQueue[0].text).toBe('hola');
+	expect(socket.pendingQueue[0].turnKey).toBe('0:0.00');
+
+	// advance fake timers to trigger flush
+	await vi.advanceTimersByTimeAsync(7000);
+
+	// Should have flushed once
+	expect(socket.flushCalls.length).toBe(1);
+	expect(socket.flushCalls[0].text).toBe('hola');
+	
+	vi.useRealTimers();
 });

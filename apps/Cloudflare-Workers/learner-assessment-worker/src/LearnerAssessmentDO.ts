@@ -291,7 +291,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 		// 🎯 VERBATIM TRANSCRIPTION: Disable all auto-correction for learner mistake detection
 		wsURL.searchParams.set('smart_format', 'false');     // No auto-formatting (preserves raw speech)
-		// wsURL.searchParams.set('punctuate', 'false');        // No auto-punctuation (preserves speech flow)
+		wsURL.searchParams.set('punctuate', 'false');        // No auto-punctuation (preserves speech flow)
 		wsURL.searchParams.set('profanity_filter', 'false'); // No profanity replacement (preserves all words)
 
 		// wsURL.searchParams.set('keywords', 'hey charli'); // DISABLED - might interfere
@@ -519,15 +519,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 					console.log(`[DEBUG-SEGMENTS] Adding segment: "${seg.text}" (${seg.role}) - total segments: ${this.dgSocket!.segments.length + 1}`);
 			this.dgSocket!.segments.push(seg);
 
-					// For robo mode, enqueue learner speech for processing
+					// speech_final provides high-confidence transcript for segments but doesn't trigger robo response
+					// Only is_final should trigger robo processing to avoid duplicate responses per pedagogical design
 					if (role === 'learner') {
-						const dgId = String(msg.id ?? msg.utterance_id ?? '');
 						const sessionMode = await this.getSessionMode();
-						console.log(`[DG] Learner speech detected in ${sessionMode} mode: "${text}"`);
-						if (sessionMode === 'robo') {
-							console.log(`[DG] Enqueuing speech_final for processing: "${text}"`);
-							this.enqueueForProcessing(text, dgId, roomId, duration, speaker, start);
-						}
+						console.log(`[DG] Learner speech_final detected in ${sessionMode} mode: "${text}" - segment only, no robo trigger`);
 					}
 				}
 			}
@@ -719,7 +715,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	private startThinkingTimer(roomId: string) {
 		const next = this.pendingQueue[0];
 		if (!next) return;
-		
+
 		this.dgSocket!.customThinkingTimer = setTimeout(async () => {
 			const item = this.pendingQueue.shift();
 			this.dgSocket!.customThinkingTimer = null;
@@ -739,10 +735,10 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		// Calculate dynamic delay: TARGET - speechDuration (clamped ≥ 0 ms, ≤ 10,000 ms)
 		const speechMs = durationSec * 1000;
 		const delayMs = Math.max(0, Math.min(THINK_TIME_TARGET_MS - speechMs, THINK_TIME_MAX_MS));
-		
+
 		// Generate turnKey using dgId-first dedup logic
 		const turnKey = this.makeDedupKey(dgId, speaker, start);
-		
+
 		// Check if an item with the same turnKey already exists, replace it
 		const existingIdx = this.pendingQueue.findIndex(p => p.turnKey === turnKey);
 		if (existingIdx >= 0) {
@@ -754,11 +750,11 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 				console.warn('[DG-QUEUE] Queue size exceeded 10, dropping oldest item to prevent memory issues');
 				this.pendingQueue.shift();
 			}
-			
+
 			console.log(`[DG-QUEUE] Adding new turnKey ${turnKey}: "${text}"`);
 			this.pendingQueue.push({ text, dgId, delayMs, turnKey });
 		}
-		
+
 		if (!this.dgSocket?.customThinkingTimer) {
 			this.startThinkingTimer(roomId);
 		}
