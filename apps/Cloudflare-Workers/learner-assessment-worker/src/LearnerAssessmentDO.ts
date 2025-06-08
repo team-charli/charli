@@ -728,7 +728,7 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 			const sessionMode = await this.getSessionMode();
 			if (sessionMode === 'robo') {
 				console.log(`[DG-THINKING] ⏰ Timer fired for turnKey ${turnKey} – flushing: "${text}"`);
-				this.flushUtterance(roomId, text, dgId)
+				this.flushUtterance(roomId, text, dgId, turnKey)
 					.catch(err => console.error('flush error', err));
 			}
 			if (this.pendingQueue.length) this.startThinkingTimer(roomId);
@@ -765,9 +765,9 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 	}
 
 	/* ───────────────── learner → robo round-trip (smart-listen) ───────────── */
-	private async flushUtterance(roomId: string, learnerText: string, dgId: string) {
+	private async flushUtterance(roomId: string, learnerText: string, dgId: string, turnKey?: string) {
 		const queueItem = this.pendingQueue.find(i => i.dgId === dgId);
-		const dedupKey  = queueItem?.turnKey ?? this.makeDedupKey(dgId, '0', 0);
+		const dedupKey  = turnKey ?? queueItem?.turnKey ?? this.makeDedupKey(dgId, '0', 0);
 
 		if (this.processedTurns.has(dedupKey)) {
 			console.log(`[ASR] duplicate dedupKey ${dedupKey} – ignoring`);
