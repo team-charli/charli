@@ -52,6 +52,11 @@ type DGSocket = {
 export class LearnerAssessmentDO extends DurableObject<Env> {
 	/* ------------------------------------------------------------------ */
 	private app   = new Hono();
+
+	// Prefer the stable Deepgram id; fall back to speaker:start for very old models
+	private makeDedupKey(dgId: string | undefined, speaker: string, start: number) {
+		return dgId ? `dg:${dgId}` : `${speaker}:${start.toFixed(2)}`;
+	}
 	protected state: DurableObjectState;
 	private words: WordInfo[] = [];
 	private pendingQueue: { text: string; dgId: string; delayMs: number; turnKey: string }[] = [];
@@ -735,8 +740,8 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 		const speechMs = durationSec * 1000;
 		const delayMs = Math.max(0, Math.min(THINK_TIME_TARGET_MS - speechMs, THINK_TIME_MAX_MS));
 		
-		// Generate turnKey based on speaker and start time
-		const turnKey = `${speaker}:${start.toFixed(2)}`;
+		// Generate turnKey using dgId-first dedup logic
+		const turnKey = this.makeDedupKey(dgId, speaker, start);
 		
 		// Check if an item with the same turnKey already exists, replace it
 		const existingIdx = this.pendingQueue.findIndex(p => p.turnKey === turnKey);
@@ -761,17 +766,14 @@ export class LearnerAssessmentDO extends DurableObject<Env> {
 
 	/* ───────────────── learner → robo round-trip (smart-listen) ───────────── */
 	private async flushUtterance(roomId: string, learnerText: string, dgId: string) {
-		// Generate turnKey for deduplication (we need the actual turnKey from the queue item)
-		const queueItem = this.pendingQueue.find(item => item.dgId === dgId);
-		const turnKey = queueItem?.turnKey;
-		
-		if (turnKey && this.processedTurns.has(turnKey)) {
-			console.log(`[ASR] duplicate turnKey ${turnKey} – ignoring`);
+		const queueItem = this.pendingQueue.find(i => i.dgId === dgId);
+		const dedupKey  = queueItem?.turnKey ?? this.makeDedupKey(dgId, '0', 0);
+
+		if (this.processedTurns.has(dedupKey)) {
+			console.log(`[ASR] duplicate dedupKey ${dedupKey} – ignoring`);
 			return;
 		}
-		if (turnKey) {
-			this.processedTurns.add(turnKey);
-		}
+		this.processedTurns.add(dedupKey);
 
 		if (this.flushInFlight) {
 			console.log('[ASR] flushUtterance called but already in flight');
